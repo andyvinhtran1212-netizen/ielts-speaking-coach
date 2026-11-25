@@ -13,6 +13,7 @@
 import { describe, it, before } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -470,7 +471,7 @@ describe('analytics covers every persisted test type', () => {
   });
 
   it('backend and frontend enumerate the same modes', () => {
-    const be = read('..', 'backend', 'routers', 'listening.py');
+    const be = readListeningRouterSource();
     assert.match(be, /types = \("mini", "drill", "full", "practice"\)/);
   });
 });

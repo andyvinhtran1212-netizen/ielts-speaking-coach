@@ -14,7 +14,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { diagnosticRoutesEnabled } from '../lib/diagnostic-routes.mjs';
+import { diagnosticRoutesEnabled, uiLibraryEnabled } from '../lib/diagnostic-routes.mjs';
 import { appPageRoute, NON_PRODUCT_APP_PAGE_ROUTES } from '../tooling/app-route-inventory.mjs';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,7 +58,13 @@ const PUBLIC_BY_DESIGN = Object.freeze([
 const DEBUG_GATED = Object.freeze({
   '/next-probe': 'app/next-probe/page.tsx',
   '/recorder-spike': 'app/(spike)/recorder-spike/page.tsx',
+  // UIBASE-0056 G03-T04: the component library. Its gate also opens with the
+  // narrower AVER_ENABLE_UI_LIBRARY=1 (CI screenshots) — see uiLibraryEnabled.
+  '/ui-library': 'app/(ui-library)/ui-library/page.tsx',
+  // G03-T12: the v1/v2 boundary pilot, same gate; removed in G03-T14.
+  '/profile/v2-pilot': 'app/(authed-v2-pilot)/profile/v2-pilot/page.tsx',
 });
+const DEBUG_GATE_FN = Object.freeze({ '/ui-library': 'uiLibraryEnabled', '/profile/v2-pilot': 'uiLibraryEnabled' });
 
 const SIGNED_OUT_GUARD = /useEffect\(\(\) => \{\s*if \(status === 'signed-out'\) window\.location\.replace\('\/login'\);\s*\}, \[status\]\);/;
 const UNCONDITIONAL_GUARD = /if \(status === 'signed-out'\)/;
@@ -170,8 +176,11 @@ describe('route auth-guard inventory (U-03)', () => {
   for (const [route, file] of Object.entries(DEBUG_GATED)) {
     test(`${route} is not-found unless dev or explicitly enabled`, () => {
       const source = read(file);
-      assert.match(source, /import \{ diagnosticRoutesEnabled \} from '@\/lib\/diagnostic-routes\.mjs';/);
-      assert.match(source, /if \(!diagnosticRoutesEnabled\(\)\) notFound\(\);/);
+      const gate = DEBUG_GATE_FN[route] ?? 'diagnosticRoutesEnabled';
+      assert.match(source, new RegExp(`import \\{ ${gate} \\} from '@/lib/diagnostic-routes\\.mjs';`));
+      assert.match(source, new RegExp(`if \\(!${gate}\\(\\)\\) notFound\\(\\);`));
+      assert.equal((source.match(new RegExp(`if \\(!${gate}\\(\\)\\) notFound\\(\\);`, 'g')) || []).length, 2,
+        'gate both generateMetadata and the page');
       assert.doesNotMatch(source, /VERCEL_ENV === 'production'|VERCEL_GIT_COMMIT_REF/,
         'the old production-only gate left staging/preview open');
       // Static on purpose: the gate is evaluated at prerender with the
@@ -195,6 +204,17 @@ describe('route auth-guard inventory (U-03)', () => {
     assert.equal(diagnosticRoutesEnabled({ AVER_ENABLE_DIAGNOSTIC_ROUTES: '0' }), false);
     assert.equal(diagnosticRoutesEnabled({ NODE_ENV: 'development' }), true);
     assert.equal(diagnosticRoutesEnabled({ NODE_ENV: 'production', AVER_ENABLE_DIAGNOSTIC_ROUTES: '1' }), true);
+  });
+
+  test('ui-library gate = diagnostic gate + AVER_ENABLE_UI_LIBRARY=1, which opens nothing else', () => {
+    assert.equal(uiLibraryEnabled({}), false);
+    assert.equal(uiLibraryEnabled({ NODE_ENV: 'production', VERCEL_ENV: 'preview' }), false);
+    assert.equal(uiLibraryEnabled({ AVER_ENABLE_UI_LIBRARY: 'true' }), false);
+    assert.equal(uiLibraryEnabled({ NODE_ENV: 'development' }), true);
+    assert.equal(uiLibraryEnabled({ AVER_ENABLE_DIAGNOSTIC_ROUTES: '1' }), true);
+    assert.equal(uiLibraryEnabled({ NODE_ENV: 'production', AVER_ENABLE_UI_LIBRARY: '1' }), true);
+    assert.equal(diagnosticRoutesEnabled({ NODE_ENV: 'production', AVER_ENABLE_UI_LIBRARY: '1' }), false,
+      'the CI-only flag must not open /next-probe or /recorder-spike');
   });
 
   test('no built-server or staging journey navigates to a debug route', () => {

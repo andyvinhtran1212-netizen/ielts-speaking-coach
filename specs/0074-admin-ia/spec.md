@@ -1,14 +1,14 @@
 ---
 id: ADMINIA-0074
 title: Admins and the class teacher run daily work from one admin frame with eight sidebar groups, a unified learner directory and profile, and canonical queues
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Admins and the class teacher run daily work from one admin frame with eight sidebar groups, a unified learner directory and profile, and canonical queues
 
-Status: **draft** — soạn ngày 18/11/2026 cho nhiệm vụ `G09-T01` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-09-admin-va-giao-vien.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; migration trong dải G09 (440–459).
+Status: **approved** — anh Andy duyệt ngày 20/11/2026 (`approval-decision.md`). Soạn ngày 18/11/2026 cho nhiệm vụ `G09-T01` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-09-admin-va-giao-vien.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; migration trong dải G09 (440–459).
 
 ## Tóm tắt (tiếng Việt)
 

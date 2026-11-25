@@ -1,0 +1,26 @@
+/* UIBASE-0056 ProgressBar (ThanhPhanDuLieu §5). Only var(--av2-*). 8px, no radius. */
+.head { display: flex; justify-content: space-between; gap: var(--av2-space-5); margin: 0 0 var(--av2-space-3); }
+.label { font-weight: var(--av2-fw-strong); }
+.count { font-variant-numeric: tabular-nums; }
+.note { margin: var(--av2-space-2) 0 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.noteDone { font-weight: var(--av2-fw-strong); color: var(--av2-ok); }
+
+.track { position: relative; display: block; height: 8px; background: var(--av2-off); overflow: hidden; }
+.fill { display: block; height: 100%; background: var(--av2-accent); }
+.done .track { background: var(--av2-ok); }
+.done .fill { background: var(--av2-ok); }
+
+.segments { display: grid; gap: var(--av2-space-1); }
+.segment { display: block; height: 8px; background: var(--av2-off); }
+.segmentDone { background: var(--av2-ink); }
+.segmentCurrent { background: var(--av2-accent); }
+
+/* Indeterminate: a 28% block runs across; with reduced motion it stands still. */
+.runner { position: absolute; top: 0; left: 0; width: 28%; height: 100%; background: var(--av2-accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .moving .runner { animation: av2-progress-run 1.6s ease-in-out infinite alternate; }
+}
+@keyframes av2-progress-run {
+  from { left: 0; }
+  to { left: 72%; }
+}

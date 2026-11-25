@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +21,7 @@ const DETAIL = read('app', '(authed-admin-listening)', 'admin', 'listening', 'co
 const LIST = read('app', '(authed-admin-listening)', 'admin', 'listening', 'admin-listening-content.tsx');
 const LAYOUT = read('app', '(authed-admin-listening)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-listening-content-editor-next.css');
-const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening.py'), 'utf8');
+const BACKEND = readListeningRouterSource();
 
 const raw = (patch = {}) => ({
   id: 'content-1', title: 'Cambridge 19', transcript: '  Keep transcript spacing.\n',

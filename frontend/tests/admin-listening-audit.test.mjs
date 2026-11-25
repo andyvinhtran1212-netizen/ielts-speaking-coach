@@ -13,6 +13,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -25,7 +26,7 @@ const dashJs   = read('frontend/js/admin-listening-audit.js');
 const detHtml  = read('frontend/pages/admin/listening/audit-detail.html');
 const detJs    = read('frontend/js/admin-listening-audit-detail.js');
 const testsHtml = read('frontend/pages/admin/listening/tests.html');
-const router   = read('backend/routers/listening.py');
+const router = readListeningRouterSource();
 
 
 describe('audit dashboard', () => {

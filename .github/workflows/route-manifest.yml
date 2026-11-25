@@ -36,6 +36,9 @@ on:
       # component đó là đổi chunk đã dựng và đổi kết quả quét — mà glob cũ không
       # kích hoạt job (Codex bắt ở #946 vòng 3).
       - 'frontend/components/**'
+      # UIBASE-0056: CSS/fonts of the new UI tree (`@/styles/av2/*`), imported by
+      # app/(ui-library)/layout.tsx, are bundle inputs too.
+      - 'frontend/styles/**'
       # Review #882 (vòng 6): public/js/** được phục vụ NGUYÊN XI (không qua
       # bundler) và trang legacy KHÔNG nạp instrumentation-client ⇒ cú pháp
       # vượt sàn ở đây là chết cả file. Đợt này tìm ra lookbehind trong
@@ -60,6 +63,14 @@ on:
       - 'frontend/package.json'
       - 'frontend/package-lock.json'
       - '.github/workflows/route-manifest.yml'
+
+# CI queue (23/11): a new push or a base-branch merge on a PR cancels that
+# PR's older run of this workflow instead of leaving it queued. Push, schedule
+# and dispatch runs get a group of their own (run_id), so a staging/main SHA
+# that the promotion gate needs is never cancelled or replaced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   route-manifest:

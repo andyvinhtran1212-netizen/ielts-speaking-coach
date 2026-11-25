@@ -76,7 +76,7 @@ def route(monkeypatch):
     # Module-global; earlier tests may leave tasks bound to closed loops.
     monkeypatch.setattr(ai_usage_logger, "_PENDING_USAGE_TASKS", set())
 
-    def run(stt):
+    def run(stt, **submission):
         monkeypatch.setattr(grading, "transcribe_from_bytes", stt)
 
         async def main():
@@ -85,13 +85,14 @@ def route(monkeypatch):
                     return await grading.grade_response_endpoint(
                         session["id"], question["id"],
                         UploadFile(BytesIO(b"fake audio"), filename="test.wav"),
+                        **submission,
                     )
                 finally:
                     await asyncio.gather(*list(ai_usage_logger._PENDING_USAGE_TASKS))
 
         return asyncio.run(main())
 
-    return SimpleNamespace(run=run, clock=clock, rows=rows, session=session, question=question)
+    return SimpleNamespace(run=run, clock=clock, rows=rows, session=session, question=question, db=db)
 
 
 def _stt_after(clock, *delays):
@@ -151,3 +152,44 @@ def test_stt_failure_writes_no_whisper_success_row(route):
 
     assert error.value.status_code == 502
     assert _whisper_rows(route.rows) == []
+
+
+@pytest.mark.parametrize("part, minimum", [(1, 15), (2, 80), (3, 25)])
+@pytest.mark.parametrize("retry_safe", [False, True])
+@pytest.mark.parametrize("at_floor", [False, True])
+def test_duration_floor_precedes_storage(route, part, minimum, retry_safe, at_floor):
+    route.session["part"] = part
+    duration = minimum if at_floor else minimum - 0.1
+
+    async def stt(*args, **kwargs):
+        return {"transcript": _TRANSCRIPT, "duration_seconds": duration}
+
+    submission = ({"submission_id": str(uuid4()), "expected_revision": "absent"}
+                  if retry_safe else {})
+    # Use the actual baseline revision for a new retry-safe take.
+    if retry_safe:
+        baseline = grading.load_response(route.db, route.session["id"], route.question["id"])
+        submission["expected_revision"] = grading.submission_revision(baseline)
+    upload = route.db.storage.from_.return_value.upload
+    if at_floor:
+        result = route.run(stt, **submission)
+        assert result["response_id"]
+        upload.assert_called_once()
+    else:
+        with pytest.raises(HTTPException) as error:
+            route.run(stt, **submission)
+        assert error.value.status_code == 422
+        assert error.value.detail == grading.AudioTooShortError(
+            duration_seconds=duration, part=part, min_seconds=minimum,
+        ).to_detail()
+        upload.assert_not_called()
+    [usage] = _whisper_rows(route.rows)
+    assert usage["audio_seconds"] == duration
+
+
+def test_unknown_duration_still_uploads(route):
+    async def stt(*args, **kwargs):
+        return {"transcript": _TRANSCRIPT, "duration_seconds": 0}
+
+    assert route.run(stt)["response_id"]
+    route.db.storage.from_.return_value.upload.assert_called_once()

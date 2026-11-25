@@ -280,8 +280,10 @@ class Settings(BaseSettings):
     # nghĩa + ngữ pháp + yêu cầu bài theo khóa chấm riêng (services/
     # sentence_lab_grader.py). OpenAI Chat Completions + Structured Outputs; 12
     # câu đi thành 2 lượt gọi (6+6), lượt sửa là 1 lượt. Đổi model bằng env,
-    # không cần deploy code. Reasoning effort chỉ áp cho model gpt-5*/o*.
-    SENTENCE_LAB_MODEL: str = "gpt-5-mini"
+    # không cần deploy code. Reasoning effort chỉ áp cho model gpt-5*/gpt-6*/o*.
+    # gpt-5-mini bị OpenAI tắt 11/12/2026 → gpt-6.1-terra (hiệu chỉnh 22/11:
+    # 22/23 ca ở effort medium, high cũng 22/23).
+    SENTENCE_LAB_MODEL: str = "gpt-6.1-terra"
     SENTENCE_LAB_REASONING_EFFORT: str = "medium"  # 20/20 ca hiệu chỉnh (low: 15–17/20), 18/11
     # Trần lượt gọi model của kho viết câu cho MỘT học viên mỗi ngày UTC
     # (SENTLAB-0101 FR-007). Một buổi dùng 3–5 lượt; 40 ≈ tám buổi kể cả gọi lại.

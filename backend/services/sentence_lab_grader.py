@@ -533,7 +533,7 @@ def validate_feedback(fb: Any, *, item_id: str, mode: str, response: str,
 
 # ── Gọi model ────────────────────────────────────────────────────────────────
 def model_name() -> str:
-    return (getattr(settings, "SENTENCE_LAB_MODEL", None) or "gpt-5-mini").strip()
+    return (getattr(settings, "SENTENCE_LAB_MODEL", None) or "gpt-6.1-terra").strip()
 
 
 def _is_reasoning_model(name: str) -> bool:

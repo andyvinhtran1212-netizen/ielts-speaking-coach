@@ -3225,6 +3225,177 @@ export interface paths {
         patch: operations["patch_flag_admin_runtime_flags__key__patch"];
         trace?: never;
     };
+    "/admin/settings/thresholds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Thresholds */
+        get: operations["get_thresholds_admin_settings_thresholds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Thresholds */
+        patch: operations["patch_thresholds_admin_settings_thresholds_patch"];
+        trace?: never;
+    };
+    "/admin/settings/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings Log */
+        get: operations["get_settings_log_admin_settings_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learners */
+        get: operations["list_learners_admin_learners_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner */
+        get: operations["get_learner_admin_learners__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Summary */
+        get: operations["get_learner_summary_admin_learners__ref__summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/instructor/learners/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Instructor Learner */
+        get: operations["get_instructor_learner_instructor_learners__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search Admin */
+        post: operations["search_admin_admin_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/instructor/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search Instructor */
+        post: operations["search_instructor_instructor_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learner Overview */
+        get: operations["get_learner_overview_admin_learners__ref__overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/learners/{ref}/goal/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Learner Goal */
+        post: operations["resolve_learner_goal_admin_learners__ref__goal_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/overview": {
         parameters: {
             query?: never;
@@ -11863,6 +12034,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Library Summary
+         * @description Counts for the five shelves of ``/library``. A shelf that cannot be
+         *     counted is ``null`` so the page shows no number (FR-004).
+         */
+        get: operations["library_summary_api_library_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Writing Samples
+         * @description Published Writing sample sets, 12 per page (FR-010, FR-011).
+         *
+         *     Facets follow the usual faceted-search rule: each group is counted over the
+         *     rows that match every OTHER active filter (its own filter is left out), so
+         *     the counts say what choosing that value would return.
+         */
+        get: operations["list_writing_samples_api_library_writing_samples_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-samples/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Writing Samples Index
+         * @description ``[{slug, updated_at}]`` of every published set, for the sitemap.
+         */
+        get: operations["writing_samples_index_api_library_writing_samples_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-samples/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Writing Sample
+         * @description One published set (FR-013–FR-019). A slug renamed after publishing
+         *     redirects with 308 to the current slug; anything else is 404.
+         */
+        get: operations["get_writing_sample_api_library_writing_samples__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/media/{shelf}/{key}/{asset}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Library Media
+         * @description Figure or audio bytes of a PUBLISHED item, read fresh on every request.
+         *
+         *     Never cached (``no-store``) and never a redirect to Storage, so unpublishing
+         *     takes effect on the next request to the same URL. Unknown shelf/asset,
+         *     unpublished or missing item, and missing object are all 404.
+         */
+        get: operations["get_library_media_api_library_media__shelf___key___asset__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/exam-content": {
         parameters: {
             query?: never;
@@ -13328,6 +13609,8 @@ export interface components {
             rollup_failed?: boolean | null;
             /** Course Lookup Failed */
             course_lookup_failed?: boolean | null;
+            /** Instructor Lookup Failed */
+            instructor_lookup_failed?: boolean | null;
         };
         /** AdminCohortOut */
         AdminCohortOut: {
@@ -13361,6 +13644,13 @@ export interface components {
             archived_by?: string | null;
             /** Archive Reason */
             archive_reason?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Weekly Schedule */
+            weekly_schedule?: components["schemas"]["CohortScheduleSlotOut"][] | null;
+            /** Start Date */
+            start_date?: string | null;
+            instructor?: components["schemas"]["CohortTeacherOut"] | null;
             course?: components["schemas"]["CohortCourseOut"] | null;
             /** Member Count */
             member_count?: number | null;
@@ -13947,6 +14237,23 @@ export interface components {
             remaining_failed: number;
             /** Session Band */
             session_band: number | null;
+        };
+        /** AdminSearchOut */
+        AdminSearchOut: {
+            /** Learners */
+            learners: components["schemas"]["SearchHit"][];
+            /** Classes */
+            classes: components["schemas"]["SearchHit"][];
+            /** Submissions */
+            submissions: components["schemas"]["SearchHit"][];
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Unavailable */
+            unavailable: "orders"[];
+            /** Content */
+            content: components["schemas"]["SearchHit"][];
+            /** Orders */
+            orders: components["schemas"]["SearchHit"][];
         };
         /** AdminSessionRegradeResponse */
         AdminSessionRegradeResponse: {
@@ -14862,6 +15169,16 @@ export interface components {
             attempt_id: string;
             response: components["schemas"]["LearnerAnswer"];
         };
+        /** AttentionReason */
+        AttentionReason: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "late_streak" | "inactive" | "course_expiring" | "low_credits";
+            /** Text */
+            text: string;
+        };
         /** AttributeEvidenceResponse */
         AttributeEvidenceResponse: {
             /** State */
@@ -15061,6 +15378,13 @@ export interface components {
         BackfillBody: {
             /** Student Ids */
             student_ids?: string[] | null;
+        };
+        /** BandPoint */
+        BandPoint: {
+            /** At */
+            at: string | null;
+            /** Band */
+            band: number;
         };
         /** BankUpdate */
         BankUpdate: {
@@ -15891,6 +16215,19 @@ export interface components {
             archive_reason?: string | null;
             /** Course Id */
             course_id?: string | null;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Weekly Schedule */
+            weekly_schedule?: components["schemas"]["ScheduleSlot"][] | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /** CohortScheduleSlotOut */
+        CohortScheduleSlotOut: {
+            /** Dow */
+            dow: number;
+            /** Start */
+            start: string;
         };
         /** CohortStudentCountOut */
         CohortStudentCountOut: {
@@ -15900,6 +16237,13 @@ export interface components {
             cohort_name?: string | null;
             /** Count */
             count: number;
+        };
+        /** CohortTeacherOut */
+        CohortTeacherOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
         };
         /** CohortsBody */
         CohortsBody: {
@@ -16380,6 +16724,13 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+        };
+        /** CreditsCarried */
+        CreditsCarried: {
+            /** Amount */
+            amount: number;
+            /** Expires At */
+            expires_at: string;
         };
         /** CueCardQuestion */
         CueCardQuestion: {
@@ -17894,6 +18245,28 @@ export interface components {
              */
             mode: string;
         };
+        /** GoalResolveIn */
+        GoalResolveIn: {
+            /**
+             * Use
+             * @enum {string}
+             */
+            use: "admin" | "learner";
+            seen: components["schemas"]["GoalSeen"];
+        };
+        /** GoalResolveOut */
+        GoalResolveOut: {
+            goal: components["schemas"]["OverviewGoal"];
+        };
+        /**
+         * GoalSeen
+         * @description Both goals as the page showed them (the overview's goal.admin and
+         *     goal.learner, every field present, null included).
+         */
+        GoalSeen: {
+            admin: components["schemas"]["_SeenAdminGoal"];
+            learner: components["schemas"]["_SeenLearnerGoal"];
+        };
         /** GradeRatingBody */
         GradeRatingBody: {
             /** Rating */
@@ -18137,6 +18510,15 @@ export interface components {
         GrammarOverviewOut: {
             /** Articles Viewed 7D */
             articles_viewed_7d: number;
+        };
+        /** GrammarPoint */
+        GrammarPoint: {
+            /** At */
+            at: string | null;
+            /** Pct */
+            pct: number;
+            /** Lesson No */
+            lesson_no: number | null;
         };
         /** GrammarRecommendPayload */
         GrammarRecommendPayload: {
@@ -18634,6 +19016,19 @@ export interface components {
          * @enum {string}
          */
         InstructorReviewStatus: "queued" | "claimed" | "edited" | "delivered" | "released";
+        /** InstructorSearchOut */
+        InstructorSearchOut: {
+            /** Learners */
+            learners: components["schemas"]["SearchHit"][];
+            /** Classes */
+            classes: components["schemas"]["SearchHit"][];
+            /** Submissions */
+            submissions: components["schemas"]["SearchHit"][];
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Unavailable */
+            unavailable: "orders"[];
+        };
         /** InsufficientEvidenceResponse */
         InsufficientEvidenceResponse: {
             /** Attribute Id */
@@ -18695,6 +19090,59 @@ export interface components {
             /** Answer */
             answer: string;
         };
+        /** LearnerCohort */
+        LearnerCohort: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+        };
+        /** LearnerDetail */
+        LearnerDetail: {
+            /** Ref */
+            ref: string;
+            /** Canonical Ref */
+            canonical_ref: string;
+            summary: components["schemas"]["LearnerSummary"];
+            /** Sources Failed */
+            sources_failed: string[];
+        };
+        /** LearnerDirectory */
+        LearnerDirectory: {
+            /** Items */
+            items: components["schemas"]["LearnerRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Sources Failed */
+            sources_failed: string[];
+            /** Undecided */
+            undecided: string[];
+        };
+        /** LearnerGoal */
+        LearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "admin" | "learner" | "both_equal" | "conflict" | "none";
+        };
+        /** LearnerNote */
+        LearnerNote: {
+            /** Author */
+            author: string | null;
+            /** At */
+            at: string;
+            /** Text */
+            text: string;
+        };
         /** LearnerOutcome */
         LearnerOutcome: {
             /** User Id */
@@ -18703,6 +19151,31 @@ export interface components {
             name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionBrief"][];
+        };
+        /** LearnerOverdue */
+        LearnerOverdue: {
+            /** Count */
+            count: number;
+            /** Latest Title */
+            latest_title: string | null;
+        };
+        /** LearnerOverview */
+        LearnerOverview: {
+            alerts: components["schemas"]["OverviewAlerts"] | null;
+            goal: components["schemas"]["OverviewGoal"] | null;
+            continuity: components["schemas"]["OverviewContinuity"] | null;
+            assigned: components["schemas"]["OverviewAssigned"] | null;
+            scores: components["schemas"]["OverviewScores"] | null;
+            side: components["schemas"]["OverviewSide"];
+            /** Sources Failed */
+            sources_failed: string[];
+        };
+        /** LearnerRecentBands */
+        LearnerRecentBands: {
+            /** Writing */
+            writing: number[] | null;
+            /** Speaking */
+            speaking: number[] | null;
         };
         /** LearnerReportResponse */
         LearnerReportResponse: {
@@ -18776,6 +19249,89 @@ export interface components {
             insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
             /** Productive Note */
             productive_note: string;
+        };
+        /** LearnerRow */
+        LearnerRow: {
+            /** Ref */
+            ref: string;
+            /** Name */
+            name: string;
+            /** Email */
+            email: string | null;
+            /** Student Code */
+            student_code: string | null;
+            /**
+             * Account State
+             * @enum {string}
+             */
+            account_state: "active" | "locked" | "none";
+            /**
+             * Profile State
+             * @enum {string}
+             */
+            profile_state: "active" | "archived" | "none";
+            /** Kind */
+            kind: ("offline" | "online" | "both" | "none") | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Credits Left */
+            credits_left: number | null;
+            /** Cohorts */
+            cohorts: components["schemas"]["LearnerCohort"][] | null;
+            /** Attention */
+            attention: components["schemas"]["AttentionReason"][];
+            /** Last Active At */
+            last_active_at: string | null;
+        };
+        /** LearnerStatus */
+        LearnerStatus: {
+            /** Level */
+            level: ("ok" | "attention") | null;
+            /** Reasons */
+            reasons: components["schemas"]["AttentionReason"][];
+        };
+        /**
+         * LearnerSummary
+         * @description CHUAN-ADMIN mục H: exactly these seven fields (name and classes count as one).
+         */
+        LearnerSummary: {
+            /** Name */
+            name: string;
+            /** Cohorts */
+            cohorts: components["schemas"]["LearnerCohort"][] | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            status: components["schemas"]["LearnerStatus"];
+            goal: components["schemas"]["LearnerGoal"];
+            overdue: components["schemas"]["LearnerOverdue"] | null;
+            recent_bands: components["schemas"]["LearnerRecentBands"];
+            /** Last Active At */
+            last_active_at: string | null;
+            latest_note: components["schemas"]["LearnerNote"] | null;
+        };
+        /** LearnerSummaryOut */
+        LearnerSummaryOut: {
+            /** Name */
+            name: string;
+            /** Cohorts */
+            cohorts: components["schemas"]["LearnerCohort"][] | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            status: components["schemas"]["LearnerStatus"];
+            goal: components["schemas"]["LearnerGoal"];
+            overdue: components["schemas"]["LearnerOverdue"] | null;
+            recent_bands: components["schemas"]["LearnerRecentBands"];
+            /** Last Active At */
+            last_active_at: string | null;
+            latest_note: components["schemas"]["LearnerNote"] | null;
+            /** Sources Failed */
+            sources_failed: string[];
         };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
@@ -19981,6 +20537,13 @@ export interface components {
             /** Answers */
             answers?: components["schemas"]["MicrocheckAnswer"][];
         };
+        /** Milestone */
+        Milestone: {
+            /** At */
+            at: string;
+            /** Label */
+            label: string;
+        };
         /** MockPolicyPatch */
         MockPolicyPatch: {
             /** Web Explanation Mode */
@@ -20192,6 +20755,125 @@ export interface components {
         OutcomesOut: {
             /** Learners */
             learners: components["schemas"]["LearnerOutcome"][];
+        };
+        /** OverviewAdminGoal */
+        OverviewAdminGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Target Date */
+            target_date: string | null;
+        };
+        /** OverviewAlert */
+        OverviewAlert: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "late_streak" | "inactive" | "course_expiring" | "low_credits";
+            /** Text */
+            text: string;
+            /** Action */
+            action: string;
+        };
+        /** OverviewAlerts */
+        OverviewAlerts: {
+            /** Open */
+            open: components["schemas"]["OverviewAlert"][];
+            /** Checked Off */
+            checked_off: ("late_streak" | "inactive" | "course_expiring" | "low_credits")[];
+            /** Undecided */
+            undecided: ("late_streak" | "inactive" | "course_expiring" | "low_credits")[];
+        };
+        /** OverviewAssigned */
+        OverviewAssigned: {
+            /** On Time */
+            on_time: number;
+            /** Late */
+            late: number;
+            /** Missing */
+            missing: number;
+            /** Undecided */
+            undecided: number;
+            /** Open */
+            open: components["schemas"]["OverviewAssignment"][];
+            /** Overdue */
+            overdue: components["schemas"]["OverviewOverdue"][];
+        };
+        /** OverviewAssignment */
+        OverviewAssignment: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Title */
+            title: string;
+            /** Due At */
+            due_at: string | null;
+        };
+        /** OverviewContinuity */
+        OverviewContinuity: {
+            /** Weeks */
+            weeks: (boolean | null)[][];
+            /** Streak Days */
+            streak_days: number;
+            /** Minutes This Week */
+            minutes_this_week: number;
+            /** Minutes Last Week */
+            minutes_last_week: number;
+        };
+        /** OverviewGoal */
+        OverviewGoal: {
+            admin: components["schemas"]["OverviewAdminGoal"];
+            learner: components["schemas"]["OverviewLearnerGoal"];
+            /** Conflict */
+            conflict: boolean;
+            /** Estimated Band */
+            estimated_band: number | null;
+        };
+        /** OverviewLearnerGoal */
+        OverviewLearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+        };
+        /** OverviewOverdue */
+        OverviewOverdue: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Title */
+            title: string;
+            /** Due At */
+            due_at: string | null;
+            /** Days Overdue */
+            days_overdue: number;
+            /** Last Reminded At */
+            last_reminded_at: string | null;
+        };
+        /** OverviewScores */
+        OverviewScores: {
+            /** Grammar */
+            grammar: components["schemas"]["GrammarPoint"][];
+            /** Writing */
+            writing: components["schemas"]["BandPoint"][];
+            /** Speaking */
+            speaking: components["schemas"]["BandPoint"][];
+            /** Mock */
+            mock: components["schemas"]["BandPoint"][];
+            /** Milestones */
+            milestones: components["schemas"]["Milestone"][] | null;
+        };
+        /** OverviewSide */
+        OverviewSide: {
+            /** Due Notes */
+            due_notes: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Courses */
+            courses: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Credits Left */
+            credits_left: number | null;
+            credits_carried: components["schemas"]["CreditsCarried"] | null;
         };
         /** PaperPolicyDependency */
         PaperPolicyDependency: {
@@ -21470,6 +22152,34 @@ export interface components {
              */
             version_id: string;
         };
+        /** ScheduleSlot */
+        ScheduleSlot: {
+            /** Dow */
+            dow: number;
+            /** Start */
+            start: string;
+        };
+        /** SearchHit */
+        SearchHit: {
+            /** Title */
+            title: string;
+            /** Meta */
+            meta: string | null;
+            /** Href */
+            href: string;
+        };
+        /**
+         * SearchIn
+         * @description The query travels in the JSON body, never in the URL, so no access or
+         *     platform HTTP log can keep a learner's name or e-mail.
+         */
+        SearchIn: {
+            /**
+             * Q
+             * @default
+             */
+            q: string;
+        };
         /** SectionSubmitBody */
         SectionSubmitBody: {
             /**
@@ -21942,6 +22652,39 @@ export interface components {
             course_ids?: string[];
             /** Cohort Ids */
             cohort_ids?: string[];
+        };
+        /** SettingsLog */
+        SettingsLog: {
+            /** Items */
+            items: components["schemas"]["SettingsLogItem"][];
+            /** Next Cursor */
+            next_cursor: number | null;
+        };
+        /** SettingsLogChange */
+        SettingsLogChange: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Old */
+            old?: unknown;
+            /** New */
+            new?: unknown;
+        };
+        /** SettingsLogItem */
+        SettingsLogItem: {
+            /** Id */
+            id: number;
+            /** At */
+            at: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Section */
+            section: string;
+            /** Changes */
+            changes: components["schemas"]["SettingsLogChange"][];
+            /** Reason */
+            reason: string;
         };
         /** SharedCard */
         SharedCard: {
@@ -22954,6 +23697,46 @@ export interface components {
             /** Answers */
             answers: string[];
         };
+        /** ThresholdChange */
+        ThresholdChange: {
+            /** Key */
+            key: string;
+            /** Value */
+            value: number | null;
+        };
+        /** ThresholdItem */
+        ThresholdItem: {
+            /** Key */
+            key: string;
+            /** Group */
+            group: string;
+            /** Label */
+            label: string;
+            /** Anchor */
+            anchor: string;
+            /** Value */
+            value: number | null;
+            /** Unit */
+            unit: string;
+            /** Min */
+            min: number | null;
+            /** Max */
+            max: number | null;
+            /** Fixed */
+            fixed: boolean;
+        };
+        /** ThresholdList */
+        ThresholdList: {
+            /** Items */
+            items: components["schemas"]["ThresholdItem"][];
+        };
+        /** ThresholdUpdate */
+        ThresholdUpdate: {
+            /** Changes */
+            changes: components["schemas"]["ThresholdChange"][];
+            /** Reason */
+            reason: string;
+        };
         /** TipCreate */
         TipCreate: {
             /** Title */
@@ -23610,6 +24393,20 @@ export interface components {
             purpose?: ("practice" | "assigned_practice" | "mock_delivery") | null;
             /** Mock Sitting Id */
             mock_sitting_id?: string | null;
+        };
+        /** _SeenAdminGoal */
+        _SeenAdminGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Target Date */
+            target_date: string | null;
+        };
+        /** _SeenLearnerGoal */
+        _SeenLearnerGoal: {
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
@@ -29402,6 +30199,386 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_thresholds_admin_settings_thresholds_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThresholdList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_thresholds_admin_settings_thresholds_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThresholdUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThresholdList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_log_admin_settings_log_get: {
+        parameters: {
+            query?: {
+                section?: string | null;
+                cursor?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsLog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_learners_admin_learners_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                cohort_id?: string | null;
+                kind?: ("offline" | "online" | "both" | "none") | null;
+                status?: ("active" | "expiring" | "expired" | "archived") | null;
+                attention?: ("any" | "late_streak" | "inactive" | "expiring" | "low_credits") | null;
+                credits_max?: number | null;
+                role?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDirectory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_admin_learners__ref__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_summary_admin_learners__ref__summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_instructor_learner_instructor_learners__ref__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_admin_admin_search_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_instructor_instructor_search_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstructorSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_overview_admin_learners__ref__overview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_learner_goal_admin_learners__ref__goal_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResolveOut"];
                 };
             };
             /** @description Validation Error */
@@ -44388,6 +45565,145 @@ export interface operations {
             };
             path: {
                 sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_summary_api_library_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_writing_samples_api_library_writing_samples_get: {
+        parameters: {
+            query?: {
+                task?: string | null;
+                dang?: string | null;
+                chude?: string | null;
+                q?: string | null;
+                trang?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    writing_samples_index_api_library_writing_samples_index_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_writing_sample_api_library_writing_samples__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_library_media_api_library_media__shelf___key___asset__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shelf: string;
+                key: string;
+                asset: string;
             };
             cookie?: never;
         };

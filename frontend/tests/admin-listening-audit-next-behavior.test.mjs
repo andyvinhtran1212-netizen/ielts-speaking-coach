@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -20,7 +21,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const read = (relative) => readFileSync(path.join(ROOT, relative), 'utf8');
 const component = read('app/(authed-admin-listening)/admin/listening/audit/admin-listening-audit.tsx');
-const backend = read('../backend/routers/listening.py');
+const backend = readListeningRouterSource();
 const page = read('app/(authed-admin-listening)/admin/listening/audit/page.tsx');
 const css = read('public/css/admin-listening-audit-next.css');
 const workflow = read('../.github/workflows/next-native-browser.yml');

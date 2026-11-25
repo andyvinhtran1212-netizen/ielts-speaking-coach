@@ -20,6 +20,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1116,8 +1117,7 @@ describe('Sprint 13.5.8 — plan-label suppresses map_description from student v
   });
 
   it('backend student endpoint strips map_description (defense-in-depth)', () => {
-    const BACKEND_PATH = join(__dirname, '..', '..', 'backend', 'routers', 'listening.py');
-    const PY = readFileSync(BACKEND_PATH, 'utf8');
+    const PY = readListeningRouterSource();
     // The student endpoint must call .pop("map_description", None) on
     // the payload (and on payload.metadata if present) for plan-label
     // exercises so the description never leaves the server.

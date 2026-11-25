@@ -9,7 +9,8 @@ entry points and prompt templates follow the same agreement.
 1. Read the user's current task and retained authorization, root `AGENTS.md`,
    and instructions in the directories being changed.
 2. Use [README.md](../README.md) for setup and [CLAUDE.md](../CLAUDE.md) for
-   navigation. Read only the domain references needed for the task.
+   code navigation only; conventions and invariants live in `AGENTS.md`. Read
+   only the domain references needed for the task.
 3. Check [specs/README.md](../specs/README.md) and the applicable approved spec.
    The constitution governs the spec lifecycle. Historical plans under `docs/`
    are evidence, not replacement approval or current implementation truth.
@@ -121,6 +122,12 @@ The shared wrapper resolves the checkout being pushed and clears Git's
 repository-local environment before running tests that create temporary repos.
 It remains usable after the worktree used to install it is removed. Personal
 stop hooks are not the authoritative verification record.
+
+On a draft PR the required `Tests` checks report green without running: the
+`changes` gate skips the heavy steps, as for a specs-only PR. Draft green is
+not test evidence; `ready_for_review` runs the full suite on the same head.
+A new push to a PR cancels that PR's older runs; push, schedule and dispatch
+runs on `staging`/`main` are never cancelled.
 
 ## Review, release and completion
 

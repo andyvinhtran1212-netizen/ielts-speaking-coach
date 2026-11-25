@@ -60,6 +60,12 @@ class _Q:
         self._filters: list = []
         self._op = "select"
         self._payload = None
+        self._neg = False
+
+    @property
+    def not_(self):
+        self._neg = True
+        return self
 
     def select(self, *c, **k): self._op = "select"; return self
     def insert(self, p): self._op = "insert"; self._payload = p; return self
@@ -68,7 +74,9 @@ class _Q:
     def eq(self, c, v): self._filters.append(("eq", c, v)); return self
     def neq(self, c, v): self._filters.append(("neq", c, v)); return self
     def in_(self, c, vals): self._filters.append(("in", c, [str(x) for x in vals])); return self
-    def is_(self, c, v): self._filters.append(("is", c, v)); return self
+    def is_(self, c, v):
+        neg, self._neg = self._neg, False
+        self._filters.append(("notis" if neg else "is", c, v)); return self
     def limit(self, *a, **k): return self
     def order(self, *a, **k): return self
     def range(self, *a, **k): return self
@@ -84,6 +92,7 @@ class _Q:
             if op == "neq" and str(rv) == str(v): return False
             if op == "in" and str(rv) not in v: return False
             if op == "is" and v == "null" and rv is not None: return False
+            if op == "notis" and v == "null" and rv is None: return False
         return True
 
     def execute(self):
@@ -140,8 +149,13 @@ def _seed():
             {"id": AB, "assigned_by": B, "essay_id": EB, "student_id": SB, "prompt_id": PB},
         ],
         "cohorts": [
-            {"id": CA, "created_by": A, "name": "Lop A"},
-            {"id": CB, "created_by": B, "name": "Lop B"},
+            {"id": CA, "created_by": A, "name": "Lop A", "instructor_id": A},
+            {"id": CB, "created_by": B, "name": "Lop B", "instructor_id": B},
+        ],
+        # G09-T24/T03: class membership drives the shared staff scope.
+        "student_cohort_memberships": [
+            {"id": _u(91), "student_id": SA, "cohort_id": CA, "is_active": True},
+            {"id": _u(92), "student_id": SB, "cohort_id": CB, "is_active": True},
         ],
         "students": [
             {"id": SA, "instructor_id": A, "cohort_id": CA, "full_name": "SA", "student_code": "SA", "user_id": None},
@@ -210,6 +224,10 @@ ROUTES = [
     ("POST",   "/instructor/reviews/{id}/release",     "action", RA, None, None),
     ("POST",   "/instructor/reviews/{id}/deliver",     "action", RA,
         {"essay_id": EA, "instructor_note": "teacher note"}, None),
+    # G09-T03: learner detail through services/staff_scope (path param is {ref}).
+    ("GET",    "/instructor/learners/{id}",            "read1",  f"s-{SA}", None, None),
+    # G09-T05: quick search through services/staff_scope; a_id is the query.
+    ("POST",   "/instructor/search",                   "search", "SA", None, None),
 ]
 
 
@@ -225,10 +243,23 @@ def _as(me, store):
         "services.instructor_access.supabase_admin",
         "services.essay_service.supabase_admin",
         "services.instructor_workflow.supabase_admin",
+        "services.staff_scope.supabase_admin",
+        "services.admin_learner_directory.supabase_admin",
+        "services.learner_attention.supabase_admin",
+        "services.ops_thresholds.supabase_admin",
+        "services.admin_search.supabase_admin",
+        "services.test_data_visibility.supabase_admin",
     ]
+
+    async def role_row(uid):
+        return _Result([{"role": u["role"]} for u in store["users"] if u["id"] == uid])
+
     with contextlib.ExitStack() as es:
         es.enter_context(patch("routers.instructor.require_instructor",
                                new=AsyncMock(return_value={"id": me})))
+        es.enter_context(patch("services.staff_scope.require_instructor",
+                               new=AsyncMock(return_value={"id": me})))
+        es.enter_context(patch("services.staff_scope._staff_role_row", new=role_row))
         for t in targets:
             es.enter_context(patch(t, fake))
         from main import app
@@ -236,6 +267,8 @@ def _as(me, store):
 
 
 def _call(client, method, path, a_id, body):
+    if path.endswith("/search"):
+        return client.request(method, path, json={"q": a_id}, headers={"Authorization": "Bearer x"})
     if a_id and "{id}" in path:
         path = path.replace("{id}", a_id)
     return client.request(method, path, json=body, headers={"Authorization": "Bearer x"})
@@ -284,6 +317,10 @@ def test_matrix_B_cannot_touch_A(method, path, kind, a_id, body, a_marker):
         assert resp.status_code in (200, 201), resp.text   # self-owned creation
         return
 
+    if kind == "search":
+        _assert_search_hides_a(resp)
+        return
+
     if kind == "list":
         assert resp.status_code == 200, resp.text
         ids = {row.get("id") for row in resp.json()}
@@ -309,6 +346,55 @@ def test_matrix_B_sees_own_objects():
             r = client.get(path, headers={"Authorization": "Bearer x"})
             assert r.status_code == 200, r.text
             assert marker in {row.get("id") for row in r.json()}, f"{path} missing B's own"
+
+
+def test_teacher_reads_a_learner_of_their_own_class():
+    """G09-T03: the learner route is not "block everything" either."""
+    store = _seed()
+    with _as(B, store) as (client, _st):
+        r = client.get(f"/instructor/learners/s-{SB}", headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    assert r.json()["summary"]["name"] == "SB" and r.json()["canonical_ref"] == f"s-{SB}"
+
+
+def _assert_search_hides_a(resp):
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    text = str(body)
+    for marker in ("SA", "Lop A", EA, CA, SA):
+        assert marker not in text, f"LEAK: B's /instructor/search returned A's {marker}"
+    assert set(body) == {"learners", "classes", "submissions", "sources_failed", "unavailable"}
+    assert body["sources_failed"] == []
+
+
+def test_search_teacher_of_class_b_gets_nothing_from_class_a():
+    """G09-T05 (FR-102): a learner, class and essay of class A stay out of
+    class B's teacher's search, and B still finds their own."""
+    store = _seed()
+    # Both essays are class work (writing_assignments.cohort_id).
+    for row, cohort in zip(store["writing_assignments"], (CA, CB)):
+        row["cohort_id"] = cohort
+    with _as(B, store) as (client, _st):
+        for q in ("SA", "lop", "sb"):
+            r = client.post("/instructor/search", json={"q": q}, headers={"Authorization": "Bearer x"})
+            _assert_search_hides_a(r)
+        own = client.post("/instructor/search", json={"q": "sb"}, headers={"Authorization": "Bearer x"}).json()
+        lop = client.post("/instructor/search", json={"q": "lop"}, headers={"Authorization": "Bearer x"}).json()
+    assert [row["title"] for row in own["learners"]] == ["SB"]
+    assert [row["href"] for row in own["submissions"]] == [f"/instructor/grade?essay_id={EB}"]
+    assert [row["title"] for row in lop["classes"]] == ["Lop B"]
+
+
+def test_search_teacher_without_a_class_gets_empty_groups_not_403():
+    store = _seed()
+    store["users"].append({"id": _u(3), "role": "instructor"})
+    with _as(_u(3), store) as (client, _st):
+        for q in ("SA", "SB", "lop"):
+            r = client.post("/instructor/search", json={"q": q}, headers={"Authorization": "Bearer x"})
+            assert r.status_code == 200, r.text
+            body = r.json()
+            assert body["learners"] == body["classes"] == body["submissions"] == [], body
+            assert body["sources_failed"] == []
 
 
 # ── focused: queue scoping + claim-time essay-owner + 403 shape ──────────────

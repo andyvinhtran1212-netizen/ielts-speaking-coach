@@ -1,0 +1,20 @@
+/* UIBASE-0056 StatusBadge (ThanhPhan §3). Only var(--av2-*). */
+.badge {
+  display: inline-block;
+  padding: 3px var(--av2-space-5);
+  border: var(--av2-rule-w) solid currentColor;
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  font-size: var(--av2-fs-14);
+  font-weight: var(--av2-fw-strong);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.muted { color: var(--av2-muted); }
+.ink { color: var(--av2-ink); }
+.accent { color: var(--av2-accent); }
+.ok { color: var(--av2-ok); }
+.okSolid { color: var(--av2-on-accent); background: var(--av2-ok); border-color: var(--av2-ok); }
+.mark { color: var(--av2-mark); }
+.danger { color: var(--av2-danger); }
+.off { color: var(--av2-muted); background: var(--av2-off); }

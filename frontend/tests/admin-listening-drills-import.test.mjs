@@ -15,6 +15,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -25,7 +26,7 @@ const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 const html      = read('frontend/pages/admin/listening/import-drills.html');
 const js        = read('frontend/js/admin-listening-drills-import.js');
 const testsHtml = read('frontend/pages/admin/listening/tests.html');
-const router    = read('backend/routers/listening.py');
+const router = readListeningRouterSource();
 
 
 describe('import-drills page shell', () => {

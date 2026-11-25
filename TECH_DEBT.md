@@ -1933,7 +1933,7 @@ in incoming specs before any code was written:
   - `GET /health/ready` — comprehensive: DB connectivity, critical-table
     presence (proxy for "migrations applied"), Gemini API key, feature
     flags.  Always returns HTTP 200; per-check status carries the verdict.
-  - 5 offline tests; DEPLOY_CHECKLIST has a universal verification block.
+  - 5 offline tests; docs/history/root/DEPLOY_CHECKLIST.md has a universal verification block.
 
 **Admin tooling:**
 - ✅ **NEW: Flashcard Stats admin tab** (PR #18)

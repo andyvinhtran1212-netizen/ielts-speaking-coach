@@ -113,6 +113,8 @@ Các câu còn lại (ngưỡng, giới hạn, tên đường dẫn): GOI-12 m�
 
 ## Rà soát trước bàn giao 18/11 — câu chờ anh xác nhận
 
+**ĐÃ TRẢ LỜI 20/11/2026 (11:04 giờ Việt Nam):** anh Andy viết "đồng ý cả 11". Cả 11 mặc định ở bảng dưới thành quyết định; ghi chú "(mặc định tạm 18/11, chờ anh Andy xác nhận)" ở các chỗ thuộc cột "Áp ở đâu" nay được hiểu là đã xác nhận, không cần sửa câu chữ ở từng chỗ. Cùng lúc anh duyệt spec 0055, 0056 và 0074.
+
 Lượt rà chéo năm góc ngày 18/11 (quyết định, số hiệu, độ phủ, GOI-12, GOI-13; nhật ký `ban-lam-viec/ra-soat/6-da-ap.md`) đã áp mặc định tạm cho các câu dưới đây; mỗi chỗ áp có ghi "(mặc định tạm 18/11, chờ anh Andy xác nhận)". Anh trả lời khác thì sửa đúng các chỗ ở cột "Áp ở đâu".
 
 | # | Câu hỏi | Mặc định đang áp | Áp ở đâu |

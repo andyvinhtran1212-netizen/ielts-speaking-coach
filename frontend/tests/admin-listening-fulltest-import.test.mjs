@@ -14,6 +14,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -25,7 +26,7 @@ const html     = read('frontend/pages/admin/listening/import-fulltest.html');
 const js       = read('frontend/js/admin-listening-fulltest-import.js');
 const testsHtml = read('frontend/pages/admin/listening/tests.html');
 const listJs   = read('frontend/js/admin-listening-tests-list.js');
-const router   = read('backend/routers/listening.py');
+const router = readListeningRouterSource();
 
 
 describe('Phase A — import page shell (admin chrome + 4 files + steps)', () => {

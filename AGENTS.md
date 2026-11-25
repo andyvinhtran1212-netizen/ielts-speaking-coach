@@ -30,13 +30,22 @@ IELTS Speaking Coach — a web app for IELTS/English speaking practice:
 - Legacy HTML bodies are retained under test fixtures; root-level compatibility
   aliases are non-deployed symlinks into that archive.
 
+**Product direction (pivot, 2026-06-27).** The app began as Speaking practice
+and is now an IELTS-prep platform: Speaking, Writing, Reading and Listening are
+live product areas, and Grammar content may support any of them. This
+supersedes the "FREEZE non-Speaking content" gate in
+`docs/GRAMMAR_HANDOFF_consolidated_2026-06-27.md` §I.3. The pivot widens scope
+without lowering quality bars: truthful feedback, canonical admin data, no
+silent failures and internally consistent Grammar Wiki metadata still hold.
+
 ---
 
 ## Default role
 
 Shared operational instructions are in `docs/AGENT_WORKFLOW.md`: read order,
 task authorization, worktree preservation, verification and handoff evidence.
-`README.md` is the setup entry point; `CLAUDE.md` adds project navigation.
+`README.md` is the setup entry point; `CLAUDE.md` adds code navigation only
+and points back here for conventions.
 All agents follow this agreement. Tool-specific prompts and historical plans
 do not replace it or require repeating an already authorized checkpoint.
 
@@ -77,7 +86,7 @@ These limits are a working agreement, not optional guidance:
 
 - Start normal feature, fix and content branches from `origin/staging`; their PR base is `staging`, never `main`.
 - A push to `staging` deploys the stable pre-production environment and runs integrated CI plus live Staging E2E on that exact SHA.
-- Production receives only a promotion PR with head `staging` and base `main`. Never merge the same feature independently into both branches.
+- Production receives only a promotion PR with head `staging` and base `main`. Never merge the same feature independently into both branches. Direct feature PRs to `main` are rejected by CI.
 - The required `Staging promotion gate` must confirm that the staging head has not moved and that exact-SHA integrated checks and live Staging E2E passed.
 - Apply migrations to staging before staging verification, then to production with the advisory-locked runner before promoting code that requires them.
 - See `docs/STAGING_FIRST_RELEASE_FLOW.md` for the operational runbook and emergency path.
@@ -118,7 +127,7 @@ When auditing or editing `backend/content/**/*.md`:
 
 - **Metadata truth matters.** Frontmatter fields (`category`, `slug`, `related_pages`, `next_articles`, `compare_with`, `prerequisites`, `pathways`) must point to slugs that actually exist.
 - **Progression and compare links must be semantically useful** — not just vaguely related pages. A broken or misleading link is worse than an empty list.
-- **Avoid stale internal links.** Before adding a slug reference, verify the target file exists.
+- **Avoid stale internal links.** Before adding a slug reference, verify the target file exists. `test_grammar_wiki_ref_drift` fails CI when a `related_pages`/`next_articles`/`compare_with`/`prerequisites` slug does not resolve to a live article.
 - **Keep category truth aligned with filesystem location.** A file in `sentence-structures/` should have `category: sentence-structures`.
 - **Do not leave batch-scope files misleadingly incomplete.** If a remediation batch touches 10 files, all 10 should be in a consistent state before the batch is closed.
 - **`common_error_tags` should be precise, not broad** — fewer, accurate tags are better than many vague ones.
@@ -126,6 +135,11 @@ When auditing or editing `backend/content/**/*.md`:
 - **`pathways` should be pedagogically meaningful**, not keyword-stuffed.
 - Prefer Vietnamese explanations and English examples in article body content.
 - Empty is better than misleading for any metadata field.
+- **The Wiki serves all skills, not Speaking only.** Articles may target Writing
+  (`grammar-for-writing`), Reading and so on; flag the skill with
+  `speaking_relevance` / `writing_relevance`. Categories derive from the
+  directory and are humanised by `_prettify` (`grammar-for-writing` →
+  "Grammar For Writing"); there is no category map to maintain.
 
 ---
 
@@ -137,7 +151,8 @@ When working in `backend/services/claude_grader.py`:
 - **Reduce false positives.** A false-positive grammar flag damages user trust more than a missed real error.
 - **Preserve relevance to transcript.** Grammar issues, corrections, and sample answers must relate to what the user actually said.
 - **Avoid synonym upgrades for their own sake.** Vocabulary feedback should reflect a genuine IELTS band improvement, not word-swapping.
-- **Recommendation logic must be specific.** Do not default to article-family grammar lessons when the issue is not clearly an article/determiner error. The article-family recommendation cap exists for this reason.
+- **Recommendation logic must be specific.** Do not default to article-family grammar lessons when the issue is not clearly an article/determiner error. The hard cap on article-family recommendations per response exists for this reason; do not remove it without understanding the false-positive rate it controls.
+- `_filter_false_article_flags` has been carefully tuned; change it only with before/after evidence.
 - **`_QUOTE_RE` regex** (in `_filter_false_article_flags`) uses per-type alternation. Do not simplify it to a unified delimiter class — that breaks possessive handling (e.g., `"John's school"` must match fully). Current pattern:
   - Group 1: straight double quotes `"..."`
   - Group 2: curly double quotes `"..."`
@@ -159,9 +174,9 @@ When working in `backend/routers/admin.py` or Next admin routes under
   - `access_codes.is_used`, `used_by`, and `used_at` are immutable after activation.
   - Only `user_code_assignments.is_active` changes on remove.
   - This preserves the "code cannot be reused" invariant.
-- **Fallback synthesization rule:** The detail endpoint (`GET /admin/access-codes/{id}`) must synthesize a `used_by` fallback entry when there are **no active assignment rows** and `used_by` is set — regardless of whether inactive rows exist.
-- **Shape contracts matter.** The list endpoint returns `assigned_users[{name, email, ...}]`. The detail endpoint returns `assignments[{display_name, email, ...}]`. Do not assign one shape to the other; transform explicitly or refetch the canonical list. The current Next access-code panel refetches through `loadCodes()` after mutations.
-- **`association_lookup_failed`** is returned by the list endpoint when the assignment table query fails. Render this as a visible warning (`⚠ lookup failed`), not as `—` (which implies no user). Never silently swallow assignment-fetch failures.
+- **Fallback synthesization rule:** The detail endpoint (`GET /admin/access-codes/{id}`) must synthesize a `used_by` fallback entry when there are **no active assignment rows** and `used_by` is set — regardless of whether inactive rows exist. It must **not** synthesize when the assignment lookup itself errored (audit 2026-07-03 L5); it sets `association_lookup_failed: true` instead of showing stale ownership.
+- **Shape contracts matter.** The list endpoint returns `assigned_users[{name, email, ...}]`. The detail endpoint returns `assignments[{display_name, email, ...}]`. Do not assign one shape to the other; transform explicitly or refetch the canonical list. Ownership rendering is owned by `admin-access-codes-panel.tsx`, which refetches through `loadCodes()` after mutations instead of transforming the detail shape in place.
+- **`association_lookup_failed: true`** is returned by **both** the list and detail endpoints when the assignment table query fails. Render this as a visible warning (`⚠ lookup failed`), not as `—` (which implies no user). Never silently swallow assignment-fetch failures.
 
 ---
 
@@ -169,6 +184,7 @@ When working in `backend/routers/admin.py` or Next admin routes under
 
 Treat these as invariants:
 
+- Prefer fixing the source of truth (database write, backend response) over patching the display. Do not use optimistic local state that can diverge from backend truth; after mutations, refetch canonical state.
 - Session history and dashboard must read the same persisted fields that finalize/regrade flows update.
 - Response-level grading is not complete until session-level aggregates are updated when needed.
 - Course-exercise weights are assignment-scoped truth: new assignments snapshot
@@ -182,7 +198,11 @@ Treat these as invariants:
 - Migrations must exist before code relies on new columns or tables.
 - Speaking recordings are private. `backend/services/recording_audio.py` signs
   playback URLs only after session authorization. Persist object paths, never
-  expiring URLs; do not make `audio-responses` public to repair playback.
+  expiring URLs; do not make `audio-responses` public to repair playback, and
+  never use a persisted public URL as an error fallback.
+- `writing-images` (Task 1 charts) is private too. Persist object paths; sign
+  only after authorizing the reader via `backend/services/writing_image_access.py`
+  (runbook: `docs/WRITING_IMAGE_PRIVATE_BUCKET.md`).
 
 ---
 
@@ -195,6 +215,14 @@ When asked to audit, always report:
 3. Impacted files (with line/function references)
 4. Suggested minimal fix
 5. Verification steps
+
+For any non-trivial fix, the handoff also gives:
+
+1. **Root cause**, exact ("the fallback condition checked `not assignments` but should check `not has_active`").
+2. **Exact files changed**: file paths and function names.
+3. **Backend/frontend contract, before vs after**: what the backend returned, what the frontend expected, how it differs now.
+4. **Verification steps**: the URL to hit, UI action to take or DB query to run.
+5. **Minimal, reviewable changes**: no unrequested refactors. A 5-line diff with a clear explanation beats a 50-line diff with a vague summary.
 
 ---
 

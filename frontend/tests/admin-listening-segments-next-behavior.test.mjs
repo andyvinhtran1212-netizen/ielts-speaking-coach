@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readListeningRouterSource } from './fixtures/listening-router-source.mjs';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +24,7 @@ const DETAIL = read('app', '(authed-admin-listening)', 'admin', 'listening', 'co
 const CSS = read('public', 'css', 'admin-listening-segments-next.css');
 const PLAYER = read('public', 'js', 'components', 'audio-player.js');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const BACKEND = readFileSync(join(here, '..', '..', 'backend', 'routers', 'listening.py'), 'utf8');
+const BACKEND = readListeningRouterSource();
 const MIGRATION = readFileSync(join(here, '..', '..', 'backend', 'migrations', '208_listening_exercise_block_identity.sql'), 'utf8');
 
 const content = (patch = {}) => ({

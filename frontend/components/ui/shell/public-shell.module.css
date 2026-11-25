@@ -1,0 +1,194 @@
+/*
+ * UIBASE-0056 PublicShell / PublicTopNav / PublicFooter (FR-011, KhungTrang §4,
+ * KhungTrang2 §9). Only var(--av2-*), no hex. Breakpoint 768px (AV2_BREAKPOINTS.tablet).
+ *
+ * Links: base.css styles `.av2-root a` (0-1-1), so link rules here use two
+ * classes. Classes passed to Button / IconButton / ThemeMenu are doubled for
+ * the same reason: their own module sets `display` with one class.
+ */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--av2-paper);
+}
+
+.skip {
+  position: absolute;
+  left: var(--av2-space-7);
+  top: calc(-1 * var(--av2-control-lg));
+  z-index: var(--av2-z-toast);
+  padding: var(--av2-space-4) var(--av2-space-7);
+  background: var(--av2-surface);
+}
+.skip:focus { top: var(--av2-space-4); }
+
+.main {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--av2-space-10) var(--av2-space-12);
+}
+.main:focus { outline: none; }
+
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+
+.topbar {
+  position: relative;
+  background: var(--av2-paper);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+.topbarInner {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-10);
+  max-width: 1200px;
+  min-height: var(--av2-topbar-h);
+  margin: 0 auto;
+  padding: 0 var(--av2-space-10);
+}
+
+.topbar .brand,
+.footer .footerBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-5);
+  min-height: var(--av2-control-md);
+  color: var(--av2-ink);
+  font: var(--av2-fw-strong) var(--av2-fs-24) / 1 var(--av2-font-serif);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.footer .footerBrand { font-size: var(--av2-fs-20); }
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+  height: 1.2em;
+  border: var(--av2-rule-strong-w) solid var(--av2-logo-mark);
+  color: var(--av2-logo-mark);
+  font: var(--av2-fw-strong) 0.95em / 1 var(--av2-font-serif);
+}
+
+.sections { flex-grow: 1; }
+.sectionList,
+.menuList,
+.footerLinks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sectionList { display: flex; gap: var(--av2-space-9); }
+
+.topbar .sectionLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  border-bottom: 3px solid transparent;
+  color: var(--av2-ink);
+  font-size: var(--av2-fs-16);
+  text-decoration: none;
+}
+.topbar .sectionLink:hover { border-bottom-color: var(--av2-rule); }
+.topbar .current,
+.topbar .current:hover {
+  border-bottom-color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-8);
+  margin-left: auto;
+}
+.topbar .login {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.phoneOnly.phoneOnly { display: none; }
+
+/* ── Phone menu ──────────────────────────────────────────────────────── */
+
+.menu {
+  padding: var(--av2-space-4) var(--av2-space-7) var(--av2-space-9);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-paper);
+}
+.menu .menuLink {
+  display: flex;
+  align-items: center;
+  min-height: var(--av2-control-lg);
+  padding-left: var(--av2-space-6);
+  border-left: 3px solid transparent;
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+.menu .current {
+  border-left-color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+.menuCta.menuCta {
+  display: flex;
+  width: 100%;
+  margin-top: var(--av2-space-7);
+}
+.menuTheme { margin-top: var(--av2-space-9); }
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+
+.footer {
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-paper);
+}
+.footerInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--av2-space-10) var(--av2-space-10) var(--av2-space-11);
+}
+.footerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--av2-space-10);
+}
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--av2-space-9);
+}
+.footer .footerLinks a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  color: var(--av2-ink);
+}
+.copy {
+  margin: var(--av2-space-6) 0 0;
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-14);
+}
+
+@media (max-width: 767px) {
+  .main { padding: 0 var(--av2-space-7) var(--av2-space-11); }
+  .topbarInner { gap: var(--av2-space-7); padding: 0 var(--av2-space-7); }
+  .topbar .brand { font-size: var(--av2-fs-20); }
+  .sections { display: none; }
+  .wideOnly.wideOnly { display: none; }
+  .phoneOnly.phoneOnly { display: inline-flex; }
+  .actions { gap: var(--av2-space-4); }
+  .footerInner { padding: var(--av2-space-9) var(--av2-space-7) var(--av2-space-10); }
+  .footerRow { flex-direction: column; align-items: flex-start; }
+  .footerLinks { column-gap: var(--av2-space-8); }
+}
+
+/* At 768px and up the phone menu never shows, even if it was left open. */
+@media (min-width: 768px) {
+  .menu { display: none; }
+}

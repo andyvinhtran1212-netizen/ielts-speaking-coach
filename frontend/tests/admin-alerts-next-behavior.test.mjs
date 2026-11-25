@@ -47,7 +47,11 @@ describe('/admin/system/alerts — native operational alerts', () => {
     assert.match(CLIENT, /aria-live="polite"/);
     assert.match(CLIENT, /aria-busy=\{loading\}/);
     assert.match(LAYOUT, /admin-alerts-next\.css/);
-    assert.doesNotMatch(LAYOUT, /['"]\/css\/aver-design\/admin-buttons\.css['"]/);
+    // Q47: the group links the shared button bridge like the other admin
+    // groups, after admin-components.css and before the page sheets.
+    const buttons = LAYOUT.indexOf("'/css/aver-design/admin-buttons.css'");
+    assert.ok(buttons > LAYOUT.indexOf('admin-components.css'), 'admin-buttons.css after admin-components.css');
+    assert.ok(buttons < LAYOUT.indexOf('admin-alerts-next.css'), 'admin-buttons.css before page sheets');
     assert.match(CSS, /calc\(100vw - 328px\)/);
     assert.match(CSS, /@media \(max-width: 768px\)/);
     assert.match(CSS, /@media \(max-width: 430px\)/);
