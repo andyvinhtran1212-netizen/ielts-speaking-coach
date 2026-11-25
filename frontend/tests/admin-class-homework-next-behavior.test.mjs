@@ -20,11 +20,11 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const UI = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
-const TYPES = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework-types.ts');
-const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
+const UI = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
+const TYPES = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework-types.ts');
+const SUBMISSIONS = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
 const CSS = read('public', 'css', 'admin-class-homework-next.css');
-const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(classes)', 'layout.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 

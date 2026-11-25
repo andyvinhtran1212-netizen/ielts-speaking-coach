@@ -163,3 +163,25 @@
 .focusMuted { color: var(--av2-muted); font-size: var(--av2-fs-14); }
 .focusLeaveGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av2-space-9); align-items: start; }
 @media (max-width: 767px) { .focusLeaveGrid { grid-template-columns: minmax(0, 1fr); } }
+/* G03-T16 StaffShell demos (ThanhPhanKhungTrang2 §7–8). */
+.staffFrame { display: flex; flex-direction: column; height: 520px; }
+.staffFrame > * { flex: 1 0 auto; }
+.demoCrumb { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
+
+/* G03-T08 DataTable / StatCard demos. */
+.tableStates { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--av2-space-7); }
+.narrowFrame { width: 100%; max-width: 358px; }
+.tableIssue { margin-left: var(--av2-space-2); color: var(--av2-danger); }
+.chartGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--av2-space-8); align-items: start; }
+.chartGrid .demoLabel { margin-top: 0; line-height: 20px; }
+.uploadFrame { max-width: 720px; }
+.dateGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--av2-space-7); align-items: start; }
+
+/* G03-T10 audio and video players: two columns, the phone player at 390px. */
+.mediaGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av2-space-9) var(--av2-space-11); margin-bottom: var(--av2-space-9); }
+.mediaGrid .rowNote, .progressGrid .rowNote { display: block; margin: 0 0 var(--av2-space-4); }
+.phoneBox { max-width: 390px; }
+@media (max-width: 767px) {
+  .mediaGrid { grid-template-columns: minmax(0, 1fr); }
+}
+.videoStub { display: flex; align-items: center; justify-content: center; font-weight: var(--av2-fw-strong); }

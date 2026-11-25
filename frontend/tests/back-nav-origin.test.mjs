@@ -240,42 +240,27 @@ describe('admin mock-review report — a real href, not history.back()', () => {
     assert.doesNotMatch(REPORT, /href="javascript:history\.back\(\)"/);
     assert.match(REPORT, /id="rp-back" href="\/pages\/admin\/mock-reviews\/index\.html"/);
   });
+  // LEGACYJS-0075 W2: the opener is the Next review console now.
+  const OPENER = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx');
   test('the opener really does open a new tab — so history.back could never work', () => {
-    assert.match(read('public', 'js', 'admin-mock-reviews.js'),
-      /target="_blank" href="\/pages\/admin\/mock-reviews\/report\.html/);
+    assert.match(OPENER, /target="_blank" rel="noreferrer" href=\{`\/admin\/mock-reviews\/report\?review_id=/);
   });
   test('the opener carries mock_exam_id — the queue refuses to load without it', () => {
-    assert.match(read('public', 'js', 'admin-mock-reviews.js'),
-      /&mock_exam_id=' \+ encodeURIComponent\(examId \|\| ''\)/);
+    assert.match(OPENER, /&mock_exam_id=\$\{encodeURIComponent\(examId\)\}`\}/);
   });
 });
 
-// The queue reads ?mock_exam_id= and shows a "chọn đề" prompt without it
-// (admin-mock-reviews.js:30), so returning to a bare index.html would NOT put
-// the admin back on the queue they came from. Run the real wireBack().
+// The queue reads ?mock_exam_id= and shows a "chọn đề" prompt without it, so
+// returning to a bare queue URL would NOT put the admin back on the queue they
+// came from. LEGACYJS-0075 W2: the retired `admin-mock-report.js` wireBack() is
+// replaced by the Next report's `back` link.
 describe('admin mock-review report — back returns to the SAME exam queue', () => {
-  const REPORT_JS = read('public', 'js', 'admin-mock-report.js');
-  const src = lift(REPORT_JS, /function wireBack\(\) \{[\s\S]*?\n  \}/, 'report wireBack');
-  function reportBack(search) {
-    const a = { href: '/pages/admin/mock-reviews/index.html' };
-    const el = (id) => (id === 'rp-back' ? a : null);
-    new Function('el', 'location', 'URLSearchParams', 'encodeURIComponent',
-      `${src}\nwireBack();`)(el, { search }, URLSearchParams, encodeURIComponent);
-    return a.href;
-  }
-  test('replays the exam id so the queue actually loads', () => {
-    assert.equal(reportBack('?review_id=R1&mock_exam_id=E9'),
-      '/pages/admin/mock-reviews/index.html?mock_exam_id=E9');
+  const REPORT = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx');
+  test('replays the exam id, encoded, as a query VALUE on a fixed path', () => {
+    assert.match(REPORT, /const back = examId \? `\/admin\/mock-reviews\?mock_exam_id=\$\{encodeURIComponent\(examId\)\}` : '\/admin\/mock-tests\?tab=review';/);
   });
-  test('an id with URL-unsafe chars is encoded, not injected', () => {
-    assert.equal(reportBack('?review_id=R1&mock_exam_id=' + encodeURIComponent('a&b=c')),
-      '/pages/admin/mock-reviews/index.html?mock_exam_id=a%26b%3Dc');
-  });
-  test('a legacy report link without the id still leaves a working way out', () => {
-    assert.equal(reportBack('?review_id=R1'), '/pages/admin/mock-reviews/index.html');
-  });
-  test('the id is only ever a query VALUE — the path stays fixed', () => {
-    assert.match(reportBack('?review_id=R1&mock_exam_id=' + encodeURIComponent('//evil.com')),
-      /^\/pages\/admin\/mock-reviews\/index\.html\?mock_exam_id=/);
+  test('the back control is a real link', () => {
+    assert.match(REPORT, /<a className="adm-btn-secondary" href=\{back\}>← Quay lại bàn duyệt<\/a>/);
+    assert.doesNotMatch(REPORT, /history\.back\(/);
   });
 });
