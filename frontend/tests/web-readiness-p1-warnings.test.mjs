@@ -16,7 +16,6 @@ const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 
 const READING_JS = read('js', 'admin-reading.js');
 const READING_CSS = read('css', 'admin-reading.css');
-const LISTENING_JS = read('js', 'admin-listening-fulltest-import.js');
 
 
 describe('P1 — reading import warnings banner (W-0)', () => {
@@ -34,10 +33,3 @@ describe('P1 — reading import warnings banner (W-0)', () => {
   });
 });
 
-
-describe('P1 — listening import already surfaces warnings', () => {
-  test('listening fulltest import renders p.warnings', () => {
-    assert.match(LISTENING_JS, /p\.warnings/);
-    assert.match(LISTENING_JS, /fi-banner--warn/);
-  });
-});

@@ -17,11 +17,14 @@ export function OutcomePanel({ outcome, savedUpTo, closedAt, strings, onRetry, e
   onRetry?: () => void; exitHref: string; timeUp: boolean;
 }) {
   const model = submitOutcomeModel({ outcome, savedUpTo: savedUpTo ?? null, closedAt: closedAt ?? null, strings });
-  if (!model.text && !timeUp) return null;
+  // FR-034: "Time is up" belongs to the time-up path only; a lost submit on an
+  // untimed surface (Listening, 0070 FR-010) or before the end says it plainly.
+  const text = outcome === 'unconfirmed' && !timeUp ? strings.shell.unconfirmedPending : model.text;
+  if (!text && !timeUp) return null;
   return (
     <div className={styles.outcome} role="status" aria-live="polite" data-outcome={outcome}>
       {timeUp ? <p className={styles.outcomeTitle}>{strings.timeUp}</p> : null}
-      {model.text ? <p className={styles.outcomeText}>{model.text}</p> : null}
+      {text ? <p className={styles.outcomeText}>{text}</p> : null}
       {model.action === 'retry' && onRetry ? (
         <div className={styles.actions}><Button onClick={onRetry}>{strings.tryAgain}</Button></div>
       ) : null}

@@ -18,10 +18,14 @@ import {
 import {
   BreadcrumbSection, PaginationSection, ProgressBarSection, StepperSection, TabsSection,
 } from './nav-sections';
+import { DataTableSection, StatCardSection } from './data-sections';
+import { ChartSection, DateFieldsSection, FileUploadSection } from './data-sections-2';
 import { AudioPlayerSection, VideoFrameSection } from './media-sections';
 import { LearnerShellSection } from './shell-sections';
 import { FocusShellSection } from './focus-demo';
+import { StaffShellSection } from './staff-sections';
 import { ThemeSection } from './theme-sections';
+import { IconSection } from './icon-sections';
 import styles from './ui-library.module.css';
 
 // Gate the metadata too, like /next-probe (BL-01): a disabled build ships the
@@ -157,6 +161,8 @@ export default function UiLibraryPage() {
             </div>
           </section>
 
+          <IconSection title={title('icons')} />
+
           <ButtonSection title={title('button')} />
           <IconButtonSection title={title('icon-button')} />
           <TextFieldSection title={title('text-field')} />
@@ -175,9 +181,15 @@ export default function UiLibraryPage() {
           <PaginationSection title={title('pagination')} />
           <ProgressBarSection title={title('progress-bar')} />
           <StepperSection title={title('stepper')} />
+          <DataTableSection title={title('data-table')} />
+          <StatCardSection title={title('stat-card')} />
+          <ChartSection title={title('chart')} />
+          <FileUploadSection title={title('file-upload')} />
+          <DateFieldsSection title={title('date-fields')} />
           <ThemeSection title={title('theme')} />
           <LearnerShellSection title={title('learner-shell')} />
           <FocusShellSection title={title('focus-shell')} />
+          <StaffShellSection title={title('staff-shell')} />
           {/* Last on purpose: 16:9 frames give fractional heights, which would shift the text of later sections by a subpixel and break their baselines. */}
           <AudioPlayerSection title={title('audio-player')} />
           <VideoFrameSection title={title('video-frame')} />

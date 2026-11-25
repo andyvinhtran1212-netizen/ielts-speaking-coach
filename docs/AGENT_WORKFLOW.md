@@ -123,6 +123,12 @@ repository-local environment before running tests that create temporary repos.
 It remains usable after the worktree used to install it is removed. Personal
 stop hooks are not the authoritative verification record.
 
+On a draft PR the required `Tests` checks report green without running: the
+`changes` gate skips the heavy steps, as for a specs-only PR. Draft green is
+not test evidence; `ready_for_review` runs the full suite on the same head.
+A new push to a PR cancels that PR's older runs; push, schedule and dispatch
+runs on `staging`/`main` are never cancelled.
+
 ## Review, release and completion
 
 Review the whole affected contract before merge. Record root cause, severity,

@@ -6,7 +6,7 @@
   `fn_save_vocabulary_set`, `fn_vocabulary_set_visible`, router
   `backend/routers/vocabulary_sets.py` (`router` học viên, `admin_router`
   admin), service `backend/services/vocabulary_sets.py`, UI admin
-  `frontend/app/(authed-admin-vocab)/admin/vocab/sets/sets-console.tsx`, trình
+  `frontend/app/(authed-admin)/(vocab)/admin/vocab/sets/sets-console.tsx`, trình
   học `frontend/app/(authed-vocabulary-hub)/vocabulary/study/[sessionId]/study.tsx`.
 - Mới: `backend/services/vocabulary_set_import.py` (phân tích + kiểm tra,
   thuần, không I/O), route import trong `admin_router`, cờ
