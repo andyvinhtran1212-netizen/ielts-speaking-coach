@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
-const STU = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const STU = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
 const DIALOG = read('components', 'admin-directory-ui.tsx');
 const ASSIGN_MODEL = read('lib', 'admin-writing-assignments-model.mjs');
 const ASSIGN = read('pages', 'admin', 'writing', 'assignments.html');

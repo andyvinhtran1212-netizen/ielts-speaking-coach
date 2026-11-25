@@ -25,7 +25,7 @@ const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 const HTML = read('pages', 'admin', 'index.html');
 // LEGACYJS-0075 W4a — admin-overview.js is retired; the Next owner below holds
 // the controller invariants.
-const TSX  = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const TSX  = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 
 
 describe('Sprint 12.4 — Tổng quan landing chrome embed', () => {

@@ -18,12 +18,12 @@ import {
   transitionText,
   UNKNOWN_ACTOR,
   validateReason,
-} from '../app/(authed-admin-users)/admin/users/admin-staff-security-model.mjs';
+} from '../app/(authed-admin)/(users)/admin/users/admin-staff-security-model.mjs';
 
 // ADMINAAL2-0032 T011 — the admin users staff-security model. Rendered
 // behaviour lives in tests/react/admin-users-staff-security.test.tsx.
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DIR = join(ROOT, 'app', '(authed-admin-users)', 'admin', 'users');
+const DIR = join(ROOT, 'app', '(authed-admin)/(users)', 'admin', 'users');
 const PANEL = readFileSync(join(DIR, 'admin-users-panel.tsx'), 'utf8');
 const HISTORY = readFileSync(join(DIR, 'admin-security-history.tsx'), 'utf8');
 

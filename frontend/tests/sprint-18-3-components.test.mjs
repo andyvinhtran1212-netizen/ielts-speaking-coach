@@ -28,7 +28,7 @@ const MIGRATED_JS = {
   // colour/bg, pinned in sprint-17-5-reassignment.test.mjs).
   // LEGACYJS-0075 W4a: admin-usage.js and admin-foot-traffic.js are deleted; the
   // Next owners below carry the same no-inline-colour invariant.
-  'admin-usage.tsx':        front('app', '(authed-admin-usage)', 'admin', 'usage', 'admin-usage.tsx'),
+  'admin-usage.tsx':        front('app', '(authed-admin)', '(usage)', 'admin', 'usage', 'admin-usage.tsx'),
   'admin-foot-traffic.tsx': front('app', '(authed-admin)', '(foot-traffic)', 'admin', 'foot-traffic', 'admin-foot-traffic.tsx'),
   // LEGACYJS-0075 W3b: admin-classes.js is deleted (Next class detail: no inline
   // colour/bg, pinned in sprint-17-5-reassignment.test.mjs and sprint-18-1-ia.test.mjs).

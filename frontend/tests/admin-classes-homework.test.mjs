@@ -7,7 +7,7 @@
  * teacher to ignore the flag by the time it means something.
  *
  * LEGACYJS-0075 W3b: admin-classes.js is deleted. The homework panel is
- * app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-homework.tsx
+ * app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-homework.tsx
  * and its pure helpers (lib/admin-class-homework-model.mjs) are EXECUTED here.
  * Catalogue scope (protected papers, failed library, stale responses) is pinned
  * in admin-class-homework-next-behavior.test.mjs.
@@ -27,7 +27,7 @@ import {
 } from '../lib/admin-class-homework-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'), 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'), 'utf8');
 const CELL = SRC.slice(SRC.indexOf('<td className="ach-progress-cell">'), SRC.indexOf('</td>', SRC.indexOf('<td className="ach-progress-cell">')));
 const row = (progress, extra = {}) => normalizeAssignmentsPayload({ assignments: [{ id: 'a1', skill: 'speaking', progress, ...extra }] }).assignments[0];
 

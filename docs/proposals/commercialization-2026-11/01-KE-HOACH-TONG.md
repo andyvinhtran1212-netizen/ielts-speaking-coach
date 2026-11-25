@@ -83,7 +83,7 @@ Xong đợt C: người lạ đọc Thư viện, chấm thử, xem khoá, đăng
 |---|---|---|
 | Phòng thi và trình luyện | Khung chung; rồi lần lượt Reading → Writing → Listening luyện → Quick Check và flashcard → Listening test → Mock → Speaking. Mỗi trình một spec, một cờ, giữ trình cũ song song tới khi nghiệm thu. Thêm: mock test được giao phía học viên, "Abandon test" và màn hết giờ, đăng nhập lại trong phòng thi, Writing tự luyện giữ lượt; nối cổng chặn điện thoại; khung mới cho trang luyện kỹ năng, Sách bài tập, ngữ pháp, từ vựng, phát âm của học viên (G08-T26, thêm 18/11 tối) | G08 (26 nhiệm vụ); G11-T20 |
 | Admin và giáo viên | Khung admin mới và sidebar 8 nhóm; danh bạ; hồ sơ học viên 5 thẻ; vùng nguy hiểm; mã kích hoạt; khoá và đơn đăng ký; cấp/thu hồi quyền; sổ lượt; hộp thư sự cố; chấm bài; tìm nhanh; khu giáo viên 5 mục; Cài đặt; thành phần giao bài; Kết quả một bài giao; trang Lớp; bảng công bố điểm; tổ chức kỳ thi và trang một kỳ thi; ba trang Nội dung; chấm Speaking thi thử; yêu cầu chấm lại; giáo viên và Gửi thông báo; Báo cáo; cấp lượt cho lớp cũ; nghiệm thu | G09-T08…T20, T23, T26, T28…T30, T32, T34, T37…T43; G11-T13, T16, T35 |
-| Lưu cặp điểm AI–giáo viên (thêm 18/11, 00 điểm 24) | Spec SCOREPAIR-0088; migration 480 (ảnh chụp điểm AI, bảng cặp điểm chỉ ghi thêm); ghi cặp lúc trả bài, đối soát hằng đêm, dựng lại cặp cho bài đã trả. Chạy nền, chưa công bố. Làm ngay sau G09-T17. Khoảng 5 phiên | G12-C01…C03 |
+| Lưu cặp điểm AI–giáo viên (thêm 18/11, 00 điểm 24) | Spec SCOREPAIR-0102; migration 480 (ảnh chụp điểm AI, bảng cặp điểm chỉ ghi thêm); ghi cặp lúc trả bài, đối soát hằng đêm, dựng lại cặp cho bài đã trả. Chạy nền, chưa công bố. Làm ngay sau G09-T17. Khoảng 5 phiên | G12-C01…C03 |
 
 Xong đợt D: mọi bài làm trong một khung thống nhất; admin xác nhận đơn, cấp quyền và lượt, chấm và duyệt bài, tổ chức kỳ thi và trả kết quả ở một nơi, xem một học viên ở một nơi.
 
@@ -242,7 +242,7 @@ Các gói được viết song song nên có vài chỗ chồng nhau. Phân xử
 | 0085 | CLASSRESULT (kết quả một bài giao) | G09-T21 |
 | 0086 | MOCKORG (tổ chức kỳ thi) | G09-T21 |
 | 0087 | CONTENTBATCH (lô nhập và câu cần kiểm) | G09-T21 |
-| 0088 | SCOREPAIR (lưu cặp điểm AI – giáo viên bất biến) | GOI-12 phần C, C01–C03 |
+| 0088 | WRITINGGPT (Writing chuyển sang GPT trước Gemini khi Claude không chấm được; đã merge ở dạng nháp) | Ngoài gói, việc riêng của anh Andy 23/11 |
 | 0089 | ERRORBOOK (sổ lỗi cá nhân, bản ngữ pháp) | GOI-12 phần A |
 | 0090 | REWRITE (viết lại sau khi chấm) | GOI-12 phần B |
 | 0091 | SCOREGAP (công bố độ lệch AI – giáo viên) | GOI-12 phần C, C04–C08 |
@@ -256,8 +256,9 @@ Các gói được viết song song nên có vài chỗ chồng nhau. Phân xử
 | 0099 | EXAMKIT (khuôn luyện đề) — chỉ giữ số, hoãn, chưa viết | GOI-13 phần E (sửa 18/11 theo GOI-13) |
 | 0100 | ACCOUNTDATA (yêu cầu xoá tài khoản và tải dữ liệu) | G04-T18 (cấp tối 18/11 theo rà soát) |
 | 0101 | SENTLAB (kho luyện viết câu 45 buổi, Course 5) | Ngoài gói, việc riêng của anh Andy 18/11 (PR #2366) |
+| 0102 | SCOREPAIR (lưu cặp điểm AI – giáo viên bất biến) | GOI-12 phần C, C01–C03 (đổi từ 0088 ngày 23/11 vì trùng WRITINGGPT-0088) |
 
-Số 0085–0087 cấp ngày 18/11/2026; trước đó chưa file nào trong bộ tài liệu dùng. Từ 18/11 (sửa theo GOI-13): 0088–0094 giữ cho GOI-12, 0095–0099 cấp cho GOI-13; tối 18/11: 0100 cấp cho G04-T18; 0101 cấp cho SENTLAB (Course 5, 18/11); số kế tiếp còn trống: 0102.
+Số 0085–0087 cấp ngày 18/11/2026; trước đó chưa file nào trong bộ tài liệu dùng. Từ 18/11 (sửa theo GOI-13): 0088–0094 giữ cho GOI-12, 0095–0099 cấp cho GOI-13; tối 18/11: 0100 cấp cho G04-T18; 0101 cấp cho SENTLAB (Course 5, 18/11). Ngày 23/11: 0088 thuộc WRITINGGPT (spec đã merge ở dạng nháp), nên SCOREPAIR chuyển sang 0102; GOI-12 còn 0089–0094 và 0102. Số kế tiếp còn trống: 0103.
 
 **Dải số migration (số cao nhất hiện tại trong repo là 380; các số 370–375 đang bị giữ, 371 thuộc spec 0047). Migration số nhỏ không được phụ thuộc đối tượng do migration số lớn tạo.**
 

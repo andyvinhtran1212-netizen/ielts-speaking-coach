@@ -22,9 +22,9 @@ before(async () => {
   // LEGACYJS-0075 W4a — the ops Dashboard lives in the Next Tổng quan owner;
   // the retired admin-dashboard.js controller is gone.
   html     = read('frontend/pages/admin/index.html');
-  tsx      = read('frontend/app/(authed-admin-overview)/admin/admin-overview.tsx');
+  tsx      = read('frontend/app/(authed-admin)/(overview)/admin/admin-overview.tsx');
   css      = read('frontend/public/css/admin-overview.css');
-  layout   = read('frontend/app/(authed-admin-overview)/layout.tsx');
+  layout   = read('frontend/app/(authed-admin)/(overview)/layout.tsx');
   model    = await import(path.join(REPO, 'frontend/lib/admin-overview-model.mjs'));
   sparkSrc = read('frontend/js/charts/sparkline.js');
 });
@@ -142,7 +142,8 @@ describe('dashboard page — tiles + sparklines + trends + attention (Next owner
   });
 
   test('reuses design primitives + tokens; no non-existent --av-color-error', () => {
-    assert.match(layout, /admin-components\.css/);
+    // ADMINGROUP-0077 (#2480): the base sheets come from the (authed-admin) parent layout.
+    assert.match(read('frontend/app/(authed-admin)/layout.tsx'), /admin-components\.css/);
     assert.match(layout, /admin-overview\.css/);
     const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
     assert.ok(!/--av-color-error/.test(live), 'the banner must use --av-error, not the non-existent --av-color-error');

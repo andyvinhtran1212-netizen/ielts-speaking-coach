@@ -18,10 +18,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 // LEGACYJS-0075 W3a: admin-users.js is deleted; the Users tab is the Next panel.
-const USERS_JS    = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
+const USERS_JS    = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
 const USERS_HTML  = front('pages', 'admin', 'users', 'index.html');
 // LEGACYJS-0075 W3b: admin-classes.js is deleted; the add-member picker is the Next class detail.
-const COHORTS_JS  = front('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const COHORTS_JS  = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
 // GĐ 1b: Lớp và Học viên là hai tab của CÙNG trang gộp.
 const STUDENTS_HTML = front('pages', 'admin', 'classes', 'index.html');

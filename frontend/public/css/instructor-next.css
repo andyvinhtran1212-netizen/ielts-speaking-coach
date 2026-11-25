@@ -44,6 +44,9 @@ button, input, select, textarea { font: inherit; }
   font-weight: 700;
 }
 
+/* G09-T19: quick search sits right of the role chip, left of the actions. */
+.ins-top__search { margin-left: auto; }
+
 .ins-top__actions {
   margin-left: auto;
   display: flex;

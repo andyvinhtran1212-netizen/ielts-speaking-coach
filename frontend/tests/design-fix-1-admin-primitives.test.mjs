@@ -38,7 +38,7 @@ before(() => {
   readingCss = read('frontend/css/admin-reading.css');
   writingCss = read('frontend/css/admin-writing.css');
   // LEGACYJS-0075 W3a: the codes table is the Next panel now.
-  codesJs    = read('frontend/app/(authed-admin-users)/admin/users/admin-access-codes-panel.tsx');
+  codesJs    = read('frontend/app/(authed-admin)/(users)/admin/users/admin-access-codes-panel.tsx');
   readingJs  = read('frontend/js/admin-reading.js');
   for (const p of ['index', 'tests', 'content-detail', 'tests-detail']) {
     listening[p] = read(`frontend/pages/admin/listening/${p}.html`);
@@ -114,9 +114,11 @@ describe('access codes / chip + action semantics (B2, audit rows 1,3,4)', () => 
   });
 
   test('status uses .adm-status-pill state modifiers, not is-direct overload', () => {
-    assert.match(codesJs, /adm-status-pill is-revoked/);
-    assert.match(codesJs, /adm-status-pill is-inactive/);
-    assert.match(codesJs, /adm-status-pill is-active/);
+    // #2644 code ledger: one pill per ledger state through LEDGER_PILL.
+    assert.match(codesJs, /adm-status-pill \$\{LEDGER_PILL\[/);
+    assert.match(codesJs, /revoked: 'is-revoked'/);
+    assert.match(codesJs, /expired: 'is-inactive'/);
+    assert.match(codesJs, /unused: 'is-active'/);
   });
 
   test('row actions sit in one wrapper with consistent sizing', () => {

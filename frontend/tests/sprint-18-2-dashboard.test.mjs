@@ -19,7 +19,7 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const DASH_HTML = front('pages', 'admin', 'index.html');
 // LEGACYJS-0075 W4a — admin-dashboard.js is retired; the Next Tổng quan owner
 // paints the tiles now.
-const DASH_TSX  = front('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const DASH_TSX  = front('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const MODEL     = await import(join(__dirname, '..', 'lib', 'admin-overview-model.mjs'));
 const CHROME    = front('js', 'components', 'aver-admin-chrome.js');
 

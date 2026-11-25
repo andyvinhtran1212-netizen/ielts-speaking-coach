@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes',
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes',
   '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
 const start = SRC.indexOf('function WritingReport');
 const REPORT = SRC.slice(start, SRC.indexOf('\n}\n', start));

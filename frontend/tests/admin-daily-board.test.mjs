@@ -19,7 +19,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SUB = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
+const SUB = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
 // LEGACYJS-0075 W4b: admin-speaking-sessions.js is deleted; the Next sessions
 // page and its model own the deep link and the feedback report.
 const SESS = readFileSync(join(HERE, '..', 'app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx'), 'utf8');

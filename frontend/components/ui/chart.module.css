@@ -1,0 +1,74 @@
+/* UIBASE-0056 Chart (ThanhPhanDuLieu §4). Only var(--av2-*): one accent for data, ink for the rest. */
+.chart { min-width: 0; margin: 0; container-type: inline-size; }
+.chart .title {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  font-weight: var(--av2-fw-strong);
+}
+.chart .subtitle { margin: var(--av2-space-1) 0 var(--av2-space-3); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.chart .legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-2) var(--av2-space-6);
+  margin: 0 0 var(--av2-space-2);
+  font-size: var(--av2-fs-14);
+}
+.legendItem { display: inline-flex; align-items: center; gap: var(--av2-space-3); }
+.swatch { width: 14px; height: 14px; background: var(--av2-accent); }
+
+.svg { display: block; font-family: var(--av2-font-sans); font-variant-numeric: tabular-nums; }
+/* 440 × 240 drawing; the height rounds to whole pixels so content below never lands on a half pixel. */
+@supports (height: round(down, 1.5px, 1px)) {
+  .svg { height: round(down, calc(100cqi * 240 / 440), 1px); }
+}
+.grid { stroke: var(--av2-rule); }
+.baseLine { stroke: var(--av2-ink); }
+.tick { font-size: 12px; fill: var(--av2-muted); }
+.valueText { font-size: 12px; fill: var(--av2-ink); }
+.strong { font-weight: var(--av2-fw-strong); }
+.bar { fill: var(--av2-accent); }
+.seriesLine { stroke: var(--av2-accent); }
+.point { fill: var(--av2-surface); stroke: var(--av2-accent); }
+.targetLine { stroke: var(--av2-ink); }
+
+.chart .axisNote { margin: var(--av2-space-1) 0 0; font-size: var(--av2-fs-13); line-height: 20px; color: var(--av2-muted); }
+.source { margin: var(--av2-space-1) 0 var(--av2-space-4); font-size: var(--av2-fs-13); line-height: 20px; color: var(--av2-muted); }
+
+.tableFrame { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--av2-fs-14); font-variant-numeric: tabular-nums; }
+.tableCaption {
+  padding: 0 0 var(--av2-space-1);
+  font-size: var(--av2-fs-13);
+  font-weight: var(--av2-fw-strong);
+  line-height: 20px;
+  color: var(--av2-muted);
+  text-align: left;
+  caption-side: top;
+}
+.table th,
+.table td { height: 32px; border-bottom: var(--av2-rule-w) solid var(--av2-rule); white-space: nowrap; }
+.table th { padding: 0 var(--av2-space-3) 0 0; font-weight: var(--av2-fw-strong); text-align: left; }
+.table td { padding: 0 var(--av2-space-1); text-align: right; }
+.table tr:first-child > * { border-top: var(--av2-rule-w) solid var(--av2-ink); }
+.table tr:last-child > * { border-bottom-color: var(--av2-ink); }
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 200px;
+  margin-top: var(--av2-space-3);
+  padding: var(--av2-space-5) var(--av2-space-6);
+  border-left: var(--av2-rule-w) solid var(--av2-rule);
+  border-bottom: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+}
+.empty .emptyTitle {
+  margin: 0 0 var(--av2-space-1);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  font-weight: var(--av2-fw-strong);
+}
+.empty .emptyBody { margin: 0; font-size: var(--av2-fs-15); color: var(--av2-muted); }

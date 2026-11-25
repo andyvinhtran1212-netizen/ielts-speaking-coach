@@ -48,3 +48,52 @@ pilot commit, each built with the CI fixture environment
   comparison of the client-navigation scene is still to be recorded with the
   TESTPOLICY-0057 baseline. Removing the leftover page sheets is a separate
   task outside this spec.
+
+## T002 wave 1 evidence (G10-T15-1, 2026-11-20)
+
+`usage` and `overview` moved; `system` and `mfa` stay in their own groups for
+now, per the owner's decision of 2026-11-21 ("keep separate, fix the UI
+later"). At the time `(authed-admin-system)` loaded no `admin-buttons.css` and
+`(authed-admin-mfa)` no `admin-status.css`, so moving either under the
+four-base-sheet parent could change what they render (FR-001); they join in a
+later wave.
+
+- Scenario 5: `<link rel="stylesheet">` lists for `/admin`, `/admin/usage`,
+  `/admin/feedback`, `/admin/error-logs`, `/admin/foot-traffic`, `/admin/users`
+  are identical on base `344a75fd` and this change (nonce stripped); `/admin`
+  sheets do not reach other admin pages (FR-004).
+- Direct-load screenshots 1280×800: `/admin`, `/admin/usage`, `/admin/feedback`,
+  `/admin/foot-traffic` pixel-identical; `/admin/error-logs` differs by 2 pixels
+  of value 1 (anti-aliasing).
+- `verify-admin-route-group-flow.mjs` over the five moved pages: 114/114 checks
+  pass (94/114 on the base); all 20 client navigations leave only the previous
+  page's own sheets, as accepted for FR-005 on 2026-11-20.
+- Re-applied on staging `cc6dd4c8` (2026-11-23): the same verifier passes
+  114/114 with the same 20 FR-005 observations; `npm run build`, `tsc --noEmit`
+  and the React suite (1337/1337) pass.
+- Review R1 (2026-11-23): the verifier now requires each of the 4 base sheet
+  hrefs exactly once, both on direct load (in order) and after every client
+  navigation; before, it counted only `admin-status.css`. Head: 119/119.
+  Base `cc6dd4c8` with the same verifier: 105/119, the 14 failures are the
+  base sheets duplicated after navigating between a moved and a not-yet-moved
+  group.
+- Client-navigation screenshots 1280×800, base `cc6dd4c8` vs head:
+  `/admin/feedback → /admin` differs by 25,822 pixels (`(304, 324, 1240, 800)`)
+  on the base, where the previous page's leftover shell restyles the overview;
+  on head it is pixel-identical to the direct load of `/admin` (0 pixels).
+  `/admin/feedback → /admin/usage`: base and head identical (0 pixels).
+  Direct loads of `/admin` and `/admin/usage`: base and head identical.
+
+## T003 evidence (G10-T15-2, 2026-11-23)
+
+`users`, `students`, `classes` and `instructors` move to `(authed-admin)/(users)`, `(students)`, `(classes)`, `(instructors)`. Each child layout adds only its page sheets with a plain `<link rel="stylesheet">` and keeps `export const instant = false;`. URLs and page code are unchanged. Stacked on T002 (#2480); the base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 9 pages (`/admin/students` uses `active="classes"`, as the page sets it): head **394/394**. The same verifier on base `cc6dd4c8`: 328/394. The 66 failures are all "base sheets duplicated" after a client navigation between pages that do not yet share the parent layout. The 72 FR-005 observations (the previous page's own sheet stays in the DOM) are reported, not enforced, per amended FR-005.
+- Screenshots 1280×800, head vs base, CI fixture environment:
+  - Direct loads of all 9 pages: 0 px difference.
+  - Client navigation `/admin/feedback →` `/admin/users`, `/admin/students`, `/admin/classes`: 0 px.
+  - `/admin/students ↔ /admin/classes`: 0 px.
+  - `/admin/feedback → /admin/instructors`: 19 px, all inside the "Làm mới" button. The same box differs between head client navigation and head direct load, so it is a button transition caught mid-frame, not a stylesheet change.
+  - `/admin/feedback → /admin`: 25,822 px. Base is wrong here; head equals the direct load (as recorded for T002).
+- Frontend contract suite: 14,143 tests, 14,142 pass, 1 fail. The failure is env-only (`hook pre-push`).
+- `npm run test:react`: pass. `tsc --noEmit`: clean after the build. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.

@@ -17,7 +17,7 @@ const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const GRADE = read('pages', 'admin', 'writing', 'grade.html');
 // LEGACYJS-0075 W3b: admin-students-panel.js is deleted; the students toolbar,
 // bulk bar and rows are owned by the native /admin/students directory.
-const STU = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const STU = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
 const FIELD = read('components', 'admin-directory-ui.tsx');
 
 const DATA_INPUTS = [

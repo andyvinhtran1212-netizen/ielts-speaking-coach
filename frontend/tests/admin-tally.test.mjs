@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizeTally } from '../lib/admin-class-submissions-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
 
 const tally = (students, extra = {}) => normalizeTally({
   assignment: { id: 'a1', title: 'Bài hôm nay', skill: 'speaking', due_at: '2026-08-03T19:00:00+07:00' },

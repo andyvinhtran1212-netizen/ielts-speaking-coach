@@ -14,9 +14,9 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 // LEGACYJS-0075 W3a: admin-access-codes.js is deleted; the codes tab is the Next panel.
-const CODES = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const CODES = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 // LEGACYJS-0075 W3b: admin-classes.js is deleted; the roster is the Next class detail.
-const COHORTS = front('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const COHORTS = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
 const CODES_HTML = front('pages', 'admin', 'access-codes', 'index.html');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
 
@@ -31,11 +31,12 @@ describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', ()
     assert.doesNotMatch(CODES_HTML, /id="ra-to"/);
   });
   test('refill button calls /refill', () => {
-    assert.match(CODES, />Cấp mã mới<\/button>/);
+    // #2665: refill and edit-perms are items of the row "⋯" menu.
+    assert.match(CODES, /label: 'Cấp mã mới',/);
     assert.match(CODES, /window\.api\.post\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}\/refill`, \{\}\)/);
   });
   test('row actions open edit-perms + refill', () => {
-    assert.match(CODES, /onClick=\{\(\) => setEdit\(\{ code, permissions:/);
+    assert.match(CODES, /onSelect: \(\) => setEdit\(\{ code, permissions:/);
     assert.match(CODES, /title: 'Cấp mã mới',/);
   });
   test('Pattern #26 — no inline colour/bg/hex', () => {
