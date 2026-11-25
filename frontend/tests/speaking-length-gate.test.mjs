@@ -145,11 +145,11 @@ describe('Sprint 14.2 — practice.js dispatches on backend audio_too_short deta
     );
   });
 
-  test('practice.js defines _handleAudioTooShort + uses showState("recording")', () => {
+  test('practice.js defines _handleAudioTooShort + uses showState("prep")', () => {
     assert.match(PRACTICE_JS, /function\s+_handleAudioTooShort\s*\(\s*detail\s*\)/);
     // P1/P3 path returns to the recording state with the recorded sub-state.
     // Larger window (2400 chars) to absorb the Part 2 branch + comments.
-    assert.match(PRACTICE_JS, /_handleAudioTooShort[\s\S]{0,2400}showState\(['"]recording['"]\)/);
+    assert.match(PRACTICE_JS, /_handleAudioTooShort[\s\S]{0,2400}showState\(['"]prep['"]\)/);
     assert.match(PRACTICE_JS, /_handleAudioTooShort[\s\S]{0,2400}_showRecSub\(['"]recorded['"]\)/);
   });
 

@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildContentSecurityPolicy, sameOriginFramePolicy } from '../tooling/content-security-policy.mjs';
+import {
+  buildContentSecurityPolicy, sameOriginFramePolicy, SPEAKING_VIDEO_ROUTE, youtubeEmbedPolicy,
+} from '../tooling/content-security-policy.mjs';
 import { resolveRuntimeOrigins } from '../tooling/runtime-origins.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -185,6 +187,33 @@ test('only the known exam and Writing drill-down workspaces can be framed by the
   assert.match(CONFIG, /value: 'SAMEORIGIN'/);
   assert.match(CONFIG, /value: SAME_ORIGIN_FRAME_POLICY/);
   assert.match(sameOriginFramePolicy(buildContentSecurityPolicy(PRODUCTION_BUILD)), /frame-ancestors 'self'/);
+});
+
+test('LIBRARY-0061 T013: only the Speaking question page may load the YouTube IFrame API and frame youtube-nocookie', () => {
+  for (const env of [PRODUCTION_BUILD, STAGING_BUILD, {}]) {
+    const base = buildContentSecurityPolicy(env);
+    const speaking = youtubeEmbedPolicy(base);
+    const before = directives(base);
+    const after = directives(speaking);
+    // Only the API loader and the player scripts, never the whole youtube.com origin.
+    assert.deepEqual(after['script-src'], [...before['script-src'], 'https://www.youtube.com/iframe_api', 'https://www.youtube.com/s/player/']);
+    assert.ok(!after['script-src'].includes('https://www.youtube.com'));
+    assert.deepEqual(after['frame-src'], [...(before['frame-src'] ?? ["'self'"]), 'https://www.youtube-nocookie.com']);
+    // Nothing else changes: no youtube.com frame, no connect/img/media change, still not frameable.
+    for (const name of Object.keys(before)) {
+      if (name !== 'script-src' && name !== 'frame-src') assert.deepEqual(after[name], before[name], name);
+    }
+    assert.doesNotMatch(speaking, /frame-src[^;]*https:\/\/www\.youtube\.com/);
+    assert.equal(youtubeEmbedPolicy(speaking), speaking);
+    assert.doesNotMatch(base, /youtube/);
+  }
+  assert.equal(SPEAKING_VIDEO_ROUTE, '/library/speaking/:slug');
+  // Wired after the '/:path*' baseline (last match wins), for that one route only.
+  const baseline = CONFIG.indexOf("source: '/:path*'");
+  const speakingRule = CONFIG.indexOf('source: SPEAKING_VIDEO_ROUTE');
+  assert.ok(baseline >= 0 && speakingRule > baseline);
+  assert.match(CONFIG, /SPEAKING_VIDEO_POLICY = youtubeEmbedPolicy\(CONTENT_SECURITY_POLICY\)/);
+  assert.equal((CONFIG.match(/youtubeEmbedPolicy\(/g) ?? []).length, 1);
 });
 
 test('mutable stable-name css and js always revalidate after a deploy', () => {

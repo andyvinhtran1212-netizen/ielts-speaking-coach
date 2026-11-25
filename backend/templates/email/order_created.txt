@@ -1,0 +1,19 @@
+Subject: Đơn đăng ký {order_code} · thông tin chuyển khoản học phí {product_title}
+
+{greeting}
+
+Bạn vừa tạo đơn đăng ký {product_title}. Khoá mở sau khi chúng tôi nhận được học phí và đối chiếu xong.
+
+Học phí: {tuition}
+{bank_lines}
+Nội dung chuyển khoản: {order_code}
+Chuyển trước: {pay_by}
+
+Ghi đúng nội dung, không thêm chữ khác. Chuyển xong, bấm "Tôi đã chuyển khoản" trên trang đơn để admin đối chiếu.
+{order_link_line}
+Quá hạn giữ đơn mà chưa chuyển, đơn tự hết hạn; trước đó bạn nhận tối đa một thư nhắc. Bạn tạo đơn khác được.
+
+Aver Learning
+
+Bạn nhận thư này vì đã tạo đơn đăng ký bằng tài khoản {email}.
+Thư về đơn đăng ký và thanh toán là thư bắt buộc, không tắt được.

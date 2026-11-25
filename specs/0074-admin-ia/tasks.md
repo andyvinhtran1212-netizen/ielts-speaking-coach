@@ -74,8 +74,8 @@ Chi tiết từng nhiệm vụ (gói mục 6, chép nguyên):
 
 ### G09-T02 — "Duyệt bài thi" không còn mở lỗi thiếu mock_exam_id — GIỮ
 - Mục đích: FR-063, làm ngay trên trang hiện có (lớp `small`). T34 thay hẳn trang này sau.
-- Đầu vào: `app/(authed-admin-mock-reviews)/admin/mock-reviews/page.tsx`, `admin-mock-reviews.tsx` dòng 119/140, `lib/admin-mock-tests-model.mjs`, test `tests/admin-mock-reviews-next-behavior.test.mjs`; GOI-02.
-- Việc làm: 1) Kiểm G02 đã sửa chưa (`git log origin/staging --oneline -- 'frontend/app/(authed-admin-mock-reviews)'`); đã sửa → đóng bằng bằng chứng. 2) Trong `page.tsx`: `mock_exam_id` rỗng và không `embed=1` → `redirect('/admin/mock-tests?tab=review&notice=choose-exam')`; `embed=1` mà rỗng → đổi câu thành "Chọn một kỳ thi để duyệt bài." 3) Trung tâm Mock Test đọc `notice=choose-exam` hiện một dòng. 4) Test React.
+- Đầu vào: `app/(authed-admin)/(mock-reviews)/admin/mock-reviews/page.tsx`, `admin-mock-reviews.tsx` dòng 119/140, `lib/admin-mock-tests-model.mjs`, test `tests/admin-mock-reviews-next-behavior.test.mjs`; GOI-02.
+- Việc làm: 1) Kiểm G02 đã sửa chưa (`git log origin/staging --oneline -- 'frontend/app/(authed-admin)/(mock-reviews)'`); đã sửa → đóng bằng bằng chứng. 2) Trong `page.tsx`: `mock_exam_id` rỗng và không `embed=1` → `redirect('/admin/mock-tests?tab=review&notice=choose-exam')`; `embed=1` mà rỗng → đổi câu thành "Chọn một kỳ thi để duyệt bài." 3) Trung tâm Mock Test đọc `notice=choose-exam` hiện một dòng. 4) Test React.
 - Đầu ra: 1 PR.
 - Nghiệm thu: mở `/admin/mock-reviews` → về trung tâm với dòng "Chọn một kỳ thi để duyệt bài."; `grep -rn "Thiếu mock_exam_id" frontend/app` rỗng; test frontend qua.
 - Không làm: không đổi API, không đổi iframe.
@@ -103,7 +103,7 @@ Chi tiết từng nhiệm vụ (gói mục 6, chép nguyên):
 - Ước lượng: 3 phiên · 4.
 
 ### G09-T05 — API tìm nhanh — SỬA
-- Mục đích: `GET /admin/search`, `GET /instructor/search`.
+- Mục đích: `POST /admin/search`, `POST /instructor/search` (body JSON `{ q }`, không đặt `q` trên URL — #2453).
 - Việc làm: học viên qua service T03 (≤3); lớp từ `cohorts`; bài nộp `writing_essays`; đề (chỉ admin); **đơn đăng ký** theo mã `AVER-…` hoặc email qua API G04 (chưa có → bỏ nhóm). Escape `%`/`_`. Giáo viên: lọc `scope.cohort_ids`. Log `admin_search` không ghi `q`.
 - Đầu ra: 1 PR backend. Nghiệm thu: pytest: giáo viên A không thấy học viên lớp B; q 1 ký tự → 422; `%` không thành wildcard; inventory qua.
 - Không làm: không full-text index, không migration.

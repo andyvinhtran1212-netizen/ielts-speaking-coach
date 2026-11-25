@@ -73,7 +73,11 @@ export interface ExamRoomTabGuardOptions {
    * `exit.flush()`, secured when nothing is left unsaved.
    */
   flush?(): Promise<{ secured: boolean; unsaved?: number }>;
-  /** Reads the attempt again from the server once this tab holds the write right (FR-017). */
+  /**
+   * Reads the attempt again from the server once this tab holds the write right (FR-017).
+   * Called on every grant, the first one after opening too: another tab may have saved
+   * and closed between the page's own load and this grant.
+   */
   reloadFromServer(): Promise<unknown>;
   /** Told whenever this tab may or may not save or submit. */
   onWriteRightChange?(canWrite: boolean): void;

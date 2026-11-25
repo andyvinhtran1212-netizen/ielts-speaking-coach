@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-grammar)', 'admin', 'grammar', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-grammar)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(grammar)', 'admin', 'grammar', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(grammar)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-grammar-hub-next.css');
 const LEGACY = read('public', 'pages', 'admin', 'grammar', 'index.html');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const ROLLBACK_OVERVIEW = read('public', 'pages', 'admin', 'index.html');
 const CONFIG = read('next.config.ts');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -73,7 +73,7 @@ describe('/admin/grammar native hub', () => {
     assert.match(CSS, /@media \(max-width: 768px\)/);
     assert.match(CSS, /@media \(max-width: 480px\)/);
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-grammar\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(grammar\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-grammar-flow\.mjs/);
   });
 });
