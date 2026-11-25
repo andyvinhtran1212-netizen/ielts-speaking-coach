@@ -23,6 +23,8 @@ class AuthMeResponse(BaseModel):
     d3_enabled: bool
     flashcard_enabled: bool
     vocab_curated_enabled: bool
+    # LEARNERCORE-0063 FR-073: new learner UI flag (FR-072); absent = old UI.
+    learner_v2_enabled: bool = False
 
 
 class AuthActiveStatusResponse(BaseModel):

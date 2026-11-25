@@ -36,9 +36,13 @@ describe('/grammar/compare native ownership', () => {
   });
 
   test('giữ đủ compare contract và chỉ trust HTML bài viết biên soạn', () => {
-    for (const id of ['breadcrumb', 'compare-container', 'compare-title', 'compare-left', 'compare-right']) {
-      assert.match(PAGE, new RegExp(`(?:id=|id:\\s*)["'{]${id}`));
+    for (const id of ['compare-container', 'compare-title', 'compare-left', 'compare-right']) {
+      // `titleId=` is the header prop that renders `<h1 id=…>` (G06-T14 (c)).
+      assert.match(PAGE, new RegExp(`(?:\\b(?:id|titleId)=|id:\\s*)["'{]${id}`));
     }
+    // G06-T14 (c): #breadcrumb is drawn by the shared Grammar sub-page frame.
+    assert.match(PAGE, /<SubpageFrame crumbs=\{\[\{ label: 'So sánh' \}\]\}>/);
+    assert.match(readFileSync(path.join(path.dirname(PAGE_PATH), '..', 'subpage-frame.tsx'), 'utf8'), /<div id="breadcrumb">/);
     // G02-T11: a missing slug now goes back to /grammar with a notice.
     assert.match(PAGE, /if \(!slug\) redirect\(redirectNoticeHref\('\/grammar'\)\)/);
     assert.match(PAGE, /if \(!data\) notFound\(\)/);

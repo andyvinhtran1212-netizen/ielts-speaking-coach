@@ -191,7 +191,11 @@ trên `staging` @ `cc6dd4c8` (23/11/2026):
     sau khi `saveLocalCopy()` đọc lại được bản sao vừa ghi; bấm thì mở
     `/login?next=<URL phòng thi>` trong cùng tab. Quay lại, trình khôi phục và gửi bản sao
     theo FR-035. Bộ nhớ trình duyệt không ghi được thì hộp nói rõ các câu sau [HH:MM]
-    có thể mất nếu rời trang, và vẫn cho "Sign in again".
+    có thể mất nếu rời trang.
+  - **Chưa giữ được bài (sửa đổi 2):** bản sao không đọc lại được **và** còn câu máy chủ
+    chưa ack thì hộp chỉ có nút "Stay"/"Ở lại làm tiếp": bấm thì đóng hộp, không chuyển
+    trang và không có lối `/login?next=` cùng tab; nộp vẫn khoá cho tới khi phiên trở lại.
+    Không còn câu chưa ack (mọi câu đã ở máy chủ) thì vẫn cho "Sign in again".
 - **FR-016:** Phiên bị chiếm. Shell chỉ hiển thị qua `onSessionConflict`; nguồn "bài
   có giờ" cho G04 thuộc spec trình.
   - Khi đã có màn 8a–8c của G05-T20: 401 `session_displaced` thì lưu bản sao tại máy
