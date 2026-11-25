@@ -1277,10 +1277,7 @@ async def grade_response_endpoint(
             # của bản ghi CŨ ở lại; Full Test summary đọc các dòng `completed`
             # nên học viên thấy chỉ số phát âm của lần trước cạnh band mới (CR
             # #2696 trên B2-01). Bản ghi mới chỉ mang dữ liệu phát âm của chính nó.
-            for col in ("pronunciation_score", "pronunciation_fluency",
-                        "pronunciation_accuracy", "pronunciation_completeness",
-                        "pronunciation_status", "pronunciation_provider",
-                        "pronunciation_locale", "pronunciation_payload"):
+            for col in _PRONUNCIATION_CLEAR_COLUMNS:
                 db_row[col] = None
 
         # FR-036 (G04-T13): with `pron_sample_window` on, always record what
@@ -1388,6 +1385,27 @@ async def grade_response_endpoint(
                 logger.warning(
                     "[grading] không xoá được final_* của dòng chấm hỏng %s: %s",
                     response_id, exc)
+
+        # CR #2696: đường lùi cũng nuốt các lệnh xoá `pronunciation_*` của một
+        # lần ghi lại không có Azure ⇒ dòng còn `pronunciation_status='completed'`
+        # của bản trước và Full Test summary lấy lại điểm phát âm cũ. Xoá riêng,
+        # cùng chốt phiên bản (id + audio_storage_path vừa lưu). Cột có thể vắng
+        # (migration) ⇒ thử cả nhóm, hỏng thì ít nhất bỏ `pronunciation_status`
+        # (cột summary dùng để lọc); hỏng nữa thì thôi, bản ghi đã an toàn.
+        if partial and response_id and "pronunciation_status" in db_row \
+                and db_row["pronunciation_status"] is None:
+            path = db_row["audio_storage_path"]
+            stale = {k: None for k in _PRONUNCIATION_CLEAR_COLUMNS if k in db_row and db_row[k] is None}
+            for payload in (stale, {"pronunciation_status": None}):
+                try:
+                    query = supabase_admin.table("responses").update(payload).eq("id", response_id)
+                    query = query.eq("audio_storage_path", path) if path else query.is_("audio_storage_path", "null")
+                    await asyncio.to_thread(query.execute)
+                    break
+                except Exception as exc:
+                    logger.warning(
+                        "[grading] không xoá được %s của dòng ghi lại %s: %s",
+                        sorted(payload), response_id, exc)
 
         # ── Sprint 14.3 — orchestrator audit trail ───────────────────────────
         # Best-effort. Captures every provider attempt (success, retry,
@@ -1525,6 +1543,16 @@ async def grade_response_endpoint(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+# Cột phát âm của MỘT bản ghi: ghi âm lại không có Azure phải xoá cả nhóm
+# (CR #2696), ở bản ghi đủ cột lẫn ở bước dọn sau đường lùi core-row.
+_PRONUNCIATION_CLEAR_COLUMNS = (
+    "pronunciation_score", "pronunciation_fluency",
+    "pronunciation_accuracy", "pronunciation_completeness",
+    "pronunciation_status", "pronunciation_provider",
+    "pronunciation_locale", "pronunciation_payload",
+)
+
 
 def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
                                     session_id, question_id):

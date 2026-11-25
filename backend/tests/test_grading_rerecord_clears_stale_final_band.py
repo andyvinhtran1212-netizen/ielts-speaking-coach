@@ -90,3 +90,43 @@ def test_rerecord_without_azure_drops_old_pronunciation_from_full_test_summary(m
     assert merged["pronunciation_score"] is None
     assert merged["final_band_p"] is None and merged["final_overall_band"] is None
     assert _persisted_pronunciation_summary([merged]) is None
+
+
+def test_core_row_fallback_rerecord_without_azure_drops_old_pronunciation(monkeypatch):
+    # CR #2696 vòng 2: bản ghi đủ cột hỏng, core-row thành công. Core-row bỏ
+    # các lệnh xoá `pronunciation_*`; bước dọn sau đó phải xoá riêng, chốt
+    # theo đúng phiên bản bản ghi vừa lưu, để Full Test summary không lấy điểm
+    # phát âm của lần trước.
+    from routers.sessions import _persisted_pronunciation_summary
+
+    old = {**_old_row(), "pronunciation_score": 91.0, "pronunciation_fluency": 88.0,
+           "pronunciation_accuracy": 90.0, "pronunciation_completeness": 95.0,
+           "pronunciation_payload": "{}"}
+
+    def extract(_audio):
+        _azure_down(monkeypatch)
+        return b"WAV"
+    r = _route(monkeypatch, part=2, duration=120.0, flag=False, extract=extract, fail_full_save=True)
+    assert len(r.saved) == 2                            # đủ cột hỏng, rồi core-row
+    core = r.saved[1]
+    assert "pronunciation_status" not in core          # core-row nuốt lệnh xoá
+    updates = [payload for table, action, payload in r.db.calls
+               if table == "responses" and action == "update"]
+    pron = [u for u in updates if "pronunciation_status" in u]
+    assert pron, "phải có lệnh xoá riêng dữ liệu phát âm cũ"
+    merged = {**old, **core}
+    for u in updates:
+        merged.update(u)
+    assert merged["pronunciation_status"] is None
+    assert merged["final_overall_band"] is None and merged["final_band_p"] is None
+    assert _persisted_pronunciation_summary([merged]) is None
+
+
+def test_core_row_fallback_does_not_touch_pronunciation_when_azure_ran(monkeypatch):
+    # Azure chạy được: không có lệnh xoá phát âm nào sau đường lùi (dữ liệu
+    # mới đã mất cùng core-row, nhưng không được xoá thứ không nên xoá).
+    r = _route(monkeypatch, part=2, duration=120.0, flag=False, fail_full_save=True)
+    assert r.result["pronunciation"]["status"] == "completed"
+    updates = [payload for table, action, payload in r.db.calls
+               if table == "responses" and action == "update"]
+    assert not any("pronunciation_status" in u for u in updates)

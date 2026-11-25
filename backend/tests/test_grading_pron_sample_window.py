@@ -206,7 +206,7 @@ def _entitled(monkeypatch):
 
 
 def _route(monkeypatch, *, part, duration, flag, responses=(), extract=lambda _a: b"WAV",
-           mode="test_part"):
+           mode="test_part", fail_full_save=False):
     session = {"id": str(uuid4()), "user_id": str(uuid4()), "part": part, "mode": mode,
                "status": "in_progress", "full_test_attempt_id": None, "renderer_affinity": "next",
                "resume_expires_at": "2099-01-01T00:00:00Z"}
@@ -254,12 +254,14 @@ def _route(monkeypatch, *, part, duration, flag, responses=(), extract=lambda _a
 
     def fake_save(_db, row, **_kwargs):
         saved.append(dict(row))
+        if fail_full_save and len(saved) == 1:
+            raise RuntimeError("column does not exist")   # bản ghi đủ cột hỏng → đường lùi core-row
         return response_id
     monkeypatch.setattr(grading, "save_response", fake_save)
     result = asyncio.run(grading.grade_response_endpoint(
         session["id"], question["id"], UploadFile(BytesIO(b"fake audio"), filename="a.wav")))
     return SimpleNamespace(result=result, row=saved[0], calls=calls, cuts=cuts, flags=flags,
-                           question_id=question["id"])
+                           question_id=question["id"], saved=saved, db=db, response_id=response_id)
 
 
 SAMPLE_COLS = ("pronunciation_sample_scope", "pronunciation_sample_start_s", "pronunciation_sample_end_s")
