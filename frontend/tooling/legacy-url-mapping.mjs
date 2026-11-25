@@ -2,7 +2,7 @@
 // This is runtime compatibility data, not migration evidence.
 
 const EXACT_REPLACEMENTS = Object.freeze({
-  '/pages/admin/access-codes/index.html': '/admin/users',
+  '/pages/admin/access-codes/index.html': '/admin/activation-codes',
   '/pages/admin/cohorts/index.html': '/admin/classes',
   '/pages/admin/dashboard/index.html': '/admin',
   '/practice.legacy.html': '/practice/session',
@@ -27,6 +27,11 @@ const EXACT_REPLACEMENTS = Object.freeze({
   '/pages/admin/listening/content-meta.html': '/admin/listening/content/[contentId]/edit',
   '/pages/admin/listening/dictation-reports.html': '/admin/listening/dictation',
   '/pages/admin/listening/tests-detail.html': '/admin/listening/tests/[testId]',
+  // LEARNERNAV-0062 đợt 1: thẻ từ nằm dưới /vocabulary (một bước, không qua đường cũ).
+  '/pages/flashcards.html': '/vocabulary/flashcards',
+  '/pages/flashcard-study.html': '/vocabulary/flashcards/study',
+  // LEARNERNAV-0062 đợt 2: trang điền từ nằm dưới /vocabulary.
+  '/pages/d1-exercise.html': '/vocabulary/fill-in',
 });
 
 const NESTED_LEGACY_FAMILY = /^\/pages\/(grammar|listening|reading)-(.+)\.html$/;
@@ -58,8 +63,7 @@ export function replacementOwner(nextPath) {
   if (route === '/mock-exam' || route.startsWith('/mock/')
       || route === '/full-test' || route.startsWith('/full-test')) return 'mock-exam';
   if (route === '/vocabulary' || route.startsWith('/vocabulary/')
-      || route === '/flashcards' || route === '/flashcard-study'
-      || route === '/exercises' || route === '/d1-exercise'
+      || route === '/exercises'
       || route === '/quiz' || route.startsWith('/quiz/')) return 'vocabulary';
   if (route === '/exam') return 'exam-platform';
   if (route === '/course-exercises') return 'course-exercises';

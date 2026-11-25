@@ -24,7 +24,7 @@ const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 const html = read('frontend/pages/admin/dashboard/reading-attempts.html');
 const js = read('frontend/js/admin-reading-attempts.js');
 const chromeJs = read('frontend/js/components/aver-admin-chrome.js');
-const adminRouter = read('backend/routers/admin.py');
+const adminRouter = read('backend/routers/admin/access_codes.py');
 const svc = read('backend/services/admin_reading_dashboard.py');
 
 

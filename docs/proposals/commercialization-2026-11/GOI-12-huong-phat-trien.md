@@ -21,11 +21,11 @@ Sáu tính năng, mỗi tính năng một spec, một cờ (tắt mặc định)
 
 ### 1.2 Lớp thay đổi, mã spec, cờ
 
-Số spec lấy từ khối **0088–0094**, số migration từ dải **480–489**, cả hai do anh Andy cấp cho gói này ngày 18/11/2026 (GOI-13 dùng spec 0095–0099 và migration 490–499; gói này không dùng số ngoài hai khối của mình). `01-KE-HOACH-TONG.md` mục 6 đã ghi hai khối này (bản tối 18/11); người thực thi không sửa file đó (chỗ còn phải sửa ở 01: mục 3.4, dòng K1).
+Số spec lấy từ khối **0089–0094** cộng số **0102** cho SCOREPAIR (0088 ban đầu cấp cho gói này nhưng đã bị WRITINGGPT-0088 dùng; đổi ngày 23/11), số migration từ dải **480–489**, cả hai do anh Andy cấp cho gói này ngày 18/11/2026 (GOI-13 dùng spec 0095–0099 và migration 490–499; gói này không dùng số ngoài hai khối của mình). `01-KE-HOACH-TONG.md` mục 6 đã ghi hai khối này (bản tối 18/11); người thực thi không sửa file đó (chỗ còn phải sửa ở 01: mục 3.4, dòng K1).
 
 | Phần | Mã spec | Thư mục spec | Lớp | Cờ (`runtime_flags`, tắt mặc định) |
 |---|---|---|---|---|
-| C, nhiệm vụ đầu | SCOREPAIR-0088 | `specs/0088-writing-score-pairs/` | high-risk (lưu kết quả chấm, migration) | `writing_score_pairs_record` |
+| C, nhiệm vụ đầu | SCOREPAIR-0102 | `specs/0102-writing-score-pairs/` | high-risk (lưu kết quả chấm, migration) | `writing_score_pairs_record` |
 | A | ERRORBOOK-0089 | `specs/0089-error-book/` | high-risk (migration, dữ liệu bài làm) | `error_book_enabled` |
 | B | REWRITE-0090 | `specs/0090-writing-rewrite/` | high-risk (lời gọi AI trả phí mới, trừ lượt) | `writing_rewrite_enabled` |
 | C, phần sau | SCOREGAP-0091 | `specs/0091-score-gap/` | high-risk (migration; trang công khai nói về chấm bài) | `score_gap_admin`, `score_gap_public` |
@@ -233,7 +233,7 @@ Kiểm bằng cách đọc mã ở `~/code/ielts-speaking-coach` (chỉ đọc).
 
 ### C — Độ lệch AI–giáo viên
 
-Phần đầu (SCOREPAIR-0088):
+Phần đầu (SCOREPAIR-0102):
 - **FR-12-C-001** Mỗi dòng `writing_feedback` có `source` bắt đầu bằng `ai_` được chụp ngay khi chèn, và chụp thêm mỗi lần band của dòng đó đổi (chạy lại cùng job ghi đè band — mục 2.2 kết luận 1(d)), vào bảng chỉ ghi thêm `writing_ai_score_snapshots` (năm band, `prompt_version` gốc đã bỏ hậu tố, `model_used`, `task_type`). Chụp bằng trigger database để mọi đường chấm (kể cả đường sau này) đều được ghi.
 - **FR-12-C-002** Mỗi lần một bài Writing chuyển sang `delivered` (qua `instructor_workflow.deliver` hoặc `admin_writing._deliver_essay`), khi cờ `writing_score_pairs_record` bật, ghi một dòng `writing_score_pairs`: ảnh chụp AI gốc (bản AI đầu tiên của bài), ảnh chụp AI ngay trước khi người duyệt sửa (nếu khác), band của bản đang hiện lúc trả (= điểm giáo viên chốt), người trả, vai trò người trả, đường trả, ngữ cảnh bài (lớp, tự luyện, thi thử, gói), lớp, Task.
 - **FR-12-C-003** Hai bảng chỉ ghi thêm: UPDATE, DELETE, TRUNCATE bị từ chối với mọi vai trò kể cả `service_role` (chỉ xoá theo dây chuyền khi bài bị xoá cứng). Thu hồi rồi trả lại → thêm dòng mới, dòng cũ giữ nguyên; bản đọc "mới nhất" là view.
@@ -313,7 +313,7 @@ Dải 480–489 dùng đủ 10 số (489 chỉ khi làm C08; không làm thì 48
 
 Migration số nhỏ không phụ thuộc đối tượng do migration số lớn tạo. 482, 486, 487, 488 sửa CHECK của bảng gói khác: mỗi file bắt đầu bằng kiểm `to_regclass(...)` và ném lỗi rõ nếu bảng chưa có, để không ai áp trước gói gốc.
 
-### 5.C Phần đầu của C — cặp điểm (SCOREPAIR-0088, migration 480)
+### 5.C Phần đầu của C — cặp điểm (SCOREPAIR-0102, migration 480)
 
 **`writing_ai_score_snapshots`** (chỉ ghi thêm)
 
@@ -528,7 +528,7 @@ Mỗi nhiệm vụ một PR, nhánh `codex/g12-<mã>` từ `origin/staging`. M�
 
 | Mã | Tên | Phần | Phiên | Độ khó |
 |---|---|---|---|---|
-| G12-C01 | Spec SCOREPAIR-0088 | C (sớm) | 1 | 2 |
+| G12-C01 | Spec SCOREPAIR-0102 | C (sớm) | 1 | 2 |
 | G12-C02 | Migration 480: ảnh chụp điểm AI và bảng cặp điểm bất biến | C (sớm) | 2 | 4 |
 | G12-C03 | Ghi cặp điểm khi trả bài + đối soát hằng đêm + dựng lại lịch sử | C (sớm) | 2 | 4 |
 | G12-A01 | Spec ERRORBOOK-0089 | A | 1 | 2 |
@@ -571,10 +571,10 @@ Tổng: 38 dòng (37 nếu không làm C08), khoảng 79 phiên (80 với C08). 
 
 ### Phần C — làm sớm (đợt D, cùng G09-T17)
 
-### G12-C01 — Spec SCOREPAIR-0088
+### G12-C01 — Spec SCOREPAIR-0102
 - Mục đích: có spec được duyệt trước khi viết mã (00 mục 4 điểm 6, 7: lưu kết quả chấm là high-risk).
 - Đầu vào: mục 2.2, 4 (FR-12-C-001…006), 5.C của file này; `specs/_templates/`; `specs/0050-writing-band-save-consistency/` (mẫu spec về lưu band); tờ `DoLechAIGiaoVienAdmin` mục "Ghi chú cho lập trình".
-- Việc làm: 1) Tạo `specs/0088-writing-score-pairs/` (`spec.md`, `plan.md`, `tasks.md`, `rollout.md`, `verification.md`) theo mẫu repo. 2) `spec.md` ghi bốn kết luận ở cuối mục 2.2, FR-12-C-001…006, ngoài phạm vi (không giao diện, không công bố). 3) `rollout.md`: áp 480 ở staging, bật `writing_score_pairs_record` ở staging, chạy đối soát dry-run, rồi production theo lệnh anh Andy. 4) `python backend/scripts/validate_specs.py`.
+- Việc làm: 1) Tạo `specs/0102-writing-score-pairs/` (`spec.md`, `plan.md`, `tasks.md`, `rollout.md`, `verification.md`) theo mẫu repo. 2) `spec.md` ghi bốn kết luận ở cuối mục 2.2, FR-12-C-001…006, ngoài phạm vi (không giao diện, không công bố). 3) `rollout.md`: áp 480 ở staging, bật `writing_score_pairs_record` ở staging, chạy đối soát dry-run, rồi production theo lệnh anh Andy. 4) `python backend/scripts/validate_specs.py`.
 - Đầu ra: 1 PR spec. DỪNG chờ anh Andy duyệt.
 - Nghiệm thu: `python backend/scripts/validate_specs.py` qua; `git diff --check` sạch; spec nêu đủ năm đường làm mất điểm AI (a)–(e) của mục 2.2.
 - Không làm: không viết mã, không migration trong PR này.
@@ -1012,7 +1012,7 @@ Mỗi câu: phương án đề nghị · mặc định tạm người thực thi
 | # | Câu hỏi | Đề nghị | Mặc định tạm |
 |---|---|---|---|
 | G1 | Có đưa C01–C03 (lưu cặp điểm) vào đợt D cùng G09-T17 không? | Có: thiếu nó thì mọi bài duyệt từ nay tới khi làm phần C là mất cặp điểm, trong khi việc chỉ khoảng 5 phiên | **ĐÃ TRẢ LỜI 18/11: CÓ**, đưa vào đợt D (00 điểm 24) |
-| G2 | Ghi số 0088–0094 và 480–489 cho GOI-12 vào sổ ở 01 mục 6 | Ghi | **ĐÃ CÓ** ở 01 mục 6 (bản tối 18/11); người thực thi dùng hai khối này |
+| G2 | Ghi số 0088–0094 và 480–489 cho GOI-12 vào sổ ở 01 mục 6 | Ghi | **ĐÃ CÓ** ở 01 mục 6 (bản tối 18/11); 23/11: SCOREPAIR đổi sang 0102 vì 0088 thuộc WRITINGGPT, người thực thi dùng 0089–0094, 0102 và 480–489 |
 
 **A — Sổ lỗi**
 

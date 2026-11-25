@@ -15,12 +15,21 @@ updates:
       interval: monthly
     open-pull-requests-limit: 2
 
+  # One grouped PR per month so every backend/requirements.txt bump goes
+  # through a single QA pass. httpx/httpcore/supabase/postgrest are pinned on
+  # purpose: re-run tests/test_supabase_singleton_threadsafe.py before merging
+  # a bump (requirements.txt). Security updates are left ungrouped.
   - package-ecosystem: pip
     directory: /backend
     target-branch: staging
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      backend-requirements:
+        applies-to: version-updates
+        patterns:
+          - "*"
 
   # GitHub Actions uses / to scan .github/workflows and root action manifests.
   - package-ecosystem: github-actions

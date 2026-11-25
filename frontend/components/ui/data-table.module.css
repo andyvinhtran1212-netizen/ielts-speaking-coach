@@ -1,0 +1,241 @@
+/* UIBASE-0056 DataTable (ThanhPhanDuLieu §1–2). Only var(--av2-*), no radius beyond the token. */
+.wrap {
+  --dt-row: var(--av2-row);
+  --dt-head: var(--av2-control-md);
+  --dt-pad: var(--av2-space-4);
+  --dt-select-w: 56px;
+  --dt-check: 44px;
+  min-width: 0;
+}
+.dense {
+  --dt-row: var(--av2-row-dense);
+  --dt-head: var(--av2-control-sm);
+  --dt-pad: var(--av2-space-3);
+  --dt-select-w: 44px;
+  --dt-check: 40px;
+  font-size: var(--av2-fs-14);
+}
+
+/* Filter line: "Đang lọc:", chips, "Xoá bộ lọc", result count on the right. */
+.filterLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-3);
+  min-height: var(--av2-control-md);
+  margin: 0 0 var(--av2-space-4);
+}
+.filterWord { font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.filterNone { color: var(--av2-muted); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  padding-left: var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  font-size: var(--av2-fs-15);
+}
+.chipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--av2-control-md);
+  min-height: calc(var(--av2-control-md) - 2px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--av2-ink);
+  cursor: pointer;
+}
+.result { margin-left: auto; font-weight: var(--av2-fw-strong); font-variant-numeric: tabular-nums; }
+.textButton {
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-1);
+  border: 0;
+  background: transparent;
+  color: var(--av2-link);
+  font: inherit;
+  font-size: var(--av2-fs-15);
+  font-weight: var(--av2-fw-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Bulk action bar (or the hint while nothing is selected); same height, so rows never jump. */
+.barSlot { min-height: 56px; margin: 0 0 var(--av2-space-4); }
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-4);
+  min-height: 56px;
+  padding: var(--av2-space-2) var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  border-bottom: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-tint);
+}
+.barCount { font-variant-numeric: tabular-nums; }
+.barRule { width: var(--av2-rule-w); height: 28px; background: var(--av2-rule); }
+.barEnd { display: flex; align-items: center; gap: var(--av2-space-4); margin-left: auto; }
+.barHint {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  margin: 0;
+  padding: 0 var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  color: var(--av2-muted);
+}
+
+/* The table scrolls inside its own frame; the page never scrolls sideways (FR-018). */
+.frame {
+  overflow-x: auto;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+}
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.caption {
+  padding: var(--av2-space-3) var(--av2-space-4);
+  background: var(--av2-paper);
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-14);
+  text-align: left;
+  white-space: normal;
+}
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.head {
+  height: var(--dt-head);
+  padding: 0 var(--dt-pad);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  border-bottom: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+  color: var(--av2-muted);
+  font-size: var(--av2-fs-13);
+  font-weight: var(--av2-fw-strong);
+  text-align: left;
+}
+.sortable { color: var(--av2-ink); }
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-2);
+  min-height: var(--dt-head);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.sortWord { font-weight: var(--av2-fw-regular); color: var(--av2-muted); }
+.sortIdle { color: var(--av2-muted); }
+
+.cell {
+  height: var(--dt-row);
+  padding: 0 var(--dt-pad);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+  text-align: left;
+  font-weight: var(--av2-fw-regular);
+}
+.end { text-align: right; }
+.rowName { font-weight: var(--av2-fw-strong); }
+.rowName.rowName a { color: var(--av2-ink); text-decoration: none; }
+.row:hover .cell { background: var(--av2-paper); }
+.row:hover .rowName.rowName a { text-decoration: underline; }
+.chosen .cell,
+.chosen:hover .cell { background: var(--av2-tint); }
+.missing { color: var(--av2-muted); }
+
+.selectCell { width: var(--dt-select-w); min-width: var(--dt-select-w); max-width: var(--dt-select-w); padding: 0 0 0 var(--av2-space-1); }
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--dt-check);
+  height: var(--dt-check);
+  cursor: pointer;
+}
+.checkInput { width: 20px; height: 20px; margin: 0; accent-color: var(--av2-accent); cursor: pointer; }
+.dense .checkInput { width: 18px; height: 18px; }
+
+/* Actions column: pinned right while the table scrolls. */
+.actionsCell {
+  position: sticky;
+  right: 0;
+  z-index: var(--av2-z-sticky);
+  width: 1%;
+  border-left: var(--av2-rule-w) solid var(--av2-rule);
+}
+.actions { display: flex; align-items: center; gap: var(--av2-space-1); }
+
+/* stickyFirstColumn: the select column and the first column (columns[0]) stay put.
+   A long name wraps instead of pinning half the frame. The other cells never
+   wrap, so while the table scrolls this column is the one that gives way:
+   min-width is its floor (160px, 40% of a phone), max-width its cap. */
+.sticky .selectCell,
+.sticky .pinned {
+  position: sticky;
+  left: 0;
+  z-index: var(--av2-z-sticky);
+}
+.sticky .selectCell + .pinned { left: var(--dt-select-w); }
+.sticky .pinned {
+  min-width: min(160px, 40vw);
+  max-width: min(240px, 45vw);
+  border-right: var(--av2-rule-w) solid var(--av2-rule);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  padding: var(--av2-space-8) var(--av2-space-5);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  text-align: center;
+  white-space: normal;
+}
+
+.empty .emptyTitle {
+  margin: 0 0 var(--av2-space-1);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  font-weight: var(--av2-fw-strong);
+}
+.empty .emptyBody { margin: 0 0 var(--av2-space-4); color: var(--av2-muted); }
+
+.skeleton { display: block; height: 12px; background: var(--av2-off); }
+.skeleton0 { width: 70%; }
+.skeleton1 { width: 45%; }
+.skeleton2 { width: 85%; }
+.loadingNote { margin: var(--av2-space-2) 0 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+
+/* Phone: the action bar sticks to the bottom of the screen (ThanhPhanDuLieu §2). */
+@media (max-width: 767px) {
+  .bar {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--av2-z-sticky);
+  }
+  .barEnd { margin-left: 0; }
+}
