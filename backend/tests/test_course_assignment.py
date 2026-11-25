@@ -484,11 +484,28 @@ def test_an_unknown_bank_is_404():
     assert exc.value.status_code == 404
 
 
-def test_giving_the_same_lesson_twice_is_allowed():
+def test_giving_the_same_lesson_twice_is_allowed_with_a_request_id():
     """Andy 25/11/2026: giao lại bộ đã giao cho lớp là được — chỉ ghi chú."""
     db = _full(class_assignments=[{"id": "a1", "cohort_id": "co-1", "skill": "course",
                                    "content_id": "bank-1", "title": "Bài cũ"}])
-    content_id, _cfg = _resolve(db)
+    content_id, _cfg = _resolve(
+        db, _body(give_request_id="33333333-3333-4333-8333-333333333333"))
+    assert content_id == "bank-1"
+
+
+def test_an_old_client_without_a_request_id_is_still_refused_a_second_give():
+    """REGIVE-0103 FR-005: không có mã thì không phân biệt được giao lại có chủ
+    ý với gửi lại sau khi mất phản hồi, nên giữ chặn theo bộ/lớp như cũ."""
+    db = _full(class_assignments=[{"id": "a1", "cohort_id": "co-1", "skill": "course",
+                                   "content_id": "bank-1", "title": "Bài cũ"}])
+    with pytest.raises(HTTPException) as exc:
+        _resolve(db)
+    assert exc.value.status_code == 409
+    assert "tải lại trang" in exc.value.detail
+
+
+def test_an_old_client_first_give_without_a_request_id_still_works():
+    content_id, _cfg = _resolve(_full())
     assert content_id == "bank-1"
 
 
