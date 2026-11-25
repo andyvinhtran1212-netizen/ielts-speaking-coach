@@ -242,8 +242,8 @@ Gắn giáo viên vào lớp: `PATCH /admin/cohorts/{cohort_id}` hiện có (`ro
 | `PATCH /admin/settings/thresholds` | admin (AAL2) | `{ changes: [{key, value}], reason }` → `{ items }`; 422 `out_of_range` kèm thông điệp tiếng Việt; ghi `admin_settings_log` |
 | `GET /admin/settings/{section}` · `PATCH` (`section` ∈ `email`, `notices`, `payment`) | admin | đọc/ghi một khoá của `admin_settings`; `payment` chỉ có PATCH khi Q20 được duyệt |
 | `GET /admin/settings/log` | admin | `?section&cursor` → `{ items: [{at, actor_name, section, changes, reason}] }`. Khai báo route này (và `/thresholds`, `/trial` của GOI-11) **trước** route `/{section}`; `section` là enum nên `log` không bao giờ khớp nhầm. |
-| `GET /admin/search` | admin | `q` (≥2) → `{ learners[≤3], classes[≤3], submissions[≤3], content[≤3], orders[≤3] }` mỗi dòng `{title, meta, href}`; 422 q ngắn |
-| `GET /instructor/search` | giáo viên | như trên, không có `content`, `orders`; lọc theo `cohort_ids` |
+| `POST /admin/search` | admin | body JSON `{ q }` (≥2; không đặt `q` trên URL vì log HTTP của nền tảng giữ URL — #2453; `GET` → 405) → `{ learners[≤3], classes[≤3], submissions[≤3], content[≤3], orders[≤3], sources_failed, unavailable }` mỗi dòng `{title, meta, href}`; 422 q ngắn |
+| `POST /instructor/search` | giáo viên | như trên (body `{ q }`), không có `content`, `orders`; lọc theo `cohort_ids` |
 
 **Kết quả một bài giao** — **một** API tổng hợp thay ba API của ba tab (thêm vào `routers/admin_class_assignments.py`, logic ở `services/assignment_result.py`):
 

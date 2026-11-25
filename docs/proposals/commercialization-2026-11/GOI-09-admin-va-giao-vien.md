@@ -43,7 +43,7 @@
 |---|---|---|
 | Số trang admin | `app/(authed-admin-*)/admin/**/page.tsx` | Đúng **75** `page.tsx` trong **39** route group. Mỗi group có `layout.tsx` riêng gọi `AuthedShell chrome="admin"`. |
 | Sidebar + thanh trên hiện tại | `public/js/components/aver-admin-chrome.js` (1078 dòng); `NAV_GROUPS` dòng ~425–574 | Custom element Shadow DOM. Mục nhập nội dung đang có trong sidebar: dòng 486 "Import bài luyện" (`/admin/listening/import-drills`), dòng 487 "Import Cambridge" (`/admin/listening/import-fulltest`), dòng 506 "Quick-Check Quiz" (`/admin/vocab/quiz`), dòng 505 "Nội dung từ vựng" (`/admin/vocab/content`), dòng 455 "Soạn bài viết" (`/admin/writing/new`), dòng 463 "Gán bài tập", dòng 469 "Hàng đợi Instructor", dòng 541 "Giảng viên". Nhóm "Thí điểm & QA" dòng 563–571. |
-| Mỗi trang tự gắn khung | ví dụ `app/(authed-admin-users)/admin/users/page.tsx` | Bọc nội dung trong `<aver-admin-chrome active="users">`. |
+| Mỗi trang tự gắn khung | ví dụ `app/(authed-admin)/(users)/admin/users/page.tsx` | Bọc nội dung trong `<aver-admin-chrome active="users">`. |
 | Cổng quyền phía trình duyệt | `components/admin-access-gate.tsx`, `lib/admin-mfa-model.mjs` | Có `AdminStepUpDialog` dùng chung cho vùng nguy hiểm. |
 | Môi trường | `public/js/api.js` dòng 44–45: runtime config (`window.__AVER_RUNTIME_CONFIG__`) có `environment` | Dùng cho nhãn Production/Staging. Không suy từ hostname. |
 | Liên kết học viên → giáo viên | `public/js/components/aver-chrome.js` dòng ~704–723 `_applyRole` | Chèn "Trang giảng viên" (`/instructor`); chưa có link tới `/admin`. |
@@ -58,8 +58,8 @@
 
 | Thứ cần biết | File/đường dẫn thật | Ghi chú |
 |---|---|---|
-| Trang Người dùng + tab Mã | `app/(authed-admin-users)/admin/users/` (`admin-users-panel.tsx`, `admin-access-codes-panel.tsx`, `admin-security-history.tsx`) | `?tab=codes` mở tab mã. |
-| Trang Học viên | `app/(authed-admin-students)/admin/students/admin-students-directory.tsx` | Chi tiết là ngăn kéo gọi `GET /admin/students/{id}` và `GET /admin/writing/students/{id}/summary`. Có "Import CSV" (`POST /admin/students/import`, `routers/admin_students.py` dòng 67) — **giữ**. |
+| Trang Người dùng + tab Mã | `app/(authed-admin)/(users)/admin/users/` (`admin-users-panel.tsx`, `admin-access-codes-panel.tsx`, `admin-security-history.tsx`) | `?tab=codes` mở tab mã. |
+| Trang Học viên | `app/(authed-admin)/(students)/admin/students/admin-students-directory.tsx` | Chi tiết là ngăn kéo gọi `GET /admin/students/{id}` và `GET /admin/writing/students/{id}/summary`. Có "Import CSV" (`POST /admin/students/import`, `routers/admin_students.py` dòng 67) — **giữ**. |
 | Hai thực thể cho một người | `users` và `students` (`migrations/033_writing_coach_tables.sql`; `students.user_id` có thể NULL) | Hồ sơ có thể chưa có tài khoản và ngược lại. |
 | Mục tiêu hai nguồn | `students.target_band`, `students.target_date`, `students.persona_notes`, `students.current_band_estimate` (mig 033 dòng 56–59); `users.target_band`, `users.exam_date` (`migrations/005_add_user_profile.sql` dòng 6–7) | Admin nhập ở `students`; học viên tự khai ở `users`. Chưa có chỗ đối chiếu. |
 | Vai trò | `users.role ∈ ('user','student','instructor','admin')` (mig 323) | Đổi vai trò: `PATCH /admin/users/{user_id}/role` (`routers/admin.py` dòng 854, có `require_recent_mfa`). |
@@ -71,7 +71,7 @@
 | Bài một học viên trong lớp | `GET /admin/cohorts/{c}/students/{s}/work` (`admin_class_assignments.py` dòng 2212) | |
 | Mã kích hoạt | `routers/admin.py`: `/admin/access-codes` (list 1347, generate 1201 có step-up, patch 2328, delete 2417, audit 3004); cột `access_codes`: `session_limit`, `expires_at`, `is_active`, `code_type`, `cohort_id`, `notes`, `issued_by`, `grants_role`, `intended_email` | **Chưa có** cột số lượt chấm kèm mã (G04 thêm). `is_used/used_by/used_at` bất biến. |
 | Giáo trình lớp | `routers/admin_courses.py` prefix `/admin/courses`, bảng `courses` (mig 175, C1–C5) | Khác `course_products` của G04. |
-| Giáo viên (admin) | `routers/admin_instructors.py` (`GET /admin/instructors` dòng 28); trang `app/(authed-admin-instructors)/admin/instructors/admin-instructors.tsx` (lưới thẻ) | Chỉ có danh sách. |
+| Giáo viên (admin) | `routers/admin_instructors.py` (`GET /admin/instructors` dòng 28); trang `app/(authed-admin)/(instructors)/admin/instructors/admin-instructors.tsx` (lưới thẻ) | Chỉ có danh sách. |
 | Bảo mật tài khoản | `routers/admin_staff_security.py`: `PATCH /admin/users/{id}/active`, `POST …/revoke-sessions` (step-up), `GET …/security-audit` | Docstring ghi cho admin/giáo viên; nhận học viên hay không: CHƯA KIỂM (Q9). |
 | Nhật ký có sẵn | `access_code_audit`, `staff_security_audit`, `class_action_log` (mig 356, chỉ ghi thêm), `governance_audit` | Chưa có nhật ký gom theo một học viên. |
 | Streak, hoạt động | `services/student_home_aggregator.py` `_build_streak`; `analytics_events` (mig 018) | Dùng cho lưới 8 tuần. |
@@ -80,7 +80,7 @@
 
 | Thứ cần biết | File/đường dẫn thật | Ghi chú |
 |---|---|---|
-| Giao diện | `app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-homework.tsx` → `admin-class-submissions.tsx` (ba tab); model `lib/admin-class-submissions-model.mjs` | Ba bộ trạng thái: `status` 5 giá trị, `course_state` 8, `state` 6. |
+| Giao diện | `app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-homework.tsx` → `admin-class-submissions.tsx` (ba tab); model `lib/admin-class-submissions-model.mjs` | Ba bộ trạng thái: `status` 5 giá trị, `course_state` 8, `state` 6. |
 | API "Tổng kết" | `GET /admin/cohorts/{c}/assignments/{a}/tally` (`admin_class_assignments.py` dòng 1648, `_hand_in_status` dòng 1541) | `status`: no-account / missing / pending / late / submitted. GOI-11 phần E mở rộng API này (5.5.8). |
 | API "Tiến độ lớp" | `GET /admin/quiz/banks/{bank}/attempt-report?assignment_id=` (`routers/admin_quiz.py` dòng 194 → `services/quiz_service.py` `course_attempt_report` dòng 6382) | Khối `axes` gom theo `item_key` (trục) và cắt `axes[:15]` (dòng 6792). |
 | API "Inspect học viên" | `GET /admin/quiz/banks/{bank}/students/{user}/report?assignment_id=` (`admin_quiz.py` dòng 211 → `course_answer_report` dòng 6041) | Từng câu của một học viên. **Giữ** để mở "bài làm từng câu". |
@@ -147,7 +147,7 @@ Chưa script nào ghi "bản ghi lô". Trạng thái, cấp lớp, hiển thị 
 | Báo lỗi | `routers/error_logs.py` prefix `/admin/error-logs` | Không gom nhóm, không trạng thái nhóm. |
 | Sự cố chấm | `GET /admin/alerts` (`admin.py` dòng 4225) | Chỉ Speaking. |
 | Phản hồi | `routers/feedback.py`: `GET/PATCH /api/admin/feedback` | Tiền tố `/api`. |
-| Công tắc model AI | `app/(authed-admin-overview)/admin/admin-ai-panel.tsx`; `GET /admin/ai/models`, `PATCH /admin/ai/models/{feature}` (`routers/admin_ai.py`, spec 0024) | PATCH không có step-up. |
+| Công tắc model AI | `app/(authed-admin)/(overview)/admin/admin-ai-panel.tsx`; `GET /admin/ai/models`, `PATCH /admin/ai/models/{feature}` (`routers/admin_ai.py`, spec 0024) | PATCH không có step-up. |
 | Công tắc tính năng | `routers/admin_flags.py`: `GET /admin/runtime-flags`, `PATCH /admin/runtime-flags/{key}`; `services/runtime_flags.py` | Dùng cho thẻ Tính năng của Cài đặt. |
 | Bảng cài đặt/ngưỡng chung | Không có (`grep -rn "system_settings\|app_settings\|operational_thresholds" backend/migrations/*.sql` rỗng) | T22 tạo. |
 | Ẩn dữ liệu kiểm thử | `services/test_data_visibility.py` | Dùng cho mọi API đếm mới. |
@@ -789,8 +789,8 @@ Ngưỡng `null` = lý do/khối tương ứng không bật cho tới khi chủ 
 
 ### G09-T02 — "Duyệt bài thi" không còn mở lỗi thiếu mock_exam_id — GIỮ
 - Mục đích: FR-09-063, làm ngay trên trang hiện có (lớp `small`). T34 thay hẳn trang này sau.
-- Đầu vào: `app/(authed-admin-mock-reviews)/admin/mock-reviews/page.tsx`, `admin-mock-reviews.tsx` dòng 119/140, `lib/admin-mock-tests-model.mjs`, test `tests/admin-mock-reviews-next-behavior.test.mjs`; GOI-02.
-- Việc làm: 1) Kiểm G02 đã sửa chưa (`git log origin/staging --oneline -- 'frontend/app/(authed-admin-mock-reviews)'`); đã sửa → đóng bằng bằng chứng. 2) Trong `page.tsx`: `mock_exam_id` rỗng và không `embed=1` → `redirect('/admin/mock-tests?tab=review&notice=choose-exam')`; `embed=1` mà rỗng → đổi câu thành "Chọn một kỳ thi để duyệt bài." 3) Trung tâm Mock Test đọc `notice=choose-exam` hiện một dòng. 4) Test React.
+- Đầu vào: `app/(authed-admin)/(mock-reviews)/admin/mock-reviews/page.tsx`, `admin-mock-reviews.tsx` dòng 119/140, `lib/admin-mock-tests-model.mjs`, test `tests/admin-mock-reviews-next-behavior.test.mjs`; GOI-02.
+- Việc làm: 1) Kiểm G02 đã sửa chưa (`git log origin/staging --oneline -- 'frontend/app/(authed-admin)/(mock-reviews)'`); đã sửa → đóng bằng bằng chứng. 2) Trong `page.tsx`: `mock_exam_id` rỗng và không `embed=1` → `redirect('/admin/mock-tests?tab=review&notice=choose-exam')`; `embed=1` mà rỗng → đổi câu thành "Chọn một kỳ thi để duyệt bài." 3) Trung tâm Mock Test đọc `notice=choose-exam` hiện một dòng. 4) Test React.
 - Đầu ra: 1 PR.
 - Nghiệm thu: mở `/admin/mock-reviews` → về trung tâm với dòng "Chọn một kỳ thi để duyệt bài."; `grep -rn "Thiếu mock_exam_id" frontend/app` rỗng; test frontend qua.
 - Không làm: không đổi API, không đổi iframe.
