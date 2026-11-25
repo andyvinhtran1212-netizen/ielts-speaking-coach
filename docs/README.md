@@ -138,6 +138,7 @@ date.
 | Root (vocab V3 and deploy) | [PHASE_B_V3_FINAL_STATUS.md](history/root/PHASE_B_V3_FINAL_STATUS.md) | 2026-04-24 (last commit) | - |
 | Root (vocab V3 and deploy) | [PHASE_D_V3_PLAN.md](history/root/PHASE_D_V3_PLAN.md) | 2026-04-27 (last commit) | - |
 | Root (vocab V3 and deploy) | [PHASE_D_WAVE_2_PLAN.md](history/root/PHASE_D_WAVE_2_PLAN.md) | 2026-04-27 (last commit) | - |
+| Removed one-off scripts (G01-T12) | `add_metadata_fields.py`, `archive_smoke_listening_content.py`, `audit_listening.py`, `backfill_demographic_gloss_staging.py`, `backfill_speaking_progress.py`, `check_reading_solution_depth.py`, `fix_metadata_audit.py`, `fix_metadata_audit2.py`, `fix_metadata_lists.py`, `fix_writing_feedback_prose.py`, `gv1c_backfill_admin_edits.py`, `prepare_speaking_bank_docx.py`, `validate_grammar_learning_blocks.py`, `verify_migration_033_applied.py` | 2026-11-23 | Recover with `git show cc6dd4c8ff7d:backend/scripts/<file>` |
 
 Domain documents beyond this navigation table remain useful references; verify
 their statements against the current implementation before acting on them.

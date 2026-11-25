@@ -36,7 +36,7 @@ const DS_CSS   = read('css', 'ds.css');
 const TOKENS   = read('css', 'aver-design', 'tokens.css');
 const RESULT   = read('pages', 'result.html');
 const SPIKE    = readFileSync(
-  join(__dirname, '..', '..', 'commission', 'sprint_14_1_spike_findings.md'),
+  join(__dirname, '..', '..', 'docs', 'history', 'commission', 'sprint_14_1_spike_findings.md'),
   'utf8',
 );
 

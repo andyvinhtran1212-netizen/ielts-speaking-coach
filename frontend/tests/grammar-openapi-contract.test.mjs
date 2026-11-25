@@ -16,7 +16,7 @@ const DIAGNOSTIC = readFileSync(
   'utf8',
 );
 const EDUCATOR = readFileSync(
-  path.join(FRONTEND, 'app', '(authed-admin-grammar)', 'admin', 'grammar-diagnostic', 'report.tsx'),
+  path.join(FRONTEND, 'app', '(authed-admin)/(grammar)', 'admin', 'grammar-diagnostic', 'report.tsx'),
   'utf8',
 );
 const MY_CLASS = readFileSync(
