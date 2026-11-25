@@ -456,7 +456,9 @@ def grant_extra_for(*, admin_id: str, credits: int, reason: str, request_key: st
         if cohort is None:
             raise GrantExtraRefused(404, "cohort_not_found")
         members = _cohort_user_ids(cohort_id)
-        if user_ids:
+        if user_ids is not None:
+            if not user_ids:
+                raise GrantExtraRefused(422, "empty_selection")
             wanted = sorted({str(u) for u in user_ids})
             if set(wanted) - set(members):
                 raise GrantExtraRefused(422, "not_in_cohort")
