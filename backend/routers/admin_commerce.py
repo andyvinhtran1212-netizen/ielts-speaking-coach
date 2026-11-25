@@ -1038,6 +1038,10 @@ class GrantExtra(BaseModel):
     @classmethod
     def _user_ids_are_uuids(cls, value):
         if value is not None:
+            # An empty selection is not "the whole class": only leaving the
+            # field out grants every learner of the cohort.
+            if not value:
+                raise ValueError("user_ids must not be empty; leave it out to grant the whole class")
             for item in value:
                 if not re.fullmatch(_UUID, item or ""):
                     raise ValueError("user_ids must be UUIDs")
@@ -1083,6 +1087,7 @@ async def grant_extra(body: GrantExtra, authorization: Optional[str] = Header(No
             "cohort_not_found": "Không tìm thấy lớp.",
             "entitlement_not_found": "Không tìm thấy quyền học này của học viên.",
             "not_in_cohort": "Có học viên không thuộc lớp này.",
+            "empty_selection": "Chưa chọn học viên nào. Chọn ít nhất một học viên, hoặc cấp cho cả lớp.",
             "request_key_conflict": "Mã yêu cầu này đã dùng với số lượt hoặc lý do khác. Tải lại trang rồi cấp lại.",
         }
         raise _error(exc.status_code, exc.error_code, messages[exc.error_code]) from None

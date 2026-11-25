@@ -1,0 +1,213 @@
+/*
+ * EXAMROOM-0066 exam room frame. Only var(--av2-*), no hex. Rooted at
+ * [data-exam-room]; the full-test room is light through FocusShell (FR-025).
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* The work area: a fieldset so time-up and read-only lock every native input at once. */
+.work {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Per-pane lock: disables answer fields only, never the pane tabs. */
+.lock { margin: 0; padding: 0; border: 0; min-width: 0; }
+
+/* Banners sit above the work and never cover an answer field (FR-014). */
+.banners {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av2-space-3);
+  padding: var(--av2-space-4) var(--av2-space-7) 0;
+}
+.banners:empty { display: none; }
+
+/* ---- split (FR-003, FR-004) ---------------------------------------- */
+.split {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+}
+.split.dragging { user-select: none; cursor: col-resize; }
+.pane {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--av2-space-7);
+}
+.separator {
+  width: var(--av2-space-4);
+  cursor: col-resize;
+  touch-action: none;
+  background: var(--av2-tint);
+  border-inline: var(--av2-rule-w) solid var(--av2-rule);
+}
+.separator:hover,
+.separator:focus-visible { background: var(--av2-rule); }
+.separator:focus-visible { outline: var(--av2-focus); outline-offset: calc(-1 * var(--av2-rule-strong-w)); }
+
+/* ---- tabs below 900px (FR-005) ------------------------------------- */
+.tabsLayout { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.paneTabs {
+  display: flex;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+}
+.paneTab {
+  flex: 1 1 0;
+  min-height: var(--av2-control-lg);
+  border: 0;
+  border-bottom: var(--av2-rule-strong-w) solid transparent;
+  background: transparent;
+  color: var(--av2-muted);
+  font: inherit;
+  font-weight: var(--av2-fw-strong);
+  cursor: pointer;
+}
+.paneTab[aria-selected='true'] { color: var(--av2-ink); border-bottom-color: var(--av2-ink); }
+.paneTab:focus-visible { outline: var(--av2-focus); outline-offset: calc(-1 * var(--av2-rule-strong-w)); }
+.tabsLayout > .pane { flex: 1 1 auto; }
+.tabsLayout > .pane[hidden] { display: none; }
+.single { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--av2-space-7); }
+
+/* ---- top bar bits (FR-013, FR-018) -------------------------------- */
+.barRight { display: inline-flex; align-items: center; gap: var(--av2-space-6); }
+.saveStatus { display: inline-flex; align-items: center; gap: var(--av2-space-3); }
+.saveStatus[data-tone='warning'] { color: var(--av2-danger); }
+.textButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--av2-fw-strong);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.textButton:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.fiveLeft { font-weight: var(--av2-fw-strong); }
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- bottom strip: navigator + submit (FR-006–FR-008) -------------- */
+.bottomBar {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-6);
+  padding: var(--av2-space-3) var(--av2-space-7);
+}
+.navigator { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-4); flex: 1 1 auto; min-width: 0; }
+/* A long section (one Listening Part of 40 questions) wraps its cells onto
+   more rows inside the strip instead of widening the page past the submit
+   button (0070 overflow journey, 1024–1440px). */
+.section { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
+.sectionName { font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong); margin-inline-end: var(--av2-space-2); }
+.chip {
+  min-height: 44px;
+  padding: 0 var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+  font-size: var(--av2-fs-13);
+  cursor: pointer;
+}
+.chip[data-flag-rule] { border-bottom: var(--av2-rule-strong-w) solid var(--av2-mark); }
+.cell {
+  position: relative;
+  width: var(--exam-cell-w, 32px);
+  height: 44px;
+  padding: 0;
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+  font-size: var(--av2-fs-13);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+/* Answered: filled. Not colour alone: the number is bold and underlined too. */
+.cell[data-answered] { background: var(--av2-ink); color: var(--av2-surface); font-weight: var(--av2-fw-strong); }
+/* Flagged: a corner mark plus the plum rule. */
+.cell[data-flagged]::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 8px 8px 0;
+  border-color: transparent var(--av2-mark) transparent transparent;
+}
+.cell[data-flagged] { border-bottom: var(--av2-rule-strong-w) solid var(--av2-mark); }
+.cell[aria-current='true'] { outline: var(--av2-focus); outline-offset: 1px; z-index: 1; }
+.cell[data-unsaved]::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--av2-danger);
+}
+.cell:focus-visible, .chip:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.answeredText { font-size: var(--av2-fs-13); color: var(--av2-muted); white-space: nowrap; }
+
+/* Compact bar below 1024px: previous / position / next / Review. */
+.compactBar { display: flex; align-items: center; gap: var(--av2-space-4); flex: 1 1 auto; min-width: 0; }
+.position { font-size: var(--av2-fs-14); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheetGrid {
+  display: grid;
+  grid-template-columns: repeat(var(--exam-sheet-cols, 10), 44px);
+  gap: 4px;
+  margin-bottom: var(--av2-space-6);
+}
+.sheetGrid .cell { width: 44px; }
+.sheetHeading { margin: 0 0 var(--av2-space-3); font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); }
+
+.submitGroup { display: inline-flex; align-items: center; gap: var(--av2-space-4); margin-inline-start: auto; }
+.reason { font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.flagToggle[aria-pressed='true'] { border-bottom: var(--av2-rule-strong-w) solid var(--av2-mark); }
+
+/* ---- time up / outcome / other device ------------------------------ */
+.outcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av2-space-5);
+  padding: var(--av2-space-7);
+}
+.outcomeTitle { margin: 0; font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); }
+.outcomeText { margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-4); }
+.dialogError { margin: var(--av2-space-4) 0 0; color: var(--av2-danger); }
+
+@media (max-width: 1023px) {
+  .bottomBar { padding-inline: var(--av2-space-4); gap: var(--av2-space-4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * { transition: none !important; animation: none !important; }
+}
+
+/* bare: the host page keeps its own top bar (0069 FR-011). */
+.bare { display: flex; flex-direction: column; gap: var(--av2-space-4); }
+.bareStatus { display: flex; justify-content: flex-end; align-items: center; gap: var(--av2-space-6); min-height: 1.5rem; }

@@ -183,6 +183,17 @@ def test_more_than_fifty_credits_steps_up(client, world):
     assert world["step_up"] == ["admin-1"]
 
 
+def test_step_up_counts_each_request_not_the_admins_running_total(client, world):
+    # Andy 23/11 17:00Z: step-up is per request (Q13). Two grants of 30 by the
+    # same admin add up to 60, yet neither request alone exceeds 50.
+    world["db"].tables["entitlements"].append(_ent("e0000000-0000-4000-8000-000000000001", U1, "p-class"))
+    world["balances"]["e0000000-0000-4000-8000-000000000001"] = 0
+    for key in ("9a9a9a9a-0000-4000-8000-000000000011", "9a9a9a9a-0000-4000-8000-000000000012"):
+        assert _post(client, user_ids=[U1], entitlement_id="e0000000-0000-4000-8000-000000000001",
+                     credits=30, request_key=key).status_code == 200
+    assert world["step_up"] == []
+
+
 @pytest.mark.parametrize("body", [
     {"cohort_id": COHORT, "reason": "  "},            # no reason
     {"cohort_id": COHORT, "reason": "ab"},            # too short
@@ -193,6 +204,7 @@ def test_more_than_fifty_credits_steps_up(client, world):
     {"user_ids": [U1, U2], "entitlement_id": "e0000000-0000-4000-8000-000000000001"},
     {"cohort_id": COHORT, "entitlement_id": "e0000000-0000-4000-8000-000000000001"},
     {"cohort_id": COHORT, "user_ids": ["not-a-uuid"]},
+    {"cohort_id": COHORT, "user_ids": []},            # an emptied selection is not the whole class
 ])
 def test_invalid_requests_are_422_and_touch_nothing(client, world, body):
     res = _post(client, **body)
@@ -220,3 +232,13 @@ def test_admin_only_and_a_db_failure_is_503(client, world, monkeypatch):
     world["db"].handlers["fn_credit_grant_extra"] = down
     res = _post(client, cohort_id=COHORT)
     assert res.status_code == 503 and res.json()["detail"]["error_code"] == "credits_unavailable"
+
+
+def test_the_service_refuses_an_empty_selection_before_any_grant(world):
+    # A caller that skips the request model still cannot turn [] into the whole class.
+    with pytest.raises(credits.GrantExtraRefused) as refused:
+        credits.grant_extra_for(admin_id="admin-1", credits=5, reason="Bù bài chấm lỗi",
+                                request_key=KEY, cohort_id=COHORT, user_ids=[])
+    assert (refused.value.status_code, refused.value.error_code) == (422, "empty_selection")
+    assert world["db"].rpcs == [] and world["ledger"] == {}
+    assert world["balances"] == {"e1-short": 0, "e1-long": 2, "e2": 0, "e3": 4}
