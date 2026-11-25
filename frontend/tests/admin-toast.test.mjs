@@ -56,11 +56,13 @@ describe('migration — mechanical, timing preserved', () => {
   // list 2026-07-17 — those admin surfaces were decommissioned (usage audit).
   // LEGACYJS-0075 W1 (2026-11-23): the 7 admin-listening-* scripts were deleted;
   // their Next owners under app/(authed-admin-listening) use inline banners.
-  test('all 12 showBanner now delegate to showToast', () => {
+  // LEGACYJS-0075 W3a: admin-access-codes.js and admin-users.js were deleted;
+  // the Next /admin/users panels show inline role="status"/"alert" banners.
+  test('all 10 showBanner now delegate to showToast', () => {
     for (const f of [
-      'admin-access-codes.js','admin-dashboard.js','admin-error-logs.js',
+      'admin-dashboard.js','admin-error-logs.js',
       'admin-reading-attempts.js','admin-speaking-sessions.js',
-      'admin-speaking-topics.js','admin-users.js','admin-vocab-d1.js','admin-vocab-exercises.js',
+      'admin-speaking-topics.js','admin-vocab-d1.js','admin-vocab-exercises.js',
       'admin-vocab-lemmas.js','admin-vocab-stats.js','admin-writing-queue.js',
     ]) delegates(f);
   });
@@ -75,8 +77,7 @@ describe('migration — mechanical, timing preserved', () => {
     assert.doesNotMatch(src, /(?<!\.)\balert\(/);
     assert.doesNotMatch(src, /(?<![.\w])confirm\((?!Danger)/);
   });
-  test('auto-dismiss timing preserved: 4s (access-codes) · 5s (speaking-sessions)', () => {
-    assert.match(read('js', 'admin-access-codes.js'), /showToast\(msg, kind === 'error' \? 'error' : 'success', \{ timeout: 4000 \}\)/);
+  test('auto-dismiss timing preserved: 5s (speaking-sessions)', () => {
     assert.match(read('js', 'admin-speaking-sessions.js'), /timeout: 5000/);
   });
   test('persist preserved: dashboard keeps persist:true', () => {
@@ -111,7 +112,6 @@ describe('migration — setAlert (4 pages), error-persist not swallowed', () => 
 
 describe('migration — toast.js loaded on migrated pages', () => {
   for (const p of [
-    ['pages','admin','access-codes','index.html'],
     ['pages','admin','writing','queue.html'],
     ['pages','admin','writing','grade.html'],
     ['pages','admin','classes','index.html'],   // GĐ 1b: bảng Học viên đã chuyển vào đây
