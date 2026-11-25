@@ -18,6 +18,7 @@ the assignment instead.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 import hashlib
@@ -1079,7 +1080,7 @@ async def list_course_banks(
             or bank.get("code") or ""),
     ))
 
-    given = _last_given_at(cohort_id, "course")
+    given = await asyncio.to_thread(_last_given_at, cohort_id, "course")
     counts: dict = {}
     questions_by_bank: dict[str, list[dict]] = {}
     audio_required: dict = {}
@@ -1267,7 +1268,7 @@ async def list_speaking_lesson_sets(
     if not sets:
         return {"items": []}
 
-    given = _last_given_at(cohort_id, "speaking")
+    given = await asyncio.to_thread(_last_given_at, cohort_id, "speaking")
 
     part_of = {s["id"]: s["part"] for s in sets}
     by_set: dict[str, list] = {}
@@ -1365,7 +1366,7 @@ async def list_speaking_topics(
     if not topics:
         return {"items": [], "part": part}
 
-    given = _last_given_at(cohort_id, "speaking")
+    given = await asyncio.to_thread(_last_given_at, cohort_id, "speaking")
 
     want = _QUESTIONS_PER_PART.get(part, 1)
     # Dùng cùng nhóm giọng với lệnh giao. Đủ audio rải giữa Kokoro và OpenAI
@@ -2787,9 +2788,11 @@ async def create_assignment(
         else:
             _require_course_five(cohort_id)
             fingerprint = _grammar_give_fingerprint(body)
-        replay = (_existing_grammar_give(cohort_id, give_id, fingerprint, "course")
-                  if course_give else
-                  _existing_grammar_give(cohort_id, give_id, fingerprint))
+        if course_give:
+            replay = await asyncio.to_thread(
+                _existing_grammar_give, cohort_id, give_id, fingerprint, "course")
+        else:
+            replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
         if replay:
             # A give that completed before the archive replays its receipt (FR-003).
             return replay
@@ -2970,7 +2973,8 @@ async def create_assignment(
         if give_id and course_give and "uq_course_give_request" in str(exc):
             # Migration 509: the same course give was still in flight when this
             # one inserted. The winner has committed; answer with its receipt.
-            replay = _existing_grammar_give(cohort_id, give_id, fingerprint, "course")
+            replay = await asyncio.to_thread(
+                _existing_grammar_give, cohort_id, give_id, fingerprint, "course")
             if replay:
                 return replay
         # Migration 337 guard: the class was archived after the check above.
