@@ -2,6 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  bandCaption,
   buildFinalBandsPayload,
   initialBandDraft,
   normalizeBulkAck,
@@ -82,6 +83,27 @@ describe('Admin Mock Reviews strict models', () => {
     assert.equal(missingSpeaking.ok, false, 'live assessment still needs a signed-off Speaking band before save');
     const saved = buildFinalBandsPayload(detail, { listening: '7', reading: '6.5', writing: '6.5', speaking: '7' }, { reading: true, speaking: true }, ' ok ');
     assert.deepEqual(saved.value, { final_bands: { listening: 7, reading: 6.5, writing: 6.5, speaking: 7 }, examiner_comment_vi: 'ok', retest_flags: { listening: false, reading: true, writing: false, speaking: true } });
+  });
+
+  test('each band box says where its number came from, why it may stay blank, or that it must be typed', () => {
+    const detail = normalizeReviewDetail({
+      ...rawDetail,
+      blankable_skills: ['listening', 'writing'],
+      review: { ...rawDetail.review, ai_draft: { reading: { band: 6.5 } }, final_bands: {}, per_skill_notes: { speaking: { bands: { fc: 7 } } } },
+    });
+    // A pre-filled draft names its source.
+    assert.equal(bandCaption(detail, 'reading'), 'Tự tính từ số câu đúng');
+    // Blankable for different reasons: L/R off the published table, Writing without two graded essays.
+    assert.equal(bandCaption(detail, 'listening'), 'Điểm thô không có band trong bảng IELTS — có thể để trống (overall sẽ để trống theo).');
+    assert.equal(bandCaption(detail, 'writing'), 'Chưa chấm đủ 2 bài nên không tính được band — có thể để trống (overall sẽ để trống theo).');
+    // No draft, not blankable: the examiner must type it (Codex #782: Speaking).
+    assert.equal(bandCaption(detail, 'speaking'), 'Chưa có band tự tính — cần bạn nhập.');
+    // A confirmed band needs no caption, and a confirmed band hides the draft source.
+    const saved = normalizeReviewDetail({ ...rawDetail, review: { ...rawDetail.review, final_bands: { reading: 7, speaking: 6.5 } } });
+    assert.equal(bandCaption(saved, 'reading'), '');
+    assert.equal(bandCaption(saved, 'speaking'), '');
+    assert.equal(bandCaption(saved, 'writing'), 'Gợi ý từ hai bài đã chấm');
+    assert.equal(bandCaption(null, 'reading'), '');
   });
 
   test('accepts only half-band steps and permits canonical blankable skills', () => {

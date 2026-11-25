@@ -6,15 +6,15 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const TOPICS = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'topics', 'admin-vocab-topics.tsx');
-const QUIZ = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'quiz', 'admin-vocab-quiz-import.tsx');
-const HUB = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'page.tsx');
+const TOPICS = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'topics', 'admin-vocab-topics.tsx');
+const QUIZ = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'quiz', 'admin-vocab-quiz-import.tsx');
+const HUB = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 
 describe('Admin Topics + Quick-Check native ownership', () => {
   test('owns clean routes and retains rollback HTML', () => {
-    assert.ok(existsSync(join(ROOT, 'app', '(authed-admin-vocab)', 'admin', 'vocab', 'topics', 'page.tsx')));
-    assert.ok(existsSync(join(ROOT, 'app', '(authed-admin-vocab)', 'admin', 'vocab', 'quiz', 'page.tsx')));
+    assert.ok(existsSync(join(ROOT, 'app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'topics', 'page.tsx')));
+    assert.ok(existsSync(join(ROOT, 'app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'quiz', 'page.tsx')));
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'vocab', 'topics.html')));
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'vocab', 'quiz.html')));
     assert.match(HUB, /href: '\/admin\/vocab\/topics'/);
