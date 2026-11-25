@@ -89,29 +89,32 @@ Chép nguyên văn `00-QUY-UOC-CHUNG.md` mục 2 và câu trả lời của anh 
 
 ## Problem
 
-Hiện trạng repo mà gói đã đọc (staging @ 93c7085):
+Hiện trạng repo mà gói đã đọc (staging @ 93c7085), chỉ giữ các dòng của phần D; bảng đầy đủ của gói ở GOI-11. Rà lại ngày 23/11 trên `staging`: xem mục "Lối vào full test (rà 23/11)" ngay dưới bảng.
 
 | Thứ cần biết | File/đường dẫn thật | Ghi chú |
 |---|---|---|
-| Thông báo trong ứng dụng | không có bảng, route hay component nào (`grep -rn "notification" backend/migrations` chỉ ra cột `users.notification_email`) | Làm mới hoàn toàn. |
-| Cột bật/tắt thư | `backend/migrations/013_extend_user_profile.sql` dòng 6 `users.notification_email BOOLEAN DEFAULT TRUE`; đọc/ghi ở `backend/routers/auth.py` dòng 80, 463, 1121, 1155; `PATCH /auth/profile` (dòng 1083) sau cờ `profile_update` | Là công tắc chung, không theo loại thư. Giữ làm công tắc tổng. |
-| Bài được giao của học viên | `backend/routers/class_student.py`: `_visible_assignments` (dòng 493), `_visible_writing_gives` (dòng 439), `_decorate` (dòng 268) tính `is_late`, `is_missing = not submitted_at and due and due < now`; `is_assignment_open` (import dòng 44, dùng dòng 588); `GET /api/class/my-assignments` (658), `GET /api/class/me` (1066) | Bộ đếm quá hạn phải dùng đúng các hàm này, không viết truy vấn thứ hai. |
-| Bảng bài giao | `backend/migrations/177_class_assignments.sql`: `class_assignments(cohort_id, lesson_id, skill, content_id, content_config jsonb, title, due_at, publish_at, status draft/published/archived)`; `class_assignment_items(assignment_id, student_id, state assigned/opened/submitted/graded, opened_at, submitted_at, score NUMERIC(3,1), UNIQUE(assignment_id, student_id))`; RLS chỉ policy admin (dòng 233–245), học viên đọc qua backend | "Trễ" và "bỏ bài" không lưu, suy từ mốc thời gian (comment dòng 262–270). `class_assignments.timed_started_at` (mig 272) khoá hạn khi bài có giờ đã bắt đầu. |
-| Giao bài | `backend/routers/admin_class_assignments.py` (prefix `/admin/cohorts`, dòng 99): model tạo bài dòng 195–290 (`completion_mode: mastery|single_attempt`, `time_limit_minutes`, `student_ids` giao cho một nhóm, `pass_pct`…); kiểm Course dòng 930–1033 (đề `meta.assessment_kind == "final"` bắt buộc `single_attempt`; `single_attempt` chỉ cho bộ trắc nghiệm thuần; trùng bank trong lớp → 409); `POST /{cohort_id}/assignments` (2742), `PATCH …/{assignment_id}` chỉ đổi `status` (2995), `PATCH …/due` (3110), `GET …/tally` (1648) | `MAX_COURSE_TIME_LIMIT_MINUTES = 12 * 60` ở `backend/services/class_assignment_service.py` dòng 81 (khớp "1–720 phút" của tờ KiemTraKhoa). |
-| Chấm bài kiểm tra của khoá | `backend/services/quiz_service.py` (7.373 dòng): `course_completion_mode` (363), `single_attempt_answers_sealed` (376), `_ensure_timed_course_session` (2058), `start_session` (2175), `log_progress` (3086) trả phản hồi từng câu qua `_course_attempt_feedback` (3233: `is_correct`, `answer`, `explain`, `why_wrong`), `end_session` (3349), `course_verdict` (5025), `reap_expired_course_assessments` (5596), `_course_review_gate` (5999), `course_answer_report` (6041), `_sealed_course_session_ids` (7209), `student_progress` (7263) | Chấm và trả **ngay** trong backend. Chỉ có "niêm phong đáp án tới khi nộp" của `single_attempt`; không có trạng thái "chờ công bố", không có bảng công bố. |
-| Route học viên lộ kết quả | `backend/routers/quiz.py` (prefix `/api/quiz`): `GET /banks/{bank_id}` (136), `/banks/{bank_id}/course-timer` (154), `/banks/{bank_id}/course-resume` (168), `/progress` (93), `/mistakes` (107), `POST /sessions/{id}/progress` (349), `PATCH /sessions/{id}` (361), `GET /course/report` (321), `POST /course/verdict` (338); `backend/routers/class_student.py` trả `score`, `passed_at`, `course_action` trong `_decorate`; `backend/routers/kp.py` `/api/me/kp-mastery` (67), `/api/me/roadmap` (83) | Mọi đường này phải qua cổng công bố ở phần E. |
-| Đọc thẳng bảng đáp án | `backend/migrations/119_quiz_progress.sql` dòng 40, 86: policy `quiz_sessions_select`, `quiz_attempts_select` (`auth.uid() = user_id`); `quiz_attempts.is_correct BOOLEAN NOT NULL` (dòng 60) | Học viên đọc được `is_correct` của mình qua Supabase REST, vượt mọi cổng backend. `specs/0046-quiz-server-check-key-release/spec.md` (status **draft**) FR-017 định thu quyền này. |
-| Spec liên quan đã có | `specs/0043-course-assessment-lesson-report/` (approved: báo cáo theo buổi cho giáo viên, "Buổi yếu là dưới 60%"); `specs/0046-…` (draft: chấm ở máy chủ, đáp án bài một lượt mở sau hạn hoặc khi cả lớp nộp, FR-011, FR-017–FR-019); `specs/0047-free-trial-grading/` (approved 10/11, migration 371 đã cấp, chưa có mã) | E xây trên 0043 và 0046; B sửa đổi 0047. |
-| Chấm thử 0047 | `specs/0047-free-trial-grading/spec.md` FR-001 (chỉ tài khoản chưa từng kích hoạt, cột mới `users.first_activated_at`), FR-003 (hạn mức theo env `TRIAL_SPEAKING_PER_DAY=5`, `TRIAL_WRITING_PER_DAY=1`, `TRIAL_SPEAKING_TOTAL=20`, `TRIAL_WRITING_TOTAL=5`; giữ chỗ nguyên tử, hoàn khi lỗi, `request_key`), FR-004 (trần USD riêng), FR-007–FR-010 (chống nhiều tài khoản); `plan.md` dòng 117–128 bảng `trial_accounts`, `trial_usage(status reserved/consumed/released/filtered, vn_day)`; `rollout.md` cờ `free_trial_enabled`, env `TRIAL_KILL_SWITCH` | Không có "trần mỗi ngày toàn web" tính theo số bài; các trần đang là env, không sửa được từ trang admin. |
-| Cờ chạy thật | `backend/services/runtime_flags.py` (`is_enabled`, `set_flag`, `require_flag`), bảng `runtime_flags` (mig 155), `backend/routers/admin_flags.py` `GET /admin/runtime-flags` (34), `PATCH /admin/runtime-flags/{key}` (46) | Không có bảng cài đặt có giá trị số. |
-| Thư cho học viên | chưa có; G04 định `learner_email_outbox` (G04 mục 5.2) và `services/learner_email.py`, cron `scripts/enrollment_sweep.py`; mẫu gửi hiện có `backend/services/owner_alerts.py`, cron `backend/railway.staff-security-sweep.json` (`*/5 * * * *`) | — |
-| Phòng thi, điểm tạo lượt | Reading: `POST /api/reading/test/{test_id}/attempts` (`backend/routers/reading_student.py` dòng 1284), gọi từ `frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx` dòng 965–981; Mock: `POST /api/mock-exams/{code}/sittings` (`backend/routers/mock_exams.py` dòng 153); trang `(authed-full-test)`, `(authed-mock-exam)`, `(authed-exam)`, `(authed-listening-player)` | Chưa có kiểm độ rộng vùng nhìn nào. |
-| Cấu hình chạy cho trình duyệt | `frontend/public/js/runtime-config.js`; `frontend/tooling/content-security-policy.mjs` dòng 5 dẫn xuất từ cùng nguồn | CHƯA KIỂM cách sinh file này: `grep -rn "runtime-config" frontend/tooling frontend/scripts frontend/package.json`. |
-| Nhận diện | `frontend/public/favicon.svg` (trùng `frontend/favicon.svg`, `docs/brand/assets/favicon.svg`); `frontend/app/manifest.ts` (một icon SVG, `theme_color '#0f766e'`, `background_color '#f7f8f7'`); `frontend/app/layout.tsx` dòng 41–55 (`metadataBase`, `icons: { icon: '/favicon.svg' }`, `openGraph` không có ảnh); không có `opengraph-image.*` trong `frontend/app`; `docs/brand/social-assets/` 17 SVG | `frontend/tests/brand-favicon.test.mjs` ghim hình "Mũi lên" (`d="M25 72 L50 32 L75 72"`, chấm `#F59E0B`, màu `#0F766E`), ghim bản trùng byte với `docs/brand/assets/favicon.svg`, và ghim chuỗi `icons: { icon: '/favicon.svg' }` trong `layout.tsx`. |
-| Icon | G03-T03 định dựng ~30 icon từ gói `lucide` nét 1,5; tờ `ThanhPhanNenTang` định bộ **94 icon tự vẽ** (lưới 24, nét 2, đầu nét tròn, dữ liệu path trong `iconGroups` của tờ) thay emoji và ký tự (›, ‹, ×, →…) | Hai nguồn khác nhau, xem 3.3. |
-| Grammar Wiki | Nội dung `backend/content/<category>/<slug>.md`, nhóm `backend/content/_groups.yaml`; dựng HTML ở `backend/services/grammar_content.py` (`markdown.Markdown(extensions=["tables","fenced_code","toc","attr_list", strikethrough])` dòng 323) rồi `inject_learning_blocks` (dòng 334) từ `backend/services/grammar_learning_blocks.py`: khối khai trong frontmatter `learning_blocks`, đặt bằng `<!-- learning-block: id -->`, kiểu `check|visual|repair|transfer|takeaways`, `visual.variant ∈ decision-tree|timeline|sentence-xray|chart-map|flow`, mọi chuỗi được `escape`; 20 bài đang dùng; test `backend/tests/test_grammar_learning_blocks.py`; trang `frontend/app/(public-content)/grammar/[category]/[slug]/page-shell.tsx` chèn HTML bằng `dangerouslySetInnerHTML` | Renderer sơ đồ mới phải là kiểu khối mới trong cơ chế này, không thêm đường dựng HTML thứ hai. |
+| Phòng thi, điểm tạo lượt | Reading: `POST /api/reading/test/{test_id}/attempts` (`backend/routers/reading_student.py` dòng 1284), gọi từ `frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx` ~L960–995; Mock: `POST /api/mock-exams/{code}/sittings` (`backend/routers/mock_exams.py` dòng 153); trang `(authed-full-test)`, `(authed-mock-exam)`, `(authed-exam)`, `(authed-listening-player)` | Chưa có kiểm độ rộng vùng nhìn nào. |
+| Cấu hình chạy cho trình duyệt | `frontend/public/js/runtime-config.js`; `frontend/tooling/content-security-policy.mjs` dòng 5 dẫn xuất từ cùng nguồn | Đã kiểm 23/11: `prebuild` (`package.json`) chạy `tooling/generate-runtime-config.mjs` từ các biến `AVER_*`; xem `plan.md` 5.4. |
 | Giáo viên | `backend/routers/admin.py::require_instructor` (dòng 112, `staff_guard.resolve_staff(need="instructor")`); `students.instructor_id` (mig 106) | Đã kiểm ở `c3bc71574` (18/11): repo chỉ có `students.instructor_id`; bảng `cohorts` chưa có cột giáo viên. Đã chốt (00 mục 2 điểm 23): mỗi lớp MỘT giáo viên, cột `cohorts.instructor_id` do G09-T24 thêm (migration 441); không có bảng nhiều giáo viên. |
 | Tên khoá online, nhãn "Đăng ký lại" | Không có chuỗi tên khoá online hay "Đăng ký lại"/"Gia hạn" nào trong `frontend/app`, `frontend/lib`, `frontend/components` (đã grep) | Tên chỉ tồn tại sau khi G04 có `course_products`. |
+
+### Lối vào full test (rà 23/11)
+
+| Lối vào | Tạo lượt ở đâu | Tạo khi nào |
+|---|---|---|
+| Reading test | `startFresh` → `POST /api/reading/test/{test_id}/attempts` (`reading-exam-session.tsx` ~L960–995) | khi bấm |
+| Listening test | `startFresh` → `POST /api/listening/tests/{test_id}/attempts` (`listening-test-session.tsx` ~L673–690) | khi bấm |
+| Speaking full test | thẻ "fulltest" của trang Speaking → `POST /sessions` `mode: 'test_full'` (`speaking-behavior.tsx` ~L1094), rồi `/practice/session`; lệnh này tiêu một lượt session trong ngày (`MAX_SESSIONS_PER_USER_PER_DAY`) | khi bấm |
+| Thi thử (mock) | `POST /api/mock-exams/{code}/sittings` trong effect khởi động của `mock-exam-runner.tsx` (~L813–817) | **khi mở trang**: cổng phải bọc runner trước effect này |
+| Danh sách thi thử | `(authed-full-test)/full-test` nay là danh sách (`GET /api/mock-exams`), không tạo lượt | — |
+
+`mock-exam-runner.tsx` đã có `matchMedia('(max-width: 860px)')` để đổi bố cục (L404); ngưỡng
+bố cục này độc lập với ngưỡng chặn của FR-050. Kỳ thi thử do admin mở từng phần cho mọi người
+(`mock_exams.py`: không có "start" riêng từng học viên), nên đồng hồ của kỳ thi xếp lịch chạy
+dù học viên bị chặn (câu hỏi mở 29).
+
+`isFullTest` của mỗi trình lấy từ dữ liệu máy chủ, không từ URL: Reading theo
+`reading_tests.test_type = 'full'` (EXAMREAD-0067 FR-004); mỗi spec trình G08 ghi nguồn của mình.
 
 ## Scope
 
@@ -136,7 +139,7 @@ Hiện trạng repo mà gói đã đọc (staging @ 93c7085):
 
 Đánh số theo gói (FR-11-NNN → FR-NNN, giữ nguyên số).
 
-- **FR-050:** Khi mở bất kỳ lối vào nào của full test — full test từng kỹ năng (đề tự chọn), mock test được giao, kỳ thi xếp lịch; gồm phòng chờ, Before you begin, chuyển phần, tiếp tục bài dở — mà chiều rộng vùng nhìn < `fullTestMinViewportPx` (mặc định 768): hiện màn chặn tiếng Anh theo tờ ThanhPhanKhungTrang mục 6, kèm **một dòng phụ tiếng Việt** (FR-056), không gọi API tạo lượt/sitting, không chạy đồng hồ, không trừ lượt.
+- **FR-050:** Khi mở bất kỳ lối vào nào của full test — full test từng kỹ năng (đề tự chọn), mock test được giao, kỳ thi xếp lịch; gồm phòng chờ, Before you begin, chuyển phần, tiếp tục bài dở (tiếp tục bài dở: xem câu hỏi mở 28) — mà chiều rộng vùng nhìn < `fullTestMinViewportPx` (mặc định 768): hiện màn chặn tiếng Anh theo tờ ThanhPhanKhungTrang mục 6, kèm **một dòng phụ tiếng Việt** (FR-056), không gọi API tạo lượt/sitting, không chạy đồng hồ, không trừ lượt.
 - **FR-051:** Từ ngưỡng trở lên (tablet dọc 768px) vào được mọi phần của full test.
 - **FR-052:** Đang trong lượt thi đã bắt đầu mà vùng nhìn hẹp lại (xoay, thu cửa sổ): không kết thúc bài, không đẩy ra, không dừng đồng hồ; hiện dải nhắc tiếng Anh không che bài (mặc định tạm, mục 10 câu 12).
 - **FR-053:** **Mini test**, luyện từng phần (chế độ luyện, bài giao dạng luyện) và bài kiểm tra của khoá **không** bị chặn (00 mục 2 điểm 13; trả lời câu 11).
@@ -177,6 +180,7 @@ Bảng vướng mắc của gói (mục 7):
 | Cron chưa có trên Railway | thông báo không sinh, thư không đi | Chạy tay `python -m scripts.notification_sweep`; báo "đã có ở nhánh, chưa chạy định kỳ" | — |
 | hai phiên thực thi sửa `aver-chrome.js`, `next.config.ts`, `grammar_learning_blocks.py` | xung đột merge | Theo thứ tự 01 mục 3; phiên sau rebase | — |
 | Tờ thiết kế và yêu cầu 17/11 khác nhau | ví dụ dải nhắc giữa bài thi | Theo yêu cầu 17/11, ghi chỗ khác trong PR | Mục 10 có câu tương ứng chưa trả lời và hành vi khó đổi về sau → hỏi |
+| Máy tính phóng to (zoom) | `innerWidth` < ngưỡng trên máy tính (ví dụ 1280px zoom 200%) | Đúng là bị chặn (thước là CSS px); màn chặn gợi ý thu zoom về 100% | — |
 | Test gọi mạng | `tests/test_suite_makes_no_live_calls.py` đỏ | Resend, Supabase qua giả | — |
 
 ## Success criteria
@@ -192,11 +196,15 @@ Bảng vướng mắc của gói (mục 7):
 
 ## Open questions
 
+Năm câu D1–D5 của review sẵn sàng (câu 10, 12, 27, 28, 29) đã chốt theo đề xuất: anh Andy gõ "duyệt 0081 D1–D5 theo đề xuất" lúc 23/11 13:21Z.
+
 Câu hỏi của gói (mục 10) thuộc phần này; mỗi câu có mặc định tạm người thực thi dùng tới khi anh Andy trả lời.
 
 | # | Câu hỏi | Phương án đề nghị | Mặc định tạm người thực thi dùng |
 |---|---|---|---|
-| 10 | Ngưỡng chặn full test (00 mục 2 điểm 13 ghi 768px là "ngưỡng đề xuất, chưa chốt") | 768px | 768px, cấu hình được |
+| 10 | Ngưỡng chặn full test (00 mục 2 điểm 13 ghi 768px là "ngưỡng đề xuất, chưa chốt") | 768px (trùng UIBASE-0056). iPad mini dọc rộng 744 CSS px nên bị chặn: màn chặn thêm câu "On a tablet, turn it sideways." | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): 768px, mặc định trong code (không thêm env) |
 | 11 | **ĐÃ TRẢ LỜI 17/11** — mini test không tính là full test, không bị chặn trên điện thoại | — | FR-053 |
-| 12 | Đang thi mà màn hẹp lại: dải nhắc không che bài (yêu cầu 17/11) hay che bài kèm "Rotate your tablet back to continue." (tờ ThanhPhanKhungTrang)? | Dải nhắc không che bài; bài và đồng hồ chạy tiếp | Dải nhắc không che bài |
-| 27 | Câu chữ dòng phụ tiếng Việt ở màn ngoài bài thi của full test (chặn điện thoại, lỗi thiết bị) | Câu ở 5.4 | Như đề nghị |
+| 12 | Đang thi mà màn hẹp lại: dải nhắc không che bài (yêu cầu 17/11) hay che bài kèm "Rotate your tablet back to continue." (tờ ThanhPhanKhungTrang)? | Dải nhắc không che bài; bài và đồng hồ chạy tiếp | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Dải nhắc không che bài |
+| 27 | Câu chữ dòng phụ tiếng Việt ở màn ngoài bài thi của full test (chặn điện thoại, lỗi thiết bị) | Câu ở 5.4, thêm "Máy tính bảng thì xoay ngang." | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề nghị |
+| 28 | Lượt đã bắt đầu, mở lại trên màn hẹp (tải lại, đổi máy): FR-050 chặn "tiếp tục bài dở" với câu "Nothing has started…", trong khi giờ máy chủ vẫn chạy và FR-052 cho làm tiếp khi màn hẹp lại giữa bài | Chỉ chặn trước khi tạo lượt/sitting mới; lượt đã bắt đầu luôn mở tiếp, kèm dải nhắc FR-052 | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề nghị, chờ anh Andy |
+| 29 | Kỳ thi thử xếp lịch: admin mở phần cho mọi người, đồng hồ chạy dù học viên bị chặn | Vẫn chặn dưới ngưỡng, với câu riêng "This exam is already running. Open it on a computer or tablet now." (không có "Nothing has started") | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề nghị, chờ anh Andy |
