@@ -788,7 +788,10 @@ jobs:
   browser-regression:
     name: Next-native browser regression
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # 45: the ADMINGROUP-0077 route-group flow visits every ordered pair of
+    # (authed-admin) pages; after T007 it alone takes ~12 min and the job ran
+    # past 30 (570be010).
+    timeout-minutes: 45
     # Job LUÔN chạy và luôn báo check (check bắt buộc của staging): skip ở mức job
     # thì GitHub báo «skipped»; ở đây PR ngoài danh sách chỉ chạy bước báo bỏ qua
     # rồi XANH. `!cancelled()`: `changes` hỏng ⇒ output rỗng ⇒ RUN_BROWSER 'true'.
