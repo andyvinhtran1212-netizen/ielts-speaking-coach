@@ -8599,7 +8599,8 @@ export interface paths {
          *         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
          *         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
          *       - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
-         *       - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+         *       - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...};
+         *         lượt đã bỏ (`abandoned`) không vào lịch sử (EXAMLISTENT-0070 FR-012)
          *       - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
          *
          *     Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
