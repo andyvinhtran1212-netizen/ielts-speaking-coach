@@ -94,13 +94,14 @@ def test_only_ONE_place_in_the_backend_turns_essay_cleanliness_into_a_score():
     root = pathlib.Path(__file__).resolve().parents[1]
     pat = re.compile(r"clean[^\n]{0,30}/[^\n]{0,40}(total|len\()")
     offenders = []
-    for f in sorted(list(root.glob("services/*.py")) + list(root.glob("routers/*.py"))):
+    # rglob: router/service packages (routers/admin/, routers/listening/) count too.
+    for f in sorted(list(root.glob("services/**/*.py")) + list(root.glob("routers/**/*.py"))):
         for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
             if line.lstrip().startswith("#"):
                 continue
             if pat.search(line):
-                offenders.append(f"{f.name}:{n}")
-    assert offenders == ["quiz_service.py:" + str(_line_of_rule())], \
+                offenders.append(f"{f.relative_to(root).as_posix()}:{n}")
+    assert offenders == ["services/quiz_service.py:" + str(_line_of_rule())], \
         f"thêm một nơi tự tính điểm bài viết: {offenders}"
 
 

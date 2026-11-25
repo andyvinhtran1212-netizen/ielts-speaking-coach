@@ -49,3 +49,10 @@ Use only the separate guarded correction packages after their own explicit
 release approval. Deploy any new SVG assets before content references them.
 Follow the repository staging-first workflow, verify the exact deployment SHA
 and live practice journey, and keep Full Test outside the mutation.
+
+## Apply SQL removed from the tree (G01-T15)
+
+The `release/*-apply.sql` files were applied on staging and production (release PR #1676) and
+are no longer kept in the tree. Recover the exact bytes with
+`git show cc6dd4c8ff7d:backend/content/reading-practice/expansion-20261015/release/<env>-apply.sql` and check them against
+`release/manifest.json` (`sql_sha256`) before any use. `prepare_release.py --snapshots <private snapshots> --out <dir>` also regenerates them offline, but it needs the original private snapshots and must not be rerun for an import. The rollback files stay.

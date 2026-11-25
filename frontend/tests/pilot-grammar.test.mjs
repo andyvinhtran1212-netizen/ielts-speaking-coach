@@ -37,10 +37,18 @@ test('page: Server Component, async params, notFound trong metadata (=> noindex,
   assert.match(PAGE, /generateMetadata[\s\S]*?notFound\(\)/, 'notFound must fire in generateMetadata (PPR soft-404 guard)');
 });
 
-test('shell: skeleton legacy nguyên bản — các id mà grammar.js nhắm tới', () => {
-  for (const id of ['article-title', 'article-meta', 'article-body', 'toc-container',
-                    'breadcrumb', 'reading-progress', 'guest-cta-bar', 'prev-next']) {
-    assert.ok(SHELL.includes(`id="${id}"`), `missing legacy skeleton id: ${id}`);
+// G06-T14 (a): khung bài đổi sang khuôn bài đọc chung; giữ các id mà hành vi
+// phía trình duyệt và luồng 404 còn dùng. `toc-container`, `reading-progress` và
+// `guest-cta-bar` đã bỏ (mục lục do ReadingLayout vẽ; không thanh/hộp mời khách).
+test('shell: khuôn bài đọc chung, giữ các id còn được dùng', () => {
+  for (const id of ['article-container', 'article-title', 'article-meta', 'article-body',
+                    'breadcrumb', 'exercise-cta', 'exercise-cta-link', 'exercise-cta-sub']) {
+    assert.ok(SHELL.includes(`id="${id}"`), `missing article id: ${id}`);
+  }
+  assert.match(SHELL, /id="prev-next"/);
+  assert.match(SHELL, /<ReadingLayout/);
+  for (const gone of ['guest-cta-bar', 'guest-modal-overlay', 'reading-progress']) {
+    assert.ok(!SHELL.includes(`id="${gone}"`), `${gone} must stay removed (LIBRARY-0061 FR-003)`);
   }
   assert.ok(!SHELL.includes("'use server'"), 'page-shell must not be a Server Action module');
 });
