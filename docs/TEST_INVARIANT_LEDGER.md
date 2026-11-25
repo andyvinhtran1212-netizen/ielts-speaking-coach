@@ -69,6 +69,111 @@ See [wave 7 mapping and evidence](audits/GATE_F_PRICING_RETIREMENT_REHEARSAL_202
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
 
+## LEGACYJS-0075 W3a — 2026-11-23
+
+Spec `specs/0075-legacy-public-js-retirement` T004 (G10-T07-W3a) deletes the 3
+users/codes scripts in `frontend/public/js/`: `admin-users.js`,
+`admin-access-codes.js` and `admin-codes-util.js`. `/admin/users` (both tabs)
+is owned by the Next panels under `frontend/app/(authed-admin-users)/` with
+`lib/admin-users-model.mjs`, and `/admin/access-codes` redirects to
+`/admin/users?tab=codes`; no Next code, kept `public/js` file or browser flow
+loads these scripts. Retired HTML fixtures stay (ADR-005); assertions on them
+are kept. `tsconfig.legacy.json` now names only `api.js` as `// @ts-check`.
+One row per test edited in the same PR (FR-002):
+
+| Test file | Assertions removed (only those reading a deleted script) | Disposition | Replacement that holds the invariant now |
+|---|---|---|---|
+| `admin-access-codes.test.mjs` | the controller pins (cohort/list/generate endpoints, direct-needs-cohort guard, revoke/remove-user toasts, silent refetch, edit-perms PATCH shape, session-limit validation) and the retired page's markup pins | port, part retire | same file: the deletion, the edit PATCH (`permissions` + `session_limit` only, no redemption field), remove-user copy and DELETE, revoke toast + `loadCodes(true)`, no full reload, all on `admin-access-codes-panel.tsx`; page shape and endpoints are in `admin-users-next-behavior.test.mjs`; the direct/cohort guard is `validateCodeDraft` there. The Amendment 2 step-up block is unchanged |
+| `admin-users-next-behavior.test.mjs` | "legacy controllers still exist" | flip | same assertion, now `existsSync(...) === false` for `admin-users.js` and `admin-access-codes.js` |
+| `design-fix-1-admin-primitives.test.mjs` | access-code chip, status pills and row-action pins on `admin-access-codes.js` | port | same tests on `admin-access-codes-panel.tsx` (`adm-chip` + `is-direct`, the three `adm-status-pill` states, `adm-btn-secondary adm-btn-sm`); the row-action wrapper is `.au-row-actions` (was `.adm-action-group`) |
+| `sprint-17-1-admin-codes.test.mjs` | `quotaLabel` / `codeMatchesSearch` / `compareCodesBy` / `statusRank` imported from `admin-codes-util.js`, controller wiring pins | port | same cases on `quotaLabel`, `selectCodes` (search, sort, null `expires_at` last) and `codeStatusRank` in `lib/admin-users-model.mjs`, and the panel wiring (model import, email + quota + lookup-failure + "Chưa gán", no injected HTML, no inline colour) |
+| `sprint-17-2-usage.test.mjs` | codes UI drills into usage via `/pages/admin/usage/index.html?code_id=` | port | same test: the panel links `/admin/usage?code_id=<encoded id>` |
+| `admin-confirm-danger.test.mjs` | `window.confirmDanger` pins on the two controllers; native `confirm()` kept for refill and role change; the retired access-codes and users pages loading `confirm-danger.js` | port | revoke and remove-user (codes tab) and remove-from-code (users tab) go through the shared React dialog with `danger: true` and the action only in `run`; refill is a non-danger confirm; a role change is danger only for self-demotion; no native `confirm()` in either panel. The classes assertions are unchanged (W3b) |
+| `admin-progressive-loading-toggle.test.mjs` | `#codes-table-wrap` and `#usr-table-wrap` toggle-back rows | retire (Next owner) | the Next panels render their tables from React state with no hidden-toggle wrapper; empty and error states are pinned in `admin-users-next-behavior.test.mjs` |
+| `admin-toast.test.mjs` | `showBanner → showToast` delegation for the two controllers, the 4 s access-codes timing, the retired access-codes page loading `toast.js` | retire (Next owner) | the Next panels show inline `role="status"` / `role="alert"` banners (`admin-users-next-behavior.test.mjs`); the 10 remaining legacy files keep their pins |
+| `admin-students-redesign.test.mjs` | `admin-users.js` renders `cohort_name` with "—" | port | same test on `admin-users-panel.tsx` (`Lớp` sort header, `user.cohort_name \|\| '—'`) |
+| `admin-system-extract.test.mjs` | `admin-users.js` wires GET `/admin/users` + PATCH role | port | same test: `getBrowserJson('/admin/users')` in `lib/admin-users-api.ts`, `getAdminUsers()` and the role PATCH on `/admin/users/${encodeURIComponent(user.id)}/role` in the panel |
+| `admin-users-codes-reskin.test.mjs` | revoked-hidden filter, util exports, `reflectSort` aria-sort, keydown sort activation, generate/convert/remove delegation attributes, code-tab hazard pins on the controllers | port | same tests on the model (`!status && code.is_revoked`, `codeStatusRank`, `selectCodes`) and panels (`SortButton` with "Sắp xếp theo" label and ↑/↓/↕ state, native `<button>` for keyboard, generate/convert/remove handlers, lookup failure, `loadCodes(true)`, `user.removable`, "tất cả người dùng" scope warning). **Gap:** the Next sort header does not set `aria-sort` on the `<th>`; recorded here, not fixed in a retirement wave |
+| `generate-and-assign-code.test.mjs` | button-visibility, delegation, POST body, direct/cohort guard, refetch and cohort-source pins on `admin-users.js` | port | same tests on the panel (`!summary.has_active_code` gate, `setGenerate`, `user_id: generate.user.id`, `validateCodeDraft`, `await loadUsers(true)`) and shell (`getAdminCohorts({ isActive: true })`) |
+| `merge-codes-users-tabs.test.mjs` | user-tab code columns, no code-wide mutation, remove-from-code, two-criteria sort on `admin-users.js` | port | same tests on the panel (`code_summary`, "Không có mã active", no refill / code PATCH / code-wide DELETE, remove-from-code DELETE + `loadUsers(true)`) and `selectUsers` (`code_type`, `code_status`) |
+| `sprint-17-5-reassignment.test.mjs` | reassign absent, refill wiring and no inline colour on `admin-access-codes.js` | port | same tests on the codes panel ("Cấp mã mới" → POST `/refill`, edit-perms opener, no `reassign`, no inline colour) |
+| `sprint-18-1-ia.test.mjs` | convert button, POST `/admin/students` with `user_id`, 409 handling, no inline colour on `admin-users.js` | port | same tests on the users panel (`setConvert`, `submitConvert`, `user_id: convert.user.id`, "đã là học viên") |
+| `sprint-18-3-components.test.mjs` | `admin-access-codes.js` in the no-inline-colour list | retire (covered) | the codes panel's no-inline-colour pin in `sprint-17-5-reassignment.test.mjs` |
+
+## LEGACYJS-0075 W2 — 2026-11-23
+
+Spec `specs/0075-legacy-public-js-retirement` T003 (G10-T07-W2) deletes the 7
+mock-cockpit scripts in `frontend/public/js/`: `admin-exam-content.js`,
+`admin-mock-exams.js`, `admin-mock-live.js`, `admin-mock-pacing.js`,
+`admin-mock-report.js`, `admin-mock-reviews.js` and `admin-mock-tests.js`.
+Every `/admin/mock-*` URL has been owned by a Next route under
+`frontend/app/(authed-admin-mock-*)/` since the cutover; no Next code, kept
+`public/js` file or browser flow loads these scripts. Retired HTML fixtures stay
+(ADR-005). One row per test edited or retired in the same PR (FR-002):
+
+| Test file | Assertions removed (only those reading a deleted script) | Disposition | Replacement that holds the invariant now |
+|---|---|---|---|
+| `admin-exam-content-ui.test.mjs` | **whole file retired** (read only `admin-exam-content.js` and the retired HTML fixture's script tag) | retire (Next owner) | `admin-mock-exams-next-model.test.mjs` content-library tokens (`failedKinds`, `cohort_ids: cohortDraft`, `is_public: true`) + `react/mock-content-mutation.test.tsx`; the Next library sets visibility through `/admin/mock-corrections/public-tests/…` and offers no Writing visibility toggle |
+| `mock-admin-done-exam-toggle.test.mjs` | all three tests read the legacy live/list scripts | port | same file, now on `admin-mock-live.tsx` and `admin-mock-exams.tsx` (`done && !isOpen` guard, "Kỳ thi đã kết thúc", closing still offered) |
+| `mock-window-vietnam-time.test.mjs` | "the compatibility script no longer uses the browser zone" | retire (covered) | same file: the Next dialog test (`vietnamLocalToIso`, `formatVietnamDateTime`) |
+| `mock-reassign-warning.test.mjs` | all five tests read `admin-mock-exams.js` | port | same file, now on `retake-assignment-dialog.tsx` (persistent warning, `locked` / `refresh_failed` named from loaded candidates, cleared when empty) |
+| `mock-retake-servable-skills.test.mjs` | all seven tests read `admin-mock-exams.js` | port | same file, now on `retakeServableSkills` / `mergeRetestCandidates` (model) and `retake-assignment-dialog.tsx` (disabled and unchecked, servable list shown, target exam, cohort name in the source picker) |
+| `mock-pacing-unknown-order.test.mjs` | all six tests read `admin-mock-pacing.js` | port | same file, now on `normalizePacing` (null order stays null) and `admin-mock-pacing.tsx` ("—", Có/Không, cleared marker, tooltip, legend count) |
+| `mock-live-console-boot.test.mjs` | all ten tests read `admin-mock-live.js` (boot wiring, pause clock, recollect, Advance gate run in a VM) | port | same file, now on `admin-mock-live.tsx` (bad-link notice + JSX picker, polling effect keyed on the exam and cleared per effect, paused clock, tick stops without time left, `from_section`, `readyToAdvance` / `collecting` gate) |
+| `mock-exam-runner-resilience.test.mjs` | "a single mid-exam re-entry is shown" read `admin-mock-live.js` | port | same test, now on `studentIntegrity` in `admin-mock-live.tsx`; the runner assertions are untouched |
+| `mock-cockpit-consolidation.test.mjs` | the `admin-mock-tests.js`, `admin-exam-content.js` and `admin-mock-live.js` assertions (tabs, context bar, tablist ARIA, arrow keys, needs-exam source, level tabs, visibility labels, embedded picker and error) | port | same file, now on `admin-mock-tests.tsx`, `lib/admin-mock-tests-model.mjs`, `exam-content-library.tsx` and `admin-mock-live.tsx`; the retired HTML fixture assertions are unchanged |
+| `mock-tests-cockpit.test.mjs` | controller pins (frame map, stage, list GET, Supabase init), frame-location helpers, `.hidden` use, theme sync and storage adoption, and the HTML script-tag pin | port | same file, now on `mockTestsFrame` / `mockExamStage` (model) and `admin-mock-tests.tsx` (frame epoch remount, theme mirror, `av-theme` adoption); the Supabase init and the `frameAt` / `loadFrame` helpers have no Next counterpart (the runtime boundary owns auth; the iframe remounts by key) |
+| `admin-writing-queue-next-behavior.test.mjs` | `admin-mock-tests.js` mocklane frame URL | port | same assertion on `lib/admin-mock-tests-model.mjs` |
+| `admin-mock-report-retest.test.mjs` | `renderRetest` / `reportSkills` run from `admin-mock-report.js` and its no-block pins | port | same file, now on `reportSkills` (model) and `admin-mock-review-report.tsx` (banner only with flags, "vẫn là kết quả chính thức", no retest block); the HTML fixture pin stays |
+| `back-nav-origin.test.mjs` | opener pins on `admin-mock-reviews.js`; `wireBack()` run from `admin-mock-report.js` | port | same file, now on the `admin-mock-reviews.tsx` opener (`target="_blank"`, `mock_exam_id`) and the report's `back` link (encoded id on a fixed path, no `history.back`) |
+| `mock-review-band-prefill.test.mjs` | all sixteen tests read `admin-mock-reviews.js` (`draftBandOf` run in a VM, the value expression, `wCell`, the caption chain) | port | same file, now on `draftBandOf` / `initialBandDraft` (model, run) and the roster's `writingText` lifted from `admin-mock-reviews.tsx` and run (counts and band independent, `~` for a suggestion, "—" only when both are absent); the captions run `bandCaption()` / `BAND_SOURCE` from the model (provenance for a pre-filled band, none for a confirmed band, the Writing-specific and L/R blankable reasons with "(overall sẽ để trống theo)", "Chưa có band tự tính — cần bạn nhập" otherwise) and pin that the form renders `bandCaption(detail, skill)`. The legacy captions were restored on `staging` by 53bc1ccb, so the gap first recorded here is closed |
+| `mock-review-blankable-bands.test.mjs` | `doSave` / `collectBands` run from `admin-mock-reviews.js`, and its caption pins | port | same file, now runs `buildFinalBandsPayload` (blank blankable skill omitted, forgotten Writing and convertible Listening refused by name, full set unchanged) and runs the L/R blankable caption from `bandCaption()`, pinning that the form renders it |
+| `mock-review-roster-status.test.mjs` | `claimCell` and label pins on `admin-mock-reviews.js`; the `.mr-pill--done` rule on the retired HTML page | port | same file, now on the roster status cell and `STATUS` labels in `admin-mock-reviews.tsx`, `.mrr-status.is-released` in `admin-mock-reviews-next.css` (theme tokens, no hex). An unknown status is now refused by `normalizeReviewRoster` (counted as malformed) instead of falling back to the claim flag |
+| `mock-roster-bulk-claim-bands.test.mjs` | `wireBulkBar` / `bulkClaim` / `bulkSaveBands` / `renderSkips` pins | port | same file, now on `reconcileBulk` and the bulk bar in `admin-mock-reviews.tsx` (queued-only claim, claimed/edited-only bands, `{ sitting_ids: ids }` only, `bulk-final-bands`, no confirm except release, refusals set after the awaited reload, refetch on failure) |
+| `mock-roster-retest-picker.test.mjs` | `retestCell` run from `admin-mock-reviews.js`, `setRetestSkills`, `placeRetestMenu`, popover CSS on the retired HTML page, bulk release pins | port, part retire | same file, now on the inline per-skill checkboxes, `setRetestFlags` (`/retest-flags`, full picture, canonical readback via `retestFlagConfirmed`, refetch on failure), the release `Dialog` (count, "thu hồi") and the skip list. The popover (`<details>` menu, flip-up placement, its CSS) has no Next counterpart and is retired. The Next picker also offers Speaking |
+| `mock-speaking-live-results.test.mjs` | the four console tests on `admin-mock-reviews.js` (`bandSkills`, live-Speaking trigger, `collectBands`, source label) | port | same file, now runs `reviewBandSkills` / `buildFinalBandsPayload` and pins `const bandSkills = reviewBandSkills(detail)`; the "Bài chấm trực tiếp" label is read from `BAND_SOURCE` and the form must render `bandCaption(detail, skill)`; the TRF tests are untouched |
+| `backend/tests/test_exam_content_level_cohort.py` | `test_the_verb_used_by_the_page_is_in_the_cors_allowlist` read `admin-exam-content.js` | port | same test, now reads `exam-content-library.tsx`: every `window.api.<verb>` is in `_CORS_METHODS`, `patch` is used, `put` is not |
+
+
+## LEGACYJS-0075 W1 — 2026-11-23
+
+Spec `specs/0075-legacy-public-js-retirement` T002 (G10-T07-W1) deletes the 15
+`frontend/public/js/admin-listening-*.js` scripts (attempts, audit, audit-detail,
+content-detail, content-list, content-meta, dictation-reports, drills-import,
+fulltest-import, gist, mcq, segments, tests-detail, tests-list, tf). Every
+`/admin/listening/**` URL has been owned by a Next route under
+`frontend/app/(authed-admin-listening)/` since the cutover; no Next code, kept
+`public/js` file or browser flow loads these scripts. Retired HTML fixtures stay
+(ADR-005). One row per test edited or retired in the same PR (FR-002):
+
+| Test file | Assertions removed (only those reading a deleted script) | Disposition | Replacement that holds the invariant now |
+|---|---|---|---|
+| `admin-listening-attempts.test.mjs` | controller behaviour block + `TYPE_LABEL` source pin | retire (Next owner) | `admin-listening-attempts-next-behavior.test.mjs` + `verify-admin-listening-attempts-flow.mjs` |
+| `admin-listening-audit.test.mjs` | 7 controller pins (fetch, filters, actions) | retire (Next owner) | `admin-listening-audit-next-behavior.test.mjs` + `verify-admin-listening-audit-flow.mjs` |
+| `admin-listening-audit-paging.test.mjs` | **whole file retired** (read only `admin-listening-audit.js`) | replace | offset paging over 101 rows in `verify-admin-listening-audit-flow.mjs`; `AUDIT_BATCH` batching in `admin-listening-audit-next-behavior.test.mjs` |
+| `admin-listening-content-management.test.mjs` | list/detail/meta controller pins (GETs, status re-fetch, meta and editor deep-links) | retire (Next owner) | `admin-listening-content-next-behavior.test.mjs` (editor links `segments/gist/tf/mcq?content_id=`), `admin-listening-content-detail-next-behavior.test.mjs`, `admin-listening-content-editor-next-behavior.test.mjs` |
+| `admin-listening-drills-import.test.mjs` | controller pins (dry-run/commit endpoints, `audio_output/<TEST_ID>/full_test.mp3` matching) and the HTML script-tag pin | retire (Next owner) | `admin-listening-drill-import-next-behavior.test.mjs` + `verify-admin-listening-drill-import-flow.mjs` |
+| `admin-listening-fulltest-import.test.mjs` | controller pins incl. archive-then-commit restore | retire (Next owner) | `admin-listening-fulltest-import-next-behavior.test.mjs` (asserts the native owner has no `_archiveThenCommit`) + `verify-admin-listening-fulltest-import-flow.mjs` |
+| `admin-listening-reporting-wave2.test.mjs` | 6 `dictation-reports.js` pins (learner name/email fallback, `user_query`, detail URL, diff columns) | retire (Next owner) | `admin-listening-dictation-next-behavior.test.mjs` (model `display_name`/email) + `verify-admin-listening-dictation-flow.mjs` (`user_query` on list and aggregate) |
+| `admin-listening-segments.test.mjs` | JS controller pins and the dynamic import of the legacy helpers | port | helper cases ported to `admin-listening-segments-next-behavior.test.mjs` ("ported legacy segment helper cases") against `lib/admin-listening-segments-model.mjs` |
+| `admin-listening-segments-next-behavior.test.mjs` | none (gains the ported cases) | port target | itself |
+| `admin-listening-tests.test.mjs` | tests-list controller pins (GET, status filter, debounce, row fields) | retire (Next owner) | `admin-listening-tests-next-behavior.test.mjs` + `verify-admin-listening-tests-flow.mjs` |
+| `admin-listening-tests-next-behavior.test.mjs` | none (gains `Ẩn khỏi web`) | port target | itself (from `mock-cockpit-consolidation`) |
+| `admin-listening-tests-detail.test.mjs` | detail controller pins | retire (Next owner) | `admin-listening-test-detail-next-behavior.test.mjs` + `verify-admin-listening-test-detail-flow.mjs` |
+| `admin-listening-test-detail-next-behavior.test.mjs` | none (gains danger-zone gate) | port target | itself (from `admin-progressive-loading-toggle`) |
+| `admin-listening-true-false-next-behavior.test.mjs` | one rollback pin on `admin-listening-tf.js` (`expected_updated_at`) | retire (covered) | same file: model asserts `expected_updated_at`; gains the Vietnamese T/F/NG label pin |
+| `admin-progressive-loading-toggle.test.mjs` | "tests-detail destructive section gated on fetch" | port | `admin-listening-test-detail-next-behavior.test.mjs` (danger zone after loading/failed-read early returns) |
+| `admin-student-listening.test.mjs` | dictation-reports `?user=` prefill | retire (Next owner) | `verify-admin-listening-dictation-flow.mjs` (opens `/admin/listening/dictation?user=…`) |
+| `admin-toast.test.mjs` | 7 listening files from the showBanner→showToast list, segments `clearToasts` | retire | Next owners use inline banners; the list keeps the 12 surviving scripts |
+| `aver-admin-chrome.test.mjs` | content-list editor deep-link loop | retire (covered) | `admin-listening-content-next-behavior.test.mjs` lines pinning the 4 editor links |
+| `listening-gist-tf-pages.test.mjs` | admin Gist/TF JS consts; T/F/NG Vietnamese label test | port | `admin-listening-true-false-next-behavior.test.mjs` (`ANSWER_LABEL` Đúng / Sai / Không có thông tin); Gist owner in `admin-listening-gist-next-behavior.test.mjs` |
+| `listening-mcq-sessions-pages.test.mjs` | admin MCQ JS pins (1–20 range, POST, draft/publish, A–D) | retire (Next owner) | `admin-listening-mcq-next-behavior.test.mjs` (`MAX_MCQ_QUESTIONS`, versioned POST) + `verify-admin-listening-mcq-flow.mjs` |
+| `listening-mini-test.test.mjs` | fulltest-import preview pins (option letter+text, no /4 /40, `mdInline` emphasis, `mini=true`) | retire (Next owner) | `admin-listening-fulltest-import-next-behavior.test.mjs` (letter/text options, `mini` fingerprint and canonical type). The Next owner renders prompts as escaped plain text, so legacy `mdInline` emphasis has no current owner |
+| `listening-test-dictation.test.mjs` | dictation-reports list + aggregate endpoint pins | retire (Next owner) | `verify-admin-listening-dictation-flow.mjs` (list and aggregate queries) |
+| `mock-cockpit-consolidation.test.mjs` | tests-list `data-is-public` row | port | `admin-listening-tests-next-behavior.test.mjs` (`is_public`, `Ẩn khỏi web`) |
+| `sentence-split-no-lookbehind.test.mjs` | `admin-listening-segments.js` splitter case | retire (covered) | `admin-listening-segments-next-behavior.test.mjs` ported split cases; the student `listening-test-player.js` case stays |
+| `web-readiness-p1-warnings.test.mjs` | fulltest-import `p.warnings` banner pin | retire (Next owner) | `admin-listening-fulltest-import.tsx` findings block, exercised by `verify-admin-listening-fulltest-import-flow.mjs` (duplicate-ID warning) |
+
 ## Historical summary — 2026-07-13
 
 | Metric | Count |
