@@ -555,6 +555,33 @@ async def test_a_reused_request_id_with_a_changed_intent_is_refused(monkeypatch)
     assert exc.value.status_code == 409
 
 
+@pytest.mark.asyncio
+async def test_losing_the_509_race_replays_the_winners_receipt(monkeypatch):
+    """Two in-flight gives with one id: the second insert hits uq_course_give_request
+    (mig 509) after the first committed, and answers with the first's receipt."""
+    body = _body(give_request_id=_RID)
+    winner = {"id": "a-win", "cohort_id": "co-1", "skill": "course", "content_id": "bank-1",
+              "content_config": {"give_request_id": _RID,
+                                 "give_fingerprint": adm._course_give_fingerprint(body)}}
+    rows: list[dict] = []
+    db = type("DB", (), {})()
+    db.table = lambda n: _Table(rows if n == "class_assignments" else [])
+
+    async def admin(_h): return {"id": "ad"}
+    monkeypatch.setattr(adm, "require_admin", admin)
+    monkeypatch.setattr(adm, "_require_cohort", lambda _c: _COHORT)
+    monkeypatch.setattr(adm, "_require_active_cohort", lambda _c: None)
+    monkeypatch.setattr(adm, "supabase_admin", db)
+    monkeypatch.setattr(adm, "_resolve_course_bank", lambda _c, _b: ("bank-1", {}))
+
+    def create(_db, **_kw):
+        rows.append(winner)  # the other request committed meanwhile
+        raise RuntimeError('duplicate key value violates unique constraint "uq_course_give_request"')
+    monkeypatch.setattr(adm, "create_class_assignment", create)
+    out = await adm.create_assignment("co-1", body, authorization="Bearer x")
+    assert out["id"] == "a-win" and out["replayed"] is True
+
+
 def test_a_cohort_with_no_course_says_SO():
     """Danh sách rỗng đọc như "khoá chưa ai soạn đề", còn sự thật là lớp chưa
     được gắn khoá — hai việc khác nhau, và chỉ một sửa được ngay."""
