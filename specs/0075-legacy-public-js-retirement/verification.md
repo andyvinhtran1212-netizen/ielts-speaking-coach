@@ -75,4 +75,4 @@ The 3 users/codes scripts in `frontend/public/js/` (998 lines) are deleted: `adm
 - FR-002 / FR-007: 16 test files edited (limit 30), one ledger row each in `docs/TEST_INVARIANT_LEDGER.md` › "LEGACYJS-0075 W3a — 2026-11-23". The pure helpers of `admin-codes-util.js` are pinned on their model twins (`quotaLabel`, `selectCodes`, `codeStatusRank`).
 - Gap found, not fixed here (no product change in a retirement wave): the Next sort header sets no `aria-sort` on the `<th>` (legacy did); recorded in the ledger row of `admin-users-codes-reskin.test.mjs`.
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
-- Not checked: Vercel preview 404 and staging console (preview builds only on a `[preview]` commit), WebKit (Q40).
+- Not checked yet: Vercel preview 404 (preview requested by the `[preview]` commit on top of the merge of `staging` dabb191a) and staging console, WebKit (Q40).
