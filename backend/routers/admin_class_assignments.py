@@ -989,12 +989,24 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
 
     # Giao lại một bộ bài tập cho CÙNG lớp là được phép (Andy, 25/11/2026):
     # giáo viên hay giao lại buổi cũ để ôn. Mỗi lần giao là một bài giao mới với
-    # mục bài riêng, nên tiến độ lần trước không bị ghi đè; người chơi đã chọn
-    # mục chưa xong / mới nhất khi một bank có nhiều bài giao
-    # (`quiz_service._assignment_item_for`). Danh sách kho chỉ GHI CHÚ ngày đã
-    # giao (`last_given_at`) thay vì chặn. Không có chỉ mục duy nhất nào cho
-    # skill='course' theo bộ (mig 182 chỉ áp cho Speaking); mig 509 chỉ chặn
-    # cùng `give_request_id`, tức bấm lại CÙNG thao tác.
+    # mục bài riêng; người chơi chọn mục chưa xong / mới nhất khi một bank có
+    # nhiều bài giao (`quiz_service._assignment_item_for`). Danh sách kho chỉ
+    # GHI CHÚ ngày đã giao (`last_given_at`).
+    #
+    # Chỉ khi lần giao mang `give_request_id`: mã ấy là thứ phân biệt "giao lại
+    # có chủ ý" (mã mới) với "bấm lại cùng thao tác" (cùng mã, mig 509 + biên
+    # nhận). Client cũ / tab cũ không gửi mã thì không phân biệt được, nên giữ
+    # nguyên chặn theo bộ/lớp như trước: gửi lại sau khi mất phản hồi không được
+    # giao thêm một bài cho cả lớp (REGIVE-0103 FR-005).
+    if not body.give_request_id:
+        dup = (supabase_admin.table("class_assignments").select("id")
+               .eq("cohort_id", cohort_id).eq("skill", "course")
+               .eq("content_id", body.content_id).limit(1).execute().data) or []
+        if dup:
+            raise HTTPException(
+                409,
+                "Lớp này đã được giao bộ bài tập này rồi. Muốn giao lại, hãy "
+                "tải lại trang rồi giao lại từ trình giao bài mới.")
 
     cfg = {
         # Không chụp NỘI DUNG câu hỏi — đề vẫn có đúng một nguồn. Chỉ chụp hình
