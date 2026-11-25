@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { mergeRetestCandidates, retakeServableSkills } from '../lib/admin-mock-exams-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIALOG = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-exams)', 'admin', 'mock-exams',
+const DIALOG = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-exams)', 'admin', 'mock-exams',
   'retake-assignment-dialog.tsx'), 'utf8');
 
 describe('retake assign — only skills this exam can serve', () => {

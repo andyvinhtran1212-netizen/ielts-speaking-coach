@@ -8,9 +8,9 @@ import { formatReadingCount, normalizeReadingAttemptsPayload } from '../lib/admi
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const CLIENT = read('app', '(authed-admin-reading-attempts)', 'admin', 'dashboard', 'reading-attempts', 'admin-reading-attempts.tsx');
-const PAGE = read('app', '(authed-admin-reading-attempts)', 'admin', 'dashboard', 'reading-attempts', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-reading-attempts)', 'layout.tsx');
+const CLIENT = read('app', '(authed-admin)/(reading-attempts)', 'admin', 'dashboard', 'reading-attempts', 'admin-reading-attempts.tsx');
+const PAGE = read('app', '(authed-admin)/(reading-attempts)', 'admin', 'dashboard', 'reading-attempts', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(reading-attempts)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-reading-attempts-next.css');
 const ROLLBACK = read('public', 'js', 'admin-reading-attempts.js');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
@@ -52,7 +52,7 @@ describe('/admin/dashboard/reading-attempts native contract', () => {
     assert.match(CLIENT, /role="region" aria-label="Bảng lượt làm theo đề" tabIndex=\{0\}/);
     assert.match(CSS, /@media\(max-width:768px\)/);
     assert.match(CSS, /\.ara-table td::before\{content:attr\(data-label\)/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-reading-attempts\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(reading-attempts\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-reading-attempts-flow\.mjs/);
   });
 

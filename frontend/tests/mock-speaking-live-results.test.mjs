@@ -19,7 +19,7 @@ const pub = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8'
 // LEGACYJS-0075 W2 gỡ `admin-mock-reviews.js`: phần console nay soi chủ Next,
 // tức `reviewBandSkills` / `buildFinalBandsPayload` (chạy thật) và
 // `admin-mock-reviews.tsx`.
-const CONSOLE = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
+const CONSOLE = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
 // Logic của trang đã TÁCH sang `/js/mock-result.js` khi port sang Next: bản Next
 // phải chạy CHÍNH mã đó chứ không chép lại. Khẳng định ở đây là "nguồn trang có
 // chứa X", nên nguồn trang nay = HTML + module của nó. Đã kiểm: tệp này không có

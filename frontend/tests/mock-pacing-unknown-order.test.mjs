@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizePacing } from '../lib/admin-mock-live-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PAGE = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-live)', 'admin', 'mock-pacing',
+const PAGE = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-live)', 'admin', 'mock-pacing',
   'admin-mock-pacing.tsx'), 'utf8');
 
 const pacing = (order) => normalizePacing({

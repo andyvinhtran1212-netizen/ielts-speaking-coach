@@ -18,7 +18,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const LIVE = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-live)', 'admin', 'mock-live',
+const LIVE = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-live)', 'admin', 'mock-live',
   'admin-mock-live.tsx'), 'utf8');
 
 describe('mock-live console — a bad exam link still leaves a live board', () => {

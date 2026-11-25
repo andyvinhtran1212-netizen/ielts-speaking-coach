@@ -17,8 +17,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = (...p) => readFileSync(join(__dirname, '..', 'app', ...p), 'utf8');
-const LIVE = app('(authed-admin-mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
-const LIST = app('(authed-admin-mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx');
+const LIVE = app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
+const LIST = app('(authed-admin)', '(mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx');
 
 describe('done exam — no reopen control', () => {
   test('the live console drops the toggle once the exam is done', () => {

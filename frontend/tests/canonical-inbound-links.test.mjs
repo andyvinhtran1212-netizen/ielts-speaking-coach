@@ -47,7 +47,7 @@ describe('canonical inbound links', () => {
         /\/pages\/admin\/writing\/grade\.html/,
       ],
       [
-        readFrontend('app', '(authed-admin-vocab)', 'admin', 'vocab', 'topics', 'admin-vocab-topics.tsx'),
+        readFrontend('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'topics', 'admin-vocab-topics.tsx'),
         /\/pages\/admin\/vocab\/content\.html/,
       ],
       [

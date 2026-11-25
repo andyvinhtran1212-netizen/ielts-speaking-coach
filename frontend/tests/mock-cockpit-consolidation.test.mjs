@@ -23,8 +23,8 @@ const HUB = pub('pages', 'admin', 'index.html');
 const app = (...p) => readFileSync(join(__dirname, '..', 'app', ...p), 'utf8');
 const COCKPIT = app('(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
 const COCKPIT_MODEL = readFileSync(join(__dirname, '..', 'lib', 'admin-mock-tests-model.mjs'), 'utf8');
-const LIBRARY = app('(authed-admin-mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
-const LIVE = app('(authed-admin-mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
+const LIBRARY = app('(authed-admin)', '(mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
+const LIVE = app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
 const COCKPIT_HTML = pub('pages', 'admin', 'mock-tests', 'index.html');
 const EMBED = pub('js', 'admin-embed.js');
 
