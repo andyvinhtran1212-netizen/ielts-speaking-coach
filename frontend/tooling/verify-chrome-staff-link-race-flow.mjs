@@ -1,4 +1,4 @@
-// Q-82 browser regression: staff must get the avatar-menu "Trang giảng viên"
+// Q-82 browser regression: staff must get the avatar-menu "Sang khu giáo viên"
 // link however the chrome's own session read and the page's setUser({name})
 // interleave. CI run 40630894114 lost it for an admin at 390px when /home's
 // home-summary called setUser() before the chrome finished getSession(): the
@@ -143,7 +143,7 @@ try {
         check(`${label}: chrome resolved the role with one /auth/me`,
           authMe.requests === 1 && authMe.answered === 1,
           `requests ${authMe.requests}, chrome session reads ${sessionReads}`);
-        check(`${label}: "Trang giảng viên" ${expected ? 'shown' : 'absent from DOM'}`,
+        check(`${label}: "Sang khu giáo viên" ${expected ? 'shown' : 'absent from DOM'}`,
           expected ? state.count === 1 && state.display !== 'none' && state.width > 0 : state.count === 0,
           `anchors ${state.count}, display ${state.display}`);
         await context.close();

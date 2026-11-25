@@ -158,9 +158,9 @@ class InvalidArgument(Exception):
         self.message = message
 
 
-def rpc(name: str, params: dict) -> dict:
+def _call(name: str, params: dict):
     try:
-        raw = supabase_admin.rpc(name, params).execute().data
+        return supabase_admin.rpc(name, params).execute().data
     except APIError as exc:
         if str(getattr(exc, "code", "")) == "22023":
             raise InvalidArgument(str(getattr(exc, "message", "") or exc)) from exc
@@ -169,7 +169,21 @@ def rpc(name: str, params: dict) -> dict:
     except Exception as exc:
         logger.warning("[enroll] rpc=%s failed: %s", name, type(exc).__name__)
         raise OrdersUnavailable(name) from exc
-    return _unwrap(raw)
+
+
+def rpc(name: str, params: dict) -> dict:
+    return _unwrap(_call(name, params))
+
+
+def rpc_count(name: str, params: dict) -> int:
+    """An RPC that RETURNS integer (G05's ``fn_course_open_alerts_enqueue``)."""
+    raw = _call(name, params)
+    value = raw[0] if isinstance(raw, list) and len(raw) == 1 else raw
+    if isinstance(value, dict) and len(value) == 1:
+        value = next(iter(value.values()))
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise OrdersUnavailable("unexpected_rpc_shape")
+    return value
 
 
 async def arpc(name: str, params: dict) -> dict:
