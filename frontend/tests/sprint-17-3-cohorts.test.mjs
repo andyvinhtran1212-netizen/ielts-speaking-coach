@@ -17,7 +17,12 @@ import { usdLabel, countLabel, lastActiveLabel } from '../js/admin-usage-util.js
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const CTRL = front('js', 'admin-classes.js');
+// LEGACYJS-0075 W3b: admin-classes.js is deleted. The class list is the Next
+// directory and the roster is the dynamic /admin/classes/[cohortId] route.
+const DIR = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const DETAIL = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const DETAIL_PAGE = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'page.tsx');
+const CTRL = DIR + DETAIL;
 const CHROME = front('js', 'components', 'aver-admin-chrome.js');
 const HTML = front('pages', 'admin', 'classes', 'index.html');
 
@@ -30,32 +35,27 @@ describe('Sprint 17.3 — reused usage-util still exports formatters', () => {
   });
 });
 
-describe('Sprint 17.3 — class controller wiring (GĐ 1: admin-classes.js)', () => {
-  test('imports the usage-util formatters', () => {
-    assert.match(CTRL, /import\s*\{[^}]*usdLabel[^}]*\}\s*from\s*'\.\/admin-usage-util\.js'/);
-  });
-  test('branches on ?cohort_id (member roster) vs default (list)', () => {
-    // GĐ 1b đọc thêm ?tab= nên params được đặt vào biến trước khi .get() —
-    // ghim việc CÓ rẽ nhánh theo cohort_id, không ghim cách viết chuỗi.
-    assert.match(CTRL, /URLSearchParams\(window\.location\.search\)/);
-    assert.match(CTRL, /\.get\('cohort_id'\)/);
-    assert.match(CTRL, /\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(cohortId\)\s*\+\s*'\/members/);
-    assert.match(CTRL, /\/admin\/cohorts/);
+describe('Sprint 17.3 — class wiring (Next directory + detail route)', () => {
+  test('member roster is its own route keyed by cohortId', () => {
+    assert.match(DETAIL_PAGE, /<AdminClassDetail cohortId=\{cohortId\} \/>/);
+    assert.match(DETAIL, /window\.api\.get<unknown>\(`\/admin\/cohorts\/\$\{encodeURIComponent\(cohortId\)\}\/members`\)/);
+    assert.match(DIR, /getAdminCohorts\(\{ withRollup: true \}\)/);
   });
   test('create + archive/restore wired (PATCH is_active)', () => {
-    assert.match(CTRL, /api\.post\('\/admin\/cohorts'/);
-    assert.match(CTRL, /is_active:\s*isActive/);
-    assert.match(CTRL, /data-action="archive"|data-action="restore"/);
+    assert.match(DIR, /window\.api\.post\('\/admin\/cohorts'/);
+    assert.match(DIR, /\{ is_active: current\.nextActive \}/);
+    assert.match(DIR, /is_active \? 'Lưu trữ' : 'Khôi phục'/);
   });
   test('renders member roster from students (student_code) + formatters', () => {
     // WF-1: roster = students.cohort_id; rows show student_code (not user email).
-    assert.match(CTRL, /esc\(m\.student_code\)/);
-    assert.match(CTRL, /countLabel\(m\.sessions\)/);
-    assert.match(CTRL, /usdLabel\(m\.ai_cost_usd\)/);
+    assert.match(DETAIL, /<td><code>\{member\.student_code \|\| '—'\}<\/code><\/td>/);
+    // A failed usage read stays "Không đọc được", never 0.
+    assert.match(DETAIL, /member\.sessions == null \? <span className="acd-unknown">Không đọc được<\/span>/);
+    assert.match(DETAIL, /formatMoney\(member\.ai_cost_usd\)/);
   });
   test('Pattern #26 — no inline color/bg/hex literals', () => {
-    assert.doesNotMatch(CTRL, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(CTRL, /style\s*=\s*["'][^"']*background/);
+    assert.doesNotMatch(CTRL, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(CTRL, /style=\{\{[^}]*background/);
     assert.doesNotMatch(CTRL, /rgba\(\s*\d+\s*,/);
   });
 });
