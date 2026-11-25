@@ -100,14 +100,19 @@ def test_programme_visual_is_a_canonical_listening_audio_reference():
     assert find_orphans({path, "orphan.svg"}, refs["listening-audio"]) == ["orphan.svg"]
 
 
-def test_delete_scan_never_removes_a_referenced_programme_visual(monkeypatch):
+def test_scan_never_removes_anything_and_delete_is_refused(monkeypatch):
+    # HOLD #2699 (săn lỗi #47): script chỉ báo cáo; --delete bị từ chối cho
+    # tới khi có bước xác minh lại tham chiếu trước khi xoá.
     path = "programmes/general/lesson-1/map.svg"
     db = _StorageAuditDb(path)
     monkeypatch.setattr("database.supabase_admin", db)
-    monkeypatch.setattr(storage_reconcile.sys, "argv", ["reconcile_storage_orphans.py", "--delete"])
-
+    monkeypatch.setattr(storage_reconcile.sys, "argv", ["reconcile_storage_orphans.py"])
     assert storage_reconcile.main() == 0
-    assert db.storage.removed == [("listening-audio", ["orphan.svg"])]
+    assert db.storage.removed == []
+
+    monkeypatch.setattr(storage_reconcile.sys, "argv", ["reconcile_storage_orphans.py", "--delete"])
+    assert storage_reconcile.main() == 2
+    assert db.storage.removed == []
 
 
 # ── extract_image_urls (pure) ───────────────────────────────────────────────

@@ -33,7 +33,9 @@ class _Q:
 
     def range(self, start, end):
         self.calls.append((self.table, self.ordered, start, end))
-        self._slice = self.rows[start:end + 1]
+        cap = getattr(self, "cap", None)
+        stop = end + 1 if cap is None else min(end + 1, start + cap)
+        self._slice = self.rows[start:stop]
         return self
 
     def execute(self):
@@ -41,11 +43,13 @@ class _Q:
 
 
 class _SB:
-    def __init__(self, rows):
-        self.calls, self.rows = [], rows
+    def __init__(self, rows, cap=None):
+        self.calls, self.rows, self.cap = [], rows, cap
 
     def table(self, name):
-        return _Q(name, self.calls, self.rows)
+        q = _Q(name, self.calls, self.rows)
+        q.cap = self.cap
+        return q
 
 
 def test_fetch_all_pages_with_a_stable_order():
@@ -56,3 +60,51 @@ def test_fetch_all_pages_with_a_stable_order():
     got = reconcile._fetch_all(sb, "listening_content", "audio_storage_path")
     assert len(got) == 2500
     assert sb.calls and all(order == "id" for _t, order, _s, _e in sb.calls)
+
+
+def test_fetch_all_keeps_going_when_the_server_caps_the_page():
+    # HOLD #2699: PostgREST max-rows (vd 500) < trang 1000 ⇒ trước đây trang
+    # ngắn bị coi là hết và phần tham chiếu phía sau bị bỏ.
+    rows = [{"id": i} for i in range(1700)]
+    sb = _SB(rows, cap=500)
+    got = reconcile._fetch_all(sb, "listening_content", "audio_storage_path")
+    assert [r["id"] for r in got] == list(range(1700))
+    assert [s for _t, _o, s, _e in sb.calls] == [0, 500, 1000, 1500, 1700]
+
+
+class _MidScanStorage:
+    """Storage mà trong lúc liệt kê, nội dung mới vừa tham chiếu `new.svg`."""
+
+    def __init__(self):
+        self.removed = []
+
+    def from_(self, bucket):
+        owner = self
+
+        class _B:
+            def list(self, prefix, _opts):
+                if prefix:
+                    return []
+                return [{"name": "new.svg", "id": "x", "metadata": {"size": 1}}]
+
+            def remove(self, paths):
+                owner.removed.append((bucket, list(paths)))
+
+        return _B()
+
+
+def test_delete_mode_is_refused_so_a_reference_added_mid_scan_is_never_removed(monkeypatch, capsys):
+    # HOLD #2699: refs đọc trước, Storage liệt kê sau ⇒ `new.svg` (vừa được
+    # tham chiếu) trông như mồ côi. --delete bị tắt nên không gì bị xoá.
+    class _DB:
+        storage = _MidScanStorage()
+
+        def table(self, name):
+            return _Q(name, [], [])
+
+    db = _DB()
+    monkeypatch.setattr("database.supabase_admin", db)
+    monkeypatch.setattr(reconcile.sys, "argv", ["reconcile_storage_orphans.py", "--delete"])
+    assert reconcile.main() == 2
+    assert db.storage.removed == []
+    assert "TẮT" in capsys.readouterr().out
