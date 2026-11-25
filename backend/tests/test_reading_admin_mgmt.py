@@ -4,7 +4,7 @@ Covers:
   * GET    /admin/reading/content/tests/{test_id} — admin preview returns
     full bundle with answer keys + explanations + any-status filter
   * DELETE /admin/reading/content/tests/{test_id} — attempt-safe semantics
-    (0 attempts → hard delete; >0 attempts → soft `status='archived'`)
+    (always soft `status='archived'`, never a hard delete — HOLD #2702)
   * 404 on missing test_id; auth-gated
 
 Supabase is fully mocked (no real DB). Pattern matches the existing
@@ -230,9 +230,11 @@ def test_admin_preview_accepts_any_status():
 # ── DELETE /admin/reading/content/tests/{test_id} — attempt-safe ─────
 
 
-def test_delete_hard_when_no_attempts():
-    """0 attempts → action='deleted', the delete chain fires on
-    reading_tests, the FK cascade handles passages + questions."""
+def test_delete_archives_even_when_no_attempts():
+    """0 attempts → still action='archived' and NO delete chain call.
+    HOLD #2702: an attempt start that passed its `published` read but has
+    not INSERTed yet is invisible to the count, and a hard delete would
+    cascade it away (mig 087), so the route only archives."""
     delete_chain = _mk_delete_chain()
     router = _RouterDeleteChain(delete_chain)
     def table_router(name):
@@ -250,11 +252,9 @@ def test_delete_hard_when_no_attempts():
         )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["action"] == "deleted"
+    assert body["action"] == "archived"
     assert body["attempts_preserved"] == 0
-    # The chain was called via .delete().eq().execute().
-    delete_chain.delete.return_value.eq.return_value.execute.assert_called_once()
-    # HOLD #2702: archived first (blocks new starts), recounted, then deleted.
+    delete_chain.delete.assert_not_called()
     assert router.update_chain.update.call_args[0][0] == {"status": "archived"}
 
 

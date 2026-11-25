@@ -143,30 +143,30 @@ describe('Sprint 20.15 — backend admin endpoints', () => {
     );
   });
 
-  test('admin DELETE /tests/{test_id} branches on attempt count (Lesson 9)', () => {
-    // 0 attempts → hard delete; >0 → soft `archived`. Cascade-wiping
-    // student attempts would be the Lesson-9 "shortcut workaround"
-    // the sprint explicitly refused. A live class assignment must be rejected
-    // before either withdrawal branch can run.
+  test('admin DELETE /tests/{test_id} only archives, never hard-deletes (Lesson 9, HOLD #2702)', () => {
+    // Always soft `archived`, even at 0 attempts: an attempt start that has
+    // read `published` but not INSERTed yet is invisible to the count, and a
+    // hard delete would cascade it away (mig 087). A live class assignment
+    // must still be rejected before the withdrawal runs.
     assert.match(
       router,
       /admin_delete_reading_test[\s\S]{0,1800}active_exam_assignment_references/,
     );
-    assert.match(
-      router,
-      /admin_delete_reading_test[\s\S]{0,2600}attempt_count\s*>\s*0[\s\S]{0,400}status['"]:\s*['"]archived['"]/,
+    const body = router.slice(
+      router.indexOf('async def admin_delete_reading_test'),
+      router.indexOf('# ── reading-access-tracking F1'),
     );
-    assert.match(
-      router,
-      /admin_delete_reading_test[\s\S]{0,3000}\.delete\(\)[\s\S]{0,200}return\s*\{[\s\S]{0,200}action['"]:\s*['"]deleted['"]/,
-    );
+    assert.ok(body.length > 0);
+    assert.match(body, /status['"]:\s*['"]archived['"]/);
+    assert.doesNotMatch(body, /\.delete\(\)/);
+    assert.doesNotMatch(body, /action['"]:\s*['"]deleted['"]/);
   });
 
   test('admin DELETE returns the documented response shape', () => {
-    // {test_id, action: 'deleted'|'archived', attempts_preserved: N}
-    // — the frontend's toast branching relies on these exact keys.
+    // {test_id, action: 'archived', attempts_preserved: N} — the frontend's
+    // toast branching relies on these exact keys (it still accepts a legacy
+    // 'deleted' ack, which this route no longer sends).
     assert.match(router, /['"]action['"]:\s*['"]archived['"][\s\S]{0,200}['"]attempts_preserved['"]:\s*attempt_count/);
-    assert.match(router, /['"]action['"]:\s*['"]deleted['"][\s\S]{0,200}['"]attempts_preserved['"]:\s*0/);
   });
 
   test('admin GET accepts any status (no published-only filter)', () => {

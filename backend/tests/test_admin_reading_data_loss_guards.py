@@ -121,12 +121,17 @@ def test_unknown_attempt_count_archives_instead_of_hard_deleting(wire):
     assert db.rows["reading_tests"][0]["status"] == "archived"
 
 
-def test_known_zero_attempts_still_hard_deletes(wire):
+def test_known_zero_attempts_archives_and_never_cascade_deletes(wire):
+    # HOLD #2702 (vòng 2): bắt đầu lượt làm đọc `published` rồi INSERT ở hai
+    # lệnh tách rời. Một lượt đang khởi tạo (đã qua lần đọc, chưa INSERT) không
+    # hiện ở bất kỳ lần đếm nào — nên đếm 0 cũng không được xoá cứng: chỉ lưu
+    # trữ, không bao giờ phát lệnh DELETE (FK cascade mig 087 sẽ xoá lượt làm).
     db = wire(_DB(rows={"reading_tests": [{"id": "t1", "status": "published"}]},
                   counts={"reading_test_attempts": 0}))
     out = asyncio.run(ar.admin_delete_reading_test("t1", "auth"))
-    assert out["action"] == "deleted"
-    assert db.rows["reading_tests"] == []
+    assert out == {"test_id": "t1", "action": "archived", "attempts_preserved": 0}
+    assert "delete" not in db.writes("reading_tests")
+    assert db.rows["reading_tests"] == [{"id": "t1", "status": "archived"}]
 
 
 def test_count_none_but_a_row_seen_archives(wire):

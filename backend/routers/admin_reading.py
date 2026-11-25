@@ -944,48 +944,27 @@ async def admin_get_reading_test(
     return test
 
 
-def _archive_then_delete_if_unused(test_uuid: str) -> tuple:
-    """Lưu trữ đề, đếm lại lượt làm, chỉ xoá cứng (FK cascade mig 086 + 087
-    dọn passage/câu hỏi) khi lần đếm thứ hai chắc chắn bằng 0."""
-    supabase_admin.table("reading_tests").update({"status": "archived"}).eq("id", test_uuid).execute()
-    recheck = (
-        supabase_admin.table("reading_test_attempts")
-        .select("id", count="exact")
-        .eq("test_id", test_uuid)
-        .limit(1)
-        .execute()
-    )
-    recount = getattr(recheck, "count", None)
-    if recount is None or recount > 0 or (getattr(recheck, "data", None) or []):
-        return "archived", recount
-    supabase_admin.table("reading_tests").delete().eq("id", test_uuid).execute()
-    return "deleted", 0
-
-
 @router.delete("/tests/{test_id}")
 async def admin_delete_reading_test(
     test_id: str,
     authorization: str | None = Header(default=None),
 ):
-    """Sprint 20.15 D2 — attempt-safe delete.
+    """Sprint 20.15 D2 — attempt-safe delete (archive only since HOLD #2702).
 
-    Semantics (Code-authoritative per Lesson 9 "no workaround that
-    loses student data"):
-      • 0 attempts → HARD delete. Cascades through reading_passages →
-        reading_questions via the mig 086 FK chains. The reading_test_
-        attempts FK also cascades (mig 087) but there are no rows to
-        cascade through. Returns ``{"action": "deleted"}``.
-      • >0 attempts → SOFT delete. Sets `status='archived'` on the test
-        row. Passages + questions + attempts stay intact so any
-        in-flight student attempt can still resolve + so the admin's
-        historic-attempt views (Sprint 20.7 diagnostic, etc) keep
-        working. Student-facing endpoints already filter
-        `status='published'`, so archived = invisible to new starters.
-        Returns ``{"action": "archived", "attempts_preserved": N}``.
+    The route NEVER hard-deletes. It sets `status='archived'`; passages,
+    questions and attempts stay intact. Student-facing endpoints filter
+    `status='published'`, so archived = invisible to new starters.
 
-    The student-facing GET (`reading_student.get_reading_test`) and the
-    list endpoint both filter `status='published'`, so a soft-delete is
-    effectively the same as removal from the student's POV.
+    Why no hard delete even at 0 attempts: starting an attempt
+    (`reading_student._start_reading_test_attempt_sync`) reads `published`
+    and INSERTs in two separate statements, and the count + cascade delete
+    here are separate statements too. Without one atomic lock shared by both
+    paths, a start that already passed its read could be cascade-deleted.
+    Archiving loses nothing.
+
+    Response shape is unchanged: ``{"action": "archived",
+    "attempts_preserved": N}`` (N may be 0). The admin UI already renders
+    `archived`.
     """
     await require_admin(authorization)
     test = _fetch_admin_test_or_404(test_id)
@@ -1024,47 +1003,21 @@ async def admin_delete_reading_test(
         attempt_count = len(rows)
         count_known = False
 
-    if attempt_count > 0 or not count_known:
-        # Soft delete. Stays in the table so attempts (in-progress +
-        # submitted) keep resolving and historic analytics work.
-        (
-            supabase_admin.table("reading_tests")
-            .update({"status": "archived"})
-            .eq("id", test_uuid)
-            .execute()
-        )
-        logger.info(
-            "[admin_reading] soft-delete (archived) test_id=%s attempts=%d count_known=%s",
-            test_id, attempt_count, count_known,
-        )
-        return {
-            "test_id":             test_id,
-            "action":              "archived",
-            "attempts_preserved":  attempt_count,
-        }
-
-    # HOLD #2702: lần đếm 0 và lệnh xoá cascade là hai bước tách rời. Lưu trữ
-    # TRƯỚC (bắt đầu lượt làm mới đòi đề `published`), đếm lại, chỉ xoá cứng
-    # khi lần đếm thứ hai cũng chắc chắn bằng 0; còn nghi ngờ ⇒ giữ lưu trữ.
-    action, recount = await asyncio.to_thread(_archive_then_delete_if_unused, test_uuid)
-    if action == "archived":
-        logger.info(
-            "[admin_reading] soft-delete (archived after recheck) test_id=%s recount=%s",
-            test_id, recount,
-        )
-        return {
-            "test_id":             test_id,
-            "action":              "archived",
-            "attempts_preserved":  int(recount or 0),
-        }
+    # HOLD #2702: chỉ lưu trữ, kể cả khi đếm được 0 — xem docstring.
+    (
+        supabase_admin.table("reading_tests")
+        .update({"status": "archived"})
+        .eq("id", test_uuid)
+        .execute()
+    )
     logger.info(
-        "[admin_reading] hard-delete test_id=%s (no attempts)",
-        test_id,
+        "[admin_reading] soft-delete (archived) test_id=%s attempts=%d count_known=%s",
+        test_id, attempt_count, count_known,
     )
     return {
         "test_id":             test_id,
-        "action":              "deleted",
-        "attempts_preserved":  0,
+        "action":              "archived",
+        "attempts_preserved":  attempt_count,
     }
 
 
