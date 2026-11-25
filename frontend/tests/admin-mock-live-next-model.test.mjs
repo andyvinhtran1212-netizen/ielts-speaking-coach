@@ -154,15 +154,15 @@ test('pacing keeps clears as activity, derives long gaps and requires backend ca
 });
 
 test('native routes own auth, exact identities, irreversible guards and accessible void dialog', () => {
-  const live = read('app', '(authed-admin-mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
-  const dialog = read('app', '(authed-admin-mock-live)', 'admin', 'mock-live', 'void-sitting-dialog.tsx');
-  const pacing = read('app', '(authed-admin-mock-live)', 'admin', 'mock-pacing', 'admin-mock-pacing.tsx');
-  const livePage = read('app', '(authed-admin-mock-live)', 'admin', 'mock-live', 'page.tsx');
-  const pacingPage = read('app', '(authed-admin-mock-live)', 'admin', 'mock-pacing', 'page.tsx');
+  const live = read('app', '(authed-admin)/(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
+  const dialog = read('app', '(authed-admin)/(mock-live)', 'admin', 'mock-live', 'void-sitting-dialog.tsx');
+  const pacing = read('app', '(authed-admin)/(mock-live)', 'admin', 'mock-pacing', 'admin-mock-pacing.tsx');
+  const livePage = read('app', '(authed-admin)/(mock-live)', 'admin', 'mock-live', 'page.tsx');
+  const pacingPage = read('app', '(authed-admin)/(mock-live)', 'admin', 'mock-pacing', 'page.tsx');
   const cockpitModel = read('lib', 'admin-mock-tests-model.mjs');
   for (const path of [
-    ['app', '(authed-admin-mock-live)', 'admin', 'mock-live', 'page.tsx'],
-    ['app', '(authed-admin-mock-live)', 'admin', 'mock-pacing', 'page.tsx'],
+    ['app', '(authed-admin)/(mock-live)', 'admin', 'mock-live', 'page.tsx'],
+    ['app', '(authed-admin)/(mock-live)', 'admin', 'mock-pacing', 'page.tsx'],
     ['public', 'css', 'admin-mock-live-next.css'],
   ]) assert.ok(existsSync(join(ROOT, ...path)), path.join('/'));
   assert.match(livePage, /AdminAccessGate/);
@@ -184,7 +184,7 @@ test('native routes own auth, exact identities, irreversible guards and accessib
 });
 
 test('a stale canonical snapshot freezes the clock, blocks risky mutations and preserves emergency close', () => {
-  const live = read('app', '(authed-admin-mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
+  const live = read('app', '(authed-admin)/(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
   const css = read('public', 'css', 'admin-mock-live-next.css');
   assert.match(live, /const snapshotStale = Boolean\(refreshError\)/);
   assert.match(live, /snapshotStale \? 'Snapshot cũ · đồng hồ đã đóng băng'/);

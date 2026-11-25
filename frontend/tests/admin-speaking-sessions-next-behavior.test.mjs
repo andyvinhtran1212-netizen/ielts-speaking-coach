@@ -16,11 +16,11 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'page.tsx');
-const COMPONENT = read('app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx');
-const LAYOUT = read('app', '(authed-admin-speaking-sessions)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(speaking-sessions)', 'admin', 'speaking', 'sessions', 'page.tsx');
+const COMPONENT = read('app', '(authed-admin)/(speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(speaking-sessions)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-speaking-sessions-next.css');
-const HUB = read('app', '(authed-admin-speaking)', 'admin', 'speaking', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(speaking)', 'admin', 'speaking', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const CONFIG = read('next.config.ts');
@@ -106,7 +106,7 @@ describe('/admin/speaking/sessions native ownership and UX contract', () => {
     assert.match(CSS, /@media\(max-width:480px\)/);
     assert.match(CSS, /:focus-visible/);
     assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
-    assert.match(WORKFLOW, /authed-admin-speaking-sessions/);
+    assert.match(WORKFLOW, /\(authed-admin\)\/\(speaking-sessions\)/);
     assert.match(WORKFLOW, /verify-admin-speaking-sessions-flow\.mjs/);
   });
 });

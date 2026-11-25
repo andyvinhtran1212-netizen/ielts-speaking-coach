@@ -12,7 +12,7 @@ const API = 'https://api.chrome-nav-width.invalid';
 // 1280px is the untouched desktop layout.
 const WIDTHS = [720, 721, 800, 900, 1024, 1025, 1100, 1279, 1280];
 const HAMBURGER_MAX = 1024;
-// U-12: the avatar dropdown's "Trang giảng viên" link must follow the
+// U-12: the avatar dropdown's "Sang khu giáo viên" link must follow the
 // /auth/me role at both the desktop and phone layouts.
 const ROLE_WIDTHS = [1280, 390];
 const ROLES = [['user', false], ['instructor', true], ['admin', true]];
@@ -183,7 +183,7 @@ try {
         state = await read();
       }
       if (!expected) { await page.waitForTimeout(500); state = await read(); }
-      check(`${width}px ${role}: "Trang giảng viên" ${expected ? 'shown' : 'absent from DOM'}`,
+      check(`${width}px ${role}: "Sang khu giáo viên" ${expected ? 'shown' : 'absent from DOM'}`,
         ok(state), `anchors ${state.count}, display ${state.display}`);
       await context.close();
     }
