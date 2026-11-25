@@ -10,6 +10,7 @@ inline, matching the established convention in routers/admin.py.
 
 from __future__ import annotations
 
+import asyncio
 import io
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -1082,7 +1083,7 @@ async def trigger_regrade(
         else (essay.get("selected_model") or "gemini-2.5-pro")
     )
     try:
-        (
+        claimed = (
             supabase_admin.table("writing_essays")
             .update({
                 "status":             "grading",
@@ -1098,27 +1099,58 @@ async def trigger_regrade(
                 "is_manually_edited": False,
             })
             .eq("id", str(essay_id))
+            # Chốt so-và-đổi: chỉ chuyển sang 'grading' nếu status vẫn là cái
+            # vừa đọc. Hai cú bấm gần nhau đều đọc 'graded' ở trên; thiếu chốt
+            # này cả hai cùng ghi 'grading' và cùng xếp job ⇒ chấm 2 lần
+            # (báo cáo săn lỗi B1-15).
+            .eq("status", essay["status"])
             .execute()
         )
     except Exception as exc:
         _logger.error("[admin-writing] regrade update failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
+    if not claimed.data:
+        raise HTTPException(
+            status_code=409,
+            detail="Bài đang được chấm lại bởi một yêu cầu khác. Đợi lượt đó xong rồi thử lại.",
+        )
 
     # Reuse the SAGA leg from Sprint 2.7.1: schedule_grading_job inserts
     # the writing_jobs row and returns the job id; the router adds the
     # BG task. Same pattern as POST /admin/writing/essays + the student
     # submit path use.
     note_writing_mutation(str(essay_id))
-    job_info = essay_service.schedule_grading_job(
-        essay_id       = str(essay_id),
-        analysis_level = effective_level,
-        selected_model = regrade_model,
-        # regrade-resilience (Sprint W-MM): persist the pre-regrade status on the
-        # job so the reaper can restore it if the process dies and reaper
-        # attempts are exhausted (the in-memory restore_status_on_fail below
-        # only covers the live BG task, not an out-of-process reaper takeover).
-        restore_status = essay.get("status"),
-    )
+    try:
+        job_info = essay_service.schedule_grading_job(
+            essay_id       = str(essay_id),
+            analysis_level = effective_level,
+            selected_model = regrade_model,
+            # regrade-resilience (Sprint W-MM): persist the pre-regrade status on the
+            # job so the reaper can restore it if the process dies and reaper
+            # attempts are exhausted (the in-memory restore_status_on_fail below
+            # only covers the live BG task, not an out-of-process reaper takeover).
+            restore_status = essay.get("status"),
+        )
+    except Exception:
+        # Không có job nào ⇒ không reaper nào trả status về. Để nguyên
+        # 'grading' là kẹt vĩnh viễn: mọi lần chấm lại sau đều 409 (báo cáo
+        # săn lỗi B1-21). Trả status cũ (chỉ khi vẫn là 'grading' của mình),
+        # rồi báo lỗi như cũ.
+        try:
+            await asyncio.to_thread(
+                supabase_admin.table("writing_essays")
+                .update({"status": essay["status"]})
+                .eq("id", str(essay_id))
+                .eq("status", "grading")
+                .execute
+            )
+            note_writing_mutation(str(essay_id))
+        except Exception as restore_exc:
+            _logger.error(
+                "[admin-writing] regrade status restore failed essay=%s: %s",
+                essay_id, restore_exc, exc_info=True,
+            )
+        raise
     # regrade-resilience: on grader failure, restore the pre-regrade status
     # (essay["status"], captured above before the 'grading' write) instead of
     # stranding the essay in 'failed' — the prior version is still current.
