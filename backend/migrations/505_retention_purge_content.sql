@@ -46,9 +46,9 @@
 -- snapshot per statement), so a write that committed first is seen and one
 -- that comes later waits for the purge to commit. Transaction-scoped only.
 -- Known limits (rare, recorded rather than locked, SA #2624 nit 2): un-
--- archiving a class (cohorts.archived_at back to NULL) and un-revoking or
--- unlocking a code the learner holds only through an assignment are not
--- waited for. Locking cohorts or those codes here would invert 387's order
+-- archiving a class (cohorts.archived_at back to NULL) and un-revoking,
+-- unlocking or extending (a later expires_at) a code the learner holds only
+-- through an assignment are not waited for. Locking cohorts or those codes here would invert 387's order
 -- (cohort row before the member's advisory lock). Both keep-side checks are
 -- still read after every lock above.
 BEGIN;
