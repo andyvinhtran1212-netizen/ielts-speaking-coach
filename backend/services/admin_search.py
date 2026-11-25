@@ -88,9 +88,10 @@ def learners(needle: str, *, cohort_ids: Optional[frozenset[str]], hide_test: bo
         meta = _join(code, ", ".join(c["name"] or "" for c in classes) or None)
         if p.student and p.student.get("archived_at"):
             meta = _join(meta, "Đã lưu trữ")
-        # The teacher dashboard has no learner deep link yet: it opens on
-        # its roster.
-        href = f"/admin/learners/{_q(p.ref)}" if cohort_ids is None else "/instructor"
+        # Neither console has a learner profile page yet (G09-T11 builds
+        # /admin/learners/{ref}): both open on their roster. No name or code
+        # goes into the URL, which access logs keep.
+        href = "/admin/students" if cohort_ids is None else "/instructor"
         rows.append(_row(p.name, meta, href))
     return rows, people
 

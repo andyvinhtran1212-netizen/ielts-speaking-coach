@@ -25,11 +25,11 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-overview)', 'admin', 'page.tsx');
-const BEHAVIOR = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const PAGE = read('app', '(authed-admin)', '(overview)', 'admin', 'page.tsx');
+const BEHAVIOR = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const API = read('lib', 'admin-overview-api.ts');
 const OPENAPI = read('types', 'api.d.ts');
-const LAYOUT = read('app', '(authed-admin-overview)', 'layout.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(overview)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-overview.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const BROWSER_FLOW = read('tooling', 'verify-admin-overview-flow.mjs');
@@ -73,7 +73,7 @@ describe('/admin — native overview ownership', () => {
   });
 
   test('records native ownership and the rollback target in the route ledger', () => {
-    assert.match(LEDGER, /`\/admin`[^\n]+authed-admin-overview[^\n]+native React ownership/);
+    assert.match(LEDGER, /`\/admin`[^\n]+\(authed-admin\)\/\(overview\)[^\n]+native React ownership/);
     assert.match(LEDGER, /`\/pages\/admin\/index\.html` remains rollback target/);
   });
 });
@@ -135,7 +135,7 @@ describe('/admin — lifecycle and contract behavior', () => {
   });
 
   test('gates the fixture-backed browser flow in CI', () => {
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-overview\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(overview\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-overview\.css/);
     assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-system\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-ai-usage-next\.css/);

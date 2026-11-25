@@ -76,15 +76,15 @@ test('ThemeMenu: choose Tối, the other tab follows; Theo thiết bị clears t
   expect(await page.locator('meta[name="theme-color"]').evaluateAll((m) => m.map((x) => [x.media, x.content])))
     .toEqual([['(prefers-color-scheme: light)', '#FAF6EF'], ['(prefers-color-scheme: dark)', '#1C1A16']]);
 
-  const button = page.locator('header').getByRole('button', { name: 'Giao diện: Theo thiết bị. Đổi giao diện' });
+  const button = page.locator('main > header').getByRole('button', { name: 'Giao diện: Theo thiết bị. Đổi giao diện' });
   await button.click();
-  await page.locator('header').getByRole('menuitemradio', { name: 'Tối' }).click();
+  await page.locator('main > header').getByRole('menuitemradio', { name: 'Tối' }).click();
   expect(await page.evaluate(() => [document.documentElement.dataset.theme, localStorage.getItem('av-theme')])).toEqual(['dark', 'dark']);
   expect(await page.locator('meta[name="theme-color"]').evaluateAll((m) => m.map((x) => x.content))).toEqual(['#1C1A16', '#1C1A16']);
   await expect.poll(() => other.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
-  await expect(other.locator('header').getByRole('button', { name: 'Giao diện: Tối. Đổi giao diện' })).toBeVisible();
+  await expect(other.locator('main > header').getByRole('button', { name: 'Giao diện: Tối. Đổi giao diện' })).toBeVisible();
 
-  await page.locator('header').getByRole('button', { name: 'Giao diện: Tối. Đổi giao diện' }).click();
+  await page.locator('main > header').getByRole('button', { name: 'Giao diện: Tối. Đổi giao diện' }).click();
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   expect(await page.evaluate(() => [document.documentElement.dataset.theme, localStorage.getItem('av-theme')])).toEqual(['light', null]);

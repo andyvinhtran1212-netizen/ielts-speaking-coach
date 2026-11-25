@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { CuratedAvailabilityBadge } from '@/components/curated-availability-badge';
-import AdminVocabPage from '@/app/(authed-admin-vocab)/admin/vocab/page';
+import AdminVocabPage from '@/app/(authed-admin)/(vocab)/admin/vocab/page';
 
 vi.mock('@/lib/browser-api', () => ({ getBrowserJson: (...args: any[]) => window.api.getWith(...args) }));
 vi.mock('@/components/admin-access-gate', () => ({ AdminAccessGate: ({ children }: any) => children }));

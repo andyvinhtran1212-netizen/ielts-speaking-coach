@@ -13,7 +13,7 @@
 // silently flips back to real providers, this suite goes red on purpose).
 // @ts-check
 const { test, expect } = require('./fixtures');
-const { cleanupE2ESession, STAGING_API, signIn } = require('./helpers');
+const { cleanupE2ESession, freshAdminToken, STAGING_API, signIn } = require('./helpers');
 
 test.describe.serial('Gate A flows', () => {
   /** @type {string} */ let adminToken;
@@ -60,9 +60,20 @@ test.describe.serial('Gate A flows', () => {
             { headers: auth(adminToken) },
           ); // 404 = already removed — fine
         }
-        await request.delete(`${STAGING_API}/admin/access-codes/${codeId}`, {
+        const plain = await request.delete(`${STAGING_API}/admin/access-codes/${codeId}`, {
           headers: auth(adminToken),
         }); // revoke is idempotent
+        if (plain.status() === 409) {
+          // ADMINIA-0074 FR-055: a redeemed code is revoked only through
+          // revoke-used (step-up, retyped code, reason). Idempotent too.
+          const used = await request.post(`${STAGING_API}/admin/access-codes/${codeId}/revoke-used`, {
+            headers: auth(await freshAdminToken(request)),
+            data: { confirm_code: code, reason: 'Staging E2E gate-a cleanup after a failed run' },
+          });
+          if (!used.ok()) {
+            cleanupErrors.push(new Error(`revoke-used cleanup failed for ${codeId}: HTTP ${used.status()}`));
+          }
+        }
       }
     } catch (e) {
       cleanupErrors.push(e);
@@ -184,7 +195,7 @@ test.describe.serial('Gate A flows', () => {
     expect(finalState.overall_band).toBe(6);
   });
 
-  test('flow 3 — remove user keeps redemption history immutable; then revoke', async ({ request }) => {
+  test('flow 3 — remove user keeps redemption history immutable; then revoke-used', async ({ request }) => {
     await ensureTokens(request);
     const removed = await request.delete(
       `${STAGING_API}/admin/access-codes/${codeId}/users/${studentId}`,
@@ -210,10 +221,28 @@ test.describe.serial('Gate A flows', () => {
     expect(fallback.is_active).toBe(false);
     expect(fallback.removable).toBe(false);
 
-    const revoked = await request.delete(`${STAGING_API}/admin/access-codes/${codeId}`, {
+    // ADMINIA-0074 FR-055: the removed redeemer has an inactive row, so
+    // nobody still receives access from this code.
+    expect(d.access_holders).toEqual([]);
+
+    // A redeemed code is never revoked by the plain DELETE (FR-055) …
+    const plain = await request.delete(`${STAGING_API}/admin/access-codes/${codeId}`, {
       headers: auth(adminToken),
     });
-    expect(revoked.status(), await revoked.text()).toBe(204);
+    expect(plain.status(), await plain.text()).toBe(409);
+    expect((await plain.json()).detail.code).toBe('code_used');
+
+    // … only by revoke-used: step-up token, the code retyped, a reason.
+    const revoked = await request.post(`${STAGING_API}/admin/access-codes/${codeId}/revoke-used`, {
+      headers: auth(await freshAdminToken(request)),
+      data: { confirm_code: code, reason: 'Staging E2E gate-a flow 3 revoke' },
+    });
+    expect(revoked.status(), await revoked.text()).toBe(200);
+    const r = await revoked.json();
+    expect(r.is_revoked).toBe(true);
+    expect(r.already_revoked).toBe(false);
+    expect(r.affected_user_count).toBe(0);
+    expect(r.audit_recorded).toBe(true);
 
     const after = await request.get(`${STAGING_API}/admin/access-codes/${codeId}`, {
       headers: auth(adminToken),
@@ -221,5 +250,9 @@ test.describe.serial('Gate A flows', () => {
     const a = await after.json();
     expect(a.is_revoked).toBe(true);
     expect(a.is_active).toBe(false);
+    // Revoking keeps the redemption history (CLAUDE.md invariant).
+    expect(a.is_used).toBe(true);
+    expect(a.used_by).toBe(studentId);
+    expect(a.used_at).toBe(d.used_at);
   });
 });
