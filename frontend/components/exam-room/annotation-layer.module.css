@@ -46,7 +46,7 @@
 .toolbar button + button { border-left: var(--av2-rule-w) solid var(--av2-rule); }
 .toolbar button:focus-visible,
 .noteActions button:focus-visible,
-.noteNumber:focus-visible { outline: var(--av2-rule-strong-w) solid var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.noteNumber:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
 
 .noteEditor {
   position: absolute;

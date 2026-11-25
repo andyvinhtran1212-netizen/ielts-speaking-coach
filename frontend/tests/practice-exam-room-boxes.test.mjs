@@ -70,7 +70,7 @@ function sandbox({ on, blob = null, slots = null, complete = async () => ({}), n
     return {
       resetRecording, discardP2SubmissionRetry, confirmRerecord, requestLeave, confirmLeave,
       leaveConfirmed, confirmSubmitWithUnsent, canLeave: _canLeave, hasUnsent: _hasUnsentWork,
-      submit: _sheetSubmit, expired: _roomExpired,
+      submit: _sheetSubmit, expired: _roomExpired, sessionBack: _roomSessionBack,
       dirty: (v) => { _recordingDirty = v; },
       newGeneration: () => { _playerGeneration += 1; },
     };
@@ -326,12 +326,48 @@ describe('flag on: 401 stays in the page (FR-010)', () => {
     assert.ok(!log.some(([k]) => k === 'navigate' || k === 'assign'));
   });
 
-  test('upload auth_required with an unsent take counts it; signing in on this tab is the learner\'s choice', () => {
+  test('upload auth_required with an unsent take: the box only stays; no same-tab sign-in, the take is kept (FR-010)', () => {
     const { api, log, dialogs } = sandbox({ on: true });
     api.dirty(true);
     assert.equal(api.expired({ code: 'auth_required' }), true);
     assert.deepEqual(dialogs(), [{ kind: 'expired', unsent: 1 }]);
-    api.confirmLeave(true, '/login?next=%2Fpractice%2Fsession');
+    assert.equal(api.confirmLeave(true, '/login?next=%2Fpractice%2Fsession'), false);
+    assert.deepEqual(log, [], 'no release, no navigation');
+    assert.equal(api.hasUnsent(), true, 'the take is still in the page');
+  });
+
+  test('signed out over a failed re-record: Nộp reopens the sign-in box instead of submitting', async () => {
+    const { api, log, dialogs } = sandbox({ on: true, slots: failedRerecord });
+    assert.equal(api.expired({ status: 401 }), true);
+    await api.submit();
+    assert.deepEqual(dialogs(), [{ kind: 'expired', unsent: 1 }, { kind: 'expired', unsent: 1 }]);
+    assert.ok(!log.some(([k]) => k === 'complete' || k === 'navigate' || k === 'assign'));
+  });
+
+  test('401 then a retry that fails with 5xx or the network: the take stays and Nộp stays locked (CR #2615)', async () => {
+    const { api, log, dialogs } = sandbox({ on: true, slots: failedRerecord });
+    api.expired({ status: 401 });
+    assert.equal(api.expired({ status: 500 }), false);
+    assert.equal(api.expired({ status: 503 }), false);
+    assert.equal(api.expired(new Error('Failed to fetch')), false);
+    await api.submit();
+    assert.deepEqual(dialogs().map((d) => d.kind), ['expired', 'expired'], 'never the "Vẫn nộp" box');
+    assert.ok(!log.some(([k]) => k === 'complete' || k === 'navigate' || k === 'assign'));
+    assert.equal(api.hasUnsent(), true);
+  });
+
+  test('401 then signing in on another tab and a retry that sends: Nộp opens again (CR #2615)', async () => {
+    const { api, dialogs } = sandbox({ on: true, slots: failedRerecord });
+    api.expired({ status: 401 });
+    api.sessionBack();
+    await api.submit();
+    assert.deepEqual(dialogs().map((d) => d.kind), ['expired', 'submit']);
+  });
+
+  test('with nothing unsent a 401 still offers same-tab sign-in', () => {
+    const { api, log } = sandbox({ on: true });
+    assert.equal(api.expired({ status: 401 }), true);
+    assert.equal(api.confirmLeave(true, '/login?next=%2Fpractice%2Fsession'), true);
     assert.deepEqual(log, [['release'], ['assign', '/login?next=%2Fpractice%2Fsession']]);
   });
 
@@ -355,4 +391,83 @@ test('the full-test bridge lets the room\'s "leave" choice through without a bro
   const guard = bridge.indexOf('const warnBeforeUnload');
   assert.ok(guard !== -1);
   assert.match(bridge.slice(guard, guard + 400), /PracticeApp\?\.leaveConfirmed\?\.\(\) === true\) return;/);
+});
+
+describe('FR-010: 401 on a re-record, sign in on another tab, "Gửi lại bản ghi" sends the same take (CR #2615)', () => {
+  const ROOM_BLOCK = slice('  // ── Exam room (EXAMSPEAK-0072)', '  function _hasUnsentWork() {');
+  const BLOB = slice('  function _sheetRetrySubmission(i) {', '  function _sheetAudioTooShort(');
+  const SUBMIT_FN = slice('  async function _sheetSubmit() {', '  function nextQuestion() {');
+
+  function room(answers) {
+    const sent = [];
+    const views = [];
+    const log = [];
+    const env = {
+      _updateNativeView: (s, p) => { views.push([s, p]); return true; },
+      _renderSheet: () => {},
+      _sheetCheckLength: () => false,
+      _submitGradingEager: (sid, qid, blob) => {
+        sent.push(blob);
+        const next = answers.shift();
+        return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
+      },
+      _releaseRecorderResources: () => log.push(['release']),
+      _completeSpeakingSession: async (id) => { log.push(['complete', id]); },
+      _navigateTo: (u) => log.push(['navigate', u]),
+      _singleSessionResultUrl: (id) => `/result?id=${id}`,
+      _startManagedTimeout: () => 'k',
+      _clearManagedEffect: () => true,
+      _sheetAudioTooShort: () => {},
+      window: { location: { assign: (u) => log.push(['assign', u]) } },
+      $: () => null,
+      console: { warn() {} },
+    };
+    const take = { id: 'new-take' };
+    const api = new Function(...Object.keys(env), `
+      var _examRoomMode = true, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null;
+      var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false;
+      var _ROOM_LEAVE_RESET_MS = 4000, _playerGeneration = 1, _playerActive = true, _sessionId = 'sess';
+      var _navigate = function () {}, _recordingDirty = false, _recordedBlob = null, _sheetSubmitting = false, _recSubState = 'idle';
+      var _sheet = { slots: [{ state: 'saved', q: { id: 'q1' }, resp: { id: 'r-old' } }] };
+      ${ROOM_BLOCK}
+      function _hasUnsentWork() { return _roomUnsentCount() > 0; }
+      ${BLOB}
+      ${SUBMIT_FN}
+      return {
+        rerecord: (blob) => _sheetSubmitBlob(_sheet.slots[0], blob, 'saved', 12),
+        retry: () => _sheetRetrySubmission(0),
+        submit: _sheetSubmit,
+        slot: () => _sheet.slots[0],
+      };
+    `)(...Object.values(env));
+    const dialogs = () => views.filter(([s]) => s === 'dialog').map(([, p]) => p && p.kind);
+    return { api, sent, log, dialogs, take };
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+
+  test('a 5xx retry keeps the take and Nộp locked; the next retry that sends unlocks it, same take, no reload', async () => {
+    const e401 = Object.assign(new Error('x'), { status: 401 });
+    const e500 = Object.assign(new Error('x'), { status: 500 });
+    const { api, sent, log, dialogs, take } = room([e401, e500, { overall_band: 6 }]);
+    api.rerecord(take);
+    await tick(); await tick();
+    assert.equal(api.slot().retryBlob, take, 'the 401 keeps the take in the page');
+    await api.submit();
+    assert.deepEqual(dialogs(), ['expired', 'expired'], 'Nộp reopens the sign-in box, never "Vẫn nộp"');
+
+    api.retry();                     // still signed out on the server side: 500
+    await tick(); await tick();
+    assert.equal(api.slot().retryBlob, take);
+    await api.submit();
+    assert.deepEqual(dialogs(), ['expired', 'expired', 'expired']);
+
+    api.retry();                     // signed in on another tab: the same take is sent
+    await tick(); await tick();
+    assert.deepEqual(sent, [take, take, take]);
+    assert.equal(api.slot().state, 'saved');
+    assert.equal(api.slot().retryBlob, null);
+    await api.submit();
+    assert.deepEqual(log.map(([k]) => k), ['release', 'complete', 'navigate']);
+    assert.ok(!log.some(([k]) => k === 'assign'), 'no page load at any point');
+  });
 });

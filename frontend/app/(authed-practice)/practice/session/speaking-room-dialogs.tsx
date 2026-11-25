@@ -66,11 +66,12 @@ export function SpeakingRoomDialogs({ kind, unsent, mode }: { kind: SpeakingDial
     title = strings.expiredTitle;
     body = strings.expiredBody;
     if (unsent > 0) {
-      // Signing in on this tab drops the page; say so and let the learner choose.
+      // The page holds the only copy of the take: no same-tab sign-in and no
+      // way to drop it here, only stay (0072 FR-010, 0066 FR-015 amendment 2).
       note = strings.expiredUnsent;
       safeLabel = strings.expiredStay;
       onSafe = () => { callApp('confirmLeave', false); };
-      other = { label: strings.expiredSignInLose, danger: true, run: () => { callApp('confirmLeave', true, speakingLoginHref()); } };
+      other = null;
     } else {
       safeLabel = strings.expiredSignIn;
       onSafe = () => { callApp('confirmLeave', true, speakingLoginHref()); };
