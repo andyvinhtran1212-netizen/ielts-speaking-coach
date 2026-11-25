@@ -1,4 +1,6 @@
-// Fixture-backed browser contract for the native public Vocabulary Wiki.
+// Fixture-backed browser contract for the public Vocabulary shelf
+// (LIBRARY-0061 T015, tờ TuVung). Server-rendered pages read the Next-native
+// fixture API (AVER_API_BASE); browser calls are answered here.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
@@ -12,13 +14,20 @@ async function waitForCount(getCount, expected, timeout = 2000) {
   }
   return getCount() >= expected;
 }
-async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
+async function launch() {
+  const options = process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {};
+  try { return await chromium.launch(options); } catch (error) {
+    const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome });
+    throw error;
+  }
+}
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-const page = await context.newPage();
-const errors = []; const feedback = []; const analytics = []; const articleReads = [];
+const errors = []; const feedback = []; const analytics = []; const bankPosts = [];
 const vocabularyViews = () => analytics.filter((event) => event.event_name === 'vocab_wiki_viewed');
+let signedIn = false;
 const fixtureRows = [
   { slug: 'academic-growth', category: 'education', headword: 'academic growth', level: 'B2', part_of_speech: 'noun phrase', pronunciation: '', gloss_vi: 'sự tiến bộ học thuật', audio_headword: '' },
   { slug: 'lifelong-learning', category: 'education', headword: 'lifelong learning', level: 'B2', part_of_speech: 'noun phrase', pronunciation: '', gloss_vi: 'học tập suốt đời', audio_headword: '' },
@@ -31,7 +40,6 @@ const fixtureRows = [
     gloss_vi: `mục từ kiểm thử ${index + 1}`, audio_headword: '',
   })),
 ];
-page.on('pageerror', (error) => errors.push(String(error)));
 await context.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
   if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('about:')) return route.continue();
@@ -40,12 +48,9 @@ await context.route('**/*', async (route) => {
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (method === 'GET' && parsed.pathname === '/api/vocabulary/directory') {
     const categoryFilter = parsed.searchParams.get('category') || '';
-    const query = (parsed.searchParams.get('q') || '').trim().toLocaleLowerCase('vi');
     const offset = Number.parseInt(parsed.searchParams.get('offset') || '0', 10);
     const limit = Number.parseInt(parsed.searchParams.get('limit') || '60', 10);
-    const filteredRows = fixtureRows.filter((item) => (!categoryFilter || item.category === categoryFilter)
-      && (!query || item.headword.toLocaleLowerCase('vi').includes(query)
-        || item.gloss_vi.toLocaleLowerCase('vi').includes(query)));
+    const filteredRows = fixtureRows.filter((item) => !categoryFilter || item.category === categoryFilter);
     return json({
       categories: [
         { slug: 'education', title: 'Education', article_count: 33 },
@@ -57,18 +62,16 @@ await context.route('**/*', async (route) => {
       limit,
     });
   }
-  const match = parsed.pathname.match(/^\/api\/vocabulary\/articles\/([^/]+)\/([^/]+)$/);
-  if (method === 'GET' && match) {
-    const category = decodeURIComponent(match[1]); const slug = decodeURIComponent(match[2]);
-    articleReads.push(`${category}/${slug}`);
-    return json({
-      slug, category, headword: `Fixture ${slug}`, level: 'B2', part_of_speech: 'noun',
-      pronunciation: '/ˈfɪk.stʃə/', syllables: 'FIX-ture', definition_en: 'A browser fixture.',
-      definition_vi: 'Dữ liệu kiểm thử trình duyệt.', example: `Use ${slug} in context.`,
-      collocations: ['browser fixture'], synonyms: [], antonyms: [], related_words: [],
-      word_family: [], common_error: '', memory_hook: 'Keep the contract stable.',
-      audio_headword: '', audio_example: '', register: 'neutral', source: 'G1 fixture', html: '',
-    });
+  if (parsed.pathname === '/api/vocabulary/bank/stats') {
+    return signedIn ? json({ total: 0 }) : json({ detail: 'Not authenticated' }, 401);
+  }
+  if (method === 'GET' && parsed.pathname === '/api/vocabulary/bank/') {
+    return json(bankPosts.map((body, index) => ({ id: `row-${index}`, headword: body.headword })));
+  }
+  if (method === 'POST' && parsed.pathname === '/api/vocabulary/bank/') {
+    const body = JSON.parse(request.postData() || '{}');
+    bankPosts.push(body);
+    return json({ id: `row-${bankPosts.length - 1}`, headword: body.headword }, 201);
   }
   if (method === 'POST' && parsed.pathname === '/api/feedback') {
     feedback.push(JSON.parse(request.postData() || '{}')); return json({ id: 'feedback-fixture' });
@@ -79,87 +82,96 @@ await context.route('**/*', async (route) => {
   return json({ detail: `unhandled fixture ${method} ${parsed.pathname}` }, 404);
 });
 
+const page = await context.newPage();
+page.on('pageerror', (error) => errors.push(String(error)));
 await page.goto(`${BASE}/vocabulary`, { waitUntil: 'domcontentloaded' });
-await page.getByRole('heading', { name: 'Từ vựng theo chủ đề', exact: true }).waitFor();
-await page.locator('.vmd-row').first().waitFor();
+await page.getByRole('heading', { name: 'Từ vựng', exact: true, level: 1 }).waitFor();
 await page.waitForFunction(() => Boolean(window.api?.getWith && window.api?.post));
-const rowCount = await page.locator('.vmd-row').count();
-check('server bootstrap render danh mục và thẻ đầu tiên', rowCount >= 2 && await page.locator('.va-card').count() === 1, `${rowCount} rows`);
-await waitForCount(() => vocabularyViews().length, 1);
-check('desktop default card phát đúng một lượt xem', vocabularyViews().length === 1, `${vocabularyViews().length} vocabulary views`);
-
-const firstHeadword = (await page.locator('.vmd-rw').first().textContent() || '').trim();
-await page.getByRole('searchbox', { name: 'Tìm từ vựng' }).fill(firstHeadword);
-await page.waitForFunction(() => document.querySelectorAll('.vmd-row').length === 1);
-const filtered = await page.locator('.vmd-rw').allTextContents();
-check('lọc headword chạy qua directory contract', filtered.length >= 1 && filtered.every((value) => value.toLocaleLowerCase('vi').includes(firstHeadword.toLocaleLowerCase('vi'))));
-await page.getByRole('searchbox', { name: 'Tìm từ vựng' }).fill('');
-await page.waitForFunction(() => document.querySelectorAll('.vmd-row').length === 60);
-const initialPageCount = await page.locator('.vmd-row').count();
+const rows = () => page.locator('table tbody tr');
+const initialPageCount = await rows().count();
+check('server render danh sách từ có liên kết tới mục từ', initialPageCount >= 2
+  && await rows().first().locator('a').getAttribute('href') === '/vocabulary?cat=education&slug=academic-growth', `${initialPageCount} rows`);
 await page.getByRole('button', { name: /Xem thêm/ }).click();
-await page.waitForFunction(() => document.querySelectorAll('.vmd-row').length === 65);
-check('danh mục chỉ hydrate batch đầu rồi tải thêm theo nhu cầu', initialPageCount === 60 && await page.locator('.vmd-row').count() === 65);
+await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 65);
+check('danh mục chỉ hydrate batch đầu rồi tải thêm theo nhu cầu', initialPageCount === 60 && await rows().count() === 65);
+const ipaFont = await page.locator('.av2-ipa').first().evaluate((el) => getComputedStyle(el).fontFamily);
+check('IPA dùng font Source Sans 3', /^"?Source Sans 3/.test(ipaFont), ipaFont);
+check('trang danh sách không phát lượt xem mục từ', vocabularyViews().length === 0);
 
-const second = page.locator('.vmd-row').nth(1);
-const category = await second.getAttribute('data-category'); const slug = await second.getAttribute('data-slug');
-await second.locator('.vmd-row-main').click();
-await page.getByRole('heading', { name: `Fixture ${slug}`, exact: true }).waitFor();
-const url = new URL(page.url());
-check('chọn từ dùng identity kép và clean URL', articleReads.includes(`${category}/${slug}`) && url.pathname === '/vocabulary' && url.searchParams.get('cat') === category && url.searchParams.get('slug') === slug);
+const box = page.getByRole('combobox', { name: 'Tra từ tiếng Anh' });
+await box.click();
+await box.fill('f');
+await page.waitForTimeout(150);
+const oneChar = await page.getByRole('option').count();
+await box.fill('fixture word 1');
+await page.getByRole('option').first().waitFor();
+const options = await page.getByRole('option').count();
+check('gợi ý hiện từ ký tự thứ hai, tối đa 5 dòng', oneChar === 0 && options === 5, `${options} options`);
+await page.keyboard.press('Escape');
+check('Esc đóng gợi ý', await page.getByRole('option').count() === 0);
+await page.keyboard.press('ArrowDown');
+await page.keyboard.press('ArrowDown');
+const chosen = (await page.getByRole('option', { selected: true }).locator('span').first().textContent() || '').trim();
+await Promise.all([page.waitForURL(/slug=/), page.keyboard.press('Enter')]);
+const entryUrl = new URL(page.url());
+check('↑ ↓ chọn, Enter mở đúng mục từ bằng identity kép', chosen === 'fixture word 11'
+  && entryUrl.pathname === '/vocabulary' && entryUrl.searchParams.get('slug') === 'fixture-word-11'
+  && entryUrl.searchParams.get('cat') === 'education', `${chosen} → ${entryUrl.search}`);
+await page.getByRole('heading', { name: 'fixture word 11', exact: true, level: 1 }).waitFor();
+const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
+check('canonical của mục từ là chính URL mục từ', new URL(canonical, BASE).pathname === '/vocabulary'
+  && new URL(canonical, BASE).search === '?cat=education&slug=fixture-word-11', canonical || '');
+await waitForCount(() => vocabularyViews().length, 1);
+check('mở mục từ phát đúng một lượt xem', vocabularyViews().length === 1
+  && vocabularyViews()[0].event_data?.slug === 'fixture-word-11');
+const tocLabels = await page.locator('nav[aria-label="Trong mục từ này"]').first().locator('a').allTextContents();
+check('mục lục chỉ gồm phần có dữ liệu, đánh số liên tục', tocLabels.length === 3
+  && tocLabels.map((label) => label.trim()).join('|') === '1Nghĩa và ví dụ|2Kết hợp từ|3Mẹo nhớ', tocLabels.join('|'));
 
-await page.getByRole('button', { name: 'Báo lỗi thẻ từ này' }).click();
-await page.getByRole('menuitem', { name: 'Nội dung' }).click();
-await page.getByText('✓ Đã gửi, cảm ơn!', { exact: true }).waitFor();
-check('báo lỗi gửi canonical anonymous feedback', feedback.length === 1 && feedback[0].skill === 'vocabulary' && feedback[0].vocab_category === category && feedback[0].vocab_slug === slug && feedback[0].category === 'content_issue');
+await page.getByRole('button', { name: 'Báo lỗi mục từ này' }).click();
+await page.getByRole('button', { name: 'Nội dung', exact: true }).click();
+await page.getByText('Đã gửi, cảm ơn bạn.', { exact: true }).waitFor();
+check('báo lỗi gửi canonical anonymous feedback', feedback.length === 1 && feedback[0].skill === 'vocabulary'
+  && feedback[0].vocab_category === 'education' && feedback[0].vocab_slug === 'fixture-word-11' && feedback[0].category === 'content_issue');
+
+await page.getByRole('button', { name: 'Lưu vào sổ từ' }).click();
+const loginLink = page.getByRole('link', { name: 'Đăng nhập để lưu' });
+await loginLink.waitFor();
+const loginHref = await loginLink.getAttribute('href');
+check('khách bấm lưu → lời nhắc dưới nút dẫn tới đăng nhập kèm next', loginHref === `/login?next=${encodeURIComponent('/vocabulary?cat=education&slug=fixture-word-11')}`, loginHref || '');
+await loginLink.click();
+await page.waitForURL(/\/login/);
+signedIn = true;
+await page.goto(`${BASE}/vocabulary?cat=education&slug=fixture-word-11`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Đã lưu vào sổ từ' }).waitFor();
+check('đăng nhập xong quay về đúng mục từ và từ được lưu luôn', bankPosts.length === 1
+  && bankPosts[0].headword === 'fixture word 11' && bankPosts[0].category === 'topic');
+
+await page.goto(`${BASE}/vocabulary?q=fixture%20wrod%2001`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: /Chưa có mục từ/ }).waitFor();
+const near = await page.locator('table tbody tr').count();
+check('tra không thấy: tối đa 3 từ gần giống và mẹo', near >= 1 && near <= 3 && await page.getByText(/Mẹo: gõ dạng gốc/).count() === 1, `${near} near`);
 
 await page.setViewportSize({ width: 390, height: 844 });
-// The desktop selection remains active after a responsive resize, so the
-// mobile detail sheet correctly covers the list. Return to the list before
-// exercising a fresh mobile selection instead of clicking through the sheet.
-if (await page.locator('.vmd-shell.show-detail').count()) {
-  await page.getByRole('button', { name: 'Quay lại danh sách' }).click();
-  await page.locator('.vmd-shell.show-detail').waitFor({ state: 'detached' });
-}
-const third = page.locator('.vmd-row').nth(2);
-if (await third.count()) {
-  await third.locator('.vmd-row-main').click();
-  await page.locator('.vmd-shell.show-detail').waitFor();
-  await page.getByRole('button', { name: 'Quay lại danh sách' }).click();
-}
-check('mobile detail đóng về danh sách và không tràn ngang', await page.locator('.vmd-shell.show-detail').count() === 0 && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-
-const mobileBefore = vocabularyViews().length;
-const mobile = await context.newPage();
-mobile.on('pageerror', (error) => errors.push(String(error)));
-await mobile.setViewportSize({ width: 390, height: 844 });
-await mobile.goto(`${BASE}/vocabulary`, { waitUntil: 'domcontentloaded' });
-await mobile.getByRole('heading', { name: 'Từ vựng theo chủ đề', exact: true }).waitFor();
-await mobile.locator('.vmd-row').first().waitFor();
-await mobile.waitForFunction(() => Boolean(window.api?.post));
-await mobile.waitForTimeout(250);
-const mobileSilent = vocabularyViews().length === mobileBefore;
-await mobile.locator('.vmd-row-main').first().click();
-await mobile.locator('.va-card').waitFor();
-await waitForCount(() => vocabularyViews().length, mobileBefore + 1);
-check('mobile chỉ phát lượt xem sau khi mở thẻ', mobileSilent && vocabularyViews().length === mobileBefore + 1, `${vocabularyViews().length - mobileBefore} mobile views`);
-await mobile.close();
+await page.goto(`${BASE}/vocabulary?cat=education&slug=lifelong-learning`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'lifelong learning', exact: true, level: 1 }).waitFor();
+check('390px không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 
 const staleCategoryPage = await context.newPage();
 staleCategoryPage.on('pageerror', (error) => errors.push(String(error)));
 await staleCategoryPage.goto(`${BASE}/vocabulary?cat=retired-category`, { waitUntil: 'domcontentloaded' });
-await staleCategoryPage.getByRole('heading', { name: 'Từ vựng theo chủ đề', exact: true }).waitFor();
-await staleCategoryPage.locator('.vmd-row').first().waitFor();
+await staleCategoryPage.getByRole('heading', { name: 'Từ vựng', exact: true, level: 1 }).waitFor();
 check('category cũ tự rơi về danh mục đầy đủ',
-  await staleCategoryPage.locator('.vmd-row').count() === 60
-    && await staleCategoryPage.getByRole('button', { name: /^Tất cả/ }).getAttribute('aria-pressed') === 'true');
+  await staleCategoryPage.locator('table tbody tr').count() === 60
+    && await staleCategoryPage.getByRole('link', { name: /^Tất cả/ }).getAttribute('aria-current') === 'page');
 await staleCategoryPage.close();
 
 const staleDeepLinkPage = await context.newPage();
 staleDeepLinkPage.on('pageerror', (error) => errors.push(String(error)));
 await staleDeepLinkPage.goto(`${BASE}/vocabulary?cat=retired-category&slug=lifelong-learning`, { waitUntil: 'domcontentloaded' });
-await staleDeepLinkPage.getByRole('heading', { name: 'lifelong learning', exact: true }).waitFor();
-check('deep link có category cũ vẫn resolve slug duy nhất',
-  await staleDeepLinkPage.locator('.va-card').count() === 1);
+await staleDeepLinkPage.getByRole('heading', { name: 'lifelong learning', exact: true, level: 1 }).waitFor();
+const staleCanonical = await staleDeepLinkPage.locator('link[rel="canonical"]').getAttribute('href');
+check('deep link có category cũ vẫn resolve slug duy nhất', new URL(staleCanonical, BASE).search === '?cat=education&slug=lifelong-learning');
 await staleDeepLinkPage.close();
 
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));

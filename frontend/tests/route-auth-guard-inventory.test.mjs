@@ -50,7 +50,7 @@ const PUBLIC_BY_DESIGN = Object.freeze([
   '/grammar/roadmap',
   '/grammar/search',
   '/vocabulary',
-  '/flashcard-study',
+  '/vocabulary/flashcards/study',
   '/reading/review',
   '/core-player/launch',
 ]);
