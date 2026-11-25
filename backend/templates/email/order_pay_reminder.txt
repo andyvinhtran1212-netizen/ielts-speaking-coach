@@ -1,0 +1,12 @@
+Subject: Đơn đăng ký {order_code} được giữ tới {pay_by}
+
+{greeting}
+
+Đơn đăng ký {product_title} của bạn vẫn đang chờ chuyển khoản học phí {tuition}, nội dung {order_code}. Đơn được giữ tới {pay_by}.
+
+Đã chuyển rồi mà chưa bấm nút? Không sao, chúng tôi vẫn đối chiếu theo mã đơn. Đừng chuyển lại; khoản chuyển khớp mã tới sau hạn thì đơn tự mở lại và khoá vẫn mở. Không còn muốn học thì không cần làm gì, đơn tự đóng khi hết hạn và đây là thư nhắc duy nhất.
+{order_link_line}
+Aver Learning
+
+Bạn nhận thư này vì có đơn đăng ký chưa thanh toán trên tài khoản {email}.
+Thư về đơn đăng ký và thanh toán là thư bắt buộc, không tắt được.

@@ -16,9 +16,9 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-instructors)', 'admin', 'instructors', 'page.tsx');
-const CLIENT = read('app', '(authed-admin-instructors)', 'admin', 'instructors', 'admin-instructors.tsx');
-const LAYOUT = read('app', '(authed-admin-instructors)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(instructors)', 'admin', 'instructors', 'page.tsx');
+const CLIENT = read('app', '(authed-admin)/(instructors)', 'admin', 'instructors', 'admin-instructors.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(instructors)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-instructors-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const WORKSPACE = read('public', 'pages', 'instructor', 'index.html');
@@ -52,7 +52,7 @@ describe('/admin/instructors native route contract', () => {
     assert.match(CSS, /calc\(100vw - 328px\)/);
     assert.match(CSS, /@media\(max-width:768px\)/);
     assert.match(CSS, /@media\(max-width:440px\)/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-instructors\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(instructors\)\/\*\*/);
     assert.match(WORKFLOW, /frontend\/public\/css\/admin-instructors-next\.css/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-instructors-flow\.mjs/);
   });

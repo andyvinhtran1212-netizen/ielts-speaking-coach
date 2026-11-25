@@ -148,10 +148,11 @@ describe('native True/False route and persistence contract', () => {
     assert.match(MIGRATION, /WHERE status = 'published'/);
     assert.match(MIGRATION, /exercise_type IN \('gist', 'true_false', 'mcq'\)/);
     assert.doesNotMatch(CLIENT, /listeningTrueFalseRollbackHref|HTML rollback/);
-    assert.match(read('public', 'js', 'admin-listening-tf.js'), /getExerciseIdFromUrl[\s\S]+exercises\.find[\s\S]+expected_updated_at/);
   });
 
   test('explains exact scoring and provides accessible authoring controls', () => {
+    // LEGACYJS-0075 W1: ported from listening-gist-tf-pages (Vietnamese T/F/NG labels).
+    assert.match(CLIENT, /ANSWER_LABEL: Record<Answer, string> = \{ T: 'Đúng', F: 'Sai', NG: 'Không có thông tin' \}/);
     assert.match(CLIENT, /Điểm toàn block = số câu đúng chia tổng số câu/);
     assert.match(CLIENT, /đúng 100% nhận định/);
     assert.match(CLIENT, /Audio không đủ dữ kiện để xác nhận hay phủ định/);

@@ -64,6 +64,8 @@ test('writes require dialog and exact GET readback without optimistic row mutati
 
 test('responsive UI exposes exam boundary, focus and reduced motion', () => {
   assert.match(CLIENT, /is_public: target\.isPublic/);
+  // LEGACYJS-0075 W1: ported from mock-cockpit-consolidation (legacy tests-list row).
+  assert.match(CLIENT, /Ẩn khỏi web/);
   assert.match(CLIENT, /Vẫn có thể gán mock test hoặc giao riêng cho lớp/);
   assert.match(CSS, /@media\(max-width:700px\)/);
   assert.match(CSS, /:focus-visible/);
