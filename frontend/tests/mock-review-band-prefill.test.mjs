@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { draftBandOf, initialBandDraft, normalizeReviewDetail } from '../lib/admin-mock-reviews-model.mjs';
+import { BAND_SOURCE, bandCaption, draftBandOf, initialBandDraft, normalizeReviewDetail } from '../lib/admin-mock-reviews-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
@@ -34,9 +34,9 @@ const writingText = new Function([
   'return writingText;',
 ].join('\n'))();
 
-const detailWith = ({ draft = {}, final = {}, required = ['listening', 'reading', 'writing'] } = {}) => normalizeReviewDetail({
+const detailWith = ({ draft = {}, final = {}, required = ['listening', 'reading', 'writing'], blankable = [] } = {}) => normalizeReviewDetail({
   required_skills: required,
-  blankable_skills: [],
+  blankable_skills: blankable,
   review: { id: 'rv-1', sitting_id: 'st-1', status: 'claimed', ai_draft: draft, final_bands: final, retest_flags: {} },
   sitting: { id: 'st-1' },
 });
@@ -46,9 +46,12 @@ describe('admin-mock-reviews — Writing band flows back from graded essays', ()
     const detail = detailWith({ draft: { writing: { band: 5.0, task1_band: 5.0, task2_band: 5.0 } } });
     assert.equal(initialBandDraft(detail).writing, '5');
   });
+  // The caption rule moved into bandCaption() (lib/admin-mock-reviews-model.mjs,
+  // staging 53bc1ccb); the form renders it under each band box.
   test('shows a hint that the band was suggested from the two graded essays', () => {
-    assert.match(TSX, /writing: 'Gợi ý từ hai bài đã chấm'/);
-    assert.match(TSX, /: SOURCE\[skill\]\}<\/small>/);
+    const detail = detailWith({ draft: { writing: { band: 5.0, task1_band: 5.0, task2_band: 5.0 } } });
+    assert.equal(bandCaption(detail, 'writing'), 'Gợi ý từ hai bài đã chấm');
+    assert.match(TSX, /\{bandCaption\(detail, skill\) && <small>\{bandCaption\(detail, skill\)\}<\/small>\}/);
   });
   test('the suggestion never overrides a confirmed final band (final wins)', () => {
     const detail = detailWith({ draft: { writing: { band: 5.0 } }, final: { writing: 6.5 } });
@@ -105,14 +108,23 @@ describe('admin-mock-reviews — every band pre-fills, not just Writing', () => 
     assert.deepEqual(initialBandDraft(detail), { listening: '5.5', reading: '7', writing: '' });
   });
   test('each pre-filled band names where it came from', () => {
-    assert.match(TSX, /listening: 'Tự tính từ số câu đúng'/);
-    assert.match(TSX, /reading: 'Tự tính từ số câu đúng'/);
+    const detail = detailWith({ draft: { listening: { raw: 18, band: 5.5 }, reading: { raw: 30, band: 7 } } });
+    assert.equal(bandCaption(detail, 'listening'), 'Tự tính từ số câu đúng');
+    assert.equal(bandCaption(detail, 'reading'), 'Tự tính từ số câu đúng');
+    assert.equal(BAND_SOURCE.listening, 'Tự tính từ số câu đúng');
+  });
+  test('a confirmed band gets no caption', () => {
+    const detail = detailWith({ draft: { listening: { band: 5.5 } }, final: { listening: 6 } });
+    assert.equal(bandCaption(detail, 'listening'), '');
   });
 });
 
 // Writing/L/R blank for a reason: the caption says the box may stay empty.
 describe('admin-mock-reviews — a blankable skill says it may stay empty', () => {
-  test('the blankable caption replaces the source caption', () => {
-    assert.match(TSX, /detail\.blankableSkills\.includes\(skill\) \? 'Không có band quy đổi; có thể để trống\.' : SOURCE\[skill\]/);
+  test('the blankable caption replaces the "must type" caption', () => {
+    const detail = detailWith({ blankable: ['listening', 'writing'] });
+    assert.match(bandCaption(detail, 'listening'), /có thể để trống/);
+    assert.match(bandCaption(detail, 'writing'), /^Chưa chấm đủ 2 bài .*có thể để trống/);
+    assert.equal(bandCaption(detail, 'reading'), 'Chưa có band tự tính — cần bạn nhập.');
   });
 });

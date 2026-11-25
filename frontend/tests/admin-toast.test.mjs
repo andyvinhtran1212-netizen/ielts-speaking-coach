@@ -75,10 +75,10 @@ describe('migration — mechanical, timing preserved', () => {
   test('Next class surfaces use StatusBanner, never native dialogs', () => {
     assert.match(read('components', 'admin-directory-ui.tsx'), /role=\{banner\.kind === 'error' \? 'alert' : 'status'\}/);
     for (const f of [
-      ['app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx'],
-      ['app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx'],
-      ['app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'],
-      ['app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'],
     ]) {
       const src = read(...f);
       assert.match(src, /<StatusBanner banner=\{/, f.at(-1));
@@ -90,7 +90,7 @@ describe('migration — mechanical, timing preserved', () => {
     assert.match(read('js', 'admin-speaking-sessions.js'), /timeout: 5000/);
   });
   test('persist preserved: overview load error stays until the next load', () => {
-    const o = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+    const o = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
     assert.match(o, /\{opsError && <div className="db-banner" role="alert">\{opsError\}<\/div>\}/);
     assert.equal((o.match(/setOpsError\(null\)/g) || []).length, 1, 'only a new load clears the error');
     assert.doesNotMatch(o, /setTimeout\([^)]*setOpsError/);
@@ -116,7 +116,7 @@ describe('migration — setAlert (4 pages), error-persist not swallowed', () => 
   // LEGACYJS-0075 W3b: admin-students-panel.js is deleted. The students
   // directory keeps an error banner until the next action (no auto-dismiss).
   test('students directory error banner persists (no timer clears it)', () => {
-    const s = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+    const s = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
     assert.match(s, /<StatusBanner banner=\{banner\} \/>/);
     assert.match(s, /setBanner\(\{ kind: 'error', text: messageOf\(/);
     assert.doesNotMatch(s, /setTimeout\([^)]*setBanner/);

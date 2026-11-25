@@ -4,9 +4,9 @@
  * LEGACYJS-0075 W3b: admin-classes.js and admin-students-panel.js are deleted.
  * The surviving behaviour contracts of the handcrafted workspace are EXECUTED
  * here on the native models, with a few source pins on the Next owners:
- *   - app/(authed-admin-classes)/admin/classes/admin-classes-directory.tsx
- *   - app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-detail.tsx
- *   - app/(authed-admin-students)/admin/students/admin-students-directory.tsx
+ *   - app/(authed-admin)/(classes)/admin/classes/admin-classes-directory.tsx
+ *   - app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-detail.tsx
+ *   - app/(authed-admin)/(students)/admin/students/admin-students-directory.tsx
  * Legacy page ids, the handcrafted `admin-classes-workspace.css` layout and the
  * four-step wizard retired with the merged page; the native layouts are pinned
  * in admin-classes-next-behavior, admin-class-detail-next-behavior,
@@ -25,9 +25,9 @@ import { cohortTruth, studentSummary } from '../lib/admin-students-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(HERE, '..', ...p), 'utf8');
-const DIR = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
-const DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
-const STUDENTS = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const DIR = read('app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const DETAIL = read('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const STUDENTS = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
 
 describe('workspace — class directory', () => {
   test('list transport failure is distinct from an empty directory', () => {

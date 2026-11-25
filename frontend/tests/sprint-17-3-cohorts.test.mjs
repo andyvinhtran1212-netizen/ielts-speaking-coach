@@ -17,9 +17,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 // LEGACYJS-0075 W3b: admin-classes.js is deleted. The class list is the Next
 // directory and the roster is the dynamic /admin/classes/[cohortId] route.
-const DIR = front('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
-const DETAIL = front('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
-const DETAIL_PAGE = front('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'page.tsx');
+const DIR = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const DETAIL = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const DETAIL_PAGE = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'page.tsx');
 const CTRL = DIR + DETAIL;
 const CHROME = front('js', 'components', 'aver-admin-chrome.js');
 const HTML = front('pages', 'admin', 'classes', 'index.html');

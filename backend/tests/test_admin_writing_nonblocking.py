@@ -147,9 +147,13 @@ def test_list_regrade_requests_does_not_block_loop(monkeypatch):
     monkeypatch.setattr(regrade, "supabase_admin", SimpleNamespace(
         rpc=lambda *a, **kw: SimpleNamespace(execute=execute),
     ))
+
+    async def hours():  # G09-T39: the list also carries regrade_hours
+        return 48
+    monkeypatch.setattr(regrade, "_regrade_hours", hours)
     response = _with_ping(regrade, execute, "GET", "/admin/writing/regrade-requests")
     assert response.status_code == 200
-    assert response.json() == result
+    assert response.json() == {**result, "regrade_hours": 48, "thresholds_failed": False}
 
 
 def test_create_assignments_keeps_receipt_archived_check_and_insert_in_one_worker(monkeypatch):

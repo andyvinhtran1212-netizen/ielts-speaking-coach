@@ -25,7 +25,7 @@ before(async () => {
   // LEGACYJS-0075 W4a — the ops Dashboard lives in the Next Tổng quan owner;
   // the retired admin-dashboard.js controller is gone.
   html  = read('frontend/pages/admin/index.html'); // retired fixture (ADR-005)
-  tsx   = read('frontend/app/(authed-admin-overview)/admin/admin-overview.tsx');
+  tsx   = read('frontend/app/(authed-admin)/(overview)/admin/admin-overview.tsx');
   css   = read('frontend/public/css/admin-overview.css');
   model = await import(path.join(REPO, 'frontend/lib/admin-overview-model.mjs'));
   svc   = read('backend/services/admin_dashboard.py');

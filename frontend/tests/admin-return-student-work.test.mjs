@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path';
 import { canReturnSubmission } from '../lib/admin-class-submissions-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
 const AT = SRC.indexOf('const returnWork = async');
 const FLOW = SRC.slice(AT, SRC.indexOf('\n  };\n', AT));
 const DIALOG = SRC.slice(SRC.indexOf('<Dialog open={Boolean(returning)}'));

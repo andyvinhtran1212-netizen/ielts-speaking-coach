@@ -19,7 +19,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SUB = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
+const SUB = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
 const SESS = readFileSync(join(HERE, '..', 'public', 'js', 'admin-speaking-sessions.js'), 'utf8');
 const ARTIFACT = SUB.slice(SUB.indexOf('function openArtifact'), SUB.indexOf('function InlineMd'));
 const WRITING = SUB.slice(SUB.indexOf('function WritingReport'), SUB.indexOf('function evidenceText'));

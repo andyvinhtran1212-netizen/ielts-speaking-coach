@@ -117,7 +117,9 @@ def test_allow_aal1_keyword_appears_only_in_the_mfa_status_handler():
         for m, p, r in ROUTES if (m, p) in staff_guard.AAL1_ALLOWED_ADMIN_ROUTES
     }
     offenders = []
-    for path in sorted(ROUTERS_DIR.glob("*.py")):
+    for path in sorted(ROUTERS_DIR.rglob("*.py")):
+        parts = path.relative_to(ROUTERS_DIR).with_suffix("").parts
+        module = ".".join(("routers",) + (parts[:-1] if parts[-1] == "__init__" else parts))
         tree = ast.parse(path.read_text())
         for fn in ast.walk(tree):
             if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -126,7 +128,7 @@ def test_allow_aal1_keyword_appears_only_in_the_mfa_status_handler():
                 isinstance(n, ast.Call) and any(k.arg == "allow_aal1" for k in n.keywords)
                 for n in ast.walk(fn)
             )
-            if uses and fn.name != "require_admin" and (f"routers.{path.stem}", fn.name) not in allowed_handlers:
+            if uses and fn.name != "require_admin" and (module, fn.name) not in allowed_handlers:
                 offenders.append(f"{path.name}:{fn.lineno} {fn.name}")
     assert not offenders, f"allow_aal1 used outside GET /admin/mfa/status: {offenders}"
 
@@ -357,6 +359,8 @@ STEP_UP_ROUTES = frozenset({
     ("PATCH", "/admin/users/{user_id}/role"),
     ("PATCH", "/admin/users/{user_id}/active"),
     ("POST", "/admin/users/{user_id}/revoke-sessions"),
+    # ADMINIA-0074 FR-055: revoking a code in use from the danger zone.
+    ("POST", "/admin/access-codes/{code_id}/revoke-used"),
 })
 
 # Amendment 2 (FR-020, option c): routes whose step-up depends on the request.
@@ -388,12 +392,16 @@ def test_routes_that_use_require_recent_mfa_are_exactly_the_step_up_routes():
     # Nothing outside the route handlers calls it (a helper would hide which
     # routes are covered).
     callers = []
-    for path in sorted(ROUTERS_DIR.glob("*.py")):
+    # rglob: router packages (routers/admin/, routers/listening/) count too;
+    # a package's __init__.py is the package module itself.
+    for path in sorted(ROUTERS_DIR.rglob("*.py")):
+        parts = path.relative_to(ROUTERS_DIR).with_suffix("").parts
+        module = ".".join(("routers",) + (parts[:-1] if parts[-1] == "__init__" else parts))
         for fn in ast.walk(ast.parse(path.read_text())):
             if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
                 isinstance(n, ast.Call) and _call_name(n) == "require_recent_mfa" for n in ast.walk(fn)
             ):
-                callers.append((f"routers.{path.stem}", fn.name))
+                callers.append((module, fn.name))
     handlers = {(r.endpoint.__module__, r.endpoint.__name__) for m, p, r in ROUTES if (m, p) in ALL_STEP_UP_ROUTES}
     assert set(callers) == handlers and len(callers) == len(ALL_STEP_UP_ROUTES)
 

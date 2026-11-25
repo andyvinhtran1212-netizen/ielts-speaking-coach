@@ -19,9 +19,9 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const USAGE = front('app', '(authed-admin-usage)', 'admin', 'usage', 'admin-usage.tsx');
+const USAGE = front('app', '(authed-admin)', '(usage)', 'admin', 'usage', 'admin-usage.tsx');
 // LEGACYJS-0075 W3a: the codes table is the Next panel now.
-const CODES = front('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const CODES = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 const CHROME = front('js', 'components', 'aver-admin-chrome.js');
 const HTML = front('pages', 'admin', 'usage', 'index.html');
 

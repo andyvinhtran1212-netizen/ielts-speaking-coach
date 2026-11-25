@@ -7,7 +7,7 @@
  * Vietnamese five-column table, merged goal cell, no decorative emoji, the
  * canonical endpoints, 300 ms search debounce, one cohort read and the WF-1
  * bulk assignment — are pinned on the native owner,
- * app/(authed-admin-students)/admin/students/admin-students-directory.tsx.
+ * app/(authed-admin)/(students)/admin/students/admin-students-directory.tsx.
  * Legacy-only pins (WC.bootstrap, the 36 DOM ids, data-act values, English
  * microcopy) retired with the file; behaviour is covered by
  * admin-students-next-behavior.test.mjs and verify-admin-students-flow.mjs.
@@ -24,7 +24,7 @@ import { formatBandGoal } from '../lib/admin-students-model.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const read = (rel) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-const DIR = read('frontend/app/(authed-admin-students)/admin/students/admin-students-directory.tsx');
+const DIR = read('frontend/app/(authed-admin)/(students)/admin/students/admin-students-directory.tsx');
 const css = read('frontend/css/admin-writing.css');
 
 describe('/admin/students — legacy panel retired', () => {
@@ -156,7 +156,7 @@ describe('/admin/students — WF-1 Lớp column + bulk-assign', () => {
 import { readFileSync as _rf } from 'node:fs';
 const USERS_HTML = _rf(path.join(REPO_ROOT, 'frontend/pages/admin/users/index.html'), 'utf8');
 // LEGACYJS-0075 W3a: admin-users.js is deleted; the users table is the Next panel.
-const USERS_JS   = _rf(path.join(REPO_ROOT, 'frontend/app/(authed-admin-users)/admin/users/admin-users-panel.tsx'), 'utf8');
+const USERS_JS   = _rf(path.join(REPO_ROOT, 'frontend/app/(authed-admin)/(users)/admin/users/admin-users-panel.tsx'), 'utf8');
 
 describe('admin/users — WF-1 Lớp column', () => {
   test('users table has a Lớp header + the Next panel renders cohort names with "—"', () => {

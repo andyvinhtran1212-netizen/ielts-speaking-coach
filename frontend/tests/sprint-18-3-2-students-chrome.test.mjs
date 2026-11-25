@@ -7,7 +7,7 @@
  * (CRUD + Writing summary + CSV import + search + auth gate) + the 18.1 tabs.
  *
  * LEGACYJS-0075 W3b: admin-students-panel.js is deleted. The same invariants
- * are pinned on the native owner, app/(authed-admin-students)/admin/students.
+ * are pinned on the native owner, app/(authed-admin)/(students)/admin/students.
  * Rendered behaviour is covered by admin-students-next-behavior.test.mjs and
  * tooling/verify-admin-students-flow.mjs.
  */
@@ -19,8 +19,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const PAGE = read('app', '(authed-admin-students)', 'admin', 'students', 'page.tsx');
-const DIR = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const PAGE = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'page.tsx');
+const DIR = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
 const SRC = PAGE + DIR;
 
 describe('Sprint 18.3.2 — Writing-Coach chrome removed', () => {

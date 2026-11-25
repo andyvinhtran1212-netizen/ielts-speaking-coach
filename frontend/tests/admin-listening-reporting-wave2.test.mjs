@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 // LEGACYJS-0075 W4a: admin-overview.js is deleted; the Next overview owner
 // renders the Listening tile.
-const OVTSX = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVTSX = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const OVHTML = read('pages', 'admin', 'index.html');
 const DRHTML = read('pages', 'admin', 'listening', 'dictation-reports.html');
 const ANJS = read('js', 'listening-analytics.js');
