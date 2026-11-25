@@ -17,28 +17,51 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - name: Require the repository staging branch
+      - name: Require the repository staging branch or a pinned release cut
+        id: head
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ github.head_ref }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "$HEAD_REF" != "staging" ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
-            echo "::error::Production accepts only a promotion PR from this repository's staging branch. Retarget the feature PR to staging first."
+          if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::Production accepts only a promotion PR from this repository's staging branch or a release/<sha> cut. Retarget the feature PR to staging first."
             exit 1
           fi
 
-          STAGING_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/staging" --jq '.object.sha')
-          if [ "$STAGING_SHA" != "$HEAD_SHA" ]; then
-            echo "::error::The promotion PR head is stale: PR=$HEAD_SHA staging=$STAGING_SHA. Update the PR before promotion."
+          if [ "$HEAD_REF" = "staging" ]; then
+            STAGING_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/staging" --jq '.object.sha')
+            if [ "$STAGING_SHA" != "$HEAD_SHA" ]; then
+              echo "::error::The promotion PR head is stale: PR=$HEAD_SHA staging=$STAGING_SHA. Update the PR before promotion."
+              exit 1
+            fi
+            echo "mode=staging" >> "$GITHUB_OUTPUT"
+          elif [[ "$HEAD_REF" =~ ^release/([0-9a-f]{7,40})$ ]]; then
+            # A pinned cut: the branch name pins the exact staging commit it carries.
+            PIN=${BASH_REMATCH[1]}
+            if [[ "$HEAD_SHA" != "$PIN"* ]]; then
+              echo "::error::Release branch $HEAD_REF must point at the commit it names, but its head is $HEAD_SHA."
+              exit 1
+            fi
+            # The cut must already be part of staging (equal to or behind the staging tip).
+            RELATION=$(gh api "repos/$GITHUB_REPOSITORY/compare/$HEAD_SHA...staging" --jq '.status')
+            if [ "$RELATION" != "identical" ] && [ "$RELATION" != "ahead" ]; then
+              echo "::error::Release cut $HEAD_SHA is not contained in staging (compare status: $RELATION). Only a commit that staging already integrated can be promoted."
+              exit 1
+            fi
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Production accepts only a promotion PR from this repository's staging branch or a release/<sha> cut. Retarget the feature PR to staging first."
             exit 1
           fi
 
       - name: Require green integrated staging evidence for the exact SHA
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MODE: ${{ steps.head.outputs.mode }}
         run: |
           REQUIRED_WORKFLOWS=(
             "backend-tests.yml|Backend (pytest + anchor drift)|Frontend (node --test)"
@@ -50,10 +73,18 @@ jobs:
           )
 
           for ATTEMPT in $(seq 1 80); do
-            STAGING_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/staging" --jq '.object.sha')
-            if [ "$STAGING_SHA" != "$HEAD_SHA" ]; then
-              echo "::error::Staging advanced while this promotion was waiting: PR=$HEAD_SHA staging=$STAGING_SHA."
-              exit 1
+            if [ "$MODE" = "release" ]; then
+              CUT_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" --jq '.object.sha')
+              if [ "$CUT_SHA" != "$HEAD_SHA" ]; then
+                echo "::error::Release branch $HEAD_REF moved while this promotion was waiting: PR=$HEAD_SHA branch=$CUT_SHA."
+                exit 1
+              fi
+            else
+              STAGING_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/staging" --jq '.object.sha')
+              if [ "$STAGING_SHA" != "$HEAD_SHA" ]; then
+                echo "::error::Staging advanced while this promotion was waiting: PR=$HEAD_SHA staging=$STAGING_SHA."
+                exit 1
+              fi
             fi
 
             PENDING=0
@@ -61,7 +92,7 @@ jobs:
               IFS='|' read -r -a PARTS <<<"$SPEC"
               WORKFLOW=${PARTS[0]}
               RUNS=$(gh api \
-                "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW/runs?branch=staging&event=push&per_page=100")
+                "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW/runs?branch=staging&event=push&head_sha=$HEAD_SHA&per_page=100")
               RUN=$(jq -r --arg sha "$HEAD_SHA" \
                 '[.workflow_runs[] | select(.head_sha == $sha)] | first | if . == null then "missing::" else ((.id | tostring) + ":" + .status + ":" + (.conclusion // "")) end' \
                 <<<"$RUNS")
@@ -72,6 +103,17 @@ jobs:
                   exit 1
                 fi
                 JOBS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100")
+                if [ "$WORKFLOW" = "staging-release-smoke.yml" ]; then
+                  # A superseded smoke run succeeds without running the browser suite;
+                  # that is not evidence for promoting this exact SHA.
+                  SMOKE_STEP=$(jq -r \
+                    '[.jobs[] | select(.name == "Staging release smoke") | .steps[]? | select(.name == "Run live staging release smoke")] | last | .conclusion // "missing"' \
+                    <<<"$JOBS")
+                  if [ "$SMOKE_STEP" != "success" ]; then
+                    echo "::error::Staging release smoke run $RUN_ID did not run the live browser suite for $HEAD_SHA (step: $SMOKE_STEP)."
+                    exit 1
+                  fi
+                fi
                 for ((INDEX = 1; INDEX < ${#PARTS[@]}; INDEX++)); do
                   REQUIRED_JOB=${PARTS[$INDEX]}
                   JOB_CONCLUSION=$(jq -r --arg name "$REQUIRED_JOB" \
@@ -82,6 +124,10 @@ jobs:
                     exit 1
                   fi
                 done
+              elif [ "$RUN_ID" = "missing" ] && [ "$MODE" = "release" ]; then
+                # A release cut is an earlier staging tip: its push runs already exist.
+                echo "::error::No staging push run of '$WORKFLOW' exists for release cut $HEAD_SHA. Only a commit that was a staging tip can be promoted."
+                exit 1
               elif [ "$RUN_STATUS" = "pending" ] || [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
                 PENDING=1
               else
