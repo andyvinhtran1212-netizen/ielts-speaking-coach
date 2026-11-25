@@ -7,7 +7,7 @@
  *   - frontend/pages/listening-mcq.html             (user)
  *   - frontend/js/listening-mcq.js                  (user)
  *   - frontend/pages/admin/listening/mcq.html       (admin)
- *   - frontend/js/admin-listening-mcq.js            (admin)
+ *   - frontend/js/admin-listening-mcq.js            (admin, retired LEGACYJS-0075 W1)
  *   - frontend/pages/listening-browse.html          (content browse)
  *   - frontend/js/listening-browse.js
  *   - frontend/pages/listening-analytics.html       (analytics)
@@ -34,7 +34,6 @@ const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 const USER_MCQ_HTML        = read('pages', 'listening-mcq.html');
 const USER_MCQ_JS          = read('js',    'listening-mcq.js');
 const ADMIN_MCQ_HTML       = read('pages', 'admin/listening/mcq.html');
-const ADMIN_MCQ_JS         = read('js',    'admin-listening-mcq.js');
 // [2026-08-06] CSS của hai trang này đã TÁCH khỏi khối <style> nội tuyến sang
 // `public/css/<trang>.css` để route Next và bản legacy dùng CHUNG một nguồn.
 // Chốt token phải đọc từ chỗ CSS đang ở; để nguyên đọc HTML thì nó chỉ còn
@@ -99,26 +98,6 @@ describe('Sprint 11.5 — admin MCQ editor contract', () => {
     assert.match(ADMIN_MCQ_HTML, /id="btn-publish"/);
   });
 
-  it('enforces 1-20 question MCQ range', () => {
-    assert.match(ADMIN_MCQ_JS, /MIN_QUESTIONS\s*=\s*1/);
-    assert.match(ADMIN_MCQ_JS, /MAX_QUESTIONS\s*=\s*20/);
-  });
-
-  it('POSTs /admin/listening/exercises with exercise_type=mcq', () => {
-    assert.match(ADMIN_MCQ_JS, /api\.post\(\s*['"]\/admin\/listening\/exercises['"]/);
-    assert.match(ADMIN_MCQ_JS, /exercise_type:\s*['"]mcq['"]/);
-    assert.match(ADMIN_MCQ_JS, /questions/);
-    assert.match(ADMIN_MCQ_JS, /answer_idx/);
-  });
-
-  it('saves draft + publish via separate handlers', () => {
-    assert.match(ADMIN_MCQ_JS, /save\(['"]draft['"]\)/);
-    assert.match(ADMIN_MCQ_JS, /save\(['"]published['"]\)/);
-  });
-
-  it('renders 4 letter options (A/B/C/D)', () => {
-    assert.match(ADMIN_MCQ_JS, /LETTERS\s*=\s*\[\s*'A'\s*,\s*'B'\s*,\s*'C'\s*,\s*'D'\s*\]/);
-  });
 });
 
 

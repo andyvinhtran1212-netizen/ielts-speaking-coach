@@ -16,7 +16,7 @@ class _Query:
         self._table = table
         self._filters = []
         self._write = None  # ("upsert", row, conflict_cols, ignore) | ("delete",)
-        self._order: list[str] = []
+        self._order: list[tuple[str, bool]] = []
         self._range = None
 
     def select(self, _columns):
@@ -31,7 +31,7 @@ class _Query:
         return self
 
     def order(self, column, desc=False):
-        self._order.append(column)
+        self._order.append((column, desc))
         return self
 
     def range(self, start, end):
@@ -62,13 +62,20 @@ class _Query:
                 table.append(row)
             return _Result([copy.deepcopy(row)])
         rows = [r for r in table if all(f(r) for f in self._filters)]
-        if self._order:
-            rows.sort(key=lambda r: tuple(str(r.get(c)) for c in self._order))
+        # Multi-column order: stable sorts from the last key to the first.
+        for column, desc in reversed(self._order):
+            rows.sort(key=lambda r, c=column: str(r.get(c) or ""), reverse=desc)
         if self._write is None:
             if self._range is not None:
+                self._db.ranges.append((self._table, *self._range))
                 rows = rows[self._range[0]:self._range[1] + 1]
-            if self._db.row_limit is not None:
-                rows = rows[:self._db.row_limit]  # PostgREST max rows: silent cut
+            # PostgREST db-max-rows: a response never holds more than this many
+            # rows (silent cut). `max_rows` and `row_limit` are the same knob;
+            # when a test sets both, the tighter cap wins.
+            caps = [c for c in (self._db.max_rows, self._db.row_limit) if c is not None]
+            limit = min(caps) if caps else None
+            if limit is not None:
+                rows = rows[:limit]
         if self._write and self._write[0] == "delete":
             self._db.writes.append((self._table, "delete", len(rows)))
             self._db.tables[self._table] = [r for r in table if r not in rows]
@@ -86,6 +93,15 @@ class _Bucket:
             raise RuntimeError("object not found")
         return self._db.objects[(self._name, path)]
 
+    def info(self, path):
+        self._db.infos.append((self._name, path))
+        if (self._name, path) not in self._db.objects:
+            raise RuntimeError("object not found")
+        import hashlib
+
+        data = self._db.objects[(self._name, path)]
+        return {"id": path, "etag": hashlib.md5(data).hexdigest(), "size": len(data)}
+
 
 class _Storage:
     def __init__(self, db):
@@ -101,9 +117,12 @@ class FakeDB:
         self.objects = objects or {}
         self.broken: set[str] = set()
         self.calls: list[str] = []
+        self.ranges: list[tuple[str, int, int]] = []
+        self.max_rows: int | None = None
         self.downloads: list[tuple[str, str]] = []
         self.writes: list[tuple] = []
         self.row_limit: int | None = None
+        self.infos: list[tuple[str, str]] = []
         self.storage = _Storage(self)
 
     def table(self, name):

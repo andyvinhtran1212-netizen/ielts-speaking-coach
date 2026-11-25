@@ -30,7 +30,7 @@ const LAYOUT = read('app', '(authed-admin-writing-queue)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-queue-next.css');
 const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const MOCK = read('public', 'js', 'admin-mock-tests.js');
+const MOCK = read('lib', 'admin-mock-tests-model.mjs'); // LEGACYJS-0075 W2: the cockpit frame map lives in the Next model
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -116,7 +116,7 @@ describe('/admin/writing/queue native ownership and UX contract', () => {
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'queue.html')));
     assert.match(HUB, /Hàng chờ chấm[^\n]+href: '\/admin\/writing\/queue'[^\n]+status: 'Quản lý'/);
     assert.match(CHROME, /slug: 'queue'[^\n]+href: '\/admin\/writing\/queue'/);
-    assert.match(MOCK, /return '\/admin\/writing\/queue\?embed=1&mocklane=1'/);
+    assert.match(MOCK, /return '\/admin\/writing\/queue\?embed=1&mocklane=1';/);
     assert.match(LEDGER, /`\/admin\/writing\/queue`[^\n]+authed-admin-writing-queue[^\n]+native React ownership/);
   });
 
