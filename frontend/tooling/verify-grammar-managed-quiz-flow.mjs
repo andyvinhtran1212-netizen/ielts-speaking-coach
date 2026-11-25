@@ -42,8 +42,31 @@ function masteredResume(bank) {
 const rightAnswer = (q) => q.input === 'text' ? q.accept[0] : q.input === 'boolean' ? Boolean(q.answer) : q.answer;
 const wrongAnswer = (q) => q.input === 'text' ? '__incorrect__' : q.input === 'boolean' ? !Boolean(q.answer) : (q.answer + 1) % (q.options || q.segments).length;
 const renderedText = (value) => String(value).replaceAll('**', '').replace(/_{2,}/g, '').replace(/\s+/g, ' ').trim();
+// EXAMDRILL-0073 T002: EXAM_ROOM=drill runs the same journey with the practice
+// room flag on (examRoomSurfaces: ['drill']); unset keeps the old branch.
+const EXAM_ROOM_SURFACES = process.env.EXAM_ROOM ? `,examRoomSurfaces:${JSON.stringify(process.env.EXAM_ROOM.split(','))}` : '';
+
+// Flag on, the same journeys run in the practice room. Only the DOM hooks and
+// the room's own copy differ; every wire, order and count check stays the same.
+const DRILL = Boolean(process.env.EXAM_ROOM?.split(',').includes('drill'));
+const PROMPT = DRILL ? '[class*="_prompt"]' : '.qz-prompt';
+const ROOT = DRILL ? 'body' : '.qz-shell';
+const ERROR = DRILL ? '[role="alert"][class*="_error"]' : '.qz-error';
+const GATE = DRILL ? 'section[aria-labelledby="qr-gate-title"]' : '.qz-gate';
+const SUMMARY_ID = DRILL ? 'qr-summary-title' : 'qz-summary-title';
+const ROOM_LABEL = { '🔁 Ôn tập lại': 'Ôn tập lại', '♻️ Làm lại từ đầu': 'Làm lại từ đầu', 'Tiếp →': 'Câu tiếp theo' };
+const label = (name) => (DRILL && ROOM_LABEL[name]) || name;
+function heading(page, name, options = {}) {
+  if (!DRILL) return page.getByRole('heading', { name, ...options });
+  if (name === 'Không thể mở bài') return page.getByText('Chưa mở được bài.', { exact: true });
+  if (name === '🎉 Hoàn tất phiên!') return page.getByRole('heading', { name: 'Xong phiên', exact: true });
+  // The bank title sits in the room bar; the question panel carries it as its name.
+  if (options.exact) return page.getByRole('region', { name, exact: true });
+  return page.getByRole('heading', { name, ...options });
+}
 let browser;
-try { browser = await chromium.launch(); } catch (error) {
+// CHROMIUM_EXECUTABLE: a preinstalled Chromium when the pinned Playwright build is absent.
+try { browser = await chromium.launch(process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {}); } catch (error) {
   const executablePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   if (process.platform !== 'darwin' || !existsSync(executablePath)) throw error;
   browser = await chromium.launch({ executablePath });
@@ -80,7 +103,7 @@ async function fixture(selected, options = {}) {
     const request = route.request(), url = new URL(request.url()), method = request.method();
     if (url.origin === BASE) {
       if (request.isNavigationRequest() && url.pathname === '/login') return route.fulfill({ contentType: 'text/html', body: '<h1>Fixture login</h1>' });
-      if (url.pathname === '/js/runtime-config.js') return route.fulfill({ contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});` });
+      if (url.pathname === '/js/runtime-config.js') return route.fulfill({ contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}${EXAM_ROOM_SURFACES}});` });
       return route.continue();
     }
     if (url.origin !== API) return route.abort();
@@ -159,30 +182,31 @@ async function closeRun(name, run) {
   await run.context.close();
 }
 async function uiState(run, name) {
-  const snapshot = await run.page.evaluate(() => {
-    const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
-    const controls = [...document.querySelectorAll('.qz-shell button:not(:disabled),.qz-shell a[href],.qz-shell input:not(:disabled)')].filter(visible);
+  const snapshot = await run.page.evaluate((root) => {
+    // Off-screen until focused (the room's skip link) does not count as shown.
+    const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+    const controls = [...document.querySelectorAll(`${root} button:not(:disabled),${root} a[href],${root} input:not(:disabled)`)].filter(visible);
     return {
       width: innerWidth, documentWidth: document.documentElement.scrollWidth,
       controls: controls.map((el) => { const r = el.getBoundingClientRect(); return { label: el.getAttribute('aria-label') || el.textContent?.trim(), width: r.width, height: r.height }; }),
-      motion: [...document.querySelectorAll('.qz-shell .qz-bar,.qz-shell .qz-opt,.qz-shell .spinner,.qz-shell .av-button,.qz-shell .subpage-header__back')].filter(visible).map((el) => ({ class: el.className, transition: getComputedStyle(el).transitionDuration, animation: getComputedStyle(el).animationDuration })),
+      motion: [...document.querySelectorAll(`${root} .qz-bar,${root} .qz-opt,${root} .spinner,${root} .av-button,${root} .subpage-header__back`)].filter(visible).map((el) => ({ class: el.className, transition: getComputedStyle(el).transitionDuration, animation: getComputedStyle(el).animationDuration })),
       reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
     };
-  });
+  }, ROOT);
   (run.ui ||= []).push({ name, ...snapshot });
   check(`${name}: fits and44px active targets`, snapshot.documentWidth <= snapshot.width + 1 && snapshot.controls.every((r) => r.width >= 43.99 && r.height >= 43.99), JSON.stringify(snapshot.controls.filter((r) => r.width < 43.99 || r.height < 43.99)));
   if (snapshot.reduced) check(`${name}: reduced motion`, snapshot.motion.every((r) => r.transition.split(',').every((v) => parseFloat(v) === 0) && r.animation.split(',').every((v) => parseFloat(v) === 0)), JSON.stringify(snapshot.motion));
 }
 async function answer(page, question, value, expectedCorrect, stopOnUnavailable = false) {
-  await page.locator('.qz-prompt').waitFor();
-  const prompt = renderedText(await page.locator('.qz-prompt').innerText());
+  await page.locator(PROMPT).waitFor();
+  const prompt = renderedText(await page.locator(PROMPT).innerText());
   if (prompt !== renderedText(question.prompt)) throw new Error(`Actual engine/browser order differs for ${question.qid}`);
   if (question.input === 'text') { await page.getByRole('textbox', { name: 'Đáp án của bạn' }).fill(String(value)); await page.keyboard.press('Enter'); }
   else if (question.input === 'boolean') await page.locator('.qz-bool').getByRole('button', { name: value ? 'Đúng' : 'Sai', exact: true }).click();
   else await page.locator(question.input === 'choice' ? '.qz-options' : '.qz-chips').getByRole('button', { name: renderedText((question.options || question.segments)[value]), exact: true }).click();
   if (stopOnUnavailable) {
-    await page.waitForFunction((correct) => Boolean(document.querySelector(`.qz-feedback.${correct ? 'ok' : 'no'}`) || document.querySelector('.qz-error')), expectedCorrect);
-    return Boolean(await page.locator('.qz-error').count());
+    await page.waitForFunction(({ correct, error }) => Boolean(document.querySelector(`.qz-feedback.${correct ? 'ok' : 'no'}`) || document.querySelector(error)), { correct: expectedCorrect, error: ERROR });
+    return Boolean(await page.locator(ERROR).count());
   }
   await page.locator(`.qz-feedback.${expectedCorrect ? 'ok' : 'no'}`).waitFor();
   return false;
@@ -195,9 +219,9 @@ async function complete(run, selected, { review = false, stopOnUnavailable = fal
     const unavailable = await answer(run.page, item.question, value, grade.correct, stopOnUnavailable);
     if (guard === 1 && !unavailable && onFirstFeedback) await onFirstFeedback();
     if (stopOnUnavailable && (unavailable || posts(run, '/progress').some((row) => row.response === 'stale'))) {
-      await run.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor(); return { stale: true, answered: guard };
+      await heading(run.page, 'Không thể mở bài').waitFor(); return { stale: true, answered: guard };
     }
-    await run.page.getByRole('button', { name: 'Tiếp →' }).click();
+    await run.page.getByRole('button', { name: label('Tiếp →') }).click();
   }
   return engine.summary();
 }
@@ -221,7 +245,7 @@ try {
   for (const [index, row] of unique.entries()) {
     const selected = flow(row.case), width = [360, 390, 768, 1440][index % 4], theme = index % 2 ? 'dark' : 'light';
     const run = await fixture(selected, { width, theme });
-    await run.page.getByRole('heading', { name: selected.bank.bank.title, exact: true }).waitFor();
+    await heading(run.page, selected.bank.bank.title, { exact: true }).waitFor();
     const body = posts(run, '/api/quiz/sessions')[0]?.body;
     check(`${selected.bank.bank.grammar_canonical_code}: frozen admission/${width}/${theme}`, body?.bank_id === selected.bank.bank.id && body.grammar_revision === selected.bank.bank.grammar_revision && Object.hasOwn(body, 'text_match_policy') === Boolean(Object.keys(selected.bank.bank.meta.text_match_by_qid || {}).length) && (!body.text_match_policy || body.text_match_policy === 'qid-exact-v1'));
     check(`${selected.bank.bank.grammar_canonical_code}: pre-answer zero progress/end`, posts(run, '/progress').length === 0 && !run.trace.some((item) => item.method === 'PATCH'));
@@ -233,7 +257,7 @@ try {
     const selected = flow('test_actual_twelve_sources_policy_copy_readback_and_synthetic_original_history[G-tenses-past-perfect]');
     const target = controls.controls.find((row) => row.code === 'G-tenses-past-perfect' && row.qid === 'pqp_form_i2');
     const run = await fixture(selected), engine = engineFor(selected.bank, { resume: [], seed: selected.start.session_id });
-    await run.page.getByRole('heading', { name: selected.bank.bank.title, exact: true }).waitFor();
+    await heading(run.page, selected.bank.bank.title, { exact: true }).waitFor();
     let reached = false;
     for (let guard = 0; guard < selected.bank.questions.length * 2; guard++) {
       const item = engine.next(); if (!item) throw new Error('Named authored question was not reachable');
@@ -242,7 +266,7 @@ try {
       const grade = engine.submit(value);
       await answer(run.page, item.question, value, grade.correct);
       if (isTarget) { reached = true; break; }
-      await run.page.getByRole('button', { name: 'Tiếp →' }).click();
+      await run.page.getByRole('button', { name: label('Tiếp →') }).click();
     }
     if (!reached) throw new Error('Named morphology control exceeded its full-bank guard');
     // A threshold flush may already contain the target. Otherwise register the
@@ -264,10 +288,10 @@ try {
   }
 
   const ordinary = flow('test_actual_pg_end_rows_through_real_asgi_facade_keep_frozen_identity_and_explicit_null[False]');
-  const run = await fixture(ordinary); await run.page.locator('.qz-prompt').waitFor();
-  const summary = await complete(run, ordinary); await run.page.getByRole('heading', { name: '🎉 Hoàn tất phiên!' }).waitFor();
+  const run = await fixture(ordinary); await run.page.locator(PROMPT).waitFor();
+  const summary = await complete(run, ordinary); await heading(run.page, '🎉 Hoàn tất phiên!').waitFor();
   const ended = run.trace.find((row) => row.method === 'PATCH');
-  check('actual engine finish sends its derived totals/frozen owned end and confirms save', ended?.body.total_questions === summary.total_questions && ended.body.total_correct === summary.total_correct && !await run.page.locator('.qz-save-warning').count());
+  check('actual engine finish sends its derived totals/frozen owned end and confirms save', ended?.body.total_questions === summary.total_questions && ended.body.total_correct === summary.total_correct && !await run.page.locator(DRILL ? 'text=Chưa xác nhận lưu hết tiến độ.' : '.qz-save-warning').count());
   await closeRun('ordinary completion', run);
 
   const exact = flow('test_real_stored_map_requires_ack_in_both_arities_before_insert[G-tenses-present-simple]');
@@ -277,19 +301,19 @@ try {
   await closeRun('active401', unauthorized);
   for (const start of ['lost', 'missing-policy', 'wrong-bank', 'wrong-revision', 'invalid-resume']) {
     const run = await fixture(exact, { start });
-    await run.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor();
+    await heading(run.page, 'Không thể mở bài').waitFor();
     await run.page.waitForFunction(() => document.activeElement?.textContent === 'Mở lại bài');
     await run.page.evaluate(() => dispatchEvent(new Event('pagehide')));
     check(`${start}: one start action/unavailable/focused/zero later writes`, posts(run, '/api/quiz/sessions').length === 1 && posts(run, '/progress').length === 0 && !run.trace.some((row) => row.method === 'PATCH'));
     await closeRun(start, run);
   }
   const invalid = clone(exact); invalid.bank.meta = { ...invalid.bank.bank.meta, text_match_by_qid: {} };
-  const bad = await fixture(invalid); await bad.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor();
+  const bad = await fixture(invalid); await heading(bad.page, 'Không thể mở bài').waitFor();
   check('invalid alternate META refuses before start', !bad.trace.some((row) => row.method !== 'GET')); await closeRun('invalid META', bad);
 
   const stale = flow('test_reset_marks_open_lost_ack_all_admissions_and_stale_progress_zero_writes');
-  const blocked = await fixture(stale, { progress: 'stale' }); await blocked.page.locator('.qz-prompt').waitFor();
-  await complete(blocked, stale, { stopOnUnavailable: true }); await blocked.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor();
+  const blocked = await fixture(stale, { progress: 'stale' }); await blocked.page.locator(PROMPT).waitFor();
+  await complete(blocked, stale, { stopOnUnavailable: true }); await heading(blocked.page, 'Không thể mở bài').waitFor();
   const writes = blocked.trace.filter((row) => row.method !== 'GET').length;
   await blocked.page.evaluate(() => dispatchEvent(new Event('pagehide')));
   const staleBatch = posts(blocked, '/progress')[0]?.body;
@@ -297,15 +321,15 @@ try {
   await closeRun('reset-stale', blocked);
 
   const legacy = flow('test_eligible_n_minus_one_start_and_corrected_explicit_ack', true);
-  const original = await fixture(legacy); await original.page.getByRole('heading', { name: 'Bài Grammar trước khi sửa' }).waitFor();
+  const original = await fixture(legacy); await heading(original.page, 'Bài Grammar trước khi sửa').waitFor();
   check('legacy gate: zero automatic start and fixed corrected link', posts(original, '/api/quiz/sessions').length === 0 && await original.page.getByRole('link', { name: 'Mở bản đã sửa' }).getAttribute('href') === `/quiz?bank=${legacy.bank.grammar.current_bank_id}`);
-  await original.page.getByRole('button', { name: 'Tiếp tục bản trước' }).click(); await original.page.locator('.qz-prompt').waitFor();
+  await original.page.getByRole('button', { name: 'Tiếp tục bản trước' }).click(); await original.page.locator(PROMPT).waitFor();
   check('explicit legacy continuation stays bound to original bank/revision', posts(original, '/api/quiz/sessions')[0].body.bank_id === legacy.bank.bank.id && posts(original, '/api/quiz/sessions')[0].body.grammar_revision === legacy.bank.grammar.bank_revision);
   await closeRun('legacy continuation', original);
 
   for (const name of ['test_absent_empty_map_preserves_four_arg_and_redundant_ack[None]', 'test_absent_empty_map_preserves_four_arg_and_redundant_ack[policy1]']) {
     const selected = flow(name), run = await fixture(selected);
-    await run.page.locator('.qz-prompt').waitFor();
+    await run.page.locator(PROMPT).waitFor();
     check(`${name}: canonical absence/empty needs no capability`, posts(run, '/api/quiz/sessions').length === 1 && !Object.hasOwn(posts(run, '/api/quiz/sessions')[0].body, 'text_match_policy'));
     await closeRun(name, run);
   }
@@ -313,20 +337,20 @@ try {
   const paused = flow('test_paused_corrected_reload_derives_unmarked_run_not_newer_review[paused]');
   paused.bank = clone(paused.rows.find((row) => row.method === 'GET' && row.response.bank && row.response.grammar.new_starts_enabled === false && row.response.grammar.can_continue_current === true).response);
   paused.start = clone(paused.rows.find((row) => row.status === 201 && row.response.grammar.new_starts_enabled === false).response);
-  const continuing = await fixture(paused); await continuing.page.locator('.qz-prompt').waitFor();
+  const continuing = await fixture(paused); await continuing.page.locator(PROMPT).waitFor();
   check('paused new-start switch preserves canonical unfinished continuation', posts(continuing, '/api/quiz/sessions').length === 1 && posts(continuing, '/api/quiz/sessions')[0].body.bank_id === paused.bank.bank.id);
   await closeRun('paused current continuation', continuing);
   const disabled = clone(stale); disabled.bank = clone(stale.rows.findLast((row) => row.method === 'GET' && row.response.bank).response);
-  const gated = await fixture(disabled, { resume: [] }); await gated.page.getByRole('heading', { name: 'Bài đang tạm dừng lượt mới' }).waitFor();
+  const gated = await fixture(disabled, { resume: [] }); await heading(gated.page, 'Bài đang tạm dừng lượt mới').waitFor();
   check('actual disabled-current no predecessor: no start/reset/end', !gated.trace.some((row) => row.method !== 'GET'));
   await closeRun('disabled current', gated);
 
   const review = flow('test_review_records_no_graded_progress');
   const readonly = await fixture(review, { resume: masteredResume(review.bank) });
-  await readonly.page.getByRole('button', { name: '🔁 Ôn tập lại' }).waitFor();
+  await readonly.page.getByRole('button', { name: label('🔁 Ôn tập lại') }).waitFor();
   check('all mastered preflight has zero start', posts(readonly, '/api/quiz/sessions').length === 0);
-  await readonly.page.getByRole('button', { name: '🔁 Ôn tập lại' }).click(); await readonly.page.locator('.qz-prompt').waitFor();
-  await complete(readonly, review, { review: true }); await readonly.page.getByRole('heading', { name: '🎉 Hoàn tất phiên!' }).waitFor();
+  await readonly.page.getByRole('button', { name: label('🔁 Ôn tập lại') }).click(); await readonly.page.locator(PROMPT).waitFor();
+  await complete(readonly, review, { review: true }); await heading(readonly.page, '🎉 Hoàn tất phiên!').waitFor();
   await readonly.page.evaluate(() => dispatchEvent(new Event('pagehide')));
   const reviewEnd = readonly.trace.find((row) => row.method === 'PATCH')?.body;
   check('explicit readonly admission: one row/no progress/zero persisted grades', posts(readonly, '/api/quiz/sessions').length === 1 && posts(readonly, '/api/quiz/sessions')[0].body.admission_kind === 'review' && posts(readonly, '/progress').length === 0 && reviewEnd?.total_questions === 0 && reviewEnd.words_mastered === 0 && reviewEnd.attempts.length === 0);
@@ -334,12 +358,14 @@ try {
 
   for (const reset of ['lost', 'success']) {
     const resetRun = await fixture(stale, { resume: masteredResume(stale.bank), reset });
-    await resetRun.page.getByRole('button', { name: '♻️ Làm lại từ đầu' }).click();
+    await resetRun.page.getByRole('button', { name: label('♻️ Làm lại từ đầu') }).click();
+    // The room asks in its own dialog instead of window.confirm.
+    if (DRILL) await resetRun.page.getByRole('button', { name: 'Xoá và làm lại', exact: true }).click();
     if (reset === 'lost') {
       await resetRun.page.getByText(/Không xác nhận được việc xóa tiến độ/).waitFor();
       check('lost reset ACK: no inferred empty-resume/no new start', posts(resetRun, '/reset').length === 1 && resetRun.bankReads === 1 && resetRun.resumeReads === 1 && posts(resetRun, '/api/quiz/sessions').length === 0);
     } else {
-      await resetRun.page.locator('.qz-prompt').waitFor();
+      await resetRun.page.locator(PROMPT).waitFor();
       const order = resetRun.trace.map((row) => `${row.method}:${row.response}`);
       check('successful reset: ACK→fresh bank→fresh resume→one start', resetRun.bankReads === 2 && resetRun.resumeReads === 2 && posts(resetRun, '/api/quiz/sessions').length === 1 && order.join('|') === 'GET:bank|GET:resume|POST:reset|GET:bank|GET:resume|POST:start');
     }
@@ -351,27 +377,27 @@ try {
   for (const width of [360, 390, 768, 1440]) for (const theme of ['light', 'dark']) {
     const tag = `${width}/${theme}`;
     const matrix = await fixture(review, { width, theme, reducedMotion: 'reduce', resume: masteredResume(review.bank), holdStart: true });
-    const reviewButton = matrix.page.getByRole('button', { name: '🔁 Ôn tập lại' });
+    const reviewButton = matrix.page.getByRole('button', { name: label('🔁 Ôn tập lại') });
     await reviewButton.waitFor(); await uiState(matrix, `${tag}/gate`);
     await reviewButton.focus();
     const startSeen = matrix.page.waitForRequest((r) => r.method() === 'POST' && new URL(r.url()).pathname === '/api/quiz/sessions');
     await Promise.all([startSeen, matrix.page.keyboard.press('Enter')]);
     await waitForQuizTrace(matrix, (row) => row.method === 'POST' && row.path === '/api/quiz/sessions' && row.body.bank_id === review.bank.bank.id && row.response === 'held-start', 'Expected held review start');
-    await matrix.page.waitForFunction(() => Boolean(document.querySelector('.qz-gate button:disabled')));
+    await matrix.page.waitForFunction((gate) => Boolean(document.querySelector(`${gate} button:disabled`)), GATE);
     await matrix.page.getByRole('button', { name: 'Đang tạo phiên…', exact: true }).evaluate((node) => {
       node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    check(`${tag}/rapid review: pending admission locked/no progress/end`, posts(matrix, '/api/quiz/sessions').length === 1 && posts(matrix, '/progress').length === 0 && !matrix.trace.some((r) => r.method === 'PATCH') && !await matrix.page.locator('.qz-prompt').count());
-    matrix.releaseStart(); await matrix.page.locator('.qz-prompt').waitFor();
+    check(`${tag}/rapid review: pending admission locked/no progress/end`, posts(matrix, '/api/quiz/sessions').length === 1 && posts(matrix, '/progress').length === 0 && !matrix.trace.some((r) => r.method === 'PATCH') && !await matrix.page.locator(PROMPT).count());
+    matrix.releaseStart(); await matrix.page.locator(PROMPT).waitFor();
     check(`${tag}/validated current: ordinary correction label`, await matrix.page.getByText('Bản đã sửa', { exact: true }).count() === 1);
     await uiState(matrix, `${tag}/readonly play`);
     await complete(matrix, review, { review: true, firstWrong: true, onFirstFeedback: async () => {
-      await matrix.page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Tiếp →');
+      await matrix.page.waitForFunction((next) => document.activeElement?.textContent?.trim() === next, label('Tiếp →'));
       await uiState(matrix, `${tag}/feedback`);
     } });
-    await matrix.page.getByRole('heading', { name: '🎉 Hoàn tất phiên!' }).waitFor();
-    await matrix.page.waitForFunction(() => document.activeElement?.id === 'qz-summary-title');
+    await heading(matrix.page, '🎉 Hoàn tất phiên!').waitFor();
+    await matrix.page.waitForFunction((id) => document.activeElement?.id === id, SUMMARY_ID);
     await uiState(matrix, `${tag}/summary`);
     const filter = matrix.page.getByRole('button', { name: /Hiện tất cả/ });
     await filter.focus(); await matrix.page.keyboard.press('Enter');
@@ -382,46 +408,48 @@ try {
     await closeRun(`matrix/${tag}`, matrix);
 
     const err = await fixture(exact, { width, theme, reducedMotion: 'reduce', start: 'lost' });
-    await err.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor();
+    await heading(err.page, 'Không thể mở bài').waitFor();
     await err.page.waitForFunction(() => document.activeElement?.textContent === 'Mở lại bài');
     await uiState(err, `${tag}/error`);
     await err.page.keyboard.press('Tab');
-    check(`${tag}/error: retry then keyboard Back control`, await err.page.getByRole('link', { name: 'Quay lại', exact: true }).evaluate((node) => document.activeElement === node) && posts(err, '/api/quiz/sessions').length === 1);
+    // Flag on, the room bar's Thoát is the way back; Tab from the retry leaves it for the page.
+    if (DRILL) check(`${tag}/error: retry focused, one start`, posts(err, '/api/quiz/sessions').length === 1 && await err.page.getByRole('button', { name: /Thoát/ }).count() === 1);
+    else check(`${tag}/error: retry then keyboard Back control`, await err.page.getByRole('link', { name: 'Quay lại', exact: true }).evaluate((node) => document.activeElement === node) && posts(err, '/api/quiz/sessions').length === 1);
     await closeRun(`matrix error/${tag}`, err);
 
     const old = await fixture(legacy, { width, theme, reducedMotion: 'reduce' });
-    await old.page.getByRole('heading', { name: 'Bài Grammar trước khi sửa' }).waitFor();
+    await heading(old.page, 'Bài Grammar trước khi sửa').waitFor();
     await uiState(old, `${tag}/legacy gate`);
     await old.page.getByRole('button', { name: 'Tiếp tục bản trước' }).focus(); await old.page.keyboard.press('Enter');
-    await old.page.locator('.qz-prompt').waitFor(); await uiState(old, `${tag}/legacy inline current link`);
+    await old.page.locator(PROMPT).waitFor(); await uiState(old, `${tag}/legacy inline current link`);
     check(`${tag}/legacy continuation: original identity/no corrected-label or automatic grades`, posts(old, '/api/quiz/sessions').length === 1 && posts(old, '/api/quiz/sessions')[0].body.bank_id === legacy.bank.bank.id && !await old.page.getByText('Bản đã sửa', { exact: true }).count() && posts(old, '/progress').length === 0 && !old.trace.some((r) => r.method === 'PATCH'));
     await closeRun(`matrix legacy/${tag}`, old);
   }
 
   for (const options of [{ bankStatus: 404 }, { bankStatus: 503 }, { start: 'forbidden' }, { start: 'conflict' }]) {
     const denied = await fixture(exact, options);
-    await denied.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor();
+    await heading(denied.page, 'Không thể mở bài').waitFor();
     await denied.page.waitForFunction(() => document.activeElement?.textContent === 'Mở lại bài');
     await denied.page.evaluate(() => dispatchEvent(new Event('pagehide')));
-    check(`owned error/${JSON.stringify(options)}: unavailable with no answer/progress/end`, !await denied.page.locator('.qz-prompt').count() && posts(denied, '/api/quiz/sessions').length === (options.bankStatus ? 0 : 1) && posts(denied, '/progress').length === 0 && !denied.trace.some((r) => r.method === 'PATCH'));
+    check(`owned error/${JSON.stringify(options)}: unavailable with no answer/progress/end`, !await denied.page.locator(PROMPT).count() && posts(denied, '/api/quiz/sessions').length === (options.bankStatus ? 0 : 1) && posts(denied, '/progress').length === 0 && !denied.trace.some((r) => r.method === 'PATCH'));
     await closeRun(`owned error/${JSON.stringify(options)}`, denied);
   }
 
   const reopen = await fixture(exact, { start: 'lost-once' });
-  await reopen.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor();
+  await heading(reopen.page, 'Không thể mở bài').waitFor();
   const reread = reopen.page.waitForRequest((r) => r.method() === 'GET' && new URL(r.url()).pathname === `/api/quiz/banks/${exact.bank.bank.id}`);
   await Promise.all([reread, reopen.page.getByRole('button', { name: 'Mở lại bài' }).click()]);
-  await reopen.page.locator('.qz-prompt').waitFor();
+  await reopen.page.locator(PROMPT).waitFor();
   check('explicit reopen after lost start ACK: fresh reads/one further action/zero automatic replay', reopen.bankReads === 2 && reopen.resumeReads === 2 && posts(reopen, '/api/quiz/sessions').length === 2 && posts(reopen, '/progress').length === 0 && !reopen.trace.some((r) => r.method === 'PATCH'));
   await closeRun('explicit reopen/lost start', reopen);
 
   const staleReopen = await fixture(stale, { progress: 'stale', afterBank: disabled.bank });
-  await staleReopen.page.locator('.qz-prompt').waitFor();
+  await staleReopen.page.locator(PROMPT).waitFor();
   await complete(staleReopen, stale, { stopOnUnavailable: true });
-  await staleReopen.page.getByRole('heading', { name: 'Không thể mở bài' }).waitFor();
+  await heading(staleReopen.page, 'Không thể mở bài').waitFor();
   const progressBefore = posts(staleReopen, '/progress').length;
   await staleReopen.page.getByRole('button', { name: 'Mở lại bài' }).click();
-  await staleReopen.page.getByRole('heading', { name: 'Bài đang tạm dừng lượt mới' }).waitFor();
+  await heading(staleReopen.page, 'Bài đang tạm dừng lượt mới').waitFor();
   await staleReopen.page.evaluate(() => dispatchEvent(new Event('pagehide')));
   check('explicit reset-stale reopen: fresh canonical paused state/no old progress replay/end', staleReopen.bankReads === 2 && staleReopen.resumeReads === 2 && posts(staleReopen, '/api/quiz/sessions').length === 1 && progressBefore === 1 && posts(staleReopen, '/progress').length === progressBefore && !staleReopen.trace.some((r) => r.method === 'PATCH'));
   await closeRun('explicit reopen/reset-stale', staleReopen);
@@ -430,33 +458,33 @@ try {
   const delayed = await fixture(exact, { holdBank: true, alternate });
   await delayed.page.getByText('Đang tải bài kiểm tra…').waitFor();
   await waitForQuizTrace(delayed, (row) => row.method === 'GET' && row.path === `/api/quiz/banks/${exact.bank.bank.id}` && row.response === 'held-bank', 'Expected held bank GET');
-  check('held bank GET: loading/no start/live answer', posts(delayed, '/api/quiz/sessions').length === 0 && !await delayed.page.locator('.qz-prompt').count());
+  check('held bank GET: loading/no start/live answer', posts(delayed, '/api/quiz/sessions').length === 0 && !await delayed.page.locator(PROMPT).count());
   await delayed.page.evaluate((id) => history.pushState(null, '', `/quiz?bank=${id}`), alternate.bank.bank.id);
-  await delayed.page.getByRole('heading', { name: alternate.bank.bank.title, exact: true }).waitFor();
+  await heading(delayed.page, alternate.bank.bank.title, { exact: true }).waitFor();
   await delayed.page.evaluate((id) => history.pushState(null, '', `/quiz?bank=${id}`), exact.bank.bank.id);
-  await delayed.page.getByRole('heading', { name: exact.bank.bank.title, exact: true }).waitFor();
-  const currentPrompt = await delayed.page.locator('.qz-prompt').innerText(), writesBefore = delayed.trace.filter((r) => r.method !== 'GET').length;
+  await heading(delayed.page, exact.bank.bank.title, { exact: true }).waitFor();
+  const currentPrompt = await delayed.page.locator(PROMPT).innerText(), writesBefore = delayed.trace.filter((r) => r.method !== 'GET').length;
   await delayed.releaseBank();
   await delayed.page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  check('delayed bank A→B→A: captured fresh owner stays/no extra activation', await delayed.page.locator('.qz-prompt').innerText() === currentPrompt && posts(delayed, '/api/quiz/sessions').length === 2 && delayed.trace.filter((r) => r.method !== 'GET').length === writesBefore && !delayed.trace.some((r) => r.method === 'PATCH'));
+  check('delayed bank A→B→A: captured fresh owner stays/no extra activation', await delayed.page.locator(PROMPT).innerText() === currentPrompt && posts(delayed, '/api/quiz/sessions').length === 2 && delayed.trace.filter((r) => r.method !== 'GET').length === writesBefore && !delayed.trace.some((r) => r.method === 'PATCH'));
   await closeRun('delayed bank A→B→A', delayed);
 
   const currentLegacy = flow('test_eligible_n_minus_one_start_and_corrected_explicit_ack');
   const navigating = await fixture(legacy, { alternate: currentLegacy });
-  await navigating.page.getByRole('heading', { name: 'Bài Grammar trước khi sửa' }).waitFor();
+  await heading(navigating.page, 'Bài Grammar trước khi sửa').waitFor();
   await navigating.page.getByRole('link', { name: 'Mở bản đã sửa' }).click();
-  await navigating.page.locator('.qz-prompt').waitFor();
-  const currentPromptBefore = await navigating.page.locator('.qz-prompt').innerText();
-  await navigating.page.goBack(); await navigating.page.getByRole('heading', { name: 'Bài Grammar trước khi sửa' }).waitFor();
+  await navigating.page.locator(PROMPT).waitFor();
+  const currentPromptBefore = await navigating.page.locator(PROMPT).innerText();
+  await navigating.page.goBack(); await heading(navigating.page, 'Bài Grammar trước khi sửa').waitFor();
   check('native Back keeps original gate/no silent upgrade or old auto start', posts(navigating, '/api/quiz/sessions').every((r) => r.body.bank_id === currentLegacy.bank.bank.id) && !await navigating.page.getByText('Bản đã sửa', { exact: true }).count());
-  await navigating.page.goForward(); await navigating.page.locator('.qz-prompt').waitFor();
-  check('native Forward keeps corrected bank/source', new URL(navigating.page.url()).searchParams.get('bank') === currentLegacy.bank.bank.id && await navigating.page.locator('.qz-prompt').innerText() === currentPromptBefore);
-  await navigating.page.reload(); await navigating.page.locator('.qz-prompt').waitFor();
+  await navigating.page.goForward(); await navigating.page.locator(PROMPT).waitFor();
+  check('native Forward keeps corrected bank/source', new URL(navigating.page.url()).searchParams.get('bank') === currentLegacy.bank.bank.id && await navigating.page.locator(PROMPT).innerText() === currentPromptBefore);
+  await navigating.page.reload(); await navigating.page.locator(PROMPT).waitFor();
   check('reload reads/admission stay bound to corrected physical bank and policy', posts(navigating, '/api/quiz/sessions').every((r) => r.body.bank_id === currentLegacy.bank.bank.id && r.body.grammar_revision === currentLegacy.bank.grammar.bank_revision && r.body.text_match_policy === 'qid-exact-v1') && posts(navigating, '/progress').length === 0 && !navigating.trace.some((r) => r.method === 'PATCH'));
   await closeRun('native Back/Forward/reload', navigating);
 
   const keys = await fixture(exact), keyboardEngine = engineFor(exact.bank, { resume: exact.start.resume, seed: exact.start.session_id });
-  await keys.page.locator('.qz-prompt').waitFor();
+  await keys.page.locator(PROMPT).waitFor();
   let textItem;
   for (let item = keyboardEngine.next(), count = 0; item; item = keyboardEngine.next()) {
     if (++count > exact.bank.questions.length * 12) throw new Error('Typed full-bank question not reachable');
@@ -464,20 +492,20 @@ try {
     const q = item.question, value = rightAnswer(q), grade = keyboardEngine.submit(value);
     const button = q.input === 'boolean' ? keys.page.locator('.qz-bool').getByRole('button', { name: value ? 'Đúng' : 'Sai', exact: true }) : keys.page.locator(q.input === 'choice' ? '.qz-options' : '.qz-chips').getByRole('button', { name: renderedText((q.options || q.segments)[value]), exact: true });
     await button.focus(); await keys.page.keyboard.press('Space'); await keys.page.locator(`.qz-feedback.${grade.correct ? 'ok' : 'no'}`).waitFor();
-    await keys.page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Tiếp →'); await keys.page.keyboard.press('Enter');
+    await keys.page.waitForFunction((next) => document.activeElement?.textContent?.trim() === next, label('Tiếp →')); await keys.page.keyboard.press('Enter');
   }
   if (!textItem) throw new Error('No actual typed item reached');
   const input = keys.page.getByRole('textbox', { name: 'Đáp án của bạn' }); await input.fill('  ');
-  const promptBefore = await keys.page.locator('.qz-prompt').innerText(), attemptsBefore = posts(keys, '/progress').flatMap((r) => r.body.attempts).length;
+  const promptBefore = await keys.page.locator(PROMPT).innerText(), attemptsBefore = posts(keys, '/progress').flatMap((r) => r.body.attempts).length;
   await input.press('Enter');
-  check('blank text Enter disabled/no feedback/no business attempt', await keys.page.getByRole('button', { name: 'Kiểm tra', exact: true }).isDisabled() && !await keys.page.locator('.qz-feedback').count() && await keys.page.locator('.qz-prompt').innerText() === promptBefore && posts(keys, '/progress').flatMap((r) => r.body.attempts).length === attemptsBefore);
+  check('blank text Enter disabled/no feedback/no business attempt', await keys.page.getByRole('button', { name: 'Kiểm tra', exact: true }).isDisabled() && !await keys.page.locator('.qz-feedback').count() && await keys.page.locator(PROMPT).innerText() === promptBefore && posts(keys, '/progress').flatMap((r) => r.body.attempts).length === attemptsBefore);
   const value = rightAnswer(textItem.question), expected = keyboardEngine.submit(value);
   const expectedTypedBatch = keyboardEngine.drainBatch();
   const expectedTypedAttempt = expectedTypedBatch.attempts.findLast((r) => r.qid === textItem.question.qid);
   const expectedTypedStats = expectedTypedBatch.word_stats.find((r) => r.item_key === expectedTypedAttempt.item_key);
   await input.fill(String(value)); await keys.page.keyboard.down('Enter'); await keys.page.keyboard.down('Enter'); await keys.page.keyboard.up('Enter');
   await keys.page.locator(`.qz-feedback.${expected.correct ? 'ok' : 'no'}`).waitFor();
-  await keys.page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Tiếp →');
+  await keys.page.waitForFunction((next) => document.activeElement?.textContent?.trim() === next, label('Tiếp →'));
   if (posts(keys, '/progress').some((r) => r.body.attempts.some((a) => a.qid === textItem.question.qid))) {
     // Already flushed at the ordinary threshold; the explicit unload has no duplicate batch.
     await keys.page.evaluate(() => dispatchEvent(new Event('pagehide')));
@@ -488,7 +516,7 @@ try {
   await waitForQuizTrace(keys, (row) => row.method === 'POST' && row.path === `/api/quiz/sessions/${exact.start.session_id}/progress` && row.response === 'progress' && row.body.attempts.some((item) => item.qid === textItem.question.qid), 'Expected captured typed progress');
   const typedAttempts = posts(keys, '/progress').flatMap((r) => r.body.attempts).filter((a) => a.qid === textItem.question.qid);
   const typedStats = posts(keys, '/progress').flatMap((r) => r.body.word_stats).findLast((r) => r.item_key === expectedTypedAttempt.item_key);
-  check('repeated Enter keydown: one actual typed verdict/credit and Next focus/no skip', typedAttempts.length === 1 && typedAttempts[0].is_correct === expected.correct && typedAttempts[0].answer_given === expectedTypedAttempt.answer_given && typedStats.credit_count === expectedTypedStats.credit_count && typedStats.production_done === expectedTypedStats.production_done && await keys.page.locator('.qz-prompt').innerText() === promptBefore && !keys.trace.some((r) => r.method === 'PATCH'));
+  check('repeated Enter keydown: one actual typed verdict/credit and Next focus/no skip', typedAttempts.length === 1 && typedAttempts[0].is_correct === expected.correct && typedAttempts[0].answer_given === expectedTypedAttempt.answer_given && typedStats.credit_count === expectedTypedStats.credit_count && typedStats.production_done === expectedTypedStats.production_done && await keys.page.locator(PROMPT).innerText() === promptBefore && !keys.trace.some((r) => r.method === 'PATCH'));
   await closeRun('keyboard text/choice', keys);
 
   // Only-typo nonempty metadata is covered by pure/model controls. All11 nonempty

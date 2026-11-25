@@ -42,17 +42,23 @@ describe('W-6b — instructor nav item (aver-chrome)', () => {
     );
     const apply = CHROME.match(/  _applyRole\(\) \{([\s\S]*?)\n  \}/);
     assert.ok(apply, '_applyRole method exists');
-    const body = apply[1];
-    // non-staff → the node is detached, not hidden
+    // ADMINIA-0074 FR-003/FR-004: staff → "Sang khu giáo viên"; admin only → "Sang khu quản trị".
+    assert.match(apply[1], /this\._applyRoleLink\(root, staff, 'instructor-link', '\/instructor', 'Sang khu giáo viên'\);/);
+    assert.match(apply[1], /this\._applyRoleLink\(root, this\._role === 'admin', 'admin-link', '\/admin', 'Sang khu quản trị'\);/);
+    const link = CHROME.match(/  _applyRoleLink\(root, show, id, href, label\) \{([\s\S]*?)\n  \}/);
+    assert.ok(link, '_applyRoleLink method exists');
+    const body = link[1];
+    // not shown → the node is detached, not hidden
     assert.match(body, /if \(!show\) \{\s*existing\?\.remove\(\);\s*return;\s*\}/);
     assert.doesNotMatch(body, /'hidden'/, 'no hidden-attribute toggling');
-    // staff → a real link to the instructor area, inserted before logout
-    assert.match(body, /link\.href = '\/instructor';/);
-    assert.match(body, /link\.id = 'instructor-link';/);
+    // shown → a real link, inserted before logout
+    assert.match(body, /link\.href = href;/);
+    assert.match(body, /link\.id = id;/);
     assert.match(body, /link\.setAttribute\('role', 'menuitem'\);/);
-    assert.match(body, /link\.textContent = 'Trang giảng viên';/);
+    assert.match(body, /link\.textContent = label;/);
     assert.match(body, /logout\.before\(link\);/);
     assert.match(body, /if \(existing\) return;/, 'idempotent — never inserts a second link');
+    assert.doesNotMatch(CHROME, /Trang giảng viên/, 'old label is gone');
   });
 
   it('setUser forwards an optional role to setRole', () => {

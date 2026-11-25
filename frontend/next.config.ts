@@ -11,11 +11,14 @@ import {
   nonceEnforceEnabled,
   nonceReportOnlyEnabled,
   sameOriginFramePolicy,
+  SPEAKING_VIDEO_ROUTE,
+  youtubeEmbedPolicy,
 } from './tooling/content-security-policy.mjs';
 import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
 } from './tooling/legacy-url-redirects.mjs';
+import { buildAdvancedVocabLegacyRewrites } from './tooling/advanced-vocab-legacy-rewrites.mjs';
 import { collectNonceRoutes } from './tooling/nonce-route-table.mjs';
 import { resolveRuntimeOrigins } from './tooling/runtime-origins.mjs';
 
@@ -28,6 +31,9 @@ const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
 // inventory and the 'unsafe-inline' decision: docs/CONTENT_SECURITY_POLICY.md.
 const CONTENT_SECURITY_POLICY = buildContentSecurityPolicy(process.env);
 const SAME_ORIGIN_FRAME_POLICY = sameOriginFramePolicy(CONTENT_SECURITY_POLICY);
+// LIBRARY-0061 T013: the Speaking question page alone may load the YouTube
+// IFrame API and frame youtube-nocookie.com (docs/CONTENT_SECURITY_POLICY.md).
+const SPEAKING_VIDEO_POLICY = youtubeEmbedPolicy(CONTENT_SECURITY_POLICY);
 const EMBEDDABLE_SAME_ORIGIN_ROUTES = [
   '/core-player/launch',
   '/listening/test/session',
@@ -75,6 +81,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        // MEDIAOUT-0078 (option D): legacy /assets/advanced-vocab/<lesson>/…
+        // → versions/<lesson>/<current checksum>/…, only when
+        // AVER_ADVANCED_VOCAB_LEGACY_REWRITE=1; empty by default (FR-006).
+        ...buildAdvancedVocabLegacyRewrites(process.env),
         // PILOT 1 CUTOVER (2026-07-14): `/` is now the Next app route
         // app/(marketing)/page.tsx. The old `/` → /index.html rewrite is
         // REMOVED in the same change (route-ownership check enforces this
@@ -130,8 +140,17 @@ const nextConfig: NextConfig = {
       { source: '/pages/admin-listening-gist.html', destination: '/pages/admin/listening/gist.html', permanent: true },
       { source: '/pages/admin-listening-tf.html', destination: '/pages/admin/listening/tf.html', permanent: true },
       { source: '/pages/admin-listening-mcq.html', destination: '/pages/admin/listening/mcq.html', permanent: true },
-      // Canonical clean alias; no Legacy rollback renderer remains.
-      { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: true },
+      // Canonical clean alias; no Legacy rollback renderer remains. ADMINIA-0074
+      // FR-048 moved the code ledger to its own page.
+      { source: '/admin/access-codes', destination: '/admin/activation-codes', permanent: true },
+      // The former users-page codes tab, including browsers that cached the
+      // old 308 above. Temporary so /admin/users itself stays uncached.
+      {
+        source: '/admin/users',
+        has: [{ type: 'query', key: 'tab', value: 'codes' }],
+        destination: '/admin/activation-codes',
+        permanent: false,
+      },
       // U-14 / BL-03: section prefixes with no index page. Without these the
       // bare URL fell through to the root not-found page. Temporary (307) so a
       // future native index route is not shadowed by cached 308s.
@@ -142,6 +161,10 @@ const nextConfig: NextConfig = {
       // C-05 / U-09: there is no separate sign-up page; /login is the sign-up
       // entry (the landing's "Đăng ký" links there). Temporary, as above.
       { source: '/signup', destination: '/login', permanent: false },
+      // G07 — đổi đường dẫn học viên (LEARNERNAV-0062). permanent:false trong giai đoạn chuyển (T24).
+      { source: '/flashcards', destination: '/vocabulary/flashcards', permanent: false },
+      { source: '/flashcard-study', destination: '/vocabulary/flashcards/study', permanent: false },
+      { source: '/d1-exercise', destination: '/vocabulary/fill-in', permanent: false },
     ];
   },
 
@@ -165,6 +188,11 @@ const nextConfig: NextConfig = {
             value: CONTENT_SECURITY_POLICY,
           },
         ],
+      },
+      {
+        // After '/:path*': for the same header key the last matching rule wins.
+        source: SPEAKING_VIDEO_ROUTE,
+        headers: [{ key: 'Content-Security-Policy', value: SPEAKING_VIDEO_POLICY }],
       },
       ...EMBEDDABLE_SAME_ORIGIN_ROUTES.map((source) => ({
         source,
