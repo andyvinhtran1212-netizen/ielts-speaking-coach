@@ -192,6 +192,10 @@ const server = createServer(async (request, response) => {
     }));
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/api/library/speaking/index') {
+    response.writeHead(200).end(JSON.stringify(speakingItems.map((item) => ({ slug: item.slug, updated_at: '2026-11-20T00:00:00Z' }))));
+    return;
+  }
   const speakingMatch = url.pathname.match(/^\/api\/library\/speaking\/([^/]+)$/);
   if (request.method === 'GET' && speakingMatch && speakingMatch[1] !== 'index') {
     const value = speakingDetail(decodeURIComponent(speakingMatch[1]));
