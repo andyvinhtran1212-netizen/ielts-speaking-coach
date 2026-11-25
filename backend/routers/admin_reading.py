@@ -377,7 +377,8 @@ async def list_reading_content(
 
 
 
-def _refuse_foreign_passage_slug(row: dict, slug: str, *, owner_test_id) -> None:
+def _refuse_foreign_passage_slug(row: dict, slug: str, *, owner_test_id,
+                                 require_owner: bool = False) -> None:
     """Báo cáo săn lỗi B1-12 / B1-13: `reading_passages.slug` là khoá duy nhất
     toàn bảng, nên "upsert theo slug" mà không xét chủ sẽ ghi đè passage của
     đề KHÁC (L3) hoặc của bài L1/L2, rồi bước thay câu hỏi xoá sạch câu hỏi
@@ -385,7 +386,13 @@ def _refuse_foreign_passage_slug(row: dict, slug: str, *, owner_test_id) -> None
     passage không thuộc đề nào; L3 chỉ đè passage của chính đề đó.
     """
     current = row.get("test_id")
-    if str(current or "") != str(owner_test_id or ""):
+    # L3 (require_owner): chỉ được cập nhật slug có sẵn khi đề đích ĐÃ tồn tại
+    # và đúng là chủ hiện tại. Đề L3 mới (owner None) gặp slug của bài L1/L2
+    # (test_id NULL) KHÔNG được coi là "cùng chủ" (HOLD #2702).
+    foreign = (
+        owner_test_id is None or current is None or str(current) != str(owner_test_id)
+    ) if require_owner else str(current or "") != str(owner_test_id or "")
+    if foreign:
         where = f"đề {current}" if current else "một bài đọc lẻ (L1/L2)"
         raise HTTPException(
             409,
@@ -497,7 +504,16 @@ async def import_reading_content(
         )
         if existing.data:
             _refuse_foreign_passage_slug(existing.data[0], parsed.slug, owner_test_id=None)
-            supabase_admin.table("reading_passages").update(payload).eq("slug", parsed.slug).execute()
+            upd = (
+                supabase_admin.table("reading_passages").update(payload)
+                .eq("slug", parsed.slug).is_("test_id", "null").execute()
+            )
+            if not upd.data:
+                # HOLD #2702: passage vừa bị gắn vào một đề giữa lúc đọc và ghi.
+                raise HTTPException(
+                    409,
+                    f"Slug '{clip_user_value(parsed.slug)}' vừa được dùng cho một đề. Đổi slug rồi nhập lại.",
+                )
             passage_id = existing.data[0]["id"]
             result["action"] = "updated"
         else:
@@ -690,7 +706,8 @@ async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict, test_type: str |
                      parsed.test_id, exc)
         raise HTTPException(500, "Không kiểm được slug của test. Vui lòng thử lại.")
     for row in clashes:
-        _refuse_foreign_passage_slug(row, row.get("slug"), owner_test_id=owner_uuid)
+        _refuse_foreign_passage_slug(row, row.get("slug"), owner_test_id=owner_uuid,
+                                     require_owner=True)
 
     try:
         # 1) Upsert reading_tests row by test_id (TEXT UNIQUE — mig 086).
@@ -766,15 +783,25 @@ async def _commit_l3_parsed(parsed, dry_run: bool, admin: dict, test_type: str |
             slug = prow.get("slug")
             existing = (
                 supabase_admin.table("reading_passages")
-                .select("id")
+                .select("id, test_id")
                 .eq("slug", slug)
                 .limit(1)
                 .execute()
             )
             if existing.data:
-                supabase_admin.table("reading_passages").update(prow).eq(
+                # HOLD #2702: chốt đúng chủ NGAY tại lệnh ghi (không chỉ dựa
+                # vào preflight) và chỉ thay câu hỏi khi lệnh ghi thật sự trúng
+                # passage của đề này.
+                _refuse_foreign_passage_slug(existing.data[0], slug, owner_test_id=test_uuid,
+                                             require_owner=True)
+                upd = supabase_admin.table("reading_passages").update(prow).eq(
                     "slug", slug
-                ).execute()
+                ).eq("test_id", test_uuid).execute()
+                if not upd.data:
+                    raise HTTPException(
+                        409,
+                        f"Slug '{clip_user_value(slug)}' vừa đổi chủ trong lúc nhập. Nhập lại sau.",
+                    )
                 slug_to_passage_id[slug] = existing.data[0]["id"]
             else:
                 prow["created_by"] = admin["id"]
@@ -917,6 +944,24 @@ async def admin_get_reading_test(
     return test
 
 
+def _archive_then_delete_if_unused(test_uuid: str) -> tuple:
+    """Lưu trữ đề, đếm lại lượt làm, chỉ xoá cứng (FK cascade mig 086 + 087
+    dọn passage/câu hỏi) khi lần đếm thứ hai chắc chắn bằng 0."""
+    supabase_admin.table("reading_tests").update({"status": "archived"}).eq("id", test_uuid).execute()
+    recheck = (
+        supabase_admin.table("reading_test_attempts")
+        .select("id", count="exact")
+        .eq("test_id", test_uuid)
+        .limit(1)
+        .execute()
+    )
+    recount = getattr(recheck, "count", None)
+    if recount is None or recount > 0 or (getattr(recheck, "data", None) or []):
+        return "archived", recount
+    supabase_admin.table("reading_tests").delete().eq("id", test_uuid).execute()
+    return "deleted", 0
+
+
 @router.delete("/tests/{test_id}")
 async def admin_delete_reading_test(
     test_id: str,
@@ -998,14 +1043,20 @@ async def admin_delete_reading_test(
             "attempts_preserved":  attempt_count,
         }
 
-    # Hard delete. The FK cascades (mig 086 + 087) clean up passages,
-    # questions, and the (empty) attempt-row slot for this test.
-    (
-        supabase_admin.table("reading_tests")
-        .delete()
-        .eq("id", test_uuid)
-        .execute()
-    )
+    # HOLD #2702: lần đếm 0 và lệnh xoá cascade là hai bước tách rời. Lưu trữ
+    # TRƯỚC (bắt đầu lượt làm mới đòi đề `published`), đếm lại, chỉ xoá cứng
+    # khi lần đếm thứ hai cũng chắc chắn bằng 0; còn nghi ngờ ⇒ giữ lưu trữ.
+    action, recount = await asyncio.to_thread(_archive_then_delete_if_unused, test_uuid)
+    if action == "archived":
+        logger.info(
+            "[admin_reading] soft-delete (archived after recheck) test_id=%s recount=%s",
+            test_id, recount,
+        )
+        return {
+            "test_id":             test_id,
+            "action":              "archived",
+            "attempts_preserved":  int(recount or 0),
+        }
     logger.info(
         "[admin_reading] hard-delete test_id=%s (no attempts)",
         test_id,

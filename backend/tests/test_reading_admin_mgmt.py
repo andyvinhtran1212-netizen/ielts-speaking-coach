@@ -234,8 +234,9 @@ def test_delete_hard_when_no_attempts():
     """0 attempts → action='deleted', the delete chain fires on
     reading_tests, the FK cascade handles passages + questions."""
     delete_chain = _mk_delete_chain()
+    router = _RouterDeleteChain(delete_chain)
     def table_router(name):
-        if name == "reading_tests":          return _RouterDeleteChain(delete_chain)
+        if name == "reading_tests":          return router
         if name == "reading_test_attempts":  return _mk_attempts_count_chain(0)
         return MagicMock()
     with patch("routers.admin_reading.require_admin") as req_admin, \
@@ -253,6 +254,8 @@ def test_delete_hard_when_no_attempts():
     assert body["attempts_preserved"] == 0
     # The chain was called via .delete().eq().execute().
     delete_chain.delete.return_value.eq.return_value.execute.assert_called_once()
+    # HOLD #2702: archived first (blocks new starts), recounted, then deleted.
+    assert router.update_chain.update.call_args[0][0] == {"status": "archived"}
 
 
 def test_delete_soft_when_attempts_exist():
@@ -312,12 +315,15 @@ def test_preview_requires_admin_auth():
 
 
 class _RouterDeleteChain:
-    """Supports both `.select(...).eq(...).limit(1).execute()` and
+    """Supports `.select(...).eq(...).limit(1).execute()`,
+    `.update(...).eq(...).execute()` (archive-first, HOLD #2702) and
     `.delete().eq(...).execute()` on the same `table()` return."""
     def __init__(self, delete_chain):
         self._select_chain = _mk_test_select_chain(_TEST_ROW)
         self._delete_chain = delete_chain
+        self.update_chain = _mk_update_chain()
         self.delete = delete_chain.delete
+        self.update = self.update_chain.update
         self.select = self._select_chain.select
 
 
