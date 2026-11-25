@@ -20,7 +20,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(__dirname, '..', 'public', 'js', 'mock-exam-runner.js'), 'utf8');
-const LIVE = readFileSync(join(__dirname, '..', 'public', 'js', 'admin-mock-live.js'), 'utf8');
+// LEGACYJS-0075 W2: the console is the Next owner; `admin-mock-live.js` is retired.
+const LIVE = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx'), 'utf8');
 const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'mock-exam.html'), 'utf8');
 
 describe('A2 — Writing autosaves to the server', () => {
@@ -189,8 +190,8 @@ describe('integrity signals — the console renders what the runner records', ()
     // `> 1` was left over from when the runner counted the first boot too. It
     // now records only actual RE-entries, so the commonest real case — one
     // reload, resumes === 1 — was persisted and then hidden.
-    assert.match(LIVE, /if \(i\.resumes\) bits\.push\('vào lại ' \+ i\.resumes \+ '×'\);/);
-    assert.doesNotMatch(LIVE, /i\.resumes > 1/);
+    assert.match(LIVE, /if \(student\.integrity\.resumes\) bits\.push\(`vào lại \$\{student\.integrity\.resumes\}×`\);/);
+    assert.doesNotMatch(LIVE, /resumes > 1/);
   });
 });
 

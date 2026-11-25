@@ -1,10 +1,18 @@
+/**
+ * Grammar search — `/grammar/search` (LIBRARY-0061 T014 PR (c), FR-040).
+ * Same URL, same `q`/`level`/`use` query and the same server-side filtering;
+ * only the frame changes ("Bản in"). The query string stays the single source
+ * of truth: the form is a plain GET, so Back/Forward and shared links rebuild
+ * the same results on the server.
+ */
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
+import { Button, Select, TextField } from '@/components/ui';
 import { getSearch, type GrammarSearchWire } from '@/lib/grammar-api';
-import { SearchResultCards } from '../grammar-cards';
-import { SearchBox } from '../search-box';
+import { articleUrl } from '../grammar-cards';
+import { SubpageFrame, SubpageHeader, SubpageSkeleton, articleMeta, frameStyles as styles } from '../subpage-frame';
 
 export const metadata: Metadata = {
   title: 'Tìm kiếm — Grammar Wiki — Aver Learning',
@@ -12,8 +20,29 @@ export const metadata: Metadata = {
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+type SearchArticle = GrammarSearchWire[number];
 
-function matchesUse(article: GrammarSearchWire[number], use: string) {
+const LEVEL_OPTIONS = [
+  { value: '', label: 'Tất cả' },
+  { value: 'beginner', label: 'Cơ bản' },
+  { value: 'intermediate', label: 'Trung cấp' },
+  { value: 'advanced', label: 'Nâng cao' },
+] as const;
+
+const USE_OPTIONS = [
+  { value: '', label: 'Tất cả' },
+  { value: 'speaking', label: 'Speaking' },
+  { value: 'writing', label: 'Writing' },
+  { value: 'reading', label: 'Reading' },
+] as const;
+
+const SUGGESTIONS = [
+  { q: 'present perfect', label: 'present perfect' },
+  { q: 'conditionals', label: 'conditionals' },
+  { q: 'passive', label: 'passive voice' },
+];
+
+function matchesUse(article: SearchArticle, use: string) {
   if (!use) return true;
   if (use === 'speaking') return article.speaking_relevance === 'high';
   if (use === 'writing') return article.writing_relevance === 'high' || article.category === 'grammar-for-writing';
@@ -22,16 +51,42 @@ function matchesUse(article: GrammarSearchWire[number], use: string) {
 }
 
 function ResultsSkeleton() {
+  return <SubpageSkeleton id="search-skeleton" rows={4} />;
+}
+
+function NoResults({ query }: { query: string }) {
   return (
-    <div id="search-skeleton" className="av-w-page py-8">
-      <div className="skeleton h-8 w-64 rounded-lg mb-4" />
-      <div className="skeleton h-12 w-full rounded-xl mb-8" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="skeleton h-28 rounded-xl" />
-        <div className="skeleton h-28 rounded-xl" />
-        <div className="skeleton h-28 rounded-xl" />
-      </div>
+    <div className={styles.empty}>
+      <p className={styles.itemText}>Không tìm thấy kết quả cho &quot;<strong>{query}</strong>&quot;.</p>
+      <p className={styles.itemMeta}>
+        Thử từ khóa khác:{' '}
+        {SUGGESTIONS.map((s, i) => (
+          <span key={s.q}>
+            {i ? ', ' : null}
+            <Link href={`/grammar/search?q=${encodeURIComponent(s.q)}`}>{s.label}</Link>
+          </span>
+        ))}
+      </p>
     </div>
+  );
+}
+
+function ResultList({ articles, query }: { articles: GrammarSearchWire; query: string }) {
+  const list = articles.filter((a) => a && a.slug && a.title && a.category);
+  if (!list.length) return <NoResults query={query} />;
+  return (
+    <ul className={styles.list}>
+      {list.map((article) => (
+        <li key={`${article.category}/${article.slug}`} className={styles.item}>
+          <h2 className={styles.itemTitle}>
+            <Link href={articleUrl(article.category, article.slug)}>{article.title}</Link>
+            {article.status === 'updating' ? <span className={styles.tag}>Đang cập nhật</span> : null}
+          </h2>
+          <p className={styles.itemMeta}>{articleMeta(article)}</p>
+          {article.summary ? <p className={styles.itemText}>{article.summary}</p> : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -50,48 +105,36 @@ async function SearchResults({ searchParams }: { searchParams: SearchParams }) {
   });
 
   return (
-    <main id="search-container" className="av-w-page py-8 ds-fadein">
-      <div className="mb-8">
-        <SearchBox initialQuery={raw} className="relative mb-4" />
-        <form method="get" className="gw-filter-row" aria-label="Bộ lọc kết quả">
-          <input type="hidden" name="q" value={query} />
-          <label>Trình độ
-            <select name="level" defaultValue={level}>
-              <option value="">Tất cả</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </label>
-          <label>Mục tiêu
-            <select name="use" defaultValue={use}>
-              <option value="">Tất cả</option>
-              <option value="speaking">Speaking</option>
-              <option value="writing">Writing</option>
-              <option value="reading">Reading</option>
-            </select>
-          </label>
-          <button type="submit" className="gw-filter-reset">Áp dụng</button>
-          {(level || use) ? <Link className="gw-filter-reset" href={`/grammar/search?q=${encodeURIComponent(query)}`}>Xóa bộ lọc</Link> : null}
-        </form>
-      </div>
+    <main id="search-container" tabIndex={-1} className={`${styles.main} ${styles.narrow}`}>
+      <SubpageHeader
+        title={query ? `Kết quả cho "${query}"` : 'Tìm kiếm Grammar'}
+        titleId="search-heading"
+      />
 
-      <div className="mb-5">
-        <p className="eyebrow">Grammar Wiki</p>
-        <div className="flex items-baseline gap-3">
-          <h1 id="search-heading" className="text-xl font-bold text-white">
-            {query ? `Kết quả cho "${query}"` : 'Tìm kiếm Grammar'}
-          </h1>
-          <span id="search-count" className="text-sm text-white/35 font-normal">
-            {articles.length ? `${articles.length} kết quả` : ''}
-          </span>
+      <form method="get" action="/grammar/search" role="search" className={styles.filters} aria-label="Tìm và lọc bài Grammar">
+        <TextField
+          label="Từ khoá"
+          name="q"
+          id="search-input"
+          defaultValue={raw}
+          placeholder="present perfect, mạo từ…"
+          className={styles.filterWide}
+        />
+        <Select label="Trình độ" name="level" defaultValue={level} options={LEVEL_OPTIONS} className={styles.filterField} />
+        <Select label="Mục tiêu" name="use" defaultValue={use} options={USE_OPTIONS} className={styles.filterField} />
+        <div className={styles.filterActions}>
+          <Button type="submit" variant="secondary">Tìm</Button>
+          {(level || use) ? <Link href={`/grammar/search?q=${encodeURIComponent(query)}`}>Xóa bộ lọc</Link> : null}
         </div>
-      </div>
+      </form>
 
-      <div id="search-results-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <p id="search-count" className={styles.count} aria-live="polite">
+        {articles.length ? `${articles.length} kết quả` : ''}
+      </p>
+      <div id="search-results-list">
         {query
-          ? <SearchResultCards articles={articles} query={query} />
-          : <p className="text-white/40 text-sm col-span-3 py-8 text-center">Nhập từ khóa để tìm kiếm.</p>}
+          ? <ResultList articles={articles} query={query} />
+          : <p className={styles.empty}>Nhập từ khóa để tìm kiếm.</p>}
       </div>
     </main>
   );
@@ -99,25 +142,10 @@ async function SearchResults({ searchParams }: { searchParams: SearchParams }) {
 
 export default function GrammarSearchPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <>
-      {/* @ts-ignore custom element được đăng ký bởi public-content layout */}
-      <aver-chrome active="grammar" />
-      <nav
-        className="gw-subnav sticky top-0 z-20 border-b border-white/5"
-        aria-label="Grammar Wiki"
-        style={{ background: 'var(--av-surface-sunken)', backdropFilter: 'blur(12px)' }}
-      >
-        <div className="av-w-page h-12 flex items-center">
-          <div id="breadcrumb" className="flex items-center text-sm text-white/40 flex-wrap gap-0">
-            <Link href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</Link>
-            <span className="mx-2 text-white/20">›</span>
-            <span className="text-white/80">Tìm kiếm</span>
-          </div>
-        </div>
-      </nav>
+    <SubpageFrame crumbs={[{ label: 'Tìm kiếm' }]}>
       <Suspense fallback={<ResultsSkeleton />}>
         <SearchResults searchParams={searchParams} />
       </Suspense>
-    </>
+    </SubpageFrame>
   );
 }

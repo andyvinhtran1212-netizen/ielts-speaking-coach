@@ -569,7 +569,7 @@ _STATUS_VI = {
 def _draft_final_bands(review: dict) -> dict:
     """The bands the review console would pre-fill, derived server-side.
 
-    Mirrors the console's rule exactly (admin-mock-reviews.js draftBandOf): a
+    Mirrors the console's rule exactly (initialBandDraft in frontend/lib/admin-mock-reviews-model.mjs): a
     saved final band wins, else the ai_draft suggestion. NOTHING here is
     invented — assemble_ai_draft fills Listening/Reading from the attempt's
     band_estimate (the published Cambridge table; arithmetic, not judgement) and

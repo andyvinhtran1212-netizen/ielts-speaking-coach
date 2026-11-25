@@ -64,14 +64,7 @@ export default async function GrammarArticlePage({ params, searchParams }: Param
   return (
     <>
       <ArticleShell article={article} source={source} />
-      <ArticleBehavior
-        slug={article.slug}
-        category={article.category}
-        articleTitle={article.title}
-        hasTOC={Boolean(article.toc && article.toc.length)}
-        hasCompareWith={Boolean(article.compare_with && article.compare_with.length)}
-        hasNextArticles={Boolean(article.next_articles && article.next_articles.length)}
-      />
+      <ArticleBehavior slug={article.slug} category={article.category} />
     </>
   );
 }
