@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildFinalBandsPayload, normalizeReviewDetail, reviewBandSkills } from '../lib/admin-mock-reviews-model.mjs';
+import { BAND_SOURCE, buildFinalBandsPayload, normalizeReviewDetail, reviewBandSkills } from '../lib/admin-mock-reviews-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pub = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8');
@@ -57,7 +57,8 @@ describe('console duyệt bài — ô band Speaking tuỳ dữ liệu', () => {
   });
 
   test('ô Speaking ghi rõ nguồn: chấm trực tiếp', () => {
-    assert.match(CONSOLE, /speaking: 'Bài chấm trực tiếp'/);
+    assert.equal(BAND_SOURCE.speaking, 'Bài chấm trực tiếp');
+    assert.match(CONSOLE, /<small>\{bandCaption\(detail, skill\)\}<\/small>/);
   });
 });
 
