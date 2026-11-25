@@ -64,7 +64,7 @@ describe('/vocabulary/hub — native React ownership', () => {
     assert.match(BEHAVIOR, /vocab_curated_enabled === true/);
     assert.match(BEHAVIOR, /href="\/vocabulary\/learn"/);
     assert.match(BEHAVIOR, /href="\/vocabulary\/flashcards"/);
-    assert.match(BEHAVIOR, /href="\/d1-exercise"/);
+    assert.match(BEHAVIOR, /href="\/vocabulary\/fill-in"/);
     assert.match(BEHAVIOR, /quiz\/progress\?skill_area=vocab/);
     assert.doesNotMatch(BEHAVIOR, /dangerouslySetInnerHTML|\.innerHTML\s*=/);
     assert.match(MOUNT_ADAPTER, /handle\?\.unmount\?\.\(\)/);

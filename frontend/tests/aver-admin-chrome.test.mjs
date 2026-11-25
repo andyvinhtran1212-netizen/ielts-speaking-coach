@@ -212,8 +212,8 @@ describe('0049 option (a) — canonical admin menu groups', () => {
     assert.ok(!group('Người dùng'));
   });
 
-  it('groups both cross-skill inboxes under Hệ thống', () => {
-    assert.deepEqual(hrefs('Hệ thống'), ['/admin/error-logs', '/admin/feedback']);
+  it('groups both cross-skill inboxes, AI models and QA tools under Hệ thống (ADMINIA-0074 FR-073/074)', () => {
+    assert.deepEqual(hrefs('Hệ thống'), ['/admin/error-logs', '/admin/feedback', '/admin/ai-models', '/admin/qa-tools']);
   });
 
   it('moves all six tools to a single default-collapsed QA group, preserving URLs', () => {

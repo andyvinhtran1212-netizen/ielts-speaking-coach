@@ -14,6 +14,7 @@ export const V2_ROUTES = Object.freeze([
   '/contact',
   '/library',
   '/library/speaking',
+  '/library/speaking/[slug]',
   '/library/writing-guides',
   '/library/writing-samples',
   '/library/writing-samples/[slug]',
@@ -30,7 +31,9 @@ const V2_DYNAMIC = V2_ROUTES.filter((route) => route.includes('[')).map(
 
 /**
  * Same answer as `isV2Route` from route-registry.mjs, for a pathname
- * (query/hash and trailing slashes ignored).
+ * (query/hash and trailing slashes ignored). A static v1 route never shares a
+ * prefix-and-length with a v2 pattern today; the drift test checks every
+ * registry route, so a clash would fail there.
  * @param {string} pathname @returns {boolean}
  */
 export function isV2Path(pathname) {

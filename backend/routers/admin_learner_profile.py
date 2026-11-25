@@ -37,6 +37,7 @@ from routers.admin import require_admin
 from routers.admin_learners import _person, _thresholds
 from services import admin_learner_attempts, admin_learner_cost, admin_learner_log
 from services import admin_learner_profile as profile
+from services import learner_care_notes as care_notes
 
 logger = logging.getLogger(__name__)
 
@@ -59,17 +60,18 @@ async def get_learner_overview(ref: str, authorization: str | None = Header(defa
     thresholds = await _thresholds()
     now = datetime.now(timezone.utc)
     failed: list[str] = []
-    alerts, goal, continuity, assigned, scores = await asyncio.gather(
+    alerts, goal, continuity, assigned, scores, due_notes = await asyncio.gather(
         _block("alerts", lambda: profile.alerts(person, thresholds, now=now), failed),
         _block("goal", lambda: profile.goal(person), failed),
         _block("continuity", lambda: profile.continuity(person, now=now), failed),
         _block("assigned", lambda: profile.assigned(person, now=now), failed),
         _block("scores", lambda: profile.scores(person), failed),
+        _block("care_notes", lambda: care_notes.due(person), failed),
     )
     if (assigned and assigned["undecided"]) or (alerts and alerts["undecided"]):
         failed.append("assignments")
     return {"alerts": alerts, "goal": goal, "continuity": continuity, "assigned": assigned,
-            "scores": scores, "side": profile.side(), "sources_failed": sorted(set(failed))}
+            "scores": scores, "side": profile.side(due_notes), "sources_failed": sorted(set(failed))}
 
 
 @router.post("/admin/learners/{ref}/goal/resolve", response_model=GoalResolveOut)
