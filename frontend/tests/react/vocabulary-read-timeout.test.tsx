@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { VocabularyHubBehavior } from '@/app/(authed-vocabulary-hub)/vocabulary/hub/vocabulary-hub-behavior';
-import { D1ExercisePlayer, D1_LOAD_TIMEOUT_MS } from '@/app/(authed-d1-exercise)/d1-exercise/d1-exercise-player';
+import { D1ExercisePlayer, D1_LOAD_TIMEOUT_MS } from '@/app/(authed-d1-exercise)/vocabulary/fill-in/d1-exercise-player';
 import { VOCAB_GENERIC_ERROR_MESSAGE, VOCAB_NETWORK_ERROR_MESSAGE, VOCAB_READ_EMPTY_MESSAGE, VOCAB_READ_TIMEOUT_MESSAGE, VOCAB_READ_TIMEOUT_MS, messageOf } from '@/components/vocabulary-workspace';
 
 // U-13 / V-HUB / BL-17 — a read that never settles, or settles with nothing,
@@ -145,7 +145,7 @@ it('D1: an empty /auth/me body is an error, not "feature off"', async () => {
 
 it('D1: a persistent 401 ends in the error state and bounces to /login', async () => {
   const replace = vi.fn();
-  vi.stubGlobal('location', { ...window.location, href: 'http://localhost/d1-exercise', replace });
+  vi.stubGlobal('location', { ...window.location, href: 'http://localhost/vocabulary/fill-in', replace });
   d1Runtime({ me: async () => new Response(JSON.stringify({ detail: 'Unauthorized' }), { status: 401 }) });
   render(<D1ExercisePlayer />);
   await flush();

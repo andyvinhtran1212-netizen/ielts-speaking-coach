@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -33,6 +34,11 @@ _RELEASE_REASONS = ("grader_failed", "stt_failed", "request_failed", "budget_ref
 # Set once the flag has been read as on in this process, so a later "off" is
 # visibly logged as a deliberate stop (plan 5.4 step 1).
 _metering_seen_on = False
+# The last value read successfully in this process. A later lookup error
+# reuses it, so a runtime_flags outage does not turn every grading request
+# into a 503 while the flag is off; only a process that has never read the
+# flag answers 503 (CreditUnavailable), and a read error is never "off".
+_metering_last: Optional[bool] = None
 
 
 class CreditUnavailable(Exception):
@@ -85,11 +91,15 @@ class ChargePlan:
 
 
 def _metering_on() -> bool:
-    global _metering_seen_on
+    global _metering_seen_on, _metering_last
     try:
         on = runtime_flags.is_enabled_strict(METERING_FLAG, default=False)
     except runtime_flags.FlagLookupError as exc:
-        raise CreditUnavailable(METERING_FLAG) from exc
+        if _metering_last is None:
+            raise CreditUnavailable(METERING_FLAG) from exc
+        logger.warning("[credits] flag lookup failed, using last value=%s", _metering_last)
+        return _metering_last
+    _metering_last = on
     if on:
         _metering_seen_on = True
     return on
@@ -140,8 +150,15 @@ def _class_cohort(session: Optional[dict], assignment: Optional[dict]) -> tuple[
     """(is class work, cohort_id or None)."""
     if session and session.get("class_assignment_item_id"):
         return True, fetch_class_item_cohort(str(session["class_assignment_item_id"]))
-    if assignment and assignment.get("cohort_id"):
-        return True, str(assignment["cohort_id"])
+    if assignment is not None:
+        # Every writing assignment is class work, also one given to a single
+        # learner without a cohort_id (Andy, 2026-11-23 11:52Z on #2593:
+        # "bài giao riêng không có cohort_id tính là bài trong lớp"). With no
+        # cohort there is no class course, so it is not metered
+        # (legacy_class, logged class_work_unmapped) unless the feature is
+        # never free.
+        cohort_id = assignment.get("cohort_id")
+        return True, str(cohort_id) if cohort_id else None
     return False, None
 
 
@@ -354,3 +371,177 @@ async def reserve(user_id: UUID | str, feature: str, *, request_key: str, resour
     if status in ("no_entitlement", "request_key_conflict", "not_owner"):
         raise CreditRefused(status, source)
     raise CreditUnavailable(f"reserve_{status}")
+
+
+# ── Extra credits (plan 5.15, G04-T12) ───────────────────────────────────────
+
+CREDIT_STEP_UP_THRESHOLD = 50  # Q13: a constant, not an env value
+_CLASS_KINDS = ("class", "repractice")
+
+
+class GrantExtraRefused(Exception):
+    """A request the admin must change: 404 ``cohort_not_found`` /
+    ``entitlement_not_found`` or 422 ``not_in_cohort``."""
+
+    def __init__(self, status_code: int, error_code: str):
+        super().__init__(error_code)
+        self.status_code = status_code
+        self.error_code = error_code
+
+
+@dataclass
+class GrantExtraResult:
+    granted: list[dict]
+    skipped: list[dict]
+
+
+def _cohort_user_ids(cohort_id: str) -> list[str]:
+    from services import class_membership_service as cms
+    rows = cms.active_students_for_cohort(supabase_admin, cohort_id, columns="id, user_id")
+    return sorted({str(r["user_id"]) for r in rows if isinstance(r, dict) and r.get("user_id")})
+
+
+_IN_FILTER_LOT = 100
+
+
+def _class_entitlements(user_ids: list[str], course_id: str) -> dict[str, str]:
+    """Per learner, the class or re-practice entitlement of the course that can
+    still take credits; several → the one that ends last (no end = last)."""
+    rows: list[dict] = []
+    # Lots of 100: 500 UUIDs in one in.() filter make a URL of about 18 KB.
+    for start in range(0, len(user_ids), _IN_FILTER_LOT):
+        res = (
+            supabase_admin.table("entitlements").select(ent._ENTITLEMENT_COLUMNS)
+            .in_("user_id", user_ids[start:start + _IN_FILTER_LOT])
+            .eq("course_id", course_id).eq("status", "active").execute()
+        )
+        rows.extend(res.data or [])
+    if not rows:
+        return {}
+    products = ent.fetch_products(r.get("product_id") for r in rows)
+    now = datetime.now(timezone.utc)
+    best: dict[str, tuple] = {}
+    for row in rows:
+        if products.get(str(row.get("product_id")), {}).get("kind") not in _CLASS_KINDS:
+            continue
+        if not ent._credit_usable(row, now):
+            continue
+        ends = ent.parse_ts(row.get("expires_at"))
+        key = (ends is None, ends or now, str(row["id"]))
+        user = str(row["user_id"])
+        if user not in best or key > best[user][0]:
+            best[user] = (key, str(row["id"]))
+    return {user: value[1] for user, value in best.items()}
+
+
+def _grant_one(admin_id: str, entitlement_id: str, credits: int, reason: str, request_key: str) -> dict:
+    raw = supabase_admin.rpc("fn_credit_grant_extra", {
+        "p_actor_id": admin_id, "p_actor_kind": "admin", "p_entitlement_id": entitlement_id,
+        "p_credits": credits, "p_reason": reason, "p_request_key": request_key,
+    }).execute().data
+    return _unwrap(raw)
+
+
+def grant_extra_for(*, admin_id: str, credits: int, reason: str, request_key: str,
+                    cohort_id: Optional[str] = None, user_ids: Optional[list[str]] = None,
+                    entitlement_id: Optional[str] = None) -> GrantExtraResult:
+    """``POST /admin/credits/grant-extra``. One RPC per learner with the same
+    request key, so calling the whole batch again adds nothing. Sync (run it in
+    a thread); a transport or PostgREST failure raises as is."""
+    targets: list[tuple[str, str]] = []
+    skipped: list[dict] = []
+    if cohort_id:
+        cohort = _first(supabase_admin.table("cohorts").select("id, course_id")
+                        .eq("id", cohort_id).limit(1).execute())
+        if cohort is None:
+            raise GrantExtraRefused(404, "cohort_not_found")
+        members = _cohort_user_ids(cohort_id)
+        if user_ids is not None:
+            if not user_ids:
+                raise GrantExtraRefused(422, "empty_selection")
+            wanted = sorted({str(u) for u in user_ids})
+            if set(wanted) - set(members):
+                raise GrantExtraRefused(422, "not_in_cohort")
+            members = wanted
+        course_id = str(cohort["course_id"]) if cohort.get("course_id") else None
+        chosen = _class_entitlements(members, course_id) if course_id else {}
+        for user in members:
+            if user in chosen:
+                targets.append((user, chosen[user]))
+            else:
+                skipped.append({"user_id": user, "reason": "no_class_entitlement"})
+    else:
+        user = str(user_ids[0])
+        row = _first(supabase_admin.table("entitlements").select("id, user_id")
+                     .eq("id", entitlement_id).limit(1).execute())
+        if row is None or str(row.get("user_id")) != user:
+            raise GrantExtraRefused(404, "entitlement_not_found")
+        targets.append((user, str(entitlement_id)))
+    granted: list[dict] = []
+    for user, entitlement in targets:
+        result = _grant_one(admin_id, entitlement, credits, reason, request_key)
+        if result["status"] in ("granted", "replay"):
+            # A replay names the entitlement the first call credited, which may
+            # not be the one chosen now (the key is per learner, not per entitlement).
+            granted.append({"user_id": user, "entitlement_id": str(result.get("entitlement_id") or entitlement),
+                            "balance": int(result.get("balance") or 0)})
+        elif result["status"] == "request_key_conflict":
+            raise GrantExtraRefused(409, "request_key_conflict")
+        elif result["status"] in ("not_usable", "not_found"):
+            skipped.append({"user_id": user, "reason": "not_usable"})
+        else:
+            raise CreditUnavailable(f"grant_extra_{result['status']}")
+    logger.info("[credits] lifecycle=grant_extra count=%s skipped=%s", len(granted), len(skipped))
+    return GrantExtraResult(granted=granted, skipped=skipped)
+
+
+# ── Settling by resource (Writing BG grader, plan 5.6) ───────────────────
+
+
+def _metering_on_or_unknown() -> bool:
+    """Flag off → False (FR-018: no credit RPC). A flag read error → True:
+    settling a resource that holds nothing is a no-op, so trying is safe."""
+    try:
+        return _metering_on()
+    except CreditUnavailable:
+        return True
+
+
+def _settle_for_resource(rpc_name: str, params: dict) -> Optional[str]:
+    """Sync and never raises: the Writing grader runs in a BackgroundTask and
+    a credit error must not fail a grade. A failed settle is logged and the
+    hold is left to the expiry sweep."""
+    if not _metering_on_or_unknown():
+        return None
+    try:
+        return _unwrap(supabase_admin.rpc(rpc_name, params).execute().data)["status"]
+    except Exception as exc:
+        logger.warning("[credits] rpc=%s resource=%s:%s failed: %s", rpc_name,
+                       params.get("p_resource_type"), params.get("p_resource_id"), exc)
+        return None
+
+
+def commit_for_resource(resource_type: str, resource_id: str) -> Optional[str]:
+    """Commit the open hold on a resource (``none`` when there is none)."""
+    return _settle_for_resource("fn_credit_commit_for_resource",
+                                {"p_resource_type": resource_type, "p_resource_id": str(resource_id)})
+
+
+def release_for_resource(resource_type: str, resource_id: str, reason: str) -> Optional[str]:
+    """Release the open hold on a resource (``none`` when there is none)."""
+    if reason not in _RELEASE_REASONS:
+        raise ValueError(f"unknown release reason {reason!r}")
+    return _settle_for_resource("fn_credit_release_for_resource",
+                                {"p_resource_type": resource_type, "p_resource_id": str(resource_id),
+                                 "p_reason": reason})
+
+
+def deliver_writing_essay_instant(essay_id: str) -> Optional[str]:
+    """``fn_deliver_writing_essay_instant``: graded + ``ai_instant`` →
+    delivered. Never raises."""
+    try:
+        return _unwrap(supabase_admin.rpc("fn_deliver_writing_essay_instant",
+                                          {"p_essay_id": str(essay_id)}).execute().data)["status"]
+    except Exception as exc:
+        logger.warning("[credits] rpc=fn_deliver_writing_essay_instant essay=%s failed: %s", essay_id, exc)
+        return None

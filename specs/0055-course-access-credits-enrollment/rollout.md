@@ -12,7 +12,7 @@
 
 ## Staging
 
-- Thứ tự áp: 381 → 382 → 383 → 388 (nhóm `course_commerce`, 381 và 382 luôn cùng một lượt), 384 → 387 (`single_session`), 385 (`pron_sample`); 386 không có file; **staging trước** dưới khoá tư vấn (`apply_migrations.sh` + `MIGRATION_FEATURES`), sau khi anh Andy duyệt chạy; production chỉ ở lần promote staging→main được anh cho phép, sau khi T11 có bằng chứng; backend chứa T03+ deploy **sau** migration (backend mới gọi RPC mới; backend cũ không biết bảng mới nên migration áp trước là an toàn).
+- Thứ tự áp (số thật ngày 23/11/2026; 383 và 384 đã `present` trên staging): 385 (`credit_lifecycle`), 387 (`class_credit_conversion`), 388 → 389 (`single_session`), 502 (`pron_sample`), 503 (`credit_attempt_settle`), 505 (`retention_purge`); 386 không có file; 500 và 504 (`account_data_rights`, ACCOUNTDATA-0100) chạy lượt riêng; **staging trước** dưới khoá tư vấn (`apply_migrations.sh` + `MIGRATION_FEATURES`), sau khi anh Andy duyệt chạy; production chỉ ở lần promote staging→main được anh cho phép, sau khi T11 có bằng chứng; backend chứa T03+ deploy **sau** migration (backend mới gọi RPC mới; backend cũ không biết bảng mới nên migration áp trước là an toàn).
 
 - Mỗi migration chạy test PG17 + postcondition trước khi áp; sau khi áp chạy E11 (RLS live) và E1–E21 theo `spec.md`. Nghiệm thu dùng tài khoản QA theo `docs/AGENT_WORKFLOW.md`; thiếu tài khoản QA thì PR ghi "chờ anh Andy kiểm tay trên staging".
 
@@ -24,7 +24,7 @@
 
 ## Rollback and repair
 
-- Quay lui: (1) tắt cờ `credit_metering`, `enrollment_orders`, `single_session_learners`, `retention_by_entitlement`, `pron_sample_window` (hiệu lực ≤15 s); (2) deploy lại backend trước đó; (3) chỉ khi cần mới chạy rollback theo thứ tự ngược với thứ tự áp: 385 → 387 → 384 → 388 → 383 → 382 → 381 — script 381–383 và 388 giữ bảng và dữ liệu, gỡ hàm/trigger, từ chối khi có dữ liệu đơn/lượt trừ khi GUC mở rõ ràng. Không bao giờ xoá dòng `credit_ledger`/`enrollment_orders`.
+- Quay lui: (1) tắt cờ `credit_metering`, `enrollment_orders`, `single_session_learners`, `retention_by_entitlement`, `pron_sample_window` (hiệu lực ≤15 s); (2) deploy lại backend trước đó; (3) chỉ khi cần mới chạy rollback, chỉ những file đã áp, theo thứ tự ngược với thứ tự áp. Theo số thật ngày 23/11/2026 (383 và 384 đã `present` trên staging): 505 → 503 → 502 → 389 → 388 → 387 → 385; 383 và 384 chỉ rollback khi anh Andy duyệt riêng. Script rollback không tự lấy khoá và không tự sửa ledger: người chạy tự lấy khoá tư vấn 173204, chạy file rollback, rồi tự xoá dòng `_schema_migrations` của file đó, cả ba trong cùng một phiên psql. Giữ dữ liệu, chỉ gỡ hàm (không có guard, chỉ kiểm hậu điều kiện): 385 (giữ `credit_ledger` và `fn_credit_usable_balance`), 387 (giữ `credit_class_conversions`), 503, 505. **Mất dữ liệu:** 389 chạy `DROP TABLE learner_login_events`, không có guard; 388 `DROP TABLE learner_active_sessions` và gỡ trigger, guard duy nhất là từ chối khi 389 còn bảng; 502 xoá ba cột `pronunciation_sample_*` của `responses`. Rollback mất dữ liệu cần anh Andy duyệt riêng từng file. Lỗi hậu điều kiện hoặc guard thì dừng và báo anh Andy, không vượt. Không bao giờ xoá dòng `credit_ledger`/`enrollment_orders`.
 
 - Sổ lượt chỉ ghi thêm: sửa sai bằng dòng `admin_adjust` có lý do, không UPDATE/DELETE. Đơn xác nhận nhầm: thu hồi quyền (`revoke`) + dòng điều chỉnh, ghi sự kiện.
 
