@@ -20,7 +20,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang ở `draft`, chưa có dòng
 | FR-016 | kind=test; ref=planned in T010; test React Task 1 có hình, mục 3 Đặc điểm chính, đánh số lại | PENDING |
 | FR-017 | kind=test; ref=planned in T010; test React liên kết mục từ chỉ khi tồn tại, related ≤ 4, prev/next | PENDING |
 | FR-018 | kind=test; ref=planned in T010; test React ba trạng thái khoá/lượt; CHỜ G08 khi chưa có đề điền sẵn | PENDING |
-| FR-019 | kind=test; ref=planned in T002, T003b, T006; test API unpublished 404, slug cũ 308; test script E_NOT_APPROVED; kịch bản 5, 10 | PENDING |
+| FR-019 | kind=test; ref=planned in T002, T002b (`tests/test_migration_401_writing_sample_review_signoff.py`: CHECK đăng phải có chữ ký), T003b, T006; test API unpublished 404, slug cũ 308; test script E_NOT_APPROVED; kịch bản 5, 10 | PENDING |
 | FR-020 | kind=test; ref=planned in T011; test API groups[]; một bài hai nhóm cùng URL | PENDING |
 | FR-021 | kind=test; ref=planned in T007; test React mục lục mục đang đọc (IntersectionObserver giả); 390px đóng | PENDING |
 | FR-022 | kind=test; ref=planned in T007, T011; test bấm số tô data-anchor; test thay thẻ trích, bài gỡ thì bỏ | PENDING |
@@ -44,7 +44,7 @@ Mọi dòng ở trạng thái `PENDING`: spec đang ở `draft`, chưa có dòng
 | FR-054 | kind=test; ref=planned in T015; test React ẩn phần rỗng; Trong bài mẫu Writing chỉ khi có bài xuất bản | PENDING |
 | FR-060 | kind=test; ref=planned in T009, T013, T016; test React cột Của bạn/Bạn kèm chữ; kịch bản 9 | PENDING |
 | FR-061 | kind=test; ref=planned in T002, T016; test backend A không đọc/ghi dấu B, PATCH hai lần một hàng, is_active=false dùng được, cascade | PENDING |
-| FR-062 | kind=test; ref=planned in T017; test sitemap model dữ liệu giả; curl sitemap.xml đếm /library/writing-samples/ = số published | PENDING |
+| FR-062 | kind=test; ref=frontend/tests/library-sitemap.test.mjs (T017, phần Writing: danh sách Thư viện khi live, trang bài mẫu Writing từ `/writing-samples/index`, robots allow /library); curl sitemap.xml đếm /library/writing-samples/ = số published. **Còn thiếu:** trang đề Speaking (cần `/speaking/index` của T013) và bài Kiến thức Writing (cần index của T011); giữ PENDING tới khi T011/T013 xong | PENDING |
 | FR-064 | kind=test; ref=planned in T002, T006 tests/test_library_media.py; nháp 404, đã đăng 200, Range 206, gỡ rồi cùng URL 404 ngay, mọi phản hồi no-store, không URL Storage trong API; staging journey: tải tệp đã đăng để làm nóng cache, gỡ, gọi lại đúng URL ngay và sau 300 s đều 404, URL object công khai của bucket lỗi ở mọi trạng thái; kịch bản 11 | PENDING |
 | FR-063 | kind=test; ref=planned in T008 frontend/lib/library-shelves.mjs; test React mảng thêm kệ giả → sáu kệ, 390px không vỡ; kịch bản 12 | PENDING |
 

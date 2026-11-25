@@ -417,12 +417,25 @@ def _pre_320() -> str:
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
         {admin_schema}
+        -- 388's timed-start triggers read these (087, 146, 151/154, 280 columns).
+        ALTER TABLE class_assignment_items ADD COLUMN timed_expires_at timestamptz;
+        ALTER TABLE mock_exams ADD COLUMN listening_started_at timestamptz,
+            ADD COLUMN reading_started_at timestamptz, ADD COLUMN writing_started_at timestamptz;
+        CREATE TABLE reading_test_attempts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status text NOT NULL DEFAULT 'in_progress');
+        CREATE TABLE mock_exam_sittings (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            mock_exam_id uuid NOT NULL REFERENCES mock_exams(id) ON DELETE CASCADE,
+            user_id uuid NOT NULL, status text NOT NULL DEFAULT 'registered',
+            listening_started_at timestamptz, reading_started_at timestamptz,
+            writing_started_at timestamptz);
         {admin_helpers}
         {helper_revokes}
         {"".join(f'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;'
                  for table in ("access_codes", "cohorts", "students", "writing_assignments",
                                "writing_drafts", "writing_essays", "writing_feedback",
                                "class_assignments", "class_assignment_items",
+                               "reading_test_attempts", "mock_exam_sittings",
                                *(table for _, table in drill_tables),
                                *(table for _, table in admin_tables)))}
     """

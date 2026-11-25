@@ -8,9 +8,9 @@ import { advancedVocabularyStudentState, canReturnSubmission, findAdvancedVocabu
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const UI = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
-const DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
-const HOMEWORK = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
+const UI = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
+const DETAIL = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const HOMEWORK = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
 const CSS = read('public', 'css', 'admin-class-submissions-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
