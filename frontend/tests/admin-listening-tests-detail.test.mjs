@@ -3,7 +3,8 @@
  *
  * Pins the markup + controller contract for the per-test admin surface:
  *   - /pages/admin/listening/tests-detail.html
- *   - /js/admin-listening-tests-detail.js
+ *   - /js/admin-listening-tests-detail.js (retired in LEGACYJS-0075 W1; its
+ *     controller pins moved to admin-listening-test-detail-next-behavior)
  *
  * And the cross-page integration:
  *   - tests-list row "Mở test" link → tests-detail.html?id=
@@ -95,113 +96,9 @@ describe('Sprint 13.4.3 — tests-detail page structure', () => {
 // ── Controller logic ───────────────────────────────────────────────────────
 
 
-describe('Sprint 13.4.3 — tests-detail controller logic', () => {
-  const js = read('js', 'admin-listening-tests-detail.js');
-
-  test('bootstrap Supabase IIFE so first GET carries auth', () => {
-    assert.match(js, /function\s+bootstrapSupabase\s*\(\)/);
-    assert.match(js, /window\.initSupabase\(SUPABASE_URL,\s*SUPABASE_ANON\)/);
-  });
-
-  test('reads test id from ?id= query param', () => {
-    assert.match(js, /URLSearchParams\(window\.location\.search\)/);
-    assert.match(js, /params\.get\(['"]id['"]\)/);
-  });
-
-  test('GETs /admin/listening/tests/{id} on mount', () => {
-    assert.match(
-      js,
-      /window\.api\.get\(\s*`\/admin\/listening\/tests\/\$\{encodeURIComponent\(STATE\.testId\)\}/,
-    );
-  });
-
-  test('mode change PATCHes /audio/mode', () => {
-    assert.match(
-      js,
-      /window\.api\.patch\(\s*`\/admin\/listening\/tests\/\$\{[^}]+\}\/audio\/mode/,
-    );
-  });
-
-  test('full audio upload POSTs multipart to /audio/full', () => {
-    assert.match(
-      js,
-      /window\.api\.upload\(\s*`\/admin\/listening\/tests\/\$\{[^}]+\}\/audio\/full/,
-    );
-  });
-
-  test('part audio upload POSTs multipart to /audio/section/{N}', () => {
-    assert.match(
-      js,
-      /window\.api\.upload\(\s*`\/admin\/listening\/tests\/\$\{[^}]+\}\/audio\/section\/\$\{sectionNum\}/,
-    );
-  });
-
-  test('assemble button POSTs to /audio/assemble', () => {
-    assert.match(
-      js,
-      /window\.api\.post\(\s*`\/admin\/listening\/tests\/\$\{[^}]+\}\/audio\/assemble/,
-    );
-  });
-
-  test('assemble button only enabled when 4 parts ready', () => {
-    assert.match(js, /ready\s*<\s*4/);
-    assert.match(js, /refreshAssembleButton/);
-  });
-
-  test('client-side publish gate mirrors server can_publish rules', () => {
-    // `mode` is the local alias for t.audio_assembly_mode inside the
-    // canPublishClient helper. Pin both branches by mode value + the
-    // two audio-path fields the server gates on.
-    assert.match(js, /mode\s*===\s*['"]full_premixed['"]/);
-    assert.match(js, /mode\s*===\s*['"]parts_auto_assembled['"]/);
-    assert.match(js, /full_audio_storage_path/);
-    assert.match(js, /assembled_audio_storage_path/);
-  });
-
-  test('parts_only mode disables publish with clear reason', () => {
-    assert.match(js, /parts_only/);
-    assert.match(js, /không support full test/);
-  });
-
-  test('status transitions PATCH /tests/{id}/status', () => {
-    assert.match(
-      js,
-      /window\.api\.patch\(\s*`\/admin\/listening\/tests\/\$\{[^}]+\}\/status/,
-    );
-  });
-
-  test('delete confirmation prompts before DELETE', () => {
-    assert.match(js, /window\.confirm/);
-    assert.match(
-      js,
-      /window\.api\.delete\(\s*`\/admin\/listening\/tests\/\$\{[^}]+\}/,
-    );
-  });
-
-  test('cue points table populated from STATE.test.cue_points', () => {
-    assert.match(js, /cue_points/);
-    assert.match(js, /td-cue-tbody/);
-  });
-});
-
 
 // ── Cross-page integration ─────────────────────────────────────────────────
 
-
-describe('Sprint 13.4.3 — tests-list row links to tests-detail', () => {
-  const js = read('js', 'admin-listening-tests-list.js');
-
-  test('row action "Mở test" links to tests-detail.html?id=', () => {
-    assert.match(
-      js,
-      /\/pages\/admin\/listening\/tests-detail\.html\?id=\$\{encodeURIComponent\(t\.id\)\}/,
-    );
-  });
-
-  test('no leftover "sắp ra mắt" placeholder', () => {
-    assert.doesNotMatch(js, /sắp ra mắt/);
-  });
-});
 
 
 // (Convert flow retired 2026-07-17 — usage audit; the "convert results CTA"
@@ -210,55 +107,6 @@ describe('Sprint 13.4.3 — tests-list row links to tests-detail', () => {
 
 // ── Sprint 13.4.3.1 — mode toggle selection-driven render hotfix ───────────
 
-
-describe('Sprint 13.4.3.1 — mode toggle renders upload UI immediately', () => {
-  const js = read('js', 'admin-listening-tests-detail.js');
-
-  test('onModeChange mutates STATE.test.audio_assembly_mode locally first', () => {
-    // The hotfix sets the local state before any await so renderModeUI
-    // fires synchronously with the user's selection — no chicken-and-egg.
-    assert.match(
-      js,
-      /STATE\.test\.audio_assembly_mode\s*=\s*mode[\s\S]{0,200}?renderModeUI\(mode\)/,
-    );
-  });
-
-  test('onModeChange calls renderModeUI before awaiting the PATCH', () => {
-    // Find the function body and pin: renderModeUI must appear before
-    // the `await window.api.patch` line.
-    const fnMatch = js.match(/async function onModeChange[\s\S]+?^}/m);
-    assert.ok(fnMatch, 'onModeChange function not found');
-    const fn = fnMatch[0];
-    const renderIdx = fn.indexOf('renderModeUI(mode)');
-    const patchIdx  = fn.indexOf('window.api.patch');
-    assert.ok(renderIdx >= 0 && patchIdx >= 0, 'expected both calls in onModeChange');
-    assert.ok(
-      renderIdx < patchIdx,
-      'renderModeUI must run before the PATCH so upload UI appears even on backend failure',
-    );
-  });
-
-  test('PATCH failure surfaces non-blocking copy (UI vẫn dùng được)', () => {
-    // Hotfix swapped the "rollback selector + error banner" path for a
-    // softer message that keeps the upload UI usable.
-    assert.match(js, /UI vẫn dùng được|sẽ thử lại khi upload/);
-  });
-
-  test('publish-gate re-renders after every mode selection', () => {
-    const fn = js.match(/async function onModeChange[\s\S]+?^}/m)[0];
-    assert.match(fn, /renderPublishGate\(\)/);
-  });
-
-  test('selector no longer auto-rolls-back on PATCH failure', () => {
-    // The original Sprint 13.4.3 controller reset the selector to the
-    // previous persisted mode whenever the PATCH 422'd — that's the UX
-    // bug the hotfix removes (it swallowed the user's selection).
-    assert.doesNotMatch(
-      js,
-      /document\.getElementById\(['"]td-mode['"]\)\.value\s*=\s*\(STATE\.test/,
-    );
-  });
-});
 
 
 describe('Sprint 13.4.3.1 — backend mode toggle is soft', () => {
@@ -310,74 +158,15 @@ describe('Sprint 13.4.3.1 — backend mode toggle is soft', () => {
 // ── Sprint 13.4.3.2 — drag/drop + audio preview + layout overflow fix ──────
 
 
-describe('Sprint 13.4.3.2 — drop-zone handlers wired (drag-and-drop)', () => {
-  const js = read('js', 'admin-listening-tests-detail.js');
-
-  test('attachDropZoneHandlers factory defined', () => {
-    assert.match(js, /function\s+attachDropZoneHandlers\s*\(\s*zoneEl\s*,\s*onFile\s*\)/);
-  });
-
-  test('binds all 4 dnd events with preventDefault', () => {
-    assert.match(js, /\['dragenter',\s*'dragover'\][\s\S]{0,200}?preventDefault/);
-    assert.match(js, /\['dragleave',\s*'drop'\][\s\S]{0,200}?preventDefault/);
-  });
-
-  test('drop branch extracts file from dataTransfer + .mp3 guard', () => {
-    assert.match(js, /e\.dataTransfer\s*&&\s*e\.dataTransfer\.files/);
-    assert.match(js, /Chỉ chấp nhận file \.mp3/);
-  });
-
-  test('init() wires dnd on the full-audio zone', () => {
-    assert.match(
-      js,
-      /attachDropZoneHandlers\(\s*\n?\s*document\.getElementById\(['"]td-zone-full['"]\),/,
-    );
-  });
-
-  test('renderPartsGrid() wires dnd per card (grid rebuilds on render)', () => {
-    const fn = js.match(/function renderPartsGrid[\s\S]+?^}/m);
-    assert.ok(fn, 'renderPartsGrid not found');
-    assert.match(fn[0], /attachDropZoneHandlers\(card,/);
-  });
-});
-
 
 describe('Sprint 13.4.3.2 — audio preview players render', () => {
   const html = read('pages', 'admin', 'listening', 'tests-detail.html');
-  const js   = read('js', 'admin-listening-tests-detail.js');
 
   test('html has preview slot for full + assembled audio', () => {
     assert.match(html, /id=["']td-full-preview["']/);
     assert.match(html, /id=["']td-assembled-preview["']/);
   });
 
-  test('fetchTest pulls signed-url bundle from /audio/signed-urls', () => {
-    assert.match(
-      js,
-      /window\.api\.get\(\s*`?\/admin\/listening\/tests\/\$\{[^}]+\}\/audio\/signed-urls/,
-    );
-  });
-
-  test('renderFullAudio emits <audio controls> when signed URL available', () => {
-    assert.match(js, /<audio controls[\s\S]{0,200}?src=["']?\$\{escapeHtml\(signed\.signed_url\)\}/);
-  });
-
-  test('renderPartsGrid embeds per-section <audio controls>', () => {
-    const fn = js.match(/function renderPartsGrid[\s\S]+?^}/m)[0];
-    assert.match(fn, /<audio controls/);
-    assert.match(fn, /signed\.signed_url/);
-  });
-
-  test('renderAssembledPreview function exists + emits <audio>', () => {
-    assert.match(js, /function\s+renderAssembledPreview\s*\(\)/);
-    const fn = js.match(/function renderAssembledPreview[\s\S]+?^}/m)[0];
-    assert.match(fn, /<audio controls/);
-  });
-
-  test('"Tải lại audio" button re-triggers the file picker', () => {
-    assert.match(js, /Tải lại audio/);
-    assert.match(js, /td-file-full['"]\)\.click\(\)/);
-  });
 });
 
 
@@ -416,7 +205,6 @@ describe('Sprint 13.4.3.2 — section card grid no longer overflows', () => {
 
 describe('Sprint 13.5.4 — tests-detail hard-delete button + controller', () => {
   const html = read('pages', 'admin', 'listening', 'tests-detail.html');
-  const js   = read('js', 'admin-listening-tests-detail.js');
 
   test('Vùng nguy hiểm renders BOTH archive and hard-delete buttons', () => {
     assert.match(html, /id=["']td-delete-btn["']/);
@@ -433,68 +221,6 @@ describe('Sprint 13.5.4 — tests-detail hard-delete button + controller', () =>
     assert.match(html, /Không\s*thể recover/i);
   });
 
-  test('controller binds the hard-delete button to onHardDelete()', () => {
-    assert.match(
-      js,
-      /getElementById\(['"]td-hard-delete-btn['"]\)\.addEventListener\(['"]click['"],\s*onHardDelete\)/,
-    );
-  });
-
-  test('onHardDelete requires a window.confirm() AND a window.prompt() match', () => {
-    assert.match(js, /async function onHardDelete\(/);
-    assert.match(js, /window\.confirm\([\s\S]{0,200}?Xác nhận XÓA VĨNH VIỄN/);
-    assert.match(js, /window\.prompt\(/);
-    // The prompt must compare its return value against the short test_id
-    // (not against STATE.testId — that's the UUID, not the short name).
-    assert.match(js, /userInput\s*!==\s*shortName/);
-  });
-
-  test('onHardDelete calls DELETE /admin/listening/tests/{id}/hard', () => {
-    assert.match(
-      js,
-      /window\.api\.delete\(\s*`\/admin\/listening\/tests\/\$\{encodeURIComponent\(STATE\.testId\)\}\/hard`/,
-    );
-  });
-
-  test('onHardDelete redirects to the tests-list on success', () => {
-    const m = /async function onHardDelete\(\)\s*\{([\s\S]+?)\n\}/m.exec(js);
-    assert.ok(m, 'onHardDelete body not found');
-    assert.match(m[1], /window\.location\.href\s*=\s*['"]\/pages\/admin\/listening\/tests\.html['"]/);
-  });
-
-  test('onHardDelete surfaces errors via showError instead of throwing', () => {
-    const m = /async function onHardDelete\(\)\s*\{([\s\S]+?)\n\}/m.exec(js);
-    assert.ok(m);
-    assert.match(m[1], /showError\(/);
-    assert.match(m[1], /Hard delete thất bại/);
-  });
-
-  test('hard-delete URL is a backtick template literal (no `<` placeholder)', () => {
-    // Regression guard cribbed from Sprint 13.5.1.
-    const hardCalls = js.match(/['"`][^'"`]*\/hard['"`]/g) || [];
-    assert.ok(hardCalls.length > 0, 'expected at least one /hard URL literal');
-    for (const c of hardCalls) {
-      assert.ok(!c.includes('<'),
-        `URL contains a literal placeholder: ${c}`);
-      assert.ok(!c.includes('%3C'),
-        `URL contains URL-encoded placeholder: ${c}`);
-    }
-  });
-
-  test('soft-delete onDelete handler is preserved (regression)', () => {
-    // Sprint 13.5.4 must not regress the existing archive flow.
-    assert.match(js, /async function onDelete\(/);
-    assert.match(
-      js,
-      /window\.api\.delete\(\s*`\/admin\/listening\/tests\/\$\{encodeURIComponent\(STATE\.testId\)\}`\s*,?\s*\)/,
-    );
-  });
-
-  test('hard-delete bails early when test_id is missing', () => {
-    // The handler short-circuits if STATE.test.test_id is absent so the
-    // prompt() comparison can't accidentally match an empty string.
-    assert.match(js, /Không xác định được test_id/);
-  });
 });
 
 
@@ -502,7 +228,6 @@ describe('Sprint 13.5.4 — tests-detail hard-delete button + controller', () =>
 
 describe('Sprint 13.5.6 — tests-detail map-image panel + controller', () => {
   const html = read('pages', 'admin', 'listening', 'tests-detail.html');
-  const js   = read('js', 'admin-listening-tests-detail.js');
 
   test('declares the "Hình map" panel section + list host', () => {
     assert.match(html, /id="td-map-images"/);
@@ -510,42 +235,6 @@ describe('Sprint 13.5.6 — tests-detail map-image panel + controller', () => {
     assert.match(html, /Hình map.*Plan-label/i);
   });
 
-  test('render() invokes renderMapImagesPanel() after the other section renderers', () => {
-    assert.match(js, /renderMapImagesPanel\(\)/);
-  });
-
-  test('panel hides when there are no plan-label exercises', () => {
-    assert.match(js, /if \(!plExercises\.length\)\s*\{[\s\S]*?panel\.hidden\s*=\s*true/);
-  });
-
-  test('AI generation is decommissioned — no generate button, POST, or model selector', () => {
-    // 2026-07-17 usage audit: the generate-map-image flow was removed;
-    // manual upload is the only authoring path. Guard against re-adding.
-    assert.doesNotMatch(js, /td-map-gen\b/);
-    assert.doesNotMatch(js, /td-map-regen\b/);
-    assert.doesNotMatch(js, /generate-map-image/);
-    assert.doesNotMatch(js, /select class="td-map-model"/);
-  });
-
-  test('delete flow stays wired (button + DELETE call)', () => {
-    assert.match(js, /td-map-delete/);
-    assert.match(
-      js,
-      /window\.api\.delete\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/map-image`/,
-    );
-  });
-
-  test('GET signed-url is called for each card already carrying an image', () => {
-    assert.match(js, /function refreshMapImage\(/);
-    assert.match(
-      js,
-      /window\.api\.get\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/map-image\/signed-url`/,
-    );
-  });
-
-  test('status helper updates the per-card .td-map-status element', () => {
-    assert.match(js, /function setMapStatus\(/);
-  });
 });
 
 
@@ -598,100 +287,3 @@ describe('Sprint 13.5.6 — student plan-label renderer accepts map image', () =
 
 
 // ── Sprint 13.5.9.3 — manual upload escape hatch (admin panel) ───────────
-
-describe('Sprint 13.5.9.3 — manual map-image upload UI', () => {
-  const js = read('js', 'admin-listening-tests-detail.js');
-
-  test('manual upload is the only pane — no tab nav, no api-generate pane', () => {
-    // 2026-07-17 usage audit: AI generation removed. The manual-upload
-    // pane renders directly (not hidden behind a tab).
-    assert.doesNotMatch(js, /data-tab="api-generate"/);
-    assert.doesNotMatch(js, /data-tab-pane="api-generate"/);
-    assert.doesNotMatch(js, /🎨 Generate via API/);
-    assert.match(js,
-      /<div class="td-map-tab-pane" data-tab-pane="manual-upload"\n\s+data-exercise-id="\$\{escapeHtml\(ex\.id\)\}">/);
-  });
-
-  test('dropzone accepts only PNG / JPG / WebP via the file input accept attribute', () => {
-    // ``accept="…"`` is a soft hint to the file picker but matches
-    // the server's hard guard so admin doesn't even see GIFs etc.
-    assert.match(js,
-      /<input type="file" class="td-map-file-input"[\s\S]+?accept="image\/png,image\/jpeg,image\/webp"/);
-  });
-
-  test('client-side validator rejects unsupported types + oversized files', () => {
-    // Pin both branches of the validator so a future refactor can't
-    // silently drop one. The 5 MB cap mirrors the backend constant.
-    assert.match(js, /MAP_IMAGE_MANUAL_UPLOAD_MAX_BYTES = 5 \* 1024 \* 1024/);
-    assert.match(js, /new Set\(\[\s*'image\/png',\s*'image\/jpeg',\s*'image\/webp'/);
-    assert.match(js, /function _validateManualUploadFile\(file\)/);
-    assert.match(js, /file\.size > MAP_IMAGE_MANUAL_UPLOAD_MAX_BYTES/);
-    assert.match(js, /file\.size < 100/);
-  });
-
-  test('dropzone wires both click-to-select and drag-and-drop handlers', () => {
-    // Click flow: dropzone click → fileInput.click(). Drop flow:
-    // dragover prevents default + flips dragover class; drop reads
-    // dataTransfer.files. Pin both so the keyboard path doesn't
-    // regress (file input gets focus + Enter).
-    assert.match(js, /fileInput\.click\(\)/);
-    assert.match(js, /zone\.addEventListener\(['"]dragover['"]/);
-    assert.match(js, /zone\.addEventListener\(['"]drop['"]/);
-    assert.match(js, /e\.dataTransfer\.files\s*&&\s*e\.dataTransfer\.files\[0\]/);
-  });
-
-  test('selected file renders a preview img + filename + filesize', () => {
-    // Preview wrap starts hidden and flips visible once a valid file
-    // is picked. FileReader.readAsDataURL feeds the <img> src.
-    assert.match(js, /reader\.readAsDataURL\(file\)/);
-    assert.match(js, /td-map-upload-preview-img/);
-    assert.match(js, /td-map-upload-filename/);
-    assert.match(js, /td-map-upload-filesize/);
-    assert.match(js, /previewWrap\.hidden = false/);
-  });
-
-  test('cancel button clears the selection map + hides the preview', () => {
-    assert.match(js, /function cancelManualUpload\(exerciseId\)/);
-    assert.match(js, /_manualUploadSelections\.delete\(exerciseId\)/);
-    assert.match(js, /previewWrap\.hidden = true/);
-    assert.match(js, /fileInput\.value = ''/);
-  });
-
-  test('confirm shows a $0-cost dialog before sending the upload', () => {
-    // Andy 2026-05-21 lock: the manual flow must spell out the
-    // $0 cost so it's clearly the no-API-call escape hatch.
-    assert.match(js, /window\.confirm\(/);
-    assert.match(js, /Cost: \$0 \(no API call\)/);
-  });
-
-  test('confirm posts the file via window.api.upload to /upload-map-image', () => {
-    // Multipart upload via the api.js helper that sets the right
-    // Content-Type. The endpoint URL pin catches a typo of the new
-    // route. FormData carries the file under "image_file" — that's
-    // the FastAPI param name on the backend.
-    assert.match(js, /formData\.append\(['"]image_file['"],\s*file\)/);
-    assert.match(js,
-      /window\.api\.upload\(\s*`\/admin\/listening\/exercises\/\$\{encodeURIComponent\(exerciseId\)\}\/upload-map-image`/);
-  });
-
-  test('after a successful upload the panel re-fetches and re-renders', () => {
-    // Same pattern as Sprint 13.5.6's onGenerateMapImage: fetchTest()
-    // + render() so the source badge flips to "Manual upload" without
-    // a manual refresh.
-    const fn = /async function onConfirmManualUpload\([\s\S]+?\n\}/.exec(js);
-    assert.ok(fn, 'onConfirmManualUpload() not found');
-    assert.match(fn[0], /await fetchTest\(\)/);
-    assert.match(fn[0], /render\(\)/);
-  });
-
-  test('header badge differentiates manual_upload vs api_generation visually', () => {
-    // The card header chip reads ex.map_image_source first (Sprint
-    // 13.5.9.3 backend projection), falling back to api_generation
-    // when only the legacy model field is set. Pin both branches.
-    assert.match(js, /ex\.map_image_source/);
-    assert.match(js, /td-map-source-badge[\s\S]+?data-source="manual_upload"/);
-    assert.match(js, /td-map-source-badge[\s\S]+?data-source="api_generation"/);
-    assert.match(js, /📤 Manual upload/);
-    assert.match(js, /🎨 API:/);
-  });
-});

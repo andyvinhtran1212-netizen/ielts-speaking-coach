@@ -25,3 +25,25 @@ Not approved by this decision:
 - Merging any PR. Each merge needs anh Andy's own "merge #N".
 
 No learner data is included here.
+
+## Amendment 1
+
+On 2026-11-24 at 08:43 Asia/Saigon (01:43:48 UTC), the owner (anh Andy) wrote in the
+project chat of the Averlearning Claude Code project, verbatim:
+
+> duyệt sửa 0072 FR-010 theo sửa đổi 2
+
+Amendment 1 answers the Codex finding on #2511 and #2541 (`spec.md` FR-010: before G05-T19
+the learner could choose to navigate away after a warning that unsent recordings would be
+lost, which contradicts EXAMROOM-0066 FR-015 amendment 2). Speaking keeps unsent audio only
+in page memory (FR-009), so an unsent take is always the "work not kept" case. This commit:
+
+- rewrites FR-010: with an unsent take the 401 box offers only "Ở lại làm tiếp"/"Stay", with
+  no same-tab `/login?next=` path and no discard-to-sign-in button; submit stays locked; the
+  box tells the learner to sign in in another tab and press "Gửi lại bản ghi". With no unsent
+  take left, "Đăng nhập lại"/"Sign in again" stays available;
+- adds Scenario 8 (401 with an unsent take: the take and the URL stay);
+- aligns `ui-states.md`, `tasks.md` T003 and the FR-010 row of `verification.md`.
+
+Status stays `approved`. Not approved by this decision: turning on the surface on staging
+or production, and merging any PR.

@@ -2,21 +2,48 @@
 
 ## Requirement coverage
 
+Review độc lập 0072 T005 (READY-QUEUE R152, 23/11/2026), trên cây gộp `cbff3629` (#2642, đã
+gồm #2615 `69218093` và #2599 `765b3c4f`) + `f935d3d0` (#2626), merge cục bộ sạch; bổ sung cùng ngày
+trên #2649 `97d79c67` (gồm #2642 `5f65bc69`): node 1071/1071 + 3/3 FR-009, vitest 1484/1484, tsc sạch. Người review
+không viết mã của chuỗi này. Kết quả chạy trên cây đó:
+
+- `node --test` 69 tệp `practice*`, `speaking*`, `exam-room*`, `core-player*`: 1051/1051 qua.
+- `vitest run tests/react`: 136 tệp, 1473/1473 qua. `tsc --noEmit`: sạch.
+- `tooling/verify-speaking-flow.mjs` trên `next build` cục bộ (backend giả, micro giả của
+  Chromium, không gọi STT hay chấm trả phí): 78/79. Dòng hỏng là "không có lỗi JS chưa bắt" ở
+  `/speaking` do `/vendor/lucide.min.js` và `/vendor/chart.umd.min.js` trả 404: bản dựng chạy
+  `next build` trực tiếp, bỏ qua `prebuild` (`tooling/vendor-runtime.mjs`), không liên quan
+  chuỗi này. Mọi dòng của phòng (cờ bật) và cờ tắt đều qua.
+
+Cột Result vẫn là PENDING: mã của chuỗi chưa lên `staging` (các tệp test chưa có trên nhánh spec này) và
+nghiệm thu staging (T004) cần anh Andy bật cờ. Kết quả review ghi cuối cột Evidence ("đạt (cục bộ)" =
+đủ bằng chứng ở mức test và journey cục bộ). Đổi sang PASS khi chuỗi đã merge và T004 xong.
+
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=journey; ref=frontend/tooling/verify-speaking-flow.mjs flag off (unchanged writes and DOM) and flag on (same writes, same order) | PENDING |
-| FR-002 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs (no new events unless the init bootstrap has examRoomMode: true; mic and level events when it does; practice.js never reads runtime config or ?exam_room) | PENDING |
-| FR-003 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (four mic cases, waiting state shown before getUserMedia resolves, button locked, granted skips the first step) | PENDING |
-| FR-004 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (Ready, Recording, silent after 3 s, browser pause on mute, Recorded with duration) | PENDING |
-| FR-005 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (too short per MIN_RECORD_SEC and detail.min_seconds, Part 2 in-page reason, no alert) | PENDING |
-| FR-006 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (re-record asks only for unsent takes, Keep recording primary, Part 2 retry discard asks) | PENDING |
-| FR-007 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (leave with unsent work blocks navigation, Stay keeps the page, discard navigates in code; leave without unsent work is immediate) | PENDING |
-| FR-008 | kind=journey; ref=frontend/tooling/write-flows/speaking-record-submit.mjs (first-take upload failure keeps Submit locked with no use-old option; re-record failure with a saved take opens the in-page dialog, Resend primary, old take intact; writes unchanged both branches) | PENDING |
-| FR-009 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (no audio in browser storage, no copy promising a kept recording after reload) | PENDING |
-| FR-010 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (noRedirect on upload and complete, 401 keeps the take and shows the re-login dialog) | PENDING |
-| FR-011 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (practice and test_part Vietnamese, test_full in a sitting English, return to /mock-exam?sitting=) | PENDING |
-| FR-012 | kind=journey; ref=frontend/playwright.speaking-regression.config.js flag on, Playwright dialog count = 0 | PENDING |
-| FR-013 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs (event names, surface=speaking, no audio or transcript in payload) | PENDING |
+| FR-001 | kind=journey; ref=frontend/tooling/verify-speaking-flow.mjs hai nhánh (cờ tắt: header cũ, không có phòng, cùng request; cờ bật: thanh tập trung thay header, cùng request); kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx "renders the page exactly as before…", "ignores room-only view fields while the flag is off". Review R152: đạt (cục bộ) | PENDING |
+| FR-002 | kind=test; ref=frontend/tests/practice-exam-room-events.test.mjs "every helper returns before touching the view", "practice.js reads only bootstrap.examRoomMode…", "the boot passes examRoomEnabled(…)"; `practice-session-boot.tsx` gọi `examRoomEnabled('speaking')` một lần. Review R152: đạt (cục bộ) | PENDING |
+| FR-003 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx "pending shows before the browser answers, with the button locked", "denied: three steps…", "not found and busy…", "unsupported…"; frontend/tests/practice-exam-room-events.test.mjs "permissions granted skips the first step", "no navigator.permissions starts at…". Review R152: đạt (cục bộ) | PENDING |
+| FR-004 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx "ready, recording with the clock, recorded with the duration, in words", ""Không nghe thấy tiếng" only after 3 s…", "no level (no analyser) never reports silence", "paused by the browser (muted mic)"; events test "RMS of \|b − 128\| / 128". Review R152: đạt (cục bộ) | PENDING |
+| FR-005 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx "Part 1 too short…never an alert", "Part 2 too short…(server detail.min_seconds)"; frontend/tests/exam-room-strings-speaking.test.mjs "too-short reason uses the numbers it is given"; ảnh `team/g08/r85-shots/mic-lost-3s.png`. Review R152: đạt (cục bộ) | PENDING |
+| FR-006 | kind=test; ref=frontend/tests/practice-exam-room-boxes.test.mjs "an unsent take opens the box and keeps the take", "no take: no box", "Part 2 …"; react "re-record: …" ("Giữ bản ghi" là nút chính). Review R152: đạt (cục bộ) | PENDING |
+| FR-007 | kind=test; ref=frontend/tests/practice-exam-room-boxes.test.mjs "a link with unsent work opens the box; never window.confirm", "nothing unsent: leave at once", "a navigation that never leaves guards the page again"; react "leave box from a link", "a link in the page with unsent work asks practice.js first…". Review R152: đạt (cục bộ) | PENDING |
+| FR-008 | kind=test; ref=frontend/tests/practice-exam-room-boxes.test.mjs "Nộp opens the box with the count, and nothing is completed yet", "closing the box submits nothing"; react "submit with failed re-records: the count…"; lần ghi đầu gửi lỗi giữ Nộp khoá bằng chữ "Đã lưu N/M câu — lưu nốt rồi mới nộp được." của nhánh cũ. Câu về lượt chưa có (cần G04). Review R152: đạt (cục bộ), trừ câu lượt | PENDING |
+| FR-009 | kind=test; ref=frontend/tests/practice-exam-room-fr009.test.mjs (#2649 @ `97d79c67`, thêm sau review: mọi `setItem` của `practice.js` là khoá đã biết chứa id/chế độ; không nguồn nào của phòng dùng IndexedDB, Cache API hay biến âm thanh thành chuỗi; không chuỗi VI/EN nào hứa giữ bản ghi khi tải lại; hộp rời bài nói bản chưa gửi sẽ mất). Review R152: đạt (cục bộ), 3/3 | PENDING |
+| FR-010 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (noRedirect on upload and complete, 401 keeps the take and the URL; with an unsent take the box offers only Stay, no same-tab login and no discard-to-sign-in; Scenario 8). Review R152 (trước amendment 1): frontend/tests/practice-exam-room-boxes.test.mjs "complete answers 401: the sign-in box opens, nothing navigates", "upload auth_required with an unsent take counts it…", "finishSession signed out in the room…"; react "401 with an unsent take: says it would be lost…" đạt (cục bộ). Amendment 1 (`b68ad87c`, theo 0066 FR-015 amendment 2: khi còn bản ghi chưa gửi chỉ có "Ở lại") chưa được review lại: cần kiểm trên PR cài đặt | PENDING |
+| FR-011 | kind=test; ref=frontend/tests/exam-room-strings-speaking.test.mjs "mode: only test_full is English", "English has no Vietnamese letters"; react "a full test uses the English room words", "a full test asks in English". Review R152: đạt (cục bộ) | PENDING |
+| FR-012 | kind=journey; ref=frontend/tooling/verify-speaking-flow.mjs "phòng (cờ bật): không hộp thoại trình duyệt nào (FR-012)" (bắt sự kiện `dialog`); boxes test "no window.confirm, alert or prompt is reached in the room branch…". `playwright.speaking-regression.config.js` chưa chạy trong review này. Review R152: đạt (cục bộ); regression config pending | PENDING |
+| FR-013 | kind=test; ref=frontend/tests/react/practice-exam-room.test.tsx (MicStatus gửi `exam_room_mic` với `surface: 'speaking'` và tên ca, không nội dung). Review R152: đạt (cục bộ) | PENDING |
+
+Edge cases:
+
+| Edge case | Evidence | Result |
+| --- | --- | --- |
+| Micro bị rút giữa lúc ghi | #2642 (R139) @ `5f65bc69`; frontend/tests/practice-exam-room-mic-lost.test.mjs; ảnh `mic-lost-3s.png`, `mic-lost-17s.png`. Điểm thấp `_timerId` đường `_recorder` cũ đã sửa ở `5f65bc69`; còn một điểm thấp mới: `init()` chưa đặt lại `_roomMicLostShown` (CR #2642) | Đạt (cục bộ), một điểm thấp mở |
+| Không có `navigator.permissions` | events test "no navigator.permissions starts at…" | Đạt (cục bộ) |
+| Recorder native có trước | events test "native start emits no mic event and keeps the old error text"; mic-lost đọc `PracticeRecorder.stream`, `onstop` gọi `onRecorded` trước `#releaseMedia` | Đạt (cục bộ) |
+| Hai tab cùng phiên | #2649 (R149) @ `2634de50`: khoá `surface='speaking'`, `attemptKey=session_id` qua `createTabGuard`; `roomFlush` không bao giờ `secured` khi còn bản ghi đang ghi/chưa gửi/đang tải → tab cũ từ chối, tab mới `stuck` với câu của spec; tab chỉ-đọc không nộp được (`_sheetSubmit`, `finishSession`, `_finishTestAndShowResults` trả về sớm khi `_roomReadOnly()`, điểm Medium CR #2649 đã sửa ở `2634de50`); frontend/tests/practice-exam-room-tab.test.mjs (gồm ca tab B bấm "Nộp bài"), frontend/tests/react/speaking-tab-guard.test.tsx. Node 906/906, vitest 1484/1484, tsc sạch. Chưa chạy journey hai tab trên trình duyệt | Đạt (cục bộ) |
+| Test đọc nguồn `practice.js` | 1051 test node của nhóm practice/speaking/exam-room qua, không test nào bị bỏ qua | Đạt (cục bộ) |
 
 Đối chiếu số FR của GOI-08 ↔ spec này:
 
@@ -42,7 +69,9 @@
 ## UI evidence
 
 - Viewports/themes/input methods: ảnh 1280px và 390px của bốn ca micro, đang ghi, đã ghi và các
-  hộp; sáng và tối.
+  hộp; sáng và tối. Đã có: ảnh phòng của #2626 (journey `SHOTS`) và `team/g08/r85-shots/`
+  (mic-lost 3 s, 17 s). `/ui-review` theo mắt: hộp micro sau khi mất kết nối dùng tông thông tin
+  (teal), chưa phải tông cảnh báo; spec chỉ yêu cầu chữ nên không chặn.
 
 ## Release evidence
 

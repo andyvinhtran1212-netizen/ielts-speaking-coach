@@ -28,7 +28,9 @@ const USERS        = read('pages', 'admin', 'users', 'index.html');
 const JS_AIUSAGE   = read('js', 'admin-ai-usage.js');
 const JS_ALERTS    = read('js', 'admin-alerts.js');
 const JS_VEX       = read('js', 'admin-vocab-exercises.js');
-const JS_USERS     = read('js', 'admin-users.js');
+// LEGACYJS-0075 W3a: admin-users.js is deleted; /admin/users is the Next panel.
+const JS_USERS     = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
+const USERS_API    = read('lib', 'admin-users-api.ts');
 const ADMIN_LEGACY = read('admin.html');
 
 
@@ -196,10 +198,10 @@ describe('Sprint 12.8 — system + vocab-exercises JS controllers', () => {
     assert.match(JS_VEX, /\/admin\/exercises\/d1\/generate-batch/);
   });
 
-  it('admin-users.js wires GET /admin/users + PATCH /admin/users/{id}/role', () => {
-    assert.match(JS_USERS, /['"]\/admin\/users['"]/);
-    assert.match(JS_USERS, /api\.patch\(\s*['"]\/admin\/users\//);
-    assert.match(JS_USERS, /\/role/);
+  it('the Next users panel reads GET /admin/users + changes role on /admin/users/{id}/role', () => {
+    assert.match(USERS_API, /getBrowserJson\('\/admin\/users'\)/);
+    assert.match(JS_USERS, /getAdminUsers\(\)/);
+    assert.match(JS_USERS, /`\/admin\/users\/\$\{encodeURIComponent\(user\.id\)\}\/role`,\s*\{ role: nextRole \}/);
   });
 });
 
