@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const D1_PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'd1-curation', 'page.tsx');
-const D1 = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'd1-curation', 'admin-vocab-d1-curation.tsx');
-const LEMMA_PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'lemmas', 'page.tsx');
-const LEMMA = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'lemmas', 'admin-vocab-lemmas.tsx');
-const HUB = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'page.tsx');
+const D1_PAGE = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'd1-curation', 'page.tsx');
+const D1 = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'd1-curation', 'admin-vocab-d1-curation.tsx');
+const LEMMA_PAGE = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'lemmas', 'page.tsx');
+const LEMMA = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'lemmas', 'admin-vocab-lemmas.tsx');
+const HUB = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 

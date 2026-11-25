@@ -39,8 +39,8 @@ def test_readme_next_migration_number_matches_directory_maximum():
     # 377 is reserved for BLACKEYE PR2 in the shared register (Leader decision).
     # 381/382 are reserved for FU-2281 (Leader decision C3 on #2335, Andy 18/11).
     # Keep exact next-number enforcement while accounting for those reservations.
-    # 385, 387-389 and 502 are reserved for COURSEACCESS-0055 (Andy 20/11); 383 and 384 are present.
-    reserved = {377, 381, 382, 385, 387, 388, 389, 502}
+    # 385 and 387-389 are reserved for COURSEACCESS-0055 (Andy 20/11); 383, 384 and 502 are present.
+    reserved = {377, 381, 382, 385, 387, 388, 389}
     assert "377 is reserved for Black Eye PR2" in readme
     assert "381 and 382 are reserved for FU-2281" in readme
     assert "383–389 plus 502 belong to COURSEACCESS-0055" in readme
