@@ -13,6 +13,12 @@ Routes in this task:
 * ``GET /writing-samples/{slug}``      one published set; old slug -> 308; else 404
 * ``GET /media/{shelf}/{key}/{asset}`` figure/audio bytes, only while published (FR-064)
 
+Added by T013 (G06-T13), Speaking questions with a synthetic-voice model answer:
+
+* ``GET /speaking``                    filtered list (part, topic, video-only, q) with counts
+* ``GET /speaking/index``              ``[{slug, updated_at}]`` for the sitemap
+* ``GET /speaking/{slug}``             one published question with its answer; else 404
+
 Signed-in routes (task T016 = G06-T16, FR-060, FR-061), the caller's own marks:
 
 * ``GET /me/marks?shelf=``             ``{marks:[{item_key, kind}]}``
@@ -39,6 +45,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import unicodedata
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from typing import Any, Literal, Optional
@@ -541,6 +548,294 @@ def get_writing_sample(slug: str, request: Request):
         "published_at": row.get("published_at"),
         "updated_at": row.get("updated_at"),
         "related": _related(row, rows),
+        "prev": _neighbour(prev_row),
+        "next": _neighbour(next_row),
+    }
+    return _json(data, request, last_modified=_http_date([row.get("updated_at")]))
+
+
+# ── speaking (T013: FR-030–FR-036) ─────────────────────────────────────────
+
+SPEAKING_PARTS = (1, 2, 3)
+_SPEAKING_LIST_COLUMNS = (
+    "slug, part, title_en, title_vi, topic_slug, video_source, duration_s, "
+    "audio_path, sample_text, voice, updated_at"
+)
+_SPEAKING_DETAIL_COLUMNS = (
+    "id, slug, part, title_en, title_vi, topic_slug, topic_id, cue_card, video_source, "
+    "youtube_id, video_url, duration_s, transcript, sample_text, audio_path, voice, "
+    "outline, vocabulary, related_part3, published_at, updated_at"
+)
+_MARK_KINDS = ("vocab", "structure")
+_CUE_KEYS = ("prompt", "bullets", "reflection", "questions")
+_VOCAB_KEYS = ("term", "meaning_vi", "note")
+
+
+def _speaking_topics() -> dict[str, dict]:
+    rows = (
+        supabase_admin.table("library_topics")
+        .select("slug, label_vi, shelves, display_order")
+        .execute()
+        .data
+        or []
+    )
+    return {
+        r["slug"]: r for r in rows
+        if isinstance(r, dict) and "speaking" in (r.get("shelves") or [])
+    }
+
+
+def _has_answer(row: dict) -> bool:
+    """FR-031: a question with no model answer never reaches the shelf."""
+    text = row.get("sample_text")
+    return isinstance(text, str) and bool(text.strip())
+
+
+def _answer_kind(row: dict) -> str:
+    """How the model answer is delivered, so the page can say it in words
+    (FR-031): ``video``, ``audio`` or ``text``."""
+    if row.get("video_source") in ("youtube", "self_hosted"):
+        return "video"
+    if row.get("audio_path"):
+        return "audio"
+    return "text"
+
+
+def _published_speaking(topics: dict[str, dict]) -> list[dict]:
+    """Published questions with an answer, in shelf order (FR-030, FR-035):
+    topic display order (unassigned topics last), then Part 1 → 2 → 3, then title."""
+    rows = (
+        supabase_admin.table("speaking_samples")
+        .select(_SPEAKING_LIST_COLUMNS)
+        .eq("published", True)
+        .execute()
+        .data
+        or []
+    )
+
+    def key(row: dict) -> tuple:
+        topic = topics.get(row.get("topic_slug") or "")
+        return (
+            0 if topic else 1,
+            (topic or {}).get("display_order") or 0,
+            row.get("topic_slug") or "" if topic else "",
+            row.get("part") or 0,
+            str(row.get("title_en") or "").casefold(),
+            row.get("slug") or "",
+        )
+
+    return sorted((r for r in rows if _has_answer(r)), key=key)
+
+
+def _speaking_item(row: dict, topics: dict[str, dict]) -> dict:
+    kind = _answer_kind(row)
+    return {
+        "slug": row.get("slug"),
+        "part": row.get("part"),
+        "title_en": row.get("title_en"),
+        "title_vi": row.get("title_vi"),
+        # A topic that is not on the Speaking shelf reads as "no topic"
+        # (the page groups it under "Chủ đề khác").
+        "topic_slug": row.get("topic_slug") if row.get("topic_slug") in topics else None,
+        "answer_kind": kind,
+        "duration_s": row.get("duration_s") if kind != "text" else None,
+        "voice": row.get("voice") or "synthetic",
+    }
+
+
+def fold_text(text: str) -> str:
+    """Case- and accent-insensitive form for search ("Nơi chốn" -> "noi chon")."""
+    decomposed = unicodedata.normalize("NFKD", text.replace("đ", "d").replace("Đ", "D"))
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
+
+
+def _speaking_matches(row: dict, *, part: Optional[int], chude: Optional[str],
+                      video: bool, needle: Optional[str], labels: dict[str, str]) -> bool:
+    if part is not None and row.get("part") != part:
+        return False
+    if chude and row.get("topic_slug") != chude:
+        return False
+    if video and _answer_kind(row) != "video":
+        return False
+    if needle:
+        hay = fold_text("\n".join((
+            row.get("title_en") or "", row.get("title_vi") or "", labels.get(row.get("topic_slug") or "", ""),
+        )))
+        if needle not in hay:
+            return False
+    return True
+
+
+@router.get("/speaking")
+@_db_guard
+def list_speaking(
+    request: Request,
+    part: Optional[int] = Query(default=None),
+    chude: Optional[str] = Query(default=None),
+    video: bool = Query(default=False),
+    q: Optional[str] = Query(default=None, max_length=Q_MAX_LENGTH),
+):
+    """Every published Speaking question with a model answer, in shelf order
+    (FR-030). The shelf holds at most a few hundred rows, so there is no paging;
+    the page groups by ``topic_slug``. ``q`` matches the English title, the
+    Vietnamese title and the topic name, ignoring case and accents. Facets are counted over the rows that
+    match every OTHER active filter, like the Writing list."""
+    if part is not None and part not in SPEAKING_PARTS:
+        raise HTTPException(422, "part must be 1, 2 or 3")
+    needle = fold_text((q or "").strip()) or None
+
+    topics = _speaking_topics()
+    if chude is not None and chude not in topics:
+        raise HTTPException(422, "chude is not a Speaking topic")
+    rows = _published_speaking(topics)
+
+    labels = {slug: str(t.get("label_vi") or "") for slug, t in topics.items()}
+    filters = {"part": part, "chude": chude, "video": video, "needle": needle, "labels": labels}
+    matched = [r for r in rows if _speaking_matches(r, **filters)]
+    facet_part = _count(
+        [r for r in rows if _speaking_matches(r, **{**filters, "part": None})],
+        lambda r: str(r.get("part")) if r.get("part") in SPEAKING_PARTS else None,
+    )
+    facet_topic = _count(
+        [r for r in rows if _speaking_matches(r, **{**filters, "chude": None})],
+        lambda r: r.get("topic_slug") if r.get("topic_slug") in topics else None,
+    )
+    with_video = sum(
+        1 for r in rows
+        if _speaking_matches(r, **{**filters, "video": False}) and _answer_kind(r) == "video"
+    )
+
+    data = {
+        "items": [_speaking_item(r, topics) for r in matched],
+        "total": len(matched),
+        "facets": {"part": facet_part, "topic": facet_topic, "video": with_video},
+        "topics": [
+            {"slug": t["slug"], "label_vi": t.get("label_vi")}
+            for t in sorted(topics.values(), key=lambda t: (t.get("display_order") or 0, t["slug"]))
+        ],
+    }
+    return _json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+
+
+@router.get("/speaking/index")
+@_db_guard
+def speaking_index(request: Request):
+    """``[{slug, updated_at}]`` of every published question, for the sitemap."""
+    rows = _published_speaking(_speaking_topics())
+    data = [{"slug": r.get("slug"), "updated_at": r.get("updated_at")} for r in rows]
+    return _json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+
+
+def _int_or_none(value: Any) -> Optional[int]:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _public_transcript(raw: Any) -> tuple[list[dict], bool]:
+    """Allow-listed lines and whether every line has a start time.
+
+    The importer refuses mixed or non-increasing times, but the page must never
+    seek on bad data either, so anything less than "every line timed and
+    strictly increasing" is served without times (FR-033)."""
+    lines = []
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict) or not isinstance(entry.get("text"), str):
+            continue
+        text = entry["text"]
+        marks = []
+        for mark in entry.get("marks") or []:
+            if not isinstance(mark, dict) or mark.get("kind") not in _MARK_KINDS:
+                continue
+            start, end = _int_or_none(mark.get("start")), _int_or_none(mark.get("end"))
+            if start is None or end is None or not 0 <= start < end <= len(text):
+                continue
+            marks.append({"kind": mark["kind"], "start": start, "end": end, "note": mark.get("note")})
+        lines.append({"start_ms": _int_or_none(entry.get("start_ms")), "text": text, "marks": marks})
+    times = [line["start_ms"] for line in lines]
+    timed = bool(lines) and all(t is not None and t >= 0 for t in times) and all(
+        a < b for a, b in zip(times, times[1:])
+    )
+    if not timed:
+        for line in lines:
+            line["start_ms"] = None
+    return lines, timed
+
+
+def _public_cue_card(raw: Any) -> Optional[dict]:
+    if not isinstance(raw, dict):
+        return None
+    return {k: raw.get(k) for k in _CUE_KEYS if raw.get(k) is not None} or None
+
+
+def _public_vocabulary(raw: Any) -> list[dict]:
+    return [
+        {k: entry.get(k) for k in _VOCAB_KEYS}
+        for entry in raw if isinstance(entry, dict) and entry.get("term")
+    ] if isinstance(raw, list) else []
+
+
+def _strings(raw: Any) -> list[str]:
+    return [s for s in raw if isinstance(s, str) and s.strip()] if isinstance(raw, list) else []
+
+
+def _speaking_not_found() -> JSONResponse:
+    return JSONResponse(
+        status_code=404, content={"detail": "speaking_not_found"}, headers={"Cache-Control": NO_STORE}
+    )
+
+
+@router.get("/speaking/{slug}")
+@_db_guard
+def get_speaking(slug: str, request: Request):
+    """One published question with its model answer (FR-031–FR-036).
+
+    Video and audio are described, never proxied here: YouTube by id (the page
+    embeds youtube-nocookie.com), self-hosted video by its https URL, audio by
+    the media route path. Slugs are frozen after publishing (no history table),
+    so an unknown, draft or answer-less slug is 404."""
+    found = (
+        supabase_admin.table("speaking_samples")
+        .select(_SPEAKING_DETAIL_COLUMNS)
+        .eq("slug", slug)
+        .eq("published", True)
+        .execute()
+        .data
+        or []
+    )
+    if not found or not _has_answer(found[0]):
+        return _speaking_not_found()
+    row = found[0]
+    topics = _speaking_topics()
+    rows = _published_speaking(topics)
+    index = next((i for i, r in enumerate(rows) if r.get("slug") == row.get("slug")), None)
+    prev_row = rows[index - 1] if index is not None and index > 0 else None
+    next_row = rows[index + 1] if index is not None and index + 1 < len(rows) else None
+
+    kind = _answer_kind(row)
+    video_source = row.get("video_source") if kind == "video" else None
+    transcript, timed = _public_transcript(row.get("transcript"))
+    topic = topics.get(row.get("topic_slug") or "")
+    data = {
+        **_speaking_item(row, topics),
+        "topic_label_vi": topic.get("label_vi") if topic else None,
+        "topic_id": row.get("topic_id"),
+        "cue_card": _public_cue_card(row.get("cue_card")),
+        "media": {
+            "video_source": video_source,
+            "youtube_id": row.get("youtube_id") if video_source == "youtube" else None,
+            "video_url": row.get("video_url") if video_source == "self_hosted" else None,
+            "audio_url": (
+                library_media.media_path("speaking-sample", row["slug"], "audio")
+                if kind == "audio" else None
+            ),
+        },
+        "sample_text": row.get("sample_text"),
+        "transcript": transcript,
+        "timed": timed,
+        "outline": _strings(row.get("outline")),
+        "vocabulary": _public_vocabulary(row.get("vocabulary")),
+        "related_part3": _strings(row.get("related_part3")),
+        "published_at": row.get("published_at"),
+        "updated_at": row.get("updated_at"),
         "prev": _neighbour(prev_row),
         "next": _neighbour(next_row),
     }
