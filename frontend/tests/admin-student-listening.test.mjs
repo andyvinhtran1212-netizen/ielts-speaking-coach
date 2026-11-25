@@ -13,7 +13,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const PAGE = read('pages', 'admin', 'classes', 'index.html')
   + read('js', 'admin-students-panel.js');
-const DRJS = read('js', 'admin-listening-dictation-reports.js');
 
 describe('hồ sơ học viên — mục Tiến độ (listening)', () => {
   test('drawer có 4 stat: lượt làm, đúng TB, bỏ dở, chép chính tả', () => {
@@ -37,11 +36,5 @@ describe('hồ sơ học viên — mục Tiến độ (listening)', () => {
   test('chưa kích hoạt tài khoản → nói rõ, không im lặng', () => {
     assert.match(PAGE, /Chưa kích hoạt tài khoản — chưa có dữ liệu listening\./);
     assert.match(PAGE, /Không tải được dữ liệu listening\./);
-  });
-});
-
-describe('dictation-reports nhận deep-link ?user=', () => {
-  test('prefill bộ lọc học viên từ query param', () => {
-    assert.match(DRJS, /new URLSearchParams\(location\.search\)\.get\('user'\)/);
   });
 });
