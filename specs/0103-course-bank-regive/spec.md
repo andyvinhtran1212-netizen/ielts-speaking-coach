@@ -64,10 +64,11 @@ assignment to the whole class.
 
 ## Requirements
 
-- **FR-001:** A course daily give of a bank this class already received is accepted and creates a new assignment with fresh items; no 409 for a previous give. The course-banks catalog returns `last_given_at` (the latest give's `created_at` for this class, read in pages) and `can_regive: true`; the Speaking catalogs return `last_given_at` and `can_regive: false` and keep refusing a second give.
+- **FR-001:** A course daily give that carries `give_request_id`, of a bank this class already received, is accepted and creates a new assignment with fresh items; no 409 for a previous give. The course-banks catalog returns `last_given_at` (the latest give's `created_at` for this class, read in pages) and `can_regive: true`; the Speaking catalogs return `last_given_at` and `can_regive: false` and keep refusing a second give.
 - **FR-002:** The Next homework editor keeps a bank with `already_given` and `can_regive: true` selectable, labels it "Đã giao ngày DD/MM/YYYY · giao lại được" in Vietnam time, and shows "Lớp này đã được giao bài này ngày …" with a note that a re-give creates a new assignment and keeps previous results. Items with `can_regive` false stay disabled as before.
 - **FR-003:** A course give carries `give_request_id`. The editor sends the same id for a retry of the same intent and a new id after the editor closes. The server stores the id and a fingerprint of the request (all fields except the id) in `content_config`. A later request with the same class and id and the same fingerprint returns the stored receipt without creating anything; the same id with a different fingerprint gets 409 and creates nothing.
 - **FR-004:** Migration 509 adds the partial unique index `uq_course_give_request` on `class_assignments (cohort_id, content_config->>'give_request_id') WHERE skill='course' AND content_config ? 'give_request_id'`. When two requests with the same id are in flight, exactly one row is created; the loser catches the violation and returns the winner's receipt. Rows without an id, other classes and other skills are unaffected. The rollback drops the index. 509 is `pending_feature course_give_request`: it is applied on each environment under the advisory lock with the owner's typed approval, before code that relies on it reaches that environment.
+- **FR-005:** A course give without `give_request_id` (an old tab, or a frontend older than the backend) keeps the previous behaviour: a second give of the same bank to the same class gets 409 and creates nothing, with a message telling the teacher to reload the page and give again from the new editor. A first give without an id still works. This holds in every deploy order of frontend and backend, because migration 509 does not cover rows without an id.
 
 ## Acceptance scenarios
 
@@ -89,9 +90,15 @@ assignment to the whole class.
 - **When** a request with id R and a different bank or due date arrives
 - **Then** the server returns 409 and creates nothing
 
+### Scenario 4: old client without a request id
+
+- **Given** a staging test class that already has Course bank X
+- **When** a give of X is sent without `give_request_id` (the old payload), once and then again as a resend
+- **Then** both get 409 with the reload message and no new assignment exists; a give of X with a new id then succeeds
+
 ## Edge cases
 
-- A give without `give_request_id` (old client) still works and is not deduplicated; the current Next editor always sends one.
+- A give without `give_request_id` (old client) is refused for a bank the class already has (FR-005); the current Next editor always sends one for Course gives.
 - The receipt lookup itself fails: the give returns 500 rather than risk a duplicate; the unique index still prevents a second row with the same id.
 - The class is archived between the replay check and the insert: the existing migration 337 guard still refuses.
 
