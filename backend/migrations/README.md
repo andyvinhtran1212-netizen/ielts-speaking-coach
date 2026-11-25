@@ -27,7 +27,7 @@ lands. Do **not** assume the sequence is dense. As of 2026-11-23 the highest is 
 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`, both from the reserve
 band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
-(383, 384, 388, 389 and 502 present; 385 and 387 reserved; 386 abandoned; Andy,
+(383, 384, 385, 388, 389 and 502 present; 387 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
 so the next new migration is `503`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
@@ -55,6 +55,17 @@ per-user write takes a transaction advisory lock; a trigger ties an order's
 `entitlement_id` to its own user and product. Apply right after 383 in the
 same run. The rollback drops the RPCs, keeps every table and row, and refuses
 while `credit_ledger` has rows unless `aver.allow_commerce_rollback = 'on'`.
+`385` is `pending_feature credit_lifecycle` (COURSEACCESS-0055 T011 / G04-T12, spec
+label "383"), a group of its own so that a `course_commerce` run (383 + 384)
+never picks it up; apply it only after 383 and 384 are on that environment. Two
+service_role-only RPCs of plan 5.15, no table or column.
+`fn_credit_expire_entitlements` closes the credit book of an entitlement that can
+no longer be used (`expire`), carries an online term's unused credits into its
+renewal (`carry_over`, `CREDIT_CARRY_PERCENT`) and lapses a carry after its hold
+(`carry_expire`, `CREDIT_CARRY_VALID_DAYS` from the new term's start); it skips an
+entitlement with an open reservation and, in the sweep, a learner whose credit lock
+is busy. `fn_credit_grant_extra` writes one `grant_extra` row per request key and
+learner (the same key with other credits or reason is `request_key_conflict`). The rollback drops the two RPCs and keeps every row.
 `388` is `pending_feature single_session` (COURSEACCESS-0055 T009, spec label
 "384"): backend-only `learner_active_sessions` (one row per learner account: the
 Supabase Auth `session_id` in use, the session the last claim displaced, and a
