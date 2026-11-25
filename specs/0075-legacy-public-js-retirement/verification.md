@@ -75,7 +75,7 @@ The 10 overview/system/traffic scripts in `frontend/public/js/` (1,360 lines) ar
 - FR-002 / FR-007: 18 test files edited (limit 30), one ledger row each in `docs/TEST_INVARIANT_LEDGER.md` › "LEGACYJS-0075 W4a — 2026-11-23". Behaviour pins moved onto executed model functions: `periodDelta`, `chartPoints`, `formatTokens`, `formatInteger`, `normalizeOpsPayload`, `normalizeTrendsPayload`, `normalizeFeedbackFilters`, `normalizeFeedbackInbox`, `groupFeedbackItems`, `feedbackDeepLink`, `averageRating`, `normalizeFootTrafficPayload`, `formatTrafficCount`, `formatUsageCost`/`Count`/`Date`, `filterUsageRows`, `sortUsageRows`.
 - Behaviour differences noted in the ledger (Next is already live, not caused here): feedback status toggle waits for the server and re-reads instead of flipping optimistically; foot-traffic payload without `data_status` is rejected; usage cost `0` shows `$0.0000`. **Gap:** usage sort has one fixed direction per field (no asc/desc toggle).
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
-- Not checked: Vercel preview 404 and staging console, WebKit (Q40).
+- Not checked yet: Vercel preview 404 (preview requested by the `[preview]` commit on top of the merge of W3b `d3ec3717`) and staging console, WebKit (Q40).
 
 ## W3b (T004, G10-T07-W3b) — 2026-11-23, base W3a `b826b143`
 
