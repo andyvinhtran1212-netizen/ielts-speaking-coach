@@ -31,6 +31,24 @@ const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false, single_attempt_ready: true }];
 
 describe('admin class homework model — canonical truth', () => {
+  test('a course bank already given to the class is a NOTE with its date, not a block', () => {
+    const banks = normalizeCatalog({ items: [
+      { id: 'b-regive', title: 'Buổi 2', ready: true, already_given: true, can_regive: true,
+        last_given_at: '2026-11-20T18:30:00+00:00', single_attempt_ready: true },
+      { id: 'b-speaking-like', title: 'Buổi 3', ready: true, already_given: true,
+        last_given_at: '2026-11-20T02:00:00+00:00' },
+    ] }, 'course');
+    // 18:30Z ngày 20 là 01:30 ngày 21 giờ Việt Nam.
+    assert.equal(banks[0].reason, 'Đã giao ngày 21/11/2026 · giao lại được');
+    assert.equal(banks[0].can_regive, true);
+    assert.equal(banks[1].reason, 'Đã giao cho lớp này ngày 20/11/2026');
+    assert.equal(banks[1].can_regive, false);
+    const draft = { ...homeworkDraft(new Date('2026-11-25T03:00:00Z')), skill: 'course', title: 'Ôn buổi 2' };
+    assert.equal(validateHomeworkDraft({ ...draft, contentId: 'b-regive' }, banks).ok, true);
+    assert.equal(validateHomeworkDraft({ ...draft, contentId: 'b-speaking-like' }, banks).ok, false);
+    assert.match(UI, /item\.already_given && !item\.can_regive/);
+    assert.match(UI, /Lớp này đã được giao bài này ngày/);
+  });
   test('explains when a valid clip has a different voice from the topic group', () => {
     const topics = normalizeCatalog({ items: [
       { id: 'mixed', title: 'Hometown', ready: false, missing_audio: false, voice_conflict: true },

@@ -480,13 +480,12 @@ def test_an_unknown_bank_is_404():
     assert exc.value.status_code == 404
 
 
-def test_giving_the_same_lesson_twice_is_refused():
+def test_giving_the_same_lesson_twice_is_allowed():
+    """Andy 25/11/2026: giao lại bộ đã giao cho lớp là được — chỉ ghi chú."""
     db = _full(class_assignments=[{"id": "a1", "cohort_id": "co-1", "skill": "course",
                                    "content_id": "bank-1", "title": "Bài cũ"}])
-    with pytest.raises(HTTPException) as exc:
-        _resolve(db)
-    assert exc.value.status_code == 409
-    assert "Bài cũ" in exc.value.detail
+    content_id, _cfg = _resolve(db)
+    assert content_id == "bank-1"
 
 
 def test_a_cohort_with_no_course_says_SO():
@@ -523,15 +522,24 @@ async def test_the_library_separates_ALREADY_GIVEN_from_NOT_YET_LOADED():
                     {**_BANK, "id": "bank-3", "lesson_no": 3, "title": "Buổi 3"}],
         quiz_questions=[{"id": "q1", "bank_id": "bank-1"},
                         {"id": "q2", "bank_id": "bank-2"}],
-        class_assignments=[{"cohort_id": "co-1", "skill": "course", "content_id": "bank-2"}],
+        class_assignments=[
+            {"cohort_id": "co-1", "skill": "course", "content_id": "bank-2",
+             "created_at": "2026-11-01T02:00:00+00:00"},
+            {"cohort_id": "co-1", "skill": "course", "content_id": "bank-2",
+             "created_at": "2026-11-20T02:00:00+00:00"},
+        ],
     )
     with patch.object(adm, "supabase_admin", db), \
          patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
         out = await adm.list_course_banks("co-1", authorization="Bearer x")
     by = {b["lesson_no"]: b for b in out["items"]}
     assert by[1]["ready"] is True and by[1]["already_given"] is False
+    assert by[1]["last_given_at"] is None
     assert by[1]["single_attempt_ready"] is True
     assert by[2]["already_given"] is True
+    # Chỉ ghi chú, không chặn: ngày giao GẦN NHẤT + giao lại được.
+    assert by[2]["last_given_at"] == "2026-11-20T02:00:00+00:00"
+    assert by[2]["can_regive"] is True
     assert by[3]["ready"] is False and by[3]["question_count"] == 0
 
 
