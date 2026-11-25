@@ -7,6 +7,7 @@ export default function InstructorCompareLayout({ children }: { children: ReactN
   return (
     <AuthedShell
       chrome="none"
+      quickSearch="instructor"
       utilityLayer={false}
       tailwindLayer={false}
       bodyClass="av-page"
