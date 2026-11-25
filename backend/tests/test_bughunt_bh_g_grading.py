@@ -4,6 +4,8 @@
 là chính sách đóng băng legacy-whitespace-v1 (services/dictation_grading_version);
 đổi nó là đổi điểm giữa chừng của lượt đã bắt đầu. lexical-v2 đã chấm đúng cả hai.
 """
+import pytest
+
 from services import course_writing_grader as cwg
 from services import sentence_lab_grader as slg
 from services import vocab_unit_rules as vocab_units
@@ -37,3 +39,29 @@ def test_quoting_the_learners_own_correct_sentence_is_not_a_reveal():
     sentence = "the cat sat on the mat today"
     assert slg._reveals(f'Câu "{sentence}" của em đã đúng.', [sentence], [sentence]) is False
     assert slg._reveals(f"Đáp án: {sentence}", [sentence], ["a cat sit mat"]) is True
+
+
+def test_quoting_a_longer_learner_sentence_that_contains_the_answer_is_not_a_reveal():
+    # CR #2701: câu của học viên dài hơn lời giải và chứa trọn nó — điểm giống
+    # "câu của em" thấp hơn, nhưng đoạn vẫn là trích lại câu của em ấy.
+    assert slg._reveals(
+        "You wrote: the cat sat on the mat.",
+        ["the cat sat on the mat"],
+        ["Yesterday the cat sat on the mat quietly."],
+    ) is False
+    # Lộ đáp án thật vẫn bị bắt dù học viên viết câu dài khác hẳn.
+    assert slg._reveals(
+        "Try: the cat sat on the mat.",
+        ["the cat sat on the mat"],
+        ["Yesterday a dog ran across the yard quietly."],
+    ) is True
+
+
+@pytest.mark.parametrize("gap", ["", "abc", [1]])
+def test_non_numeric_maximum_gap_words_is_a_rule_error(gap):
+    task = {"task_type": "productive_transfer", "answer_key": {
+        "required_frames": [[["have", "has"], ["impact"]]],
+        "maximum_gap_words": gap, "minimum_words": 1,
+    }}
+    with pytest.raises(vocab_units.VocabUnitRuleError):
+        vocab_units.grade_response(task, {"answer": "Technology has a big impact."})

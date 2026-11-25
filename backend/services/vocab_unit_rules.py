@@ -173,7 +173,10 @@ def grade_response(task: dict[str, Any], response: dict[str, Any]) -> dict[str, 
             # `or 4` biến khoảng cách 0 (khung liền nhau) thành 4 (báo cáo săn
             # lỗi #93). Chỉ thiếu khoá mới lấy mặc định.
             gap = key.get("maximum_gap_words")
-            maximum_gap_words = int(4 if gap is None else gap)
+            try:
+                maximum_gap_words = int(4 if gap is None else gap)
+            except (TypeError, ValueError):
+                raise VocabUnitRuleError("maximum_gap_words phải là số nguyên 0–20") from None
             if maximum_gap_words < 0 or maximum_gap_words > 20:
                 raise VocabUnitRuleError("maximum_gap_words phải nằm trong khoảng 0–20")
             frame_ok = any(
