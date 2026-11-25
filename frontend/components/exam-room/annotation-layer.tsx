@@ -17,6 +17,7 @@ export type ExamRoomMark = { id: string; start: number; end: number; note?: stri
 
 export const MARKS_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const HIGHLIGHT_NAME = 'exam-room-mark';
+const NO_MARKS: ExamRoomMark[] = [];
 
 const WORDS = { highlight: 'Highlight', note: 'Note', clear: 'Clear', save: 'Save note', cancel: 'Cancel', noteLabel: 'Note text', notes: 'Notes', toolbar: 'Annotation tools' } as const;
 
@@ -149,8 +150,13 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
   const textRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   // Read after mount, never during render: the server has no storage, so a first
-  // render with marks would not match its HTML (hydration).
-  const [marks, setMarks] = useState<ExamRoomMark[]>([]);
+  // render with marks would not match its HTML (hydration). The loaded marks are
+  // tagged with the key they were read for: when the owner or attempt changes on
+  // the same instance, the old marks are not shown for a single render and no
+  // write can land until the new key has been read (FR-032, CR HOLD on #2528).
+  const [loaded, setLoaded] = useState<{ key: string; marks: ExamRoomMark[] } | null>(null);
+  const ready = loaded?.key === key;
+  const marks = ready ? loaded.marks : NO_MARKS;
   const [layoutTick, setLayoutTick] = useState(0);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [drafting, setDrafting] = useState<Selection | null>(null);
@@ -162,7 +168,18 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
   const noteId = useId();
   const layerId = noteId;
 
-  useEffect(() => { setMarks(readMarks(store, key)); setSelection(null); setDrafting(null); }, [key, store]);
+  // A new owner or attempt drops the selection, the open note and the unsaved
+  // draft of the old one during render, before anything of it is committed.
+  const [uiKey, setUiKey] = useState(key);
+  if (uiKey !== key) {
+    setUiKey(key);
+    setSelection(null);
+    setDrafting(null);
+    setDraft('');
+    setOpenNote(null);
+  }
+
+  useEffect(() => { setLoaded({ key, marks: readMarks(store, key) }); }, [key, store]);
 
   // Boxes and margin notes follow the text when it reflows: window resize, the
   // shell's separator, fonts loading, new children.
@@ -186,10 +203,10 @@ export function AnnotationLayer({ surface, ownerKey, attemptKey, narrow = false,
   }, [disabled]);
 
   const update = useCallback((next: ExamRoomMark[]) => {
-    if (disabledRef.current) return;
-    setMarks(next);
+    if (disabledRef.current || !ready) return;
+    setLoaded({ key, marks: next });
     writeMarks(store, key, next);
-  }, [store, key]);
+  }, [store, key, ready]);
 
   // Paint: CSS Highlight API where it exists, otherwise <mark> boxes over the text.
   useLayoutEffect(() => {
