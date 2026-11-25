@@ -795,17 +795,6 @@ def _grade_and_save_true_false(
         listen_count=body.listen_count,
         listening_session_id=body.listening_session_id,
     )
-    # Báo cáo săn lỗi B2-13 (anh Andy chọn 25/11: chỉ báo đúng/sai): như MCQ,
-    # KHÔNG trả đáp án đúng về trình duyệt — nếu không, nộp bừa một lần là có
-    # đáp án để làm lại đạt 100%. Bản đủ (có `expected`) vẫn lưu ở server.
-    safe_details = [
-        {
-            "idx":        d["idx"],
-            "actual":     d.get("actual"),
-            "is_correct": d["is_correct"],
-        }
-        for d in graded["details"]
-    ]
     return {
         "attempt_id":       attempt_id,
         "exercise_id":      exercise_row["id"],
@@ -815,7 +804,7 @@ def _grade_and_save_true_false(
         "correct":          graded["correct"],
         "total":            graded["total"],
         "is_correct":       graded["is_correct"],
-        "details":          safe_details,
+        "details":          graded["details"],
     }
 
 

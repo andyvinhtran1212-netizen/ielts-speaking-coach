@@ -4,7 +4,10 @@ B2-12: `listening_session_id` đến thẳng từ body và được ghi bằng s
 (bỏ qua RLS) mà không kiểm chủ ⇒ gắn được lượt vào phiên của người khác.
 
 B2-13: chấm True/False trả `details[].expected` (đáp án đúng) về trình duyệt.
-Anh Andy chọn 25/11: chỉ báo đúng/sai, giống MCQ.
+Anh Andy chọn 25/11: chỉ báo đúng/sai, giống MCQ. Bước 1 (PR này): client mới
+không hiện đáp án và đọc được cả hai dạng; backend VẪN gửi `expected` để client
+cũ (tab đang mở) không vỡ. Bước 2 (PR riêng, sau khi client mới lên prod): bỏ
+`expected` khỏi phản hồi.
 """
 
 from __future__ import annotations
@@ -92,15 +95,16 @@ def test_own_session_and_no_session_still_insert(db):
     assert len(db.inserted) == 2
 
 
-def test_true_false_response_does_not_carry_the_answer_key(db, monkeypatch):
+def test_true_false_response_keeps_expected_until_old_clients_are_gone(db, monkeypatch):
+    """Bước 1 tương thích: client đang live ném `attempt-detail-contract` khi
+    thiếu `expected`, nên backend chưa được bỏ trường này."""
     monkeypatch.setattr(lst, "_check_first_attempt", lambda **_k: True)
     exercise = {"id": "ex-tf", "payload": {"statements": [
         {"text": "a", "answer": "T"}, {"text": "b", "answer": "F"}, {"text": "c", "answer": "NG"}]}}
     body = SimpleNamespace(answers=["F", "F", "T"], listen_count=1, listening_session_id=None)
     out = lst._grade_and_save_true_false(user_id=OWNER, body=body, exercise_row=exercise)
     assert out["correct"] == 1 and out["total"] == 3
-    assert [set(d) for d in out["details"]] == [{"idx", "actual", "is_correct"}] * 3
     assert [d["is_correct"] for d in out["details"]] == [False, True, False]
-    # Bản đủ vẫn lưu ở server để admin/thống kê đọc.
+    assert [d["expected"] for d in out["details"]] == ["T", "F", "NG"]
     saved = db.inserted[0][1]["user_answer"]["details"]
     assert all("expected" in d for d in saved)
