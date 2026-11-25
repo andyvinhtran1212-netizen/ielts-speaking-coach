@@ -2680,7 +2680,21 @@ def _grammar_give_fingerprint(body: AssignmentCreate) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def _existing_grammar_give(cohort_id: str, request_id: str, fingerprint: str) -> dict | None:
+def _course_give_fingerprint(body: AssignmentCreate) -> str:
+    """Ý định của một lần giao Bộ bài tập: toàn bộ thân lệnh trừ mã yêu cầu."""
+    intent = body.model_dump(mode="json", exclude={"give_request_id"})
+    raw = json.dumps(intent, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _existing_grammar_give(cohort_id: str, request_id: str, fingerprint: str,
+                           skill: str = "grammar") -> dict | None:
+    """Biên nhận của lần giao đã ghi với cùng mã yêu cầu (retry sau khi mất phản hồi).
+
+    Dùng cho bài Grammar lẻ và — từ khi Bộ bài tập giao lại được — cho
+    skill='course': giao lại CÓ CHỦ Ý mang một mã mới, còn bấm lại cùng thao tác
+    mang lại đúng mã cũ và chỉ nhận lại biên nhận, không tạo bài thứ hai.
+    """
     rows = (supabase_admin.table("class_assignments").select("*")
             .eq("cohort_id", cohort_id)
             .contains("content_config", {"give_request_id": request_id})
@@ -2689,9 +2703,10 @@ def _existing_grammar_give(cohort_id: str, request_id: str, fingerprint: str) ->
         return None
     assignment = rows[0]
     cfg = assignment.get("content_config") or {}
-    if (assignment.get("skill") != "grammar"
-            or cfg.get("assignment_type") != "grammar_lesson"
-            or cfg.get("give_fingerprint") != fingerprint):
+    same_kind = (assignment.get("skill") == "course" if skill == "course" else (
+        assignment.get("skill") == "grammar"
+        and cfg.get("assignment_type") == "grammar_lesson"))
+    if not same_kind or cfg.get("give_fingerprint") != fingerprint:
         raise HTTPException(409, "Mã yêu cầu này đã dùng cho nội dung khác.")
     items = _paged(
         supabase_admin, "class_assignment_items", "id, student_id",
@@ -2761,11 +2776,20 @@ async def create_assignment(
     admin = await require_admin(authorization)
     cohort = _require_cohort(cohort_id)
 
-    give_id = str(body.give_request_id) if body.grammar_lesson_id else None
-    fingerprint = _grammar_give_fingerprint(body) if give_id else None
+    course_give = body.skill == "course" and body.kind == "daily"
+    give_id = (str(body.give_request_id)
+               if body.grammar_lesson_id or (course_give and body.give_request_id)
+               else None)
+    fingerprint = None
     if give_id:
-        _require_course_five(cohort_id)
-        replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
+        if course_give:
+            fingerprint = _course_give_fingerprint(body)
+        else:
+            _require_course_five(cohort_id)
+            fingerprint = _grammar_give_fingerprint(body)
+        replay = (_existing_grammar_give(cohort_id, give_id, fingerprint, "course")
+                  if course_give else
+                  _existing_grammar_give(cohort_id, give_id, fingerprint))
         if replay:
             # A give that completed before the archive replays its receipt (FR-003).
             return replay
@@ -2787,6 +2811,9 @@ async def create_assignment(
         due_date = _due_date_from_days(body.due_days)
     elif body.skill == "course":
         content_id, content_config = _resolve_course_bank(cohort_id, body)
+        if give_id:
+            content_config.update({"give_request_id": give_id,
+                                   "give_fingerprint": fingerprint})
     elif body.skill == "speaking":
         content_id, content_config = _resolve_speaking_topic(cohort_id, body)
     elif body.skill == "grammar":

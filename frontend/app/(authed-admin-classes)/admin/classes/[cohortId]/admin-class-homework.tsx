@@ -349,7 +349,9 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     if (!editor || busy) return;
     const validation = validateHomeworkDraft(editor, catalog, questions, questionsPerGive) as { ok: boolean; error?: string; body?: Record<string, unknown> };
     if (!validation.ok || !validation.body) { setEditor({ ...editor, error: validation.error || 'Bài giao không hợp lệ.' }); return; }
-    if (editor.skill === 'grammar_lesson') {
+    // Same request id for a retry of the SAME give (lost response); a new id for a
+    // changed or deliberate re-give. Course banks can be re-given, so they need it too.
+    if (editor.skill === 'grammar_lesson' || editor.skill === 'course') {
       const intent = JSON.stringify(validation.body);
       if (grammarGiveRetry.current?.body !== intent) {
         grammarGiveRetry.current = { body: intent, id: crypto.randomUUID() };

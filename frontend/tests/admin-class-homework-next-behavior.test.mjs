@@ -48,6 +48,8 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(validateHomeworkDraft({ ...draft, contentId: 'b-speaking-like' }, banks).ok, false);
     assert.match(UI, /item\.already_given && !item\.can_regive/);
     assert.match(UI, /Lớp này đã được giao bài này ngày/);
+    // Bấm lại cùng thao tác (mất phản hồi) gửi lại CÙNG mã yêu cầu; đóng form thì mã mới.
+    assert.match(UI, /editor\.skill === 'grammar_lesson' \|\| editor\.skill === 'course'/);
   });
   test('explains when a valid clip has a different voice from the topic group', () => {
     const topics = normalizeCatalog({ items: [
