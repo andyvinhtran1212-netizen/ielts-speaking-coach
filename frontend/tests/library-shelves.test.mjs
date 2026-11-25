@@ -67,13 +67,16 @@ describe('Library frame (FR-001, FR-002, FR-003)', () => {
   test('public: no auth gate in the layout and /library is not in the proxy matcher', () => {
     const code = LAYOUT.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
     assert.doesNotMatch(code, /AuthedShell|AuthProvider|activationGate|AdminAccessGate/);
-    // The one Library entry is the sample existence check (FR-019, G06-T10):
-    // 404/308 before render, no session read; nothing else under /library.
     const matcher = PROXY.slice(PROXY.indexOf('matcher:'));
-    assert.doesNotMatch(matcher.replace("'/library/writing-samples/:slug',", ''), /library/);
-    const sampleBranch = PROXY.match(/async function writingSample\([\s\S]*?\n\}/)?.[0] ?? '';
-    assert.ok(sampleBranch, 'writingSample branch present');
-    assert.doesNotMatch(sampleBranch, /cookies|authorization|getSupabase|x-nonce|Content-Security-Policy/i);
+    // The only Library entries are the Speaking question 404 check (G06-T13)
+    // and the Writing sample 404/308 check (FR-019, G06-T10), one segment
+    // deep, before render, with no session read; nothing else under /library.
+    assert.deepEqual(matcher.match(/'[^']*library[^']*'/g), ["'/library/speaking/:slug'", "'/library/writing-samples/:slug'"]);
+    for (const name of ['speakingQuestion', 'writingSample']) {
+      const branch = PROXY.match(new RegExp(`async function ${name}\\([\\s\\S]*?\\n\\}`))?.[0] ?? '';
+      assert.ok(branch, `${name} branch present`);
+      assert.doesNotMatch(branch, /cookies|authorization|getSupabase|x-nonce|Content-Security-Policy/i);
+    }
     assert.equal(routeFor('/library')?.status, 'live');
     assert.equal(routeFor('/library')?.audience, 'public');
   });

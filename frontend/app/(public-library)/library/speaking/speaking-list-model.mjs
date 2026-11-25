@@ -82,3 +82,31 @@ export function describeFilters(f, topicLabel) {
     f.q ? `có chữ “${f.q}”` : null,
   ].filter(Boolean).join(' · ');
 }
+
+/**
+ * "Bỏ …" lines of an empty result (tờ DeSpeakingDanhSach, trạng thái không có
+ * kết quả): one per active condition whose removal shows at least one
+ * question, each a link that drops exactly that condition. `relaxed` holds the
+ * API's real counts; a condition without a count gets no line.
+ * @param {{ part: string | null, chude: string | null, video: boolean, q: string }} f
+ * @param {Partial<Record<'part' | 'chude' | 'video' | 'q', number>> | null | undefined} relaxed
+ * @param {string | null} topicLabel
+ * @returns {{ key: string, label: string, count: number, query: string }[]}
+ */
+export function relaxSuggestions(f, relaxed, topicLabel) {
+  const counts = relaxed ?? {};
+  const rest = (key) => ({ ...f, [key]: key === 'video' ? false : key === 'q' ? '' : null });
+  const lines = [];
+  const add = (key, label) => {
+    const count = counts[key];
+    if (typeof count === 'number' && count > 0) lines.push({ key, label, count, query: filterQuery(rest(key)) });
+  };
+  if (f.video) add('video', 'Bỏ “Chỉ đề có video”');
+  if (f.part) add('part', f.q ? `Tìm “${f.q}” ở cả ba Part` : 'Xem cả ba Part');
+  if (f.chude) add('chude', `Bỏ chủ đề “${topicLabel || f.chude}”`);
+  if (f.q) {
+    const kept = describeFilters(rest('q'), topicLabel);
+    add('q', kept ? `Xoá chữ “${f.q}”, giữ ${kept}` : `Xoá chữ “${f.q}”`);
+  }
+  return lines;
+}
