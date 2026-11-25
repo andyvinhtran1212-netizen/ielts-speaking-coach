@@ -59,11 +59,15 @@ def _walk_bucket(storage, bucket: str, prefix: str = "") -> list[dict]:
 
 
 def _fetch_all(sb, table: str, cols: str, extra=None):
+    # Báo cáo săn lỗi #47: phân trang range() mà không order thì Postgres
+    # không hứa thứ tự giữa các trang ⇒ có row bị bỏ sót, path của nó bị coi
+    # là mồ côi và --delete xoá file đang dùng. Luôn order theo khoá duy nhất.
     rows, start, page = [], 0, 1000
     while True:
         q = sb.table(table).select(cols)
         if extra:
             q = extra(q)
+        q = q.order("id")
         batch = q.range(start, start + page - 1).execute().data
         rows.extend(batch)
         if len(batch) < page:

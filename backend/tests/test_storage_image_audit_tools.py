@@ -39,6 +39,10 @@ class _StorageAuditQuery:
 
     def select(self, *_args): return self
     def filter(self, *_args): return self
+    # Bug-hunt #47: _fetch_all pages in a stable order (real PostgREST honours it).
+    def order(self, column, *, desc=False):
+        self.rows = sorted(self.rows, key=lambda r: str(r.get(column, "")), reverse=desc)
+        return self
     def range(self, start, end): self.window = (start, end); return self
 
     def execute(self):
