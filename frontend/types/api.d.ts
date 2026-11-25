@@ -2236,6 +2236,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/credits/grant-extra": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant Extra */
+        post: operations["grant_extra_admin_credits_grant_extra_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/lessons": {
         parameters: {
             query?: never;
@@ -12795,6 +12812,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library/speaking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Speaking
+         * @description Every published Speaking question with a model answer, in shelf order
+         *     (FR-030). The shelf holds at most a few hundred rows, so there is no paging;
+         *     the page groups by ``topic_slug``. ``q`` matches the English title, the
+         *     Vietnamese title and the topic name, ignoring case and accents. Facets are counted over the rows that
+         *     match every OTHER active filter, like the Writing list.
+         */
+        get: operations["list_speaking_api_library_speaking_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/speaking/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Speaking Index
+         * @description ``[{slug, updated_at}]`` of every published question, for the sitemap.
+         */
+        get: operations["speaking_index_api_library_speaking_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/speaking/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Speaking
+         * @description One published question with its model answer (FR-031–FR-036).
+         *
+         *     Video and audio are described, never proxied here: YouTube by id (the page
+         *     embeds youtube-nocookie.com), self-hosted video by its https URL, audio by
+         *     the media route path. Slugs are frozen after publishing (no history table),
+         *     so an unknown, draft or answer-less slug is 404.
+         */
+        get: operations["get_speaking_api_library_speaking__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library/media/{shelf}/{key}/{asset}": {
         parameters: {
             query?: never;
@@ -19788,6 +19874,28 @@ export interface components {
             name: string;
             /** Depth */
             depth: number;
+        };
+        /**
+         * GrantExtra
+         * @description With ``cohort_id``: the whole class, or the listed members of it. Without:
+         *     exactly one learner and the ``entitlement_id`` to credit (profile page).
+         */
+        GrantExtra: {
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** User Ids */
+            user_ids?: string[] | null;
+            /** Entitlement Id */
+            entitlement_id?: string | null;
+            /** Credits */
+            credits: number;
+            /** Reason */
+            reason: string;
+            /**
+             * Request Key
+             * Format: uuid
+             */
+            request_key: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -30454,6 +30562,50 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AdminCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_extra_admin_credits_grant_extra_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantExtra"];
             };
         };
         responses: {
@@ -48878,6 +49030,91 @@ export interface operations {
         };
     };
     get_writing_sample_api_library_writing_samples__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_speaking_api_library_speaking_get: {
+        parameters: {
+            query?: {
+                part?: number | null;
+                chude?: string | null;
+                video?: boolean;
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    speaking_index_api_library_speaking_index_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_speaking_api_library_speaking__slug__get: {
         parameters: {
             query?: never;
             header?: never;

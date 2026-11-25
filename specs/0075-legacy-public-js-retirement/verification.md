@@ -58,7 +58,11 @@ The 7 mock-cockpit scripts in `frontend/public/js/` (2,880 lines) are deleted: `
 - FR-002 / FR-007: 20 test files edited or retired (limit 30), with one ledger row each in `docs/TEST_INVARIANT_LEDGER.md` › "LEGACYJS-0075 W2 — 2026-11-23". `admin-exam-content-ui.test.mjs` is retired (its invariants are held by the Next mock-exams tests). The legacy roster popover pins in `mock-roster-retest-picker.test.mjs` are retired: the Next roster draws inline checkboxes.
 - Gaps found, not fixed here (no product change in a retirement wave): the Next review form does not show the legacy "Chưa có band tự tính — cần bạn nhập" caption, a Writing-specific blankable reason or "(overall sẽ để trống theo)". Recorded in the ledger row of `mock-review-band-prefill.test.mjs`. Closed since: `staging` 53bc1ccb restored all three captions in `bandCaption()`; after the merge of `staging` e0a894c4 the three ported tests run `bandCaption()` instead of matching caption strings in the TSX.
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
-- Not checked: Vercel preview 404 and staging console (after the preview build), WebKit (Q40).
+- FR-003 deployed check (2026-11-25, Mac mini in-app browser, Chromium):
+  - Vercel preview of `ec1f4f65` (`[preview]` commit; branch alias `ielts-speaking-co-git-5bc9bc-…vercel.app`): `/js/admin-exam-content.js`, `/js/admin-mock-exams.js`, `/js/admin-mock-live.js`, `/js/admin-mock-pacing.js`, `/js/admin-mock-report.js`, `/js/admin-mock-reviews.js`, `/js/admin-mock-tests.js` → 404; `/js/api.js` → 200; `/` → 200.
+  - On the preview, `/admin/mock-tests` redirects to `/login` without a session, and the preview origin is not in the staging backend's CORS allow-list (`/api/public-stats` and `/api/analytics/events` are blocked), so the signed-in console check cannot run on the preview. Before that redirect, the only `/js/*` requests are the shared chrome scripts (all 200/304); none of the 7 names.
+  - Stable staging (still serving the 7 files), signed in as admin: `/admin/mock-tests`, `/admin/mock-exams`, `/admin/mock-exams/corrections`, `/admin/mock-live`, `/admin/mock-pacing` (→ `mock-tests?tab=live`), `/admin/mock-reviews` and `/admin/mock-reviews/report` (→ `mock-tests?tab=review`). Each page's `/js/*` requests are only `runtime-config`, `error-reporter`, `api`, `analytics-beacon`, `components/aver-admin-chrome`, `curated-availability`, `theme-toggle`, `components/perf-hints`; none of the 7 names, and no `/js/*` response ≥ 400. Deleting the 7 files therefore adds no `/js/*` 404 to these pages.
+- Not checked yet: staging console after merge (repeat the staging list above on the merged SHA), WebKit (Q40).
 
 ## W4b (T005, G10-T07-W4b) — 2026-11-23, base W4a `b637e31d`
 
@@ -85,7 +89,7 @@ The 10 overview/system/traffic scripts in `frontend/public/js/` (1,360 lines) ar
 - FR-002 / FR-007: 18 test files edited (limit 30), one ledger row each in `docs/TEST_INVARIANT_LEDGER.md` › "LEGACYJS-0075 W4a — 2026-11-23". Behaviour pins moved onto executed model functions: `periodDelta`, `chartPoints`, `formatTokens`, `formatInteger`, `normalizeOpsPayload`, `normalizeTrendsPayload`, `normalizeFeedbackFilters`, `normalizeFeedbackInbox`, `groupFeedbackItems`, `feedbackDeepLink`, `averageRating`, `normalizeFootTrafficPayload`, `formatTrafficCount`, `formatUsageCost`/`Count`/`Date`, `filterUsageRows`, `sortUsageRows`.
 - Behaviour differences noted in the ledger (Next is already live, not caused here): feedback status toggle waits for the server and re-reads instead of flipping optimistically; foot-traffic payload without `data_status` is rejected; usage cost `0` shows `$0.0000`. **Gap:** usage sort has one fixed direction per field (no asc/desc toggle).
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
-- Not checked: Vercel preview 404 and staging console, WebKit (Q40).
+- Not checked yet: Vercel preview 404 (preview requested by the `[preview]` commit on top of the merge of W3b `d3ec3717`) and staging console, WebKit (Q40).
 
 ## W3b (T004, G10-T07-W3b) — 2026-11-23, base W3a `b826b143`
 
@@ -98,7 +102,7 @@ The 2 class/student scripts in `frontend/public/js/` (4,697 lines) are deleted: 
 - FR-002 / FR-007: 27 test files edited (limit 30), one ledger row each in `docs/TEST_INVARIANT_LEDGER.md` › "LEGACYJS-0075 W3b — 2026-11-23". Behaviour pins moved onto executed model functions where one exists (`normalizeTally`, `canReturnSubmission`, `dueParts`, `defaultVietnamDueDate`, `validateHomeworkDraft`, `normalizeCatalog`, `normalizeQuestions`, `normalizeAssignmentsPayload`, `normalizeProgressPayload`, `latestSkillActivity`, `cohortSummary`, `selectRoster`, `studentSummary`, `cohortTruth`, `formatBandGoal`).
 - Gaps found, not fixed here (no product change in a retirement wave), each in its ledger row: no daily per-assignment Speaking grid and no Speaking performance board on Next; no absolute due preview for "N ngày" and no Part 2 cue-card preview before giving; question picker blocks over-picking instead of replacing, has no difficulty chip or "còn thiếu" footer; an open action log is not reloaded after "Trả bài"; admin submissions render explanations with their own `InlineMd`, not the shared formatter; no form-only count line in the writing report; "Thử lại" on every tally error; progress banner lists failed skills by raw key and the name column is not sticky; students profile is a centred dialog without Listening report deep links, "Bỏ dở" has no warning style, and the name button does not say it opens the profile.
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
-- Not checked: Vercel preview 404 and staging console (preview builds only on a `[preview]` commit), WebKit (Q40).
+- Not checked yet: Vercel preview 404 (preview requested by the `[preview]` commit on top of the merge of W3a `3e84b598`) and staging console, WebKit (Q40).
 
 ## W3a (T004, G10-T07-W3a) — 2026-11-23, base W2 `9dde03f0`
 
@@ -111,4 +115,4 @@ The 3 users/codes scripts in `frontend/public/js/` (998 lines) are deleted: `adm
 - FR-002 / FR-007: 16 test files edited (limit 30), one ledger row each in `docs/TEST_INVARIANT_LEDGER.md` › "LEGACYJS-0075 W3a — 2026-11-23". The pure helpers of `admin-codes-util.js` are pinned on their model twins (`quotaLabel`, `selectCodes`, `codeStatusRank`).
 - Gap found, not fixed here (no product change in a retirement wave): the Next sort header sets no `aria-sort` on the `<th>` (legacy did); recorded in the ledger row of `admin-users-codes-reskin.test.mjs`.
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
-- Not checked: Vercel preview 404 and staging console (preview builds only on a `[preview]` commit), WebKit (Q40).
+- Not checked yet: Vercel preview 404 (preview requested by the `[preview]` commit on top of the merge of `staging` dabb191a) and staging console, WebKit (Q40).

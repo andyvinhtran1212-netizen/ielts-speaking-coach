@@ -166,6 +166,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/library` | all | Free Library hub, no login: shelves for Writing samples, Writing guides, Speaking, Grammar and Vocabulary with live counts (`/api/library/summary`) and one Writing sample excerpt across bands 7.5/7.0/6.0. |
+| `/library/speaking` | all | Speaking questions grouped by topic (Part 1–3), filterable by Part, topic, video and search; each shows whether its model answer is a video, audio or text. |
+| `/library/speaking/[slug]` | all | One Speaking question: cue card or questions, the model answer (synthetic voice, labelled) with a transcript that follows the video/audio, outline, vocabulary, related Part 3 questions. |
 | `/library/writing-samples` | all | Writing sample list, no login: filter by Task, Task 2 question type, topic and search (all kept in the URL), 12 per page, from `/api/library/writing-samples`. |
 
 ### 4.7b Student — classes and course work

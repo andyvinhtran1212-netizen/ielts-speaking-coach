@@ -616,6 +616,7 @@ jobs:
               - 'frontend/public/js/vocabulary.js'
               - 'frontend/public/css/vocab-wiki.css'
               - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
+              - 'frontend/tooling/verify-library-speaking-flow.mjs'
               - 'frontend/public/js/components/aver-chrome.js'
               - 'frontend/public/js/auth-me-single-flight.js'
               - 'frontend/lib/auth/auth-me-single-flight.mjs'
@@ -1036,6 +1037,13 @@ jobs:
       - name: Kiểm luồng Vocabulary Wiki native
         if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-vocabulary-wiki-flow.mjs "http://localhost:$TEST_PORT"
+
+      # LIBRARY-0061 T013: CSP is per document, so every way into a Speaking
+      # question page (the only route with the YouTube sources) must be a full
+      # page load; the flow fails on any soft (RSC) request for one.
+      - name: Kiểm luồng kệ Đề Speaking (điều hướng cứng vào trang đề)
+        if: env.RUN_BROWSER == 'true'
+        run: node tooling/verify-library-speaking-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng D1 Exercise native
         if: env.RUN_BROWSER == 'true'
