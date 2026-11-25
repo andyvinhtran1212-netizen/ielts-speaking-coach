@@ -1283,6 +1283,15 @@ async def grade_response_endpoint(
 
         if grading:
             db_row["overall_band"] = grading["overall_band"]
+            # Ghi âm lại một câu từng có Azure, lần này Azure không chạy (không
+            # có khoá, lỗi, hoặc không lấy mẫu): `_upsert_response` chỉ ghi
+            # khoá CÓ MẶT, nên `final_*` của bản ghi CŨ ở lại, và
+            # `_compute_session_bands` ưu tiên `final_*` hơn `overall_band` ⇒
+            # học viên thấy điểm của lần ghi âm trước (báo cáo săn lỗi B2-01).
+            # Bản ghi âm mới chỉ được mang `final_*` do chính nó sinh ra.
+            if "final_overall_band" not in db_row:
+                db_row["final_overall_band"] = None
+                db_row["final_band_p"] = None
             # Pre-mint a stable rec_id (client UUID) on every grammar
             # recommendation BEFORE serializing the feedback blob, so the
             # persisted blob carries the SAME id later written to the
@@ -1356,7 +1365,7 @@ async def grade_response_endpoint(
         # Không nhét hai cột này vào `_CORE_COLUMNS`: chúng đến từ migration và
         # có thể vắng mặt, mà cả điểm của đường lùi là KHÔNG được hỏng thêm.
         # Xoá riêng ở đây, hỏng thì thôi — bản ghi của học viên đã an toàn.
-        if partial and response_id and not grading:
+        if partial and response_id and db_row.get("final_overall_band", 0) is None:
             try:
                 query = supabase_admin.table("responses").update(
                     {"final_overall_band": None, "final_band_p": None}

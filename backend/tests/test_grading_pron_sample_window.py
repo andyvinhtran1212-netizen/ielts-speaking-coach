@@ -310,7 +310,10 @@ def test_route_part1_second_answer_is_not_sampled(monkeypatch):
     r = _route(monkeypatch, part=1, duration=20.0, flag=True, responses=done)
     assert r.calls == []                                    # Azure (fake) never called
     assert _cols(r.row) == ("not_sampled", None, None)
-    assert "pronunciation_status" not in r.row and "final_band_p" not in r.row
+    # Không lấy mẫu ⇒ không có P của Azure. `final_*` được ghi None (không
+    # bỏ trống) để bản ghi âm lại không mang điểm của lần trước (săn lỗi B2-01).
+    assert "pronunciation_status" not in r.row
+    assert r.row["final_band_p"] is None and r.row["final_overall_band"] is None
     assert r.result["band_p"] is None
     assert r.result["p_feedback"] == grading._PRON_NOT_SAMPLED_FEEDBACK
     assert r.result["overall_band"] == grading._round_band((6.0 + 7.0 + 6.0) / 3)
