@@ -25,20 +25,22 @@ test('sitemap model emits stable roots and only valid, published canonical artic
       { slug: 'bad/category', articles: [{ slug: 'ignored' }] },
     ],
   });
-  // `/library` and `/library/writing-samples` are live (LIBRARY-0061 FR-062,
-  // G06-T09); the other Library lists join when their pages ship.
-  assert.deepEqual(entries.slice(0, 6).map(({ url }) => url), [
+  // `/library`, `/library/writing-samples` (G06-T09) and `/library/speaking`
+  // (G06-T13) are live (LIBRARY-0061 FR-062); the other Library lists join
+  // when their pages ship.
+  assert.deepEqual(entries.slice(0, 7).map(({ url }) => url), [
     'https://www.averlearning.com/',
     'https://www.averlearning.com/grammar',
     'https://www.averlearning.com/grammar/exercises',
     'https://www.averlearning.com/vocabulary',
     'https://www.averlearning.com/library',
     'https://www.averlearning.com/library/writing-samples',
+    'https://www.averlearning.com/library/speaking',
   ]);
-  assert.equal(entries.length, 7);
-  assert.equal(entries[6].url, 'https://www.averlearning.com/grammar/tenses/present-simple');
-  assert.equal(entries[6].lastModified.toISOString(), '2026-09-01T00:00:00.000Z');
-  assert.equal(buildPublicSitemap(null).length, 6, 'backend outage keeps stable public roots');
+  assert.equal(entries.length, 8);
+  assert.equal(entries[7].url, 'https://www.averlearning.com/grammar/tenses/present-simple');
+  assert.equal(entries[7].lastModified.toISOString(), '2026-09-01T00:00:00.000Z');
+  assert.equal(buildPublicSitemap(null).length, 7, 'backend outage keeps stable public roots');
 });
 
 test('Next metadata endpoints are owned routes and private product areas stay out of discovery', () => {

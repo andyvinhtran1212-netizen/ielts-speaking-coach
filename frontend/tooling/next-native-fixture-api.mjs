@@ -108,6 +108,42 @@ function grammarArticle(category, slug) {
   };
 }
 
+// LIBRARY-0061 T013: two Speaking questions for the shelf flow. The first has a
+// YouTube answer (its player script is stubbed by the verifier), the second a
+// text answer, so the flow can walk list -> question -> next question.
+const speakingTopics = [{ slug: 'places', label_vi: 'Nơi chốn' }];
+const speakingItems = [
+  { slug: 'a-city-part-2', part: 2, title_en: 'Describe a city you would like to visit', title_vi: 'Tả một thành phố bạn muốn đến', topic_slug: 'places', answer_kind: 'video', duration_s: 95, voice: 'synthetic' },
+  { slug: 'hometown-part-1', part: 1, title_en: 'Your hometown', title_vi: 'Quê bạn', topic_slug: 'places', answer_kind: 'text', duration_s: null, voice: 'synthetic' },
+];
+function speakingDetail(slug) {
+  const index = speakingItems.findIndex((item) => item.slug === slug);
+  if (index < 0) return null;
+  const item = speakingItems[index];
+  const neighbour = (other) => (other ? { slug: other.slug, title_en: other.title_en } : null);
+  return {
+    ...item,
+    topic_label_vi: 'Nơi chốn',
+    topic_id: null,
+    cue_card: item.part === 2
+      ? { prompt: item.title_en, bullets: ['where it is', 'why you want to go'], reflection: 'and explain how you would feel there.' }
+      : { questions: ['Where is your hometown?'] },
+    media: item.answer_kind === 'video'
+      ? { video_source: 'youtube', youtube_id: 'fixtureVid01', video_url: null, audio_url: null }
+      : { video_source: null, youtube_id: null, video_url: null, audio_url: null },
+    sample_text: 'I would love to visit Kyoto.',
+    transcript: [{ start_ms: item.answer_kind === 'video' ? 0 : null, text: 'I would love to visit Kyoto.', marks: [] }],
+    timed: item.answer_kind === 'video',
+    outline: ['Where', 'Why'],
+    vocabulary: [],
+    related_part3: [],
+    published_at: '2026-11-20T00:00:00Z',
+    updated_at: '2026-11-20T00:00:00Z',
+    prev: neighbour(speakingItems[index - 1]),
+    next: neighbour(speakingItems[index + 1]),
+  };
+}
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url || '/', `http://${HOST}:${PORT}`);
   response.setHeader('content-type', 'application/json; charset=utf-8');
@@ -147,6 +183,19 @@ const server = createServer(async (request, response) => {
     if (value && grammarNavigationArticle(category, slug)) grammarNavigationReads.add(`${category}/${slug}`);
     if (GRAMMAR_DELAY_MS) await new Promise((resolve) => setTimeout(resolve, GRAMMAR_DELAY_MS));
     response.writeHead(value ? 200 : 404).end(JSON.stringify(value || { detail: 'Not found' }));
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/api/library/speaking') {
+    response.writeHead(200).end(JSON.stringify({
+      items: speakingItems, total: speakingItems.length,
+      facets: { part: { 1: 1, 2: 1 }, topic: { places: 2 }, video: 1 }, topics: speakingTopics,
+    }));
+    return;
+  }
+  const speakingMatch = url.pathname.match(/^\/api\/library\/speaking\/([^/]+)$/);
+  if (request.method === 'GET' && speakingMatch && speakingMatch[1] !== 'index') {
+    const value = speakingDetail(decodeURIComponent(speakingMatch[1]));
+    response.writeHead(value ? 200 : 404).end(JSON.stringify(value || { detail: 'speaking_not_found' }));
     return;
   }
   response.writeHead(404).end(JSON.stringify({ detail: 'No server fixture for this endpoint' }));
