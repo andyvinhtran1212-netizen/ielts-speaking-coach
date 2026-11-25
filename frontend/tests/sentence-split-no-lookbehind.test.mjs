@@ -12,6 +12,10 @@
  * từ file nguồn (không chép lại) rồi so với bản lookbehind chạy trên Node.
  */
 
+// LEGACYJS-0075 W1: admin-listening-segments.js was deleted; the Next splitter
+// (lib/admin-listening-segments-model.mjs) keeps the same cases in
+// admin-listening-segments-next-behavior.test.mjs.
+
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -60,11 +64,6 @@ describe('tách câu không dùng lookbehind (DEBT-2026-07-29-K)', () => {
       // lệnh, nên chỉ tách ở dấu chấm thì hai thứ dính làm một trên đề học viên
       // đang thi. Đổi mốc theo, phép so tương đương vẫn nguyên vẹn.
       reference: (raw) => String(raw).split(/(?<=[.?!])\s+(?=[A-Z])/).map((s) => s.trim()).filter(Boolean),
-    },
-    {
-      file: 'admin-listening-segments.js',
-      reference: (raw) => String(raw)
-        .split(/(?<=[.!?])\s+(?=[A-Z"'“‘])/).map((s) => s.trim()).filter(Boolean),
     },
   ];
 

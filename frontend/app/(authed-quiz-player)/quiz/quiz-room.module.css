@@ -1,0 +1,30 @@
+/*
+ * EXAMDRILL-0073 Quick Check in the practice room. Only var(--av2-*), no hex.
+ * Answer buttons and feedback keep the page's qz-* classes from quiz-player.css.
+ */
+.body { max-width: 720px; margin-inline: auto; width: 100%; }
+.panel { display: flex; flex-direction: column; gap: var(--av2-space-7); }
+/* .body raises these above base.css's .av2-root h1/h2/h3 (LegacyRoomRoot). */
+.body .heading { margin: 0; font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); }
+.body .subheading, .card .subheading { margin: 0 0 var(--av2-space-4); font-size: var(--av2-fs-16); font-weight: var(--av2-fw-strong); }
+.muted { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.question { display: flex; flex-direction: column; gap: var(--av2-space-6); }
+.prompt { margin: 0; font-size: var(--av2-fs-20); line-height: var(--av2-lh-body); }
+.prompt:focus { outline: none; }
+.prompt:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.instruction { margin: 0; font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); }
+.feedbackSlot:empty { display: none; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-6); }
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--av2-space-6);
+  margin: 0;
+}
+.tiles div { padding: var(--av2-space-6); border: var(--av2-rule-w) solid var(--av2-rule); background: var(--av2-surface); }
+.tiles dt { color: var(--av2-muted); font-size: var(--av2-fs-13); }
+.tiles dd { margin: var(--av2-space-2) 0 0; font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--av2-space-4); margin: 0; padding: 0; list-style: none; }
+.reviewHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--av2-space-6); }
+.card { display: flex; flex-direction: column; gap: var(--av2-space-6); }
+.card p { margin: 0; }

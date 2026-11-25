@@ -297,6 +297,41 @@ export function displayItemKey(value, grammar) {
   return grammar ? text.replaceAll('-', ' ') : text;
 }
 
+/**
+ * EXAMDRILL-0073 FR-011: a grammar point as the learner reads it. The bank's own
+ * name (`meta.item_labels` / `meta.point_labels`, a string or `{ title | label }`)
+ * when it has one, else "Điểm ngữ pháp N" by first appearance in the bank. The
+ * key itself is never shown. Vocabulary keys are the word, so they stay.
+ */
+export function displayPointLabel(bank, key) {
+  const text = String(key || '');
+  if (bank?.bank?.skill_area !== 'grammar') return text;
+  const meta = bank?.bank?.meta && typeof bank.bank.meta === 'object' ? bank.bank.meta : {};
+  for (const pool of [meta.item_labels, meta.point_labels]) {
+    const named = pool && typeof pool === 'object' && !Array.isArray(pool) && Object.hasOwn(pool, text) ? pool[text] : null;
+    const name = typeof named === 'string' ? named : named && typeof named === 'object' ? (named.title || named.label) : null;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  }
+  const keys = [];
+  for (const question of Array.isArray(bank?.questions) ? bank.questions : []) {
+    if (question?.item_key && !keys.includes(question.item_key)) keys.push(question.item_key);
+  }
+  const index = keys.indexOf(text);
+  return index >= 0 ? `Điểm ngữ pháp ${index + 1}` : 'Điểm ngữ pháp';
+}
+
+/**
+ * EXAMDRILL-0073 FR-008: "Câu N" (questions shown in this run, repeats
+ * included) and the mastery count. The mastery engine never knows the run's
+ * length ahead, so there is no "trên M".
+ */
+export function quizCounterText(questionNo, progress, grammar) {
+  const n = Math.max(1, Math.floor(Number(questionNo) || 0));
+  const mastered = Math.max(0, Number(progress?.mastered) || 0);
+  const total = Math.max(0, Number(progress?.total) || 0);
+  return `Câu ${n} · ${grammar ? 'Đã nắm' : 'Đã thuộc'} ${mastered}/${total}`;
+}
+
 export function stripAudioToken(value) {
   return String(value || '').replace(/\s*(?:\*\*)?\{\{audio\}\}(?:\*\*)?\s*/g, ' ').trim();
 }
