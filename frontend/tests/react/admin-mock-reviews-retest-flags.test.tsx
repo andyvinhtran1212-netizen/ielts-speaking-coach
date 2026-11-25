@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AdminMockReviews } from '@/app/(authed-admin-mock-reviews)/admin/mock-reviews/admin-mock-reviews';
+import { AdminMockReviews } from '@/app/(authed-admin)/(mock-reviews)/admin/mock-reviews/admin-mock-reviews';
 
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-a' }) }));
 

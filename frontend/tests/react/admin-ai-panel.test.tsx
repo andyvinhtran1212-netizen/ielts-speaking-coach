@@ -13,7 +13,7 @@ const api = vi.hoisted(() => ({
 vi.mock('client-only', () => ({}));
 vi.mock('@/lib/admin-ai-api', () => api);
 
-import { AdminAiPanel, formatSaigon } from '@/app/(authed-admin-overview)/admin/admin-ai-panel';
+import { AdminAiPanel, formatSaigon, reasonIsValid } from '@/app/(authed-admin)/(ai-models)/admin/ai-models/admin-ai-panel';
 
 function feature(name: string, overrides: Partial<AdminAiModelsWire['features'][number]> = {}) {
   return {
@@ -80,6 +80,16 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+const REASON = 'Đổi để so chi phí tuần này';
+
+// ADMINIA-0074 FR-074: "Lưu" opens the confirmation block; "Xác nhận đổi"
+// sends the PATCH once the reason has at least 10 characters.
+function confirmSave(label: string, reason = REASON) {
+  fireEvent.click(screen.getByRole('button', { name: `Lưu lựa chọn cho ${label}` }));
+  fireEvent.change(screen.getByLabelText('Lý do đổi'), { target: { value: reason } });
+  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đổi' }));
+}
+
 beforeEach(() => {
   api.getAdminAiModels.mockResolvedValue(models());
   api.getAdminAiUsage.mockResolvedValue(usage());
@@ -122,11 +132,11 @@ describe('AdminAiPanel', () => {
 
     const pending = deferred<AdminAiModelsWire>();
     api.patchAdminAiModel.mockReturnValueOnce(pending.promise);
-    fireEvent.click(save);
+    confirmSave('Chấm Writing');
     expect(api.patchAdminAiModel).toHaveBeenCalledWith('writing_grading', {
       preferred_provider: 'gemini', anthropic_model: null,
     });
-    expect(save.textContent).toBe('Đang lưu…');
+    expect(screen.getByRole('button', { name: 'Đang lưu…' })).toBeTruthy();
     expect((select as HTMLSelectElement).disabled).toBe(true);
 
     const canonical = models({
@@ -164,7 +174,7 @@ describe('AdminAiPanel', () => {
       status: 503,
       detail: { error_code: 'ai_override_store_unavailable', message: 'Chưa áp dụng migration 322 — không lưu được lựa chọn model.' },
     }));
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }));
+    confirmSave('Soát bài tự luận theo buổi');
     const alert = await screen.findByText('Chưa áp dụng migration 322 — không lưu được lựa chọn model.');
     expect(alert.getAttribute('role')).toBe('alert');
     const row = screen.getByRole('row', { name: /Soát bài tự luận/ });
@@ -178,7 +188,7 @@ describe('AdminAiPanel', () => {
       status: 422,
       detail: { error_code: 'ai_override_invalid', field: 'anthropic_model', message: 'anthropic_model không nằm trong danh sách cho phép.' },
     }));
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+    confirmSave('Chấm Writing');
 
     const rejected = screen.getByRole('row', { name: /Chấm Writing/ });
     const alert = await within(rejected).findByRole('alert');
@@ -238,7 +248,7 @@ describe('AdminAiPanel', () => {
     // Pinned on purpose: Save stays enabled when the store is unavailable; the server refuses (503).
     // Product decision pending (PR-1926 Q1). Change this assert deliberately if Q1 decides to disable Save.
     expect(save.disabled).toBe(false);
-    fireEvent.click(save);
+    confirmSave('Chấm Writing');
     const row = screen.getByRole('row', { name: /Chấm Writing/ });
     expect((await within(row).findByRole('alert')).textContent).toBe('Không lưu được lựa chọn model; cấu hình hiện tại không đổi.');
     expect(within(row).queryByText('DB override')).toBeNull();
@@ -375,7 +385,7 @@ describe('AdminAiPanel', () => {
     fireEvent.change(screen.getByLabelText('Nhà cung cấp ưu tiên cho Soát bài tự luận theo buổi'), { target: { value: 'gemini' } });
     const pending = deferred<AdminAiModelsWire>();
     api.patchAdminAiModel.mockReturnValueOnce(pending.promise);
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+    confirmSave('Chấm Writing');
 
     const other = screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }) as HTMLButtonElement;
     expect(other.disabled).toBe(true);
@@ -408,10 +418,70 @@ describe('AdminAiPanel', () => {
     fireEvent.change(await screen.findByLabelText('Model Claude cho Soát bài tự luận theo buổi'), { target: { value: 'claude-haiku-5-5' } });
     fireEvent.change(screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing'), { target: { value: 'gemini' } });
     api.patchAdminAiModel.mockResolvedValueOnce(models());
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+    confirmSave('Chấm Writing');
     await waitFor(() => expect(api.patchAdminAiModel).toHaveBeenCalledTimes(1));
     await waitFor(() => expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing') as HTMLSelectElement).value).toBe(''));
     expect((screen.getByLabelText('Model Claude cho Soát bài tự luận theo buổi') as HTMLSelectElement).value).toBe('claude-haiku-5-5');
     expect((screen.getByRole('button', { name: 'Lưu lựa chọn cho Soát bài tự luận theo buổi' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('asks for a reason of at least 10 characters before a change is sent (FR-074)', async () => {
+    render(<AdminAiPanel />);
+    fireEvent.change(await screen.findByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing'), { target: { value: 'gemini' } });
+    fireEvent.change(screen.getByLabelText('Model Claude cho Chấm Writing'), { target: { value: 'claude-haiku-5-5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+
+    const block = screen.getByRole('group', { name: 'Xác nhận đổi model cho Chấm Writing' });
+    expect(block.textContent).toContain('Ưu tiên: mặc định (env/code) → Gemini');
+    expect(block.textContent).toContain('Model Claude: mặc định (env/code) → claude-haiku-5-5');
+    expect(block.textContent).toContain('chưa được lưu vào lịch sử thay đổi');
+    // The selection is frozen while the block is open, so the admin confirms what is shown.
+    expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing') as HTMLSelectElement).disabled).toBe(true);
+
+    const confirm = screen.getByRole('button', { name: 'Xác nhận đổi' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Lý do đổi'), { target: { value: '   ngắn quá  ' } });
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(api.patchAdminAiModel).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Lý do đổi'), { target: { value: 'Thử Haiku cho Writing' } });
+    expect(confirm.disabled).toBe(false);
+    api.patchAdminAiModel.mockResolvedValueOnce(models());
+    fireEvent.click(confirm);
+    // API 0024 takes no reason (Q7): the body is unchanged.
+    expect(api.patchAdminAiModel).toHaveBeenCalledWith('writing_grading', {
+      preferred_provider: 'gemini', anthropic_model: 'claude-haiku-5-5',
+    });
+    await waitFor(() => expect(screen.queryByRole('group', { name: /Xác nhận đổi model/ })).toBeNull());
+  });
+
+  it('"Huỷ" closes the block without a request and keeps the selection editable', async () => {
+    render(<AdminAiPanel />);
+    fireEvent.change(await screen.findByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing'), { target: { value: 'gemini' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Huỷ' }));
+    expect(screen.queryByRole('group', { name: /Xác nhận đổi model/ })).toBeNull();
+    expect(api.patchAdminAiModel).not.toHaveBeenCalled();
+    const select = screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing') as HTMLSelectElement;
+    expect(select.disabled).toBe(false);
+    expect(select.value).toBe('gemini');
+  });
+
+  it('keeps the typed reason after a rejected save so a retry does not ask again', async () => {
+    render(<AdminAiPanel />);
+    fireEvent.change(await screen.findByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing'), { target: { value: 'gemini' } });
+    api.patchAdminAiModel.mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), { status: 503, detail: { message: 'Không lưu được.' } }));
+    confirmSave('Chấm Writing');
+    await screen.findByText('Không lưu được.');
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+    expect((screen.getByLabelText('Lý do đổi') as HTMLTextAreaElement).value).toBe(REASON);
+    expect((screen.getByRole('button', { name: 'Xác nhận đổi' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('counts the reason after trimming both ends', () => {
+    expect(reasonIsValid('123456789')).toBe(false);
+    expect(reasonIsValid('  123456789  ')).toBe(false);
+    expect(reasonIsValid('1234567890')).toBe(true);
   });
 });

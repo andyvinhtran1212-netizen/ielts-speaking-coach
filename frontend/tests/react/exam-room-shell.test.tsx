@@ -6,6 +6,7 @@ import { ExamRoomShell, formatClock, unsavedCount } from '@/components/exam-room
 import { loginHref } from '@/components/exam-room/session-expired-dialog';
 import type { ExamRoomQuestion, ExamRoomSection, ExamRoomShellProps } from '@/components/exam-room/types';
 import { localCopyKey, writeLocalCopy } from '@/lib/exam-room/local-copy.mjs';
+import { splitStorageKey, writeSplitRatio } from '@/lib/exam-room/split-ratio.mjs';
 
 beforeAll(() => {
   const proto = HTMLDialogElement.prototype as HTMLDialogElement & { showModal: () => void; close: () => void };
@@ -609,6 +610,23 @@ describe('session (FR-015, FR-016)', () => {
     expect(await screen.findByRole('link', { name: 'Sign in again' })).toBeTruthy();
   });
 
+  it('R150-2: an answer still in the surface debounce (losesWork, nothing in saveStatus) also gets only Stay', async () => {
+    const assign = stubAssign();
+    let loses = true;
+    const exit = { href: '/tests', flush: vi.fn(() => Promise.resolve({ unsaved: 0 })), losesWork: () => loses };
+    const props = base({ session: 'expired', exit, onSessionExpired: { saveLocalCopy: () => false, returnUrl: '/r' } });
+    const { rerender } = render(<ExamRoomShell {...props} />);
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).queryByRole('link', { name: 'Sign in again' })).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(assign).not.toHaveBeenCalled();
+    // The debounced answer reached the server: signing in is safe again.
+    loses = false;
+    rerender(<ExamRoomShell {...props} saveStatus={{ state: 'saved', lastSavedAt: new Date(2026, 10, 23, 10, 51) }} />);
+    expect(await screen.findByRole('link', { name: 'Sign in again' })).toBeTruthy();
+  });
+
   it('not current: in-page notice with Back, no work area', () => {
     const onSessionConflict = vi.fn();
     render(<ExamRoomShell {...base({ session: 'not_current', onSessionConflict })} />);
@@ -712,5 +730,52 @@ describe('embedded (FR-023)', () => {
     expect(screen.queryByRole('button', { name: 'Submit test' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Leave test/ })).toBeNull();
     expect(screen.getByLabelText('Answer 1')).toBeTruthy();
+  });
+});
+
+describe('device storage cleanup (FR-035, FR-032; R150-3)', () => {
+  const mine = { surface: 'reading', ownerKey: 'user-1', attemptKey: 'att-1' };
+  const expiresAt = () => Date.now() + 60_000;
+  const seedMine = () => {
+    writeLocalCopy(window.localStorage, { ...mine, answers: { 1: { value: 'A', baseValue: null } }, expiresAt: expiresAt() });
+    writeSplitRatio(window.localStorage, 'att-1', 40);
+  };
+
+  it('on entry removes copies of another account and stale split ratios, keeps this account', () => {
+    const foreign = { ...mine, ownerKey: 'user-2', attemptKey: 'att-9' };
+    seedMine();
+    writeLocalCopy(window.localStorage, { ...foreign, answers: { 1: { value: 'B', baseValue: null } }, expiresAt: expiresAt() });
+    writeSplitRatio(window.localStorage, 'att-old', 55, Date.now() - 8 * 24 * 3600 * 1000);
+    render(<ExamRoomShell {...base()} />);
+    expect(window.localStorage.getItem(localCopyKey(foreign))).toBeNull();
+    expect(window.localStorage.getItem(splitStorageKey('att-old'))).toBeNull();
+    expect(window.localStorage.getItem(localCopyKey(mine))).not.toBeNull();
+    expect(window.localStorage.getItem(splitStorageKey('att-1'))).not.toBeNull();
+  });
+
+  it('a confirmed submit drops this attempt\'s copy and split ratio', () => {
+    seedMine();
+    const { rerender } = render(<ExamRoomShell {...base()} />);
+    expect(window.localStorage.getItem(localCopyKey(mine))).not.toBeNull();
+    rerender(<ExamRoomShell {...base({ submit: { label: 'Submit test', onSubmit: vi.fn(() => Promise.resolve()), outcome: 'confirmed' } })} />);
+    expect(window.localStorage.getItem(localCopyKey(mine))).toBeNull();
+    expect(window.localStorage.getItem(splitStorageKey('att-1'))).toBeNull();
+  });
+
+  it('a resolved abandon drops them; a failed abandon keeps them', async () => {
+    seedMine();
+    let fail = true;
+    const onAbandon = vi.fn(() => (fail ? Promise.reject(new Error('503')) : Promise.resolve()));
+    render(<ExamRoomShell {...base({ exit: { href: '/tests', flush: vi.fn(() => Promise.resolve({ unsaved: 0 })), losesWork: () => false, abandon: { onAbandon } } })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abandon test' }));
+    let dialog = await screen.findByRole('alertdialog');
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Abandon test' })); });
+    expect(window.localStorage.getItem(localCopyKey(mine))).not.toBeNull();
+    expect(window.localStorage.getItem(splitStorageKey('att-1'))).not.toBeNull();
+    fail = false;
+    dialog = await screen.findByRole('alertdialog');
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Abandon test' })); });
+    expect(window.localStorage.getItem(localCopyKey(mine))).toBeNull();
+    expect(window.localStorage.getItem(splitStorageKey('att-1'))).toBeNull();
   });
 });

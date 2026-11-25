@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 
 import {
   normalizeAuthActiveStatus,
+  learnerV2Enabled,
   normalizeAuthMe,
   normalizeAuthProfile,
   normalizeAuthRoleIdentity,
@@ -77,5 +78,18 @@ describe('auth wire normalizers', () => {
     };
     assert.equal(normalizeAuthProfile({ ...full, stats: { total_sessions: -1 } }), null);
     assert.equal(normalizeAuthProfile({ ...full, target_band: Number.NaN }), null);
+  });
+
+  test('reads learner_v2_enabled softly (LEARNERCORE-0063 FR-073)', () => {
+    assert.equal(learnerV2Enabled({ ...me, learner_v2_enabled: true }), true);
+    assert.equal(learnerV2Enabled({ ...me, learner_v2_enabled: false }), false);
+    assert.equal(learnerV2Enabled(me), false);
+    assert.equal(learnerV2Enabled({ ...me, learner_v2_enabled: 'true' }), false);
+    assert.equal(learnerV2Enabled({ ...me, learner_v2_enabled: 1 }), false);
+    assert.equal(learnerV2Enabled(null), false);
+    assert.equal(learnerV2Enabled(undefined), false);
+    // Missing or malformed flag never invalidates the session payload.
+    assert.equal(normalizeAuthMe(me), me);
+    assert.equal(normalizeAuthMe({ ...me, learner_v2_enabled: 'yes' }).id, me.id);
   });
 });
