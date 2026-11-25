@@ -112,3 +112,14 @@ later wave.
   - `/admin/feedback → /admin`: 25,822 px. Base is wrong here; head equals the direct load (as recorded for T002).
 - Frontend contract suite: 14,126 tests, 14,125 pass, 1 fail. The failure is env-only (`hook pre-push`).
 - `npm run test:react`: pass. `tsc --noEmit`: clean. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.
+
+## T005 evidence (G10-T15-4, 2026-11-23)
+
+`speaking`, `speaking-sessions` and `speaking-topics` move to `(authed-admin)/(speaking)`, `(speaking-sessions)`, `(speaking-topics)`, each child layout with its one page sheet as a plain `<link rel="stylesheet">` and `export const instant = false;`. `listening` stays a separate group (coordinator, option a, 23/11): its layout puts `aver-design/components.css` between `admin-surface.css` and `admin-components.css`, and a child layout can only emit links after the parent's 4 base sheets, so moving it would change the cascade order (FR-001). Stacked on T004 (#2553); base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 17 pages: head **1422/1422**. Same verifier on base `cc6dd4c8`: 1156/1422; all 266 failures are "base sheets duplicated" after a client navigation between pages that do not yet share the parent layout. The 272 FR-005 observations are reported, not enforced.
+- Screenshots 1280×800, head vs base, CI fixture environment:
+  - Direct loads of all 17 pages: 0 px. (`/admin/grammar/articles` differs by 8 px from this base run and 0 px from the earlier base run; the box varies on base, as noted in T004.)
+  - Every client navigation shot is 0 px, including `/admin/feedback →` the 3 speaking pages and `/admin/speaking ↔` its sub-pages, except `/admin/feedback → /admin` (25,822 px; base is wrong, head equals the direct load, as in T002). The small T004 differences (19, 30, 8, 1 px) are 0 px in this run, so they were frame timing.
+- `telemetry-coverage.test.mjs` walks top-level route groups only: the 3 moved groups no longer get their own 4 telemetry tests (12 fewer tests); `(authed-admin)`, whose layout is the only one that renders the shell for them, is still covered.
+- Frontend contract suite: 14,114 tests, 14,113 pass, 1 fail (env-only `hook pre-push`). `npm run test:react`: pass. `tsc --noEmit`: clean. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.
