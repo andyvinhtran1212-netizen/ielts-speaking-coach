@@ -103,8 +103,10 @@ describe('Error-logs controller — Next owner (admin-error-logs.tsx)', () => {
     assert.match(JS, /window\.api\.post\(`\/admin\/error-logs\/\$\{encodeURIComponent\(id\)\}\/\$\{action\}`, \{\}\)/);
     assert.match(JS, /action: 'dismiss' \| 'undismiss'/);
   });
-  it('POSTs test-error endpoint with error_type', () => {
-    assert.match(JS, /\/admin\/error-logs\/test\?error_type=exception/);
+  it('POSTs test-error endpoint with error_type (moved to /admin/qa-tools, ADMINIA-0074 FR-073)', () => {
+    const QA = read('app', '(authed-admin)', '(qa-tools)', 'admin', 'qa-tools', 'admin-qa-tools.tsx');
+    assert.match(QA, /\/admin\/error-logs\/test\?error_type=exception/);
+    assert.doesNotMatch(JS, /\/admin\/error-logs\/test/);
   });
   it('renders DB-sourced text through React (no injected HTML)', () => {
     assert.doesNotMatch(JS, /dangerouslySetInnerHTML/);
@@ -122,11 +124,10 @@ describe('2026-07-02 — noise filter + humanize', () => {
   it('the table filters noise rows when the checkbox is checked', () => {
     assert.match(JS, /hideNoise \? rows\.filter\(\(row\) => !humanizeError\(row\)\.noise\) : rows/);
   });
-  it('generateTestError un-hides noise so the dogfood row stays visible', () => {
-    // Pin the P2 fix: the "Tạo lỗi test" row is noise; the helper must clear the
-    // hide-noise filter or the generated row is hidden by the default-on filter.
-    const fn = JS.slice(JS.indexOf('const generateTestError'), JS.indexOf('const loadRollback'));
-    assert.match(fn, /setHideNoise\(false\)/);
+  it('the error-log page no longer generates test errors (FR-073 moved it to /admin/qa-tools)', () => {
+    // The P2 un-hide fix lived in the page's own generator. #2655 moved
+    // "Tạo lỗi thử" to /admin/qa-tools, so this page has no generator to pin.
+    assert.doesNotMatch(JS, /const generateTestError/);
   });
   it('humanizeError categorises DB, third-party, and test entries', () => {
     assert.match(MODEL, /export function humanizeError/);

@@ -56,8 +56,11 @@ test('correlation chain: failed api calls carry join keys into error reports (re
 
 test('triage refresh: dismiss/undismiss also refresh the migration panel (review #746)', () => {
   const refreshes = ADMIN_JS.match(/loadLogs\(latest\.filters, latest\.offset\), loadStats\(\), loadMigration\(\)/g) || [];
-  assert.ok(refreshes.length >= 2,
+  // Dismiss and undismiss share one triage handler; #2655 moved the test-error
+  // generator (the page's other refresh) to /admin/qa-tools (FR-073).
+  assert.ok(refreshes.length >= 1,
     'both dismiss and undismiss must refresh migration-stats (its undismissed column is canonical state)');
+  assert.match(ADMIN_JS, /action: 'dismiss' \| 'undismiss'/);
 });
 
 test('cutover dashboard: admin Báo lỗi renders migration-stats (ADR-012 điều kiện mở)', () => {
