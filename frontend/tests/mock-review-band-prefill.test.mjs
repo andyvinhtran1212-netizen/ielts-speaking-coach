@@ -1,8 +1,14 @@
 /**
- * mock-review-band-prefill.test.mjs — the mock review console pre-fills the
- * Writing band from the band computed off the two graded essays
- * (mock_review_workflow.sync_writing_band_for_essay → review.ai_draft.writing),
- * so the examiner doesn't retype it. Source-sentinel (the page is a DOM/IIFE).
+ * mock-review-band-prefill.test.mjs — the mock review console pre-fills each
+ * band from the draft the backend already computed (L/R off the answer key,
+ * Writing off the two graded essays via
+ * mock_review_workflow.sync_writing_band_for_essay → review.ai_draft.writing),
+ * so the examiner confirms a number instead of retyping it.
+ *
+ * LEGACYJS-0075 W2 retired `admin-mock-reviews.js`; these now pin the Next
+ * owners: `draftBandOf` / `initialBandDraft` (lib/admin-mock-reviews-model.mjs)
+ * run for real, and the roster's `writingText` is lifted out of
+ * `admin-mock-reviews.tsx` and run.
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,85 +16,79 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { BAND_SOURCE, bandCaption, draftBandOf, initialBandDraft, normalizeReviewDetail } from '../lib/admin-mock-reviews-model.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const JS = readFileSync(join(__dirname, '..', 'js', 'admin-mock-reviews.js'), 'utf8');
+const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
+
+function grab(re, what) {
+  const m = TSX.match(re);
+  assert.ok(m, `${what} not found — sentinel is stale`);
+  return m[0];
+}
+
+// writingText is a pure string builder; strip its two type annotations and run it.
+const writingText = new Function([
+  grab(/function fmtBand\(value[^)]*\) \{[^\n]*\}/, 'fmtBand()').replace(/\(value[^)]*\)/, '(value)'),
+  grab(/function writingText\(row[^)]*\) \{[\s\S]*?\n\}/, 'writingText()').replace(/\(row[^)]*\)/, '(row)'),
+  'return writingText;',
+].join('\n'))();
+
+const detailWith = ({ draft = {}, final = {}, required = ['listening', 'reading', 'writing'], blankable = [] } = {}) => normalizeReviewDetail({
+  required_skills: required,
+  blankable_skills: blankable,
+  review: { id: 'rv-1', sitting_id: 'st-1', status: 'claimed', ai_draft: draft, final_bands: final, retest_flags: {} },
+  sitting: { id: 'st-1' },
+});
 
 describe('admin-mock-reviews — Writing band flows back from graded essays', () => {
-  test('band input falls back to the ai_draft band when final_bands is empty', () => {
-    // Still true — the lookup just widened: draftBandOf reads the draft for ANY
-    // skill, so this no longer hard-codes writing (see the pre-fill describe).
-    assert.match(JS, /var draftBand = draftBandOf\(draft, s\);/);
-    assert.match(JS, /var val = \(fb\[s\] != null\) \? fb\[s\] : \(draftBand != null \? draftBand : ''\)/);
+  test('the form falls back to the ai_draft band when final_bands is empty', () => {
+    const detail = detailWith({ draft: { writing: { band: 5.0, task1_band: 5.0, task2_band: 5.0 } } });
+    assert.equal(initialBandDraft(detail).writing, '5');
   });
+  // The caption rule moved into bandCaption() (lib/admin-mock-reviews-model.mjs,
+  // staging 53bc1ccb); the form renders it under each band box.
   test('shows a hint that the band was suggested from the two graded essays', () => {
-    assert.match(JS, /Gợi ý từ 2 bài đã chấm/);
+    const detail = detailWith({ draft: { writing: { band: 5.0, task1_band: 5.0, task2_band: 5.0 } } });
+    assert.equal(bandCaption(detail, 'writing'), 'Gợi ý từ hai bài đã chấm');
+    assert.match(TSX, /\{bandCaption\(detail, skill\) && <small>\{bandCaption\(detail, skill\)\}<\/small>\}/);
   });
-  test('the suggestion never overrides a confirmed final band (fb wins)', () => {
-    // fb[s] is checked first in the value expression — a saved final band stays.
-    assert.match(JS, /\(fb\[s\] != null\) \? fb\[s\]/);
+  test('the suggestion never overrides a confirmed final band (final wins)', () => {
+    const detail = detailWith({ draft: { writing: { band: 5.0 } }, final: { writing: 6.5 } });
+    assert.equal(initialBandDraft(detail).writing, '6.5');
   });
 });
 
 // The roster showed word counts only, so a Writing band the backend already had
-// was invisible until the examiner opened the row — while Listening/Reading
-// showed theirs inline. Source-sentinel (the page is a DOM/IIFE).
+// was invisible until the examiner opened the row.
 describe('admin-mock-reviews — roster Writing cell carries the band', () => {
-  test('wCell renders the band next to the word counts', () => {
-    const body = JS.match(/function wCell\(w\) \{([\s\S]*?)\n  \}/);
-    assert.ok(body, 'wCell() not found — sentinel is stale');
-    assert.match(body[1], /w\.band == null/);            // no band → counts only
-    assert.match(body[1], /Number\(w\.band\)\.toFixed\(1\)/);
+  const row = (over) => ({ task1Wc: null, task2Wc: null, task1EssayId: null, task2EssayId: null, band: null, bandIsFinal: false, ...over });
+  test('the cell renders the band next to the word counts', () => {
+    assert.equal(writingText(row({ task1Wc: 160, task2Wc: 270 })), 'T1 160 · T2 270 từ');
+    assert.equal(writingText(row({ task1Wc: 160, task2Wc: 270, band: 6.5, bandIsFinal: true })), 'T1 160 · T2 270 từ · B6.5');
   });
-  // A suggestion rendered like a confirmed band would show the examiner a score
-  // nobody signed off on — the two states must be visually distinct.
-  test('a suggestion is muted + tilde-prefixed; only a confirmed band is bold', () => {
-    const body = JS.match(/function wCell\(w\) \{([\s\S]*?)\n  \}/);
-    assert.match(body[1], /w\.band_is_final/);
-    assert.match(body[1], /<b>' \+ b \+ '<\/b>/);         // confirmed → bold, like L/R
-    assert.match(body[1], /mr-muted[\s\S]*?'~' \+ b|mr-muted[\s\S]*?~' \+ b/);   // suggestion → muted "~B6.5"
+  // A suggestion rendered like a confirmed band would show a score nobody signed off on.
+  test('a suggestion is tilde-prefixed; a confirmed band is not', () => {
+    assert.equal(writingText(row({ band: 6.5, bandIsFinal: false })), '~B6.5');
+    assert.equal(writingText(row({ band: 6.5, bandIsFinal: true })), 'B6.5');
   });
-  // Counts and band are independent facts. The first cut bailed to "—" on
-  // missing word counts BEFORE looking at the band, which would hide a band the
-  // cell exists to show (Codex review, PR #775).
-  test('wCell shows "—" only when the counts AND the band are both absent', () => {
-    const body = JS.match(/function wCell\(w\) \{([\s\S]*?)\n  \}/);
-    assert.ok(body, 'wCell() not found — sentinel is stale');
-    assert.match(body[1], /!hasWc && w\.band == null/);
-    // the old conflated guard must not come back
-    assert.doesNotMatch(body[1], /task1_wc == null && w\.task2_wc == null/);
+  // Counts and band are independent facts (Codex review, PR #775).
+  test('"—" only when the counts AND the band are both absent', () => {
+    assert.equal(writingText(row({})), '—');
   });
   test('a band with no word counts still renders (band alone, no prefix)', () => {
-    const body = JS.match(/function wCell\(w\) \{([\s\S]*?)\n  \}/);
-    // counts are pushed only when present; the band is pushed independently,
-    // so a band-only cell joins to just the band.
-    assert.match(body[1], /if \(hasWc\) \{[\s\S]*?parts\.push/);
-    assert.match(body[1], /if \(w\.band != null\) \{[\s\S]*?parts\.push/);
-    assert.match(body[1], /parts\.join\(' · '\)/);
+    assert.equal(writingText(row({ band: 5, bandIsFinal: true })), 'B5.0');
   });
 });
 
-// The L/R bands were already in ai_draft — derived from the auto-graded score —
-// but the form only ever read draft.writing, so the examiner retyped numbers the
-// machine had computed and stored. Nothing on this form is a judgement call:
-// L/R come off the answer key, Writing off the two essays the admin approved one
-// by one. Saving is a confirmation, not data entry.
+// The L/R bands were already in ai_draft, but the form only ever read
+// draft.writing, so the examiner retyped numbers the machine had stored.
 describe('admin-mock-reviews — every band pre-fills, not just Writing', () => {
-  const grab = (re, what) => {
-    const m = JS.match(re);
-    assert.ok(m, `${what} not found — sentinel is stale`);
-    return m[0];
-  };
-  const draftBandOf = new Function(
-    grab(/  function draftBandOf\(draft, skill\) \{[\s\S]*?\n  \}/, 'draftBandOf()')
-    + '\nreturn draftBandOf;')();
-
   test('reads the band out of the real ai_draft shapes', () => {
-    // Production: L/R are {raw, band} from the auto-grader; writing is
-    // {band, task1_band, task2_band} from sync_writing_band_for_essay.
     const draft = {
       listening: { raw: 18, band: 5.5 },
-      reading:   { raw: 30, band: 7.0 },
-      writing:   { band: 5.0, task1_band: 5.0, task2_band: 5.0 },
+      reading: { raw: 30, band: 7.0 },
+      writing: { band: 5.0, task1_band: 5.0, task2_band: 5.0 },
     };
     assert.equal(draftBandOf(draft, 'listening'), 5.5);
     assert.equal(draftBandOf(draft, 'reading'), 7.0);
@@ -98,61 +98,33 @@ describe('admin-mock-reviews — every band pre-fills, not just Writing', () => 
     assert.equal(draftBandOf({ listening: 6.5 }, 'listening'), 6.5);
   });
   test('absent / null / band-less yield null, never 0 or NaN', () => {
-    // A falsy-but-wrong value here would silently pre-fill a band nobody computed.
     assert.equal(draftBandOf({}, 'listening'), null);
     assert.equal(draftBandOf({ listening: null }, 'listening'), null);
     assert.equal(draftBandOf({ writing: { band: null } }, 'writing'), null);
     assert.equal(draftBandOf(null, 'reading'), null);
   });
   test('the form pre-fills from the draft for ANY skill, not just writing', () => {
-    assert.match(JS, /var draftBand = draftBandOf\(draft, s\);/);
-    // the skill-name test is exactly what hid the L/R drafts
-    assert.doesNotMatch(JS, /s === 'writing' && draft\.writing/);
+    const detail = detailWith({ draft: { listening: { raw: 18, band: 5.5 }, reading: { raw: 30, band: 7 } } });
+    assert.deepEqual(initialBandDraft(detail), { listening: '5.5', reading: '7', writing: '' });
   });
   test('each pre-filled band names where it came from', () => {
-    // The examiner is confirming a number — they are owed its provenance.
-    assert.match(JS, /listening: 'Tự tính từ số câu đúng'/);
-    assert.match(JS, /writing:   'Gợi ý từ 2 bài đã chấm'/);
-    assert.match(JS, /DRAFT_SOURCE\[s\]/);
+    const detail = detailWith({ draft: { listening: { raw: 18, band: 5.5 }, reading: { raw: 30, band: 7 } } });
+    assert.equal(bandCaption(detail, 'listening'), 'Tự tính từ số câu đúng');
+    assert.equal(bandCaption(detail, 'reading'), 'Tự tính từ số câu đúng');
+    assert.equal(BAND_SOURCE.listening, 'Tự tính từ số câu đúng');
   });
-  test('a confirmed final band still wins over the draft', () => {
-    assert.match(JS, /var val = \(fb\[s\] != null\) \? fb\[s\] : \(draftBand != null \? draftBand : ''\)/);
-  });
-});
-
-// Codex P2 (PR #782): Speaking has no draft source — nothing derives it (no
-// answer key like L/R, no per-essay approval like Writing). It arrives blank
-// among pre-filled boxes and doSave refuses it. Presenting the form as one-click
-// and then rejecting it is the lie; the box has to say it needs a band.
-describe('admin-mock-reviews — a skill with no draft says it needs typing', () => {
-  test('an undraftable, unblankable skill is captioned, not left bare', () => {
-    assert.match(JS, /if \(!hint && fb\[s\] == null\) \{[\s\S]*?Chưa có band tự tính — cần bạn nhập/);
-  });
-  test('the caption never overrides a draft hint or the blankable notice', () => {
-    // It is the LAST fallback: `!hint` guards it, so a pre-filled or blankable
-    // skill keeps its own, more specific explanation.
-    const body = JS.match(/var hint = \(draftBand != null[\s\S]*?Chưa có band tự tính[\s\S]*?\n      \}/);
-    assert.ok(body, 'the hint chain not found — sentinel is stale');
-    const iBlank = body[0].indexOf('blankableSkills()');
-    const iNeed = body[0].indexOf('Chưa có band tự tính');
-    assert.ok(iBlank !== -1 && iBlank < iNeed, 'the blankable notice must be checked first');
-  });
-  test('a confirmed band gets no caption at all', () => {
-    assert.match(JS, /if \(!hint && fb\[s\] == null\)/);
+  test('a confirmed band gets no caption', () => {
+    const detail = detailWith({ draft: { listening: { band: 5.5 } }, final: { listening: 6 } });
+    assert.equal(bandCaption(detail, 'listening'), '');
   });
 });
 
-// Writing and L/R are blankable for DIFFERENT reasons — L/R fell off the
-// published table, Writing has no band to compute from (needs both tasks graded).
-// One sentence for both would be wrong for one of them.
-describe('admin-mock-reviews — the blankable notice states the right reason', () => {
-  test('Writing says it is the two-essay rule, not a raw-score table', () => {
-    assert.match(JS, /s === 'writing'[\s\S]*?Chưa chấm đủ 2 bài nên không tính được band/);
-  });
-  test('L/R keeps the raw-score-table reason', () => {
-    assert.match(JS, /Điểm thô không có band trong bảng IELTS/);
-  });
-  test('both still say the overall goes blank with them', () => {
-    assert.match(JS, /\(overall sẽ để trống theo\)/);
+// Writing/L/R blank for a reason: the caption says the box may stay empty.
+describe('admin-mock-reviews — a blankable skill says it may stay empty', () => {
+  test('the blankable caption replaces the "must type" caption', () => {
+    const detail = detailWith({ blankable: ['listening', 'writing'] });
+    assert.match(bandCaption(detail, 'listening'), /có thể để trống/);
+    assert.match(bandCaption(detail, 'writing'), /^Chưa chấm đủ 2 bài .*có thể để trống/);
+    assert.equal(bandCaption(detail, 'reading'), 'Chưa có band tự tính — cần bạn nhập.');
   });
 });
