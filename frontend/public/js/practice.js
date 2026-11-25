@@ -1419,7 +1419,10 @@
       _showP2SubmissionRetry(msg);
       return;
     }
-    showState('recording');
+    // The P1/P3 recorder lives in the 'prep' screen ('recording' is a
+    // sub-state of it, not a screen): asking for a 'recording' screen threw on the Next
+    // player and blanked the legacy page, losing the retry.
+    showState('prep');
     _showRecSub('recorded');
     _renderRecordedPlayback();
     _showRecError(msg);
@@ -1475,11 +1478,11 @@
       try { window.alert(msg); } catch (_) {}
       return;
     }
-    // Practice mode P1/P3: snap back to recording state with the
-    // recorded sub-state still showing the original blob + playback.
+    // Practice mode P1/P3: snap back to the recorder screen ('prep') with
+    // the recorded sub-state still showing the original blob + playback.
     // Submit stays disabled because _renderRecordedLengthHint will
     // re-check _elapsedSecs (which is < min_seconds, by definition).
-    showState('recording');
+    showState('prep');
     _showRecSub('recorded');
     _renderRecordedPlayback();
     _renderRecordedLengthHint();

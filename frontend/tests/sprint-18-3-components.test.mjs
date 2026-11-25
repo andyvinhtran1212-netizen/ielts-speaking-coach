@@ -24,7 +24,8 @@ const MIGRATED = {
   'classes':      front('pages', 'admin', 'classes', 'index.html'),
 };
 const MIGRATED_JS = {
-  'admin-access-codes.js': front('js', 'admin-access-codes.js'),
+  // LEGACYJS-0075 W3a: admin-access-codes.js is deleted (Next panel: no inline
+  // colour/bg, pinned in sprint-17-5-reassignment.test.mjs).
   'admin-usage.js':        front('js', 'admin-usage.js'),
   'admin-foot-traffic.js': front('js', 'admin-foot-traffic.js'),
   'admin-classes.js':      front('js', 'admin-classes.js'),
