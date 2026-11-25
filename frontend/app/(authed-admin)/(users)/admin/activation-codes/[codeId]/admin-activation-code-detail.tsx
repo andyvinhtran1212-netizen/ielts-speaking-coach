@@ -30,7 +30,7 @@ type AuditEntry = {
 };
 
 type DetailUser = AccessCode['assigned_users'][number] & { is_active?: boolean; assigned_at?: string | null };
-type Detail = Omit<AccessCode, 'assigned_users'> & { assigned_users: DetailUser[]; access_holders: { user_id: string; name: string; email: string }[] | null };
+type Detail = Omit<AccessCode, 'assigned_users'> & { assigned_users: DetailUser[]; access_holders: { user_id: string; name: string; email: string }[] | null; user_lookup_failed?: boolean };
 
 type Banner = { kind: 'success' | 'error'; text: string } | null;
 
@@ -172,10 +172,11 @@ export function AdminActivationCodeDetail({ codeId }: { codeId: string }) {
 
           <section className="au-detail-card" aria-labelledby={`${ids}-people`}>
             <h2 id={`${ids}-people`}>Người dùng mã</h2>
+            {detail.user_lookup_failed && !detail.association_lookup_failed ? <p className="au-lookup-failed" role="alert">⚠ Không tải được tên/email người dùng; danh sách bên dưới chỉ có mã tài khoản.</p> : null}
             {detail.association_lookup_failed ? <p className="au-lookup-failed" role="alert">⚠ lookup failed: không tải được danh sách người dùng mã.</p>
               : detail.assigned_users.length ? <ul className="au-detail-list">{detail.assigned_users.map((user) => (
                 <li key={`${user.user_id}-${user.assigned_at || ''}`}>
-                  <span>{user.email || user.name || '(không rõ)'}</span>
+                  <span>{user.email || user.name || (detail.user_lookup_failed ? user.user_id : '(không rõ)')}</span>
                   {user.is_fallback_used_by ? <small className="au-history-label">lịch sử kích hoạt</small>
                     : user.is_active ? <small>đang dùng · từ {formatDate(user.assigned_at || null)}</small>
                       : <small className="au-muted">đã gỡ</small>}

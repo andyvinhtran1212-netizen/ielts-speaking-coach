@@ -249,10 +249,13 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     // The class-assignment screen already names the target class. Keep the
     // backend scope gate, but let the submit flow establish that scope through
     // the canonical /cohorts endpoint instead of forcing a second screen first.
-    const ready = kind === 'exam' ? row.status === 'published' : row.ready === true;
     const already = row.already_given === true;
     const runtime = nullableText(row.runtime);
     const published = row.is_published !== false;
+    // Báo cáo săn lỗi #134: bộ từ vựng nâng cao chưa xuất bản vẫn `ready`, nên
+    // validateHomeworkDraft cho giao dù đã hiện lý do "Chưa xuất bản để giao".
+    const ready = (kind === 'exam' ? row.status === 'published' : row.ready === true)
+      && !(runtime === 'advanced_vocab' && !published);
     let reason = null;
     if (already) reason = 'Đã giao cho lớp này';
     else if (runtime === 'advanced_vocab' && !published) reason = 'Chưa xuất bản để giao';

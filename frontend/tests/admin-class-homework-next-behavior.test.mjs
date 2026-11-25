@@ -196,6 +196,17 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(Object.hasOwn(result.body, 'retake_size'), false);
   });
 
+  test('an unpublished Advanced Vocabulary set flagged ready still cannot be given (bug-hunt #134)', () => {
+    const catalog = normalizeCatalog({ items: [{
+      id: 'adv-1', title: 'Advanced T01', ready: true,
+      runtime: 'advanced_vocab', is_published: false,
+    }] }, 'course');
+    assert.equal(catalog[0].ready, false);
+    const result = validateHomeworkDraft({ title: 'Bài 1', contentId: 'adv-1' }, catalog);
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Chưa xuất bản để giao');
+  });
+
   test('Advanced Vocabulary publication truth disables the picker after every reload', () => {
     const draft = normalizeCatalog({ items: [{
       id: 'adv-1', title: 'Advanced T01', ready: false,
