@@ -20,7 +20,8 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 // LEGACYJS-0075 W3a: admin-users.js is deleted; the Users tab is the Next panel.
 const USERS_JS    = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
 const USERS_HTML  = front('pages', 'admin', 'users', 'index.html');
-const COHORTS_JS  = front('js', 'admin-classes.js');
+// LEGACYJS-0075 W3b: admin-classes.js is deleted; the add-member picker is the Next class detail.
+const COHORTS_JS  = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
 // GĐ 1b: Lớp và Học viên là hai tab của CÙNG trang gộp.
 const STUDENTS_HTML = front('pages', 'admin', 'classes', 'index.html');
@@ -57,13 +58,14 @@ describe('Sprint 18.1 D — cohort add-member user dropdown', () => {
     assert.match(COHORTS_HTML, /<select id="mf-student">/);
     assert.doesNotMatch(COHORTS_HTML, /<input id="mf-student"/);
   });
-  test('dropdown is populated from GET /admin/students (WF-1 roster picker)', () => {
-    assert.match(COHORTS_JS, /populateStudentPicker/);
-    assert.match(COHORTS_JS, /api\.get\('\/admin\/students/);
+  test('Next picker is a <select> populated from GET /admin/students (WF-1 roster picker)', () => {
+    assert.match(COHORTS_JS, /<Field label="Học viên"[^>]*><select autoFocus value=\{selectedStudent\}/);
+    assert.match(COHORTS_JS, /window\.api\.get<unknown>\('\/admin\/students\?limit=200'\)/);
+    assert.match(COHORTS_JS, /normalizeStudentOptions\(value\)/);
   });
-  test('Pattern #26 — no inline colour/bg in admin-classes.js', () => {
-    assert.doesNotMatch(COHORTS_JS, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(COHORTS_JS, /style\s*=\s*["'][^"']*background/);
+  test('Pattern #26 — no inline colour/bg in the class detail', () => {
+    assert.doesNotMatch(COHORTS_JS, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(COHORTS_JS, /style=\{\{[^}]*background/);
     assert.doesNotMatch(COHORTS_JS, /rgba\(\s*\d+\s*,/);
   });
 });
