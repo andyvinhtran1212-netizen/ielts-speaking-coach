@@ -40,3 +40,29 @@ async function fetchDirectory({
 export const getVocabularyCategories = cache(fetchCategories);
 export const getVocabularyArticle = cache(fetchArticle);
 export const getVocabularyDirectory = cache(fetchDirectory);
+
+/**
+ * Every directory word (LIBRARY-0061 T015: "Kết quả tra" and near-word
+ * suggestions run over the full list). The directory caps a page at 100, so
+ * this reads page by page; each page is the same cached public read as above.
+ * A failed page throws: a partial list would make an existing word look
+ * absent, so the caller shows a load error instead.
+ */
+async function fetchAllWords(): Promise<VocabularyDirectoryWire['items']> {
+  const items: VocabularyDirectoryWire['items'] = [];
+  let total = 0;
+  for (let page = 0; page < 40; page += 1) {
+    const result = await getVocabularyDirectory({ offset: items.length, limit: 100 });
+    if (!result) throw new Error('vocabulary directory page missing');
+    total = result.total;
+    if (!result.items?.length) break;
+    items.push(...result.items);
+    if (items.length >= total) break;
+  }
+  // A short read (page cap reached, or an empty page before the total) is a
+  // failure, not an answer: a missing word must never read as "not found".
+  if (items.length < total) throw new Error('vocabulary directory incomplete');
+  return items;
+}
+
+export const getAllVocabularyWords = cache(fetchAllWords);
