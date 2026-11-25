@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import { ExamCreateForm, PUBLIC_SOURCE_HIDE_WARNING } from '@/app/(authed-admin-mock-exams)/admin/mock-exams/exam-create-form';
+import { ExamCreateForm, PUBLIC_SOURCE_HIDE_WARNING } from '@/app/(authed-admin)/(mock-exams)/admin/mock-exams/exam-create-form';
 
 // Picker rows: `pub-*` sources are public, `priv-*` sources are already hidden.
 beforeEach(() => {

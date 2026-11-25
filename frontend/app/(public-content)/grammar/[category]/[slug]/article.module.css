@@ -1,0 +1,131 @@
+/* Grammar article frame (LIBRARY-0061 T014 PR (a); tờ GrammarWikiBai). Only var(--av2-*).
+   The article HTML keeps `.article-body` from grammar-wiki.css until T014 PR (c).
+   Paragraph classes are doubled (.x.x) so legacy `body.av-page p` rules do not reset them. */
+.page { min-height: 60vh; }
+
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--av2-space-6) var(--av2-space-8) var(--av2-space-12);
+}
+
+.back.back { margin: var(--av2-space-3) 0 0; }
+
+.main { margin-top: var(--av2-space-8); outline: none; }
+
+.eyebrow.eyebrow {
+  margin: 0 0 var(--av2-space-3);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-13);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+
+.title.title {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-40);
+  line-height: var(--av2-lh-tight);
+  color: var(--av2-ink);
+}
+
+.subtitle {
+  display: block;
+  margin-top: var(--av2-space-2);
+  font-size: var(--av2-fs-24);
+  font-weight: var(--av2-fw-regular);
+}
+
+.meta.meta {
+  margin: var(--av2-space-4) 0 0;
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-15);
+  color: var(--av2-muted);
+}
+
+.save { margin-top: var(--av2-space-4); font-family: var(--av2-font-sans); font-size: var(--av2-fs-15); }
+.save:empty { display: none; }
+.saveNote.saveNote { margin: 0; color: var(--av2-ink); }
+.saveNote a { color: var(--av2-link); font-weight: var(--av2-fw-strong); }
+.saveButton {
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-6);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: var(--av2-fw-strong) var(--av2-fs-15) / 1.2 var(--av2-font-sans);
+  cursor: pointer;
+}
+.saveOn { background: var(--av2-ink); color: var(--av2-surface); }
+.saveButton:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+.practice.practice {
+  margin: 0;
+  padding-top: var(--av2-space-5);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-16);
+}
+.practice a { color: var(--av2-link); font-weight: var(--av2-fw-strong); }
+
+.muted { color: var(--av2-muted); }
+
+.section { font-family: var(--av2-font-sans); }
+
+.sectionTitle.sectionTitle {
+  margin: 0 0 var(--av2-space-4);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  color: var(--av2-ink);
+}
+
+.linkList { display: grid; row-gap: var(--av2-space-3); margin: 0; padding: 0; list-style: none; font-size: var(--av2-fs-16); }
+.linkList a,
+.prevNext a { color: var(--av2-link); }
+
+.prevNext {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--av2-space-6);
+  padding-top: var(--av2-space-6);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-16);
+}
+
+.prev,
+.next { display: grid; row-gap: var(--av2-space-2); min-height: var(--av2-control-md); text-decoration: none; }
+.prev span:last-child,
+.next span:last-child { text-decoration: underline; }
+.next { text-align: right; }
+
+.prev:focus-visible,
+.next:focus-visible,
+.linkList a:focus-visible,
+.practice a:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+@media (max-width: 767px) {
+  .inner { padding: var(--av2-space-5) var(--av2-space-5) var(--av2-space-10); }
+  .title.title { font-size: var(--av2-fs-24); }
+  .subtitle { font-size: var(--av2-fs-18); }
+  .prevNext { grid-template-columns: 1fr; row-gap: var(--av2-space-5); }
+  .next { text-align: left; }
+}
+
+/* loading.tsx skeleton: plain blocks in the reading frame's columns, no animation. */
+.loadingNote.loadingNote { margin: 0 0 var(--av2-space-6); font-family: var(--av2-font-sans); color: var(--av2-muted); }
+.skeleton { display: grid; grid-template-columns: 224px minmax(0, 640px); column-gap: var(--av2-space-8); }
+.skelToc { display: block; height: 160px; background: var(--av2-off); }
+.skelText { display: grid; row-gap: var(--av2-space-4); }
+.skelLine { display: block; height: var(--av2-space-4); background: var(--av2-off); }
+.skelLine[data-w='eyebrow'] { width: 30%; }
+.skelLine[data-w='title'] { width: 80%; height: var(--av2-space-10); }
+.skelLine[data-w='meta'] { width: 50%; }
+.skelLine[data-w='short'] { width: 60%; }
+
+@media (max-width: 1023px) {
+  .skeleton { grid-template-columns: minmax(0, 1fr); }
+  .skelToc { display: none; }
+}

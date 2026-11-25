@@ -1,12 +1,12 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
-import { D1ExercisePlayer } from '@/app/(authed-d1-exercise)/d1-exercise/d1-exercise-player';
+import { D1ExercisePlayer } from '@/app/(authed-d1-exercise)/vocabulary/fill-in/d1-exercise-player';
 import { VocabularyHubBehavior } from '@/app/(authed-vocabulary-hub)/vocabulary/hub/vocabulary-hub-behavior';
 import { sharedAuthMe } from '@/lib/auth/auth-me-single-flight.mjs';
 
 // PC-J147 — one /auth/me per page load. Since PC-J06 the chrome's role lookup
 // overlaps the page's opening reads, and staging serves requests one at a time,
-// so a second /auth/me delayed what paints /d1-exercise and /vocabulary/hub.
+// so a second /auth/me delayed what paints /vocabulary/fill-in and /vocabulary/hub.
 vi.mock('client-only', () => ({}));
 const mocks = vi.hoisted(() => ({
   auth: { status: 'signed-in', user: { id: 'learner-a' } },

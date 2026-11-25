@@ -20,6 +20,9 @@ function launch(overrides, check, command = launcher.runtimeArgs) {
     for (const file of ['generate-runtime-config.mjs', 'runtime-origins.mjs', 'content-security-policy.mjs']) {
       copyFileSync(path.join(ROOT, 'frontend/tooling', file), path.join(frontend, 'tooling', file));
     }
+    // generate-runtime-config.mjs reads the exam-room surface names (0066 amendment 1 (b)).
+    mkdirSync(path.join(frontend, 'lib/exam-room'), { recursive: true });
+    copyFileSync(path.join(ROOT, 'frontend/lib/exam-room/flags.mjs'), path.join(frontend, 'lib/exam-room/flags.mjs'));
     const bin = path.join(root, 'bin');
     mkdirSync(bin);
     symlinkSync(process.execPath, path.join(bin, 'node'));

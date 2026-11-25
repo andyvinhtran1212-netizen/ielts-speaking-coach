@@ -6,7 +6,11 @@ export type IconProps = {
   name: IconName;
   /** 16 | 20 | 22 | 24 px. Default 20. */
   size?: 16 | 20 | 22 | 24;
-  /** Without a title the icon is decorative (`aria-hidden`). */
+  /**
+   * Without a title the icon is decorative (`aria-hidden`). With one, name the
+   * action in context: the sheet labels are not unique (`more` and `plus` are
+   * both "Thêm"), so do not reuse a sheet label as a title where both appear.
+   */
   title?: string;
   className?: string;
 };

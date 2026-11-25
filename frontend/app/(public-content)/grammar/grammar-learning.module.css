@@ -1,0 +1,131 @@
+/* "Học & luyện" panel and the mode switch of the Grammar home (LIBRARY-0061
+   T014 PR (c2); replaces the gw-mode-*, gw-learning-*, gw-next-step,
+   gw-personal-* and gw-state-card rules of grammar-wiki.css). The gw-* class
+   names stay on the elements for tests and flows; the look comes from here.
+   Only var(--av2-*). Headings and paragraphs are doubled (.x.x) because
+   base.css resets them inside .av2-root. */
+
+.modeSwitch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 0 var(--av2-space-8);
+  border-bottom: var(--av2-rule-w) solid var(--av2-ink);
+  font-family: var(--av2-font-sans);
+}
+.modeTab {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--av2-space-3);
+  min-height: var(--av2-control-lg);
+  padding: var(--av2-space-3) var(--av2-space-4);
+  border: 0;
+  border-bottom: var(--av2-rule-strong-w) solid transparent;
+  background: none;
+  color: var(--av2-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.modeTab > span { grid-row: 1 / 3; align-self: center; font-size: var(--av2-fs-20); }
+.modeTab strong { color: var(--av2-ink); font-size: var(--av2-fs-16); }
+.modeTab small { font-size: var(--av2-fs-14); }
+.modeTab[aria-selected='true'] { border-bottom-color: var(--av2-ink); color: var(--av2-ink); }
+.modeTab:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.panel[hidden] { display: none; }
+
+.sectionHead.sectionHead {
+  margin: 0 0 var(--av2-space-4);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-13);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+.section { margin-bottom: var(--av2-space-10); }
+
+.callout {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-5);
+  padding: var(--av2-space-5);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+  font-family: var(--av2-font-sans);
+}
+.callout > div { flex: 1; min-width: 0; }
+.callout h3.calloutTitle { margin: var(--av2-space-1) 0 var(--av2-space-2); font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); color: var(--av2-ink); }
+.calloutText.calloutText { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-15); }
+.orbit { flex: 0 0 auto; font-size: var(--av2-fs-24); color: var(--av2-muted); }
+.eyebrow {
+  display: block;
+  font-size: var(--av2-fs-13);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+.calloutAction.calloutAction {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-5);
+  border-radius: var(--av2-radius);
+  background: var(--av2-accent);
+  color: var(--av2-on-accent);
+  font-weight: var(--av2-fw-strong);
+  text-decoration: none;
+}
+.calloutAction.calloutAction:hover { background: var(--av2-accent-hover); color: var(--av2-on-accent); }
+.calloutAction:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: var(--av2-space-6);
+  margin-top: var(--av2-space-6);
+  font-family: var(--av2-font-sans);
+}
+.card { min-width: 0; border-top: var(--av2-rule-w) solid var(--av2-ink); padding-top: var(--av2-space-3); }
+.card h3.cardTitle { margin: 0 0 var(--av2-space-2); font-family: var(--av2-font-serif); font-size: var(--av2-fs-18); color: var(--av2-ink); }
+.card ul { margin: 0; padding: 0; list-style: none; }
+.card li + li { border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.card a { display: flex; justify-content: space-between; gap: var(--av2-space-2); min-height: var(--av2-control-md); align-items: center; color: var(--av2-link); font-size: var(--av2-fs-15); }
+.card a:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.cardEmpty.cardEmpty { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-15); }
+
+.state.state { margin: 0; padding: var(--av2-space-5) 0; color: var(--av2-muted); font-family: var(--av2-font-sans); font-size: var(--av2-fs-16); }
+.loading { display: block; height: var(--av2-space-12); background: var(--av2-off); }
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 var(--av2-space-12);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  font-family: var(--av2-font-sans);
+}
+.actions > a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--av2-space-1) var(--av2-space-3);
+  padding: var(--av2-space-4) var(--av2-space-4) var(--av2-space-4) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+.actions > a + a { padding-left: var(--av2-space-4); border-left: var(--av2-rule-w) solid var(--av2-rule); }
+.actions span { grid-row: 1 / 3; font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); color: var(--av2-muted); }
+.actions strong { color: var(--av2-link); text-decoration: underline; }
+.actions small { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.actions > a:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+@media (max-width: 767px) {
+  .grid, .actions { grid-template-columns: minmax(0, 1fr); }
+  .card + .card { margin-top: var(--av2-space-5); }
+  .actions > a + a { padding-left: 0; border-left: 0; }
+  .callout { flex-wrap: wrap; align-items: flex-start; }
+}
+@media (max-width: 479px) {
+  .modeSwitch { grid-template-columns: minmax(0, 1fr); }
+}
