@@ -383,6 +383,204 @@ check('Closing the modal restores page controls and disables discard on dashboar
 check('không có lỗi JS chưa bắt', errs.length === 0, errs[0] || '');
 
 await browser.close();
+
+// ── EXAMSPEAK-0072 T002: trang luyện /practice/session, hai nhánh, micro giả ──
+// Thiết bị giả của Chromium cho `getUserMedia` + `MediaRecorder` chạy THẬT (âm
+// bíp), không stub mã sản phẩm. Nhánh cờ tắt phải y như trước (header cũ,
+// window.confirm khi rời bài); nhánh cờ bật (runtime config staging +
+// examRoomSurfaces ['speaking']) phải có thanh tập trung, trạng thái micro và
+// ghi âm bằng chữ, lý do quá ngắn trong trang, hộp ghi lại và hộp rời bài, và
+// KHÔNG một hộp thoại trình duyệt nào (FR-012). Backend vẫn giả: không gọi STT
+// hay chấm AI thật, không tốn tiền.
+//   SPEAKING_FLOW_SHOTS=<thư mục> chụp thân trang trong phòng: 390px và 1280px,
+//   sáng và tối (điều kiện merge của #2599).
+const PRACTICE_SESSION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const PRACTICE_QUESTION = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const SHOTS = process.env.SPEAKING_FLOW_SHOTS || '';
+const ROOM_CONFIG = 'window.__AVER_RUNTIME_CONFIG__ = Object.freeze({"environment":"staging","apiBase":null,'
+  + '"supabaseUrl":null,"supabaseAnonKey":null,"release":null,"gitRef":null,'
+  + '"coreOperationCorrelationEnabled":false,"writingAdmissionEnabled":false,"examRoomSurfaces":["speaking"]});';
+
+async function launchFakeMic() {
+  const args = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'];
+  try {
+    return await chromium.launch({ args });
+  } catch (error) {
+    const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    if (process.platform === 'darwin' && existsSync(localChrome)) return chromium.launch({ executablePath: localChrome, args });
+    throw error;
+  }
+}
+
+async function practicePage(micBrowser, { room, width = 1280, height = 900, theme = 'light' }) {
+  const context = await micBrowser.newContext({ viewport: { width, height } });
+  await context.addInitScript(([k, v, t]) => {
+    try { localStorage.setItem(k, v); localStorage.setItem('av-theme', t); } catch (_) {}
+  }, [storageKey(SB), fakeSession, theme]);
+  const p = await context.newPage();
+  const state = { writes: [], dialogs: [], errors: [], responseCount: 0, audioBytes: 0 };
+  await p.route('**/*', async (route) => {
+    const req = route.request();
+    const url = req.url();
+    if (url.startsWith(BASE) && new URL(url).pathname === '/js/runtime-config.js' && room) {
+      return route.fulfill({ status: 200, contentType: 'application/javascript', body: ROOM_CONFIG });
+    }
+    if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('blob:')) return route.continue();
+    const json = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    if (req.method() !== 'GET' && !/analytics/.test(url)) state.writes.push(`${req.method()} ${new URL(url).pathname}`);
+    if (/\/auth\/me$/.test(url)) return json(CANNED[0][1]);
+    if (/\/sessions\/[^/]+\/questions$/.test(url)) {
+      return json([{ id: PRACTICE_QUESTION, question_text: 'Describe a place you like.', order_num: 1 }]);
+    }
+    if (/\/renderer-affinity$/.test(url)) return json({ session_id: PRACTICE_SESSION, renderer_affinity: 'next' });
+    if (/\/sessions\/[^/]+\/responses$/.test(url) && req.method() === 'POST') {
+      state.responseCount += 1;
+      state.audioBytes = (req.postDataBuffer() || Buffer.alloc(0)).length;
+      return json({
+        response_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', question_id: PRACTICE_QUESTION,
+        transcript: 'This is a test answer.', overall_band: 6.5, fluency_score: 6.5, lexical_score: 6.5,
+        grammar_score: 6.5, pronunciation_score: 6.5, feedback: {}, grammar_issues: [], recommendations: [],
+      });
+    }
+    if (/\/sessions\/[^/?]+$/.test(url) && req.method() === 'GET') {
+      return json({
+        id: PRACTICE_SESSION, part: 1, mode: 'practice', status: 'in_progress',
+        questions: [{ id: PRACTICE_QUESTION, question_text: 'Describe a place you like.', order_num: 1 }], responses: [],
+        // The submission controller reads the session before it uploads and
+        // fails closed unless the server says a retry is safe.
+        submission_retry_safe: true,
+      });
+    }
+    if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
+    return json({});
+  });
+  p.on('dialog', (d) => { state.dialogs.push(`${d.type()}: ${d.message()}`); void d.dismiss(); });
+  p.on('pageerror', (e) => state.errors.push(String(e)));
+  await p.goto(`${BASE}/practice/session?session_id=${PRACTICE_SESSION}`, { waitUntil: 'domcontentloaded' });
+  await p.locator('#state-prep.active').waitFor({ timeout: 20000 });
+  // The room is a lazy chunk; until it lands the body shows without a header.
+  if (room) await p.locator('[data-exam-room-speaking]').waitFor({ timeout: 10000 });
+  return { p, context, state };
+}
+
+const visible = async (p, selector) => p.locator(selector).first().isVisible().catch(() => false);
+
+// The first take starts from #prep-start-btn; after "Ghi lại" the recorder's own
+// "Bắt đầu ghi âm" is the visible one.
+async function recordFor(p, ms) {
+  await p.locator('button:visible', { hasText: 'Bắt đầu ghi âm' }).first().click();
+  await p.locator('#rec-recording').waitFor({ state: 'visible', timeout: 15000 });
+  await p.waitForTimeout(ms);
+  await p.getByRole('button', { name: 'Dừng ghi âm' }).click();
+  await p.locator('#rec-recorded').waitFor({ state: 'visible', timeout: 10000 });
+}
+
+const micBrowser = await launchFakeMic();
+for (const room of [false, true]) {
+  const tag = room ? 'phòng (cờ bật)' : 'cờ tắt';
+  const { p, context, state } = await practicePage(micBrowser, { room });
+  check(`${tag}: ${room ? 'thanh tập trung thay header cũ' : 'header cũ, không có phòng'}`,
+    room
+      ? await p.locator('[data-exam-room-speaking]').count() === 1 && await p.locator('header.practice-header').count() === 0
+      : await p.locator('header.practice-header').count() === 1 && await p.locator('[data-exam-room-speaking], [data-room-slot]').count() === 0);
+  // UIBASE-0056 FR-009: no site navigation above the focus bar; FocusShell's
+  // skip link stays above the fold until focused (CR #2626).
+  const chromeShown = await p.evaluate(() => [...document.querySelectorAll('aver-chrome')]
+    .some((el) => getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0));
+  check(`${tag}: ${room ? 'ẩn thanh điều hướng site' : 'giữ thanh điều hướng site'}`, room ? !chromeShown : chromeShown);
+  if (room) {
+    const skipBottom = await p.evaluate(() => {
+      const a = [...document.querySelectorAll('a')].find((x) => /Bỏ qua tới nội dung/.test(x.textContent || ''));
+      return a ? a.getBoundingClientRect().bottom : null;
+    });
+    check(`${tag}: link "Bỏ qua tới nội dung" nằm ngoài vùng nhìn khi chưa focus`, skipBottom !== null && skipBottom <= 0, String(skipBottom));
+  }
+
+  // Ghi 3 giây: quá ngắn cho Part 1 (15 giây).
+  await p.locator('#prep-start-btn').click();
+  await p.locator('#rec-recording').waitFor({ state: 'visible', timeout: 15000 });
+  if (room) {
+    await p.waitForTimeout(700);
+    check(`${tag}: trạng thái ghi âm bằng chữ "Đang ghi"`,
+      (await p.locator('[data-rec-phase]').first().getAttribute('data-rec-phase')) === 'recording');
+  }
+  await p.waitForTimeout(2600);
+  await p.getByRole('button', { name: 'Dừng ghi âm' }).click();
+  await p.locator('#rec-recorded').waitFor({ state: 'visible', timeout: 10000 });
+  if (room) {
+    const reason = (await p.locator('[data-room-too-short]').first().textContent().catch(() => '')) || '';
+    check(`${tag}: bản quá ngắn nói lý do bằng số giây trong trang`, /^Bản ghi \d giây, Part 1 cần ít nhất 15 giây\./.test(reason), reason);
+  } else {
+    check(`${tag}: không có ô lý do của phòng`, await p.locator('[data-room-too-short]').count() === 0);
+  }
+  check(`${tag}: nút Nộp khoá khi bản ghi quá ngắn`, await p.locator('#rec-submit-btn').isDisabled());
+
+  if (room && SHOTS) {
+    await p.screenshot({ path: `${SHOTS}/speaking-room-too-short-1280-light.png` });
+  }
+
+  // "Ghi lại" (FR-006).
+  await p.getByRole('button', { name: 'Ghi lại' }).click();
+  if (room) {
+    const box = p.getByRole('alertdialog');
+    await box.waitFor({ timeout: 5000 });
+    check(`${tag}: "Ghi lại" hỏi "Xoá bản ghi này và ghi lại?"`, (await box.textContent() || '').includes('Xoá bản ghi này và ghi lại?'));
+    await box.getByRole('button', { name: 'Giữ bản ghi' }).click();
+    check(`${tag}: "Giữ bản ghi" giữ nguyên bản ghi`, await visible(p, '#rec-recorded'));
+    await p.getByRole('button', { name: 'Ghi lại' }).click();
+    await p.getByRole('alertdialog').getByRole('button', { name: 'Xoá và ghi lại' }).click();
+  }
+  await p.waitForTimeout(300);
+  check(`${tag}: ghi lại xong thì về "Sẵn sàng"`, await visible(p, '#rec-idle') && !(await visible(p, '#rec-recorded')));
+
+  // Rời bài khi còn bản ghi chưa gửi (FR-007).
+  await recordFor(p, 1500);
+  const pathBefore = new URL(p.url()).pathname;
+  if (room) {
+    await p.getByRole('button', { name: /Thoát/ }).click();
+    const box = p.getByRole('alertdialog');
+    await box.waitFor({ timeout: 5000 });
+    check(`${tag}: "‹ Thoát" mở hộp "Bạn có bản ghi chưa gửi"`, (await box.textContent() || '').includes('Bạn có bản ghi chưa gửi'));
+    await box.getByRole('button', { name: 'Ở lại' }).click();
+  } else {
+    await p.locator('header.practice-header a.practice-back-link').click();
+    await p.waitForTimeout(500);
+    check(`${tag}: rời bài vẫn hỏi bằng window.confirm như trước`, state.dialogs.some((d) => d.startsWith('confirm: Bạn có bản ghi chưa gửi')), state.dialogs.join(' | '));
+  }
+  check(`${tag}: chọn ở lại thì giữ trang và bản ghi`,
+    new URL(p.url()).pathname === pathBefore && await visible(p, '#rec-recorded'));
+
+  // Ghi đủ 16 giây rồi nộp: cùng một request như trước ở cả hai nhánh.
+  await p.getByRole('button', { name: 'Ghi lại' }).click();
+  if (room) await p.getByRole('alertdialog').getByRole('button', { name: 'Xoá và ghi lại' }).click();
+  await recordFor(p, 16000);
+  await p.locator('#rec-submit-btn').click();
+  await p.locator('#state-feedback.active').waitFor({ timeout: 20000 }).catch(() => {});
+  check(`${tag}: nộp một lần, sang màn nhận xét`, state.responseCount === 1 && await visible(p, '#state-feedback'), `responses=${state.responseCount}`);
+  check(`${tag}: ghi lên máy chủ đúng thứ tự cũ`,
+    JSON.stringify(state.writes) === JSON.stringify([
+      `POST /sessions/${PRACTICE_SESSION}/renderer-affinity`, `POST /sessions/${PRACTICE_SESSION}/responses`,
+    ]), state.writes.join(', '));
+  check(`${tag}: bản ghi gửi đi có tệp âm thanh khác rỗng`, state.audioBytes > 0, `${state.audioBytes} bytes`);
+  if (room) check(`${tag}: không hộp thoại trình duyệt nào (FR-012)`, state.dialogs.length === 0, state.dialogs.join(' | '));
+  check(`${tag}: không có lỗi JS chưa bắt`, state.errors.length === 0, state.errors[0] || '');
+  await context.close();
+}
+
+// Ảnh thân trang cũ trên nền paper của phòng (#2599): 390px và 1280px, sáng và tối.
+if (SHOTS) {
+  for (const theme of ['light', 'dark']) {
+    for (const [width, height] of [[390, 844], [1280, 900]]) {
+      const { p, context } = await practicePage(micBrowser, { room: true, width, height, theme });
+      await p.waitForTimeout(800);
+      await p.screenshot({ path: `${SHOTS}/speaking-room-prep-${width}-${theme}.png`, fullPage: true });
+      await recordFor(p, 1500);
+      await p.screenshot({ path: `${SHOTS}/speaking-room-recorded-${width}-${theme}.png`, fullPage: true });
+      await context.close();
+    }
+  }
+}
+await micBrowser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n  ${results.length - failed.length}/${results.length} đạt`);
 process.exit(failed.length ? 1 : 0);
