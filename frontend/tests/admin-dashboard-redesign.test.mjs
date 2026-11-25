@@ -142,7 +142,8 @@ describe('dashboard page — tiles + sparklines + trends + attention (Next owner
   });
 
   test('reuses design primitives + tokens; no non-existent --av-color-error', () => {
-    assert.match(layout, /admin-components\.css/);
+    // ADMINGROUP-0077 (#2480): the base sheets come from the (authed-admin) parent layout.
+    assert.match(read('frontend/app/(authed-admin)/layout.tsx'), /admin-components\.css/);
     assert.match(layout, /admin-overview\.css/);
     const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
     assert.ok(!/--av-color-error/.test(live), 'the banner must use --av-error, not the non-existent --av-color-error');
