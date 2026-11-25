@@ -992,7 +992,8 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     # mục chưa xong / mới nhất khi một bank có nhiều bài giao
     # (`quiz_service._assignment_item_for`). Danh sách kho chỉ GHI CHÚ ngày đã
     # giao (`last_given_at`) thay vì chặn. Không có chỉ mục duy nhất nào cho
-    # skill='course' (mig 182 chỉ áp cho Speaking).
+    # skill='course' theo bộ (mig 182 chỉ áp cho Speaking); mig 509 chỉ chặn
+    # cùng `give_request_id`, tức bấm lại CÙNG thao tác.
 
     cfg = {
         # Không chụp NỘI DUNG câu hỏi — đề vẫn có đúng một nguồn. Chỉ chụp hình
@@ -1034,10 +1035,9 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
 def _last_given_at(cohort_id: str, skill: str) -> dict[str, str | None]:
     """content_id → thời điểm giao GẦN NHẤT của nội dung ấy cho lớp này."""
     out: dict[str, str | None] = {}
-    for r in (
-        supabase_admin.table("class_assignments").select("content_id, created_at")
-        .eq("cohort_id", cohort_id).eq("skill", skill)
-        .execute().data or []
+    for r in _paged(
+        supabase_admin, "class_assignments", "content_id, created_at",
+        lambda q: q.eq("cohort_id", cohort_id).eq("skill", skill),
     ):
         cid = r.get("content_id")
         if not cid:
@@ -2965,6 +2965,12 @@ async def create_assignment(
     except Exception as exc:
         if give_id and "uq_grammar_lesson_give_request" in str(exc):
             replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
+            if replay:
+                return replay
+        if give_id and course_give and "uq_course_give_request" in str(exc):
+            # Migration 509: the same course give was still in flight when this
+            # one inserted. The winner has committed; answer with its receipt.
+            replay = _existing_grammar_give(cohort_id, give_id, fingerprint, "course")
             if replay:
                 return replay
         # Migration 337 guard: the class was archived after the check above.
