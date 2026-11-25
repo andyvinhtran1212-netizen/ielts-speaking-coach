@@ -30,6 +30,10 @@ class _Table:
     def in_(self, f, vals):
         self._rows = [r for r in self._rows if r.get(f) in vals]
         return self
+    def contains(self, f, sub):
+        self._rows = [r for r in self._rows
+                      if all((r.get(f) or {}).get(k) == v for k, v in sub.items())]
+        return self
     def order(self, *_a, **_k): return self
     def limit(self, *_a): return self
     def range(self, s, e): self._rows = self._rows[s:e + 1]; return self
@@ -486,6 +490,69 @@ def test_giving_the_same_lesson_twice_is_allowed():
                                    "content_id": "bank-1", "title": "Bài cũ"}])
     content_id, _cfg = _resolve(db)
     assert content_id == "bank-1"
+
+
+# ── Giao lại có chủ ý ≠ bấm lại cùng thao tác ────────────────────────────────
+
+_RID = "11111111-1111-4111-8111-111111111111"
+
+
+async def _give(monkeypatch, db, body):
+    """create_assignment với kho giả; trả (kết quả, các lần gọi fan-out)."""
+    calls = []
+
+    async def admin(_h): return {"id": "ad"}
+    monkeypatch.setattr(adm, "require_admin", admin)
+    monkeypatch.setattr(adm, "_require_cohort", lambda _c: _COHORT)
+    monkeypatch.setattr(adm, "_require_active_cohort", lambda _c: None)
+    monkeypatch.setattr(adm, "supabase_admin", db)
+    monkeypatch.setattr(adm, "_resolve_course_bank",
+                        lambda _c, _b: ("bank-1", {"test_title": "Buổi 1"}))
+
+    def create(_db, **kw):
+        calls.append(kw)
+        return {"id": "a-new", "student_count": 3, "unactivated_count": 0}
+    monkeypatch.setattr(adm, "create_class_assignment", create)
+    return await adm.create_assignment("co-1", body, authorization="Bearer x"), calls
+
+
+@pytest.mark.asyncio
+async def test_a_deliberate_regive_with_a_new_request_id_creates_a_new_assignment(monkeypatch):
+    body = _body(give_request_id=_RID)
+    old = {"id": "a1", "cohort_id": "co-1", "skill": "course", "content_id": "bank-1",
+           "content_config": {"give_request_id": "22222222-2222-4222-8222-222222222222",
+                              "give_fingerprint": "x"}}
+    out, calls = await _give(monkeypatch, _db(class_assignments=[old]), body)
+    assert len(calls) == 1 and out["id"] == "a-new"
+    cfg = calls[0]["content_config"]
+    assert cfg["give_request_id"] == _RID
+    assert cfg["give_fingerprint"] == adm._course_give_fingerprint(body)
+
+
+@pytest.mark.asyncio
+async def test_retrying_the_SAME_give_replays_the_receipt_instead_of_a_second_assignment(monkeypatch):
+    body = _body(give_request_id=_RID)
+    saved = {"id": "a-saved", "cohort_id": "co-1", "skill": "course", "content_id": "bank-1",
+             "content_config": {"give_request_id": _RID,
+                                "give_fingerprint": adm._course_give_fingerprint(body)}}
+    db = _db(class_assignments=[saved],
+             class_assignment_items=[{"id": "i1", "assignment_id": "a-saved", "student_id": "s1"}],
+             students=[{"id": "s1", "user_id": "u1"}])
+    out, calls = await _give(monkeypatch, db, body)
+    assert calls == []
+    assert out["id"] == "a-saved" and out["replayed"] is True and out["student_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_reused_request_id_with_a_changed_intent_is_refused(monkeypatch):
+    first = _body(give_request_id=_RID)
+    saved = {"id": "a-saved", "cohort_id": "co-1", "skill": "course",
+             "content_config": {"give_request_id": _RID,
+                                "give_fingerprint": adm._course_give_fingerprint(first)}}
+    changed = _body(give_request_id=_RID, title="Tên khác")
+    with pytest.raises(HTTPException) as exc:
+        await _give(monkeypatch, _db(class_assignments=[saved]), changed)
+    assert exc.value.status_code == 409
 
 
 def test_a_cohort_with_no_course_says_SO():
