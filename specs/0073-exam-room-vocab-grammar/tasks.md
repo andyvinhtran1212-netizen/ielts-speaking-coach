@@ -1,0 +1,7 @@
+# Tasks
+
+- [ ] T001 (G08-T20) Nhánh `quiz-room.tsx` và `flashcard-study-room.tsx` sau `examRoomEnabled('drill')`; nút chấm sau khi lật, vùng cuộn trong thẻ, bộ đếm, hộp làm lại, lối thoát flush, 401 `noRedirect`, nhãn điểm ngữ pháp; test React và `node --test`. Phụ thuộc EXAMROOM-0066 T001–T003. `owns: frontend/app/(authed-quiz-player)/quiz/quiz-player.tsx, frontend/app/(authed-quiz-player)/quiz/quiz-room.tsx, frontend/lib/quiz-player-api.ts, frontend/lib/quiz-player-model.mjs, frontend/app/(flashcard-study)/flashcard-study/flashcard-study-player.tsx, frontend/app/(flashcard-study)/flashcard-study/flashcard-study-room.tsx, frontend/tests/react/quiz-room.test.tsx, frontend/tests/react/flashcard-study-room.test.tsx, frontend/tests/quiz-player-next-model.test.mjs`
+- [ ] T002 (G08-T20) Journey Quick Check ở hai nhánh cờ (`dialog` = 0 khi bật) và ảnh 1280×800, 390×844 của flashcard; sửa và liệt kê test đọc nguồn vỡ có chủ ý. `depends: T001` `owns: frontend/tooling/verify-quiz-flow.mjs, frontend/tooling/verify-grammar-managed-quiz-flow.mjs, frontend/tooling/verify-grammar-quiz-history-flow.mjs`
+- [ ] T003 Staging: bật cờ `drill` trên staging chỉ khi anh Andy gõ duyệt trực tiếp (đổi env staging); nghiệm thu Scenario 1–6. Không gọi AI trả phí. `depends: T002`
+- [ ] T004 Review độc lập (CR/SA, `/ui-review`) và cập nhật `verification.md`. `depends: T002`
+- [ ] T005 Production: chỉ khi anh Andy nói rõ; giữ nhánh cờ tắt tới khi anh nghiệm thu (gỡ nhánh cũ là G08-T21). `depends: T003, T004`

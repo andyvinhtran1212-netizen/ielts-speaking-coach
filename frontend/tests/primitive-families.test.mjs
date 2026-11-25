@@ -28,7 +28,7 @@ const CSS_DIR = path.join(__dirname, '..', 'css');
 // `.av-button`, `.ac-btn`, `.wr-modal--open` → family `av-button` / `ac-btn` /
 // `wr-modal`. Tailwind's generated file is excluded (utilities, not families).
 const FAMILY_RE = /\.([a-z][a-z0-9]*-(?:btn|button|modal))\b/g;
-const EXEMPT = new Set(['tailwind.build.css', 'tailwind.inter.css', 'tailwind.src.css']);
+const EXEMPT = new Set(['tailwind.build.css', 'tailwind.src.css']);
 
 function stripComments(t) {
   return t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
