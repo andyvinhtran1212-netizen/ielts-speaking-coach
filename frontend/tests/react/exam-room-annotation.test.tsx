@@ -1,5 +1,6 @@
 // EXAMROOM-0066 T004 (G08-T05) FR-030, FR-032: Highlight / Note on the passage.
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { hydrateRoot } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -137,6 +138,42 @@ describe('AnnotationLayer', () => {
     expect(item.hidden).toBe(true);
     act(() => { fireEvent.click(screen.getByRole('button', { name: 'Note 1' })); });
     expect(item.hidden).toBe(false);
+  });
+
+  it('switching account on the same instance never shows or saves the old marks (FR-032, CR HOLD)', () => {
+    const KEY2 = marksKey('reading', 'user-2', 'att-1');
+    writeMarks(window.localStorage, KEY, [{ id: 'a', start: 4, end: 9, note: 'mine' }]);
+    const seen: string[] = [];
+    const Probe = () => { useLayoutEffect(() => { seen.push(document.body.textContent ?? ''); }); return null; };
+    const { container, rerender } = layer();
+    expect(screen.getByText('mine')).toBeTruthy();
+    // An open note editor with an unsaved draft for user-1.
+    selectText(container, 10, 17);
+    fireEvent.click(screen.getByRole('button', { name: 'Note' }));
+    fireEvent.change(screen.getByLabelText('Note text'), { target: { value: 'draft of user-1' } });
+    seen.length = 0;
+    rerender(<AnnotationLayer surface="reading" ownerKey="user-2" attemptKey="att-1"><p>{TEXT}</p><Probe /></AnnotationLayer>);
+    // No committed render with the new key shows the old note or the old draft.
+    expect(seen.some((t) => t.includes('mine'))).toBe(false);
+    expect(screen.queryByText('mine')).toBeNull();
+    expect(screen.queryByLabelText('Note text')).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Notes' })).toBeNull();
+    // A new highlight is saved for user-2 only, without user-1's marks.
+    selectText(container, 0, 3);
+    fireEvent.click(screen.getByRole('button', { name: 'Highlight' }));
+    expect(readMarks(window.localStorage, KEY2)).toEqual([expect.objectContaining({ start: 0, end: 3 })]);
+    expect(readMarks(window.localStorage, KEY)).toEqual([{ id: 'a', start: 4, end: 9, note: 'mine' }]);
+  });
+
+  it('switching attempt on the same instance shows that attempt\'s marks only', () => {
+    const KEY_B = marksKey('reading', 'user-1', 'att-2');
+    writeMarks(window.localStorage, KEY, [{ id: 'a', start: 4, end: 9, note: 'first attempt' }]);
+    writeMarks(window.localStorage, KEY_B, [{ id: 'b', start: 0, end: 3, note: 'second attempt' }]);
+    const { rerender } = layer();
+    expect(screen.getByText('first attempt')).toBeTruthy();
+    rerender(<AnnotationLayer surface="reading" ownerKey="user-1" attemptKey="att-2"><p>{TEXT}</p></AnnotationLayer>);
+    expect(screen.queryByText('first attempt')).toBeNull();
+    expect(screen.getByText('second attempt')).toBeTruthy();
   });
 
   it('locking while the toolbar is open closes it and keeps the saved marks (CR HOLD)', () => {
