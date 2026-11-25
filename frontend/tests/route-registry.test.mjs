@@ -40,7 +40,8 @@ describe('route registry (FR-012)', () => {
   });
 
   test('1. routes from app/ = entries that are not planned', () => {
-    const registered = new Set(ROUTES.filter((e) => e.status !== 'planned').map((e) => e.route));
+    // 'redirect' rows (LEARNERNAV-0062) are old URLs served by a next.config.ts rule, not a page.
+    const registered = new Set(ROUTES.filter((e) => e.status !== 'planned' && e.status !== 'redirect').map((e) => e.route));
     const missing = [...appRoutes.keys()].filter((r) => !registered.has(r)).sort();
     const extra = [...registered].filter((r) => !appRoutes.has(r)).sort();
     assert.deepEqual(missing, [], `pages without a registry entry (add them to lib/route-registry.mjs): ${missing.join(', ')}`);
@@ -52,6 +53,11 @@ describe('route registry (FR-012)', () => {
       if (e.status === 'planned') {
         assert.equal(e.owner, null, `${e.route}: planned entries have owner null`);
         assert.ok(!appRoutes.has(e.route), `${e.route} is planned but a page exists — mark it live`);
+      } else if (e.status === 'redirect') {
+        assert.equal(e.owner, null, `${e.route}: redirect entries have owner null`);
+        assert.equal(e.kind, 'redirect', `${e.route}: redirect entries have kind 'redirect'`);
+        assert.equal(e.parent, null, `${e.route}: redirect entries have no parent`);
+        assert.ok(!appRoutes.has(e.route), `${e.route} is a redirect but a page still exists`);
       } else {
         assert.ok(e.owner && existsSync(path.join(FRONTEND, e.owner)), `${e.route}: owner ${e.owner} missing`);
         assert.equal(e.owner, appRoutes.get(e.route), `${e.route}: owner should be ${appRoutes.get(e.route)}`);
@@ -103,7 +109,7 @@ describe('route registry (FR-012)', () => {
 
   test('5. learner sections are the five shell items or account', () => {
     const allowed = new Set([...LEARNER_SECTIONS, 'account']);
-    const bad = ROUTES.filter((e) => e.audience === 'learner' && !allowed.has(e.section)).map((e) => `${e.route}: ${e.section}`);
+    const bad = ROUTES.filter((e) => e.audience === 'learner' && e.status !== 'redirect' && !allowed.has(e.section)).map((e) => `${e.route}: ${e.section}`);
     assert.deepEqual(bad, []);
     for (const s of LEARNER_SECTIONS) {
       assert.ok(ROUTES.some((e) => e.section === s && e.kind === 'nav'), `section ${s} has no nav entry`);

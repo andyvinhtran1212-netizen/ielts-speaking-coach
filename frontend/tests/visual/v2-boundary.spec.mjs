@@ -3,7 +3,7 @@
 // document carries only its own tree's stylesheets. Uses the diagnostic page
 // /profile/v2-pilot (same gate as /ui-library; removed once G07 has a real
 // LearnerShell page) and the
-// public legacy page /flashcard-study, whose <aver-chrome> is the link source
+// public legacy page /vocabulary/flashcards/study, whose <aver-chrome> is the link source
 // ChromeNavigationBridge would otherwise soft-navigate. No screenshots.
 import { test, expect } from '@playwright/test';
 
@@ -36,14 +36,14 @@ async function clickChromeLink(page, href) {
 }
 
 test('a v1 → v1 chrome click stays a soft navigation (control)', async ({ page }) => {
-  await page.goto('/flashcard-study', { waitUntil: 'networkidle' });
-  await clickChromeLink(page, '/flashcard-study?boundary=1');
-  await page.waitForURL('**/flashcard-study?boundary=1');
+  await page.goto('/vocabulary/flashcards/study', { waitUntil: 'networkidle' });
+  await clickChromeLink(page, '/vocabulary/flashcards/study?boundary=1');
+  await page.waitForURL('**/vocabulary/flashcards/study?boundary=1');
   expect((await tree(page)).marker).toBe('kept');
 });
 
 test('v1 → v2 is a full load and leaves no legacy stylesheet (scenario 1)', async ({ page }) => {
-  await page.goto('/flashcard-study', { waitUntil: 'networkidle' });
+  await page.goto('/vocabulary/flashcards/study', { waitUntil: 'networkidle' });
   const before = await tree(page);
   expect(before.sheets.some((href) => LEGACY_CSS.test(href))).toBe(true);
   expect(before.av2Paper).toBe('');
@@ -68,7 +68,7 @@ test('v2 → v1 is a full load and leaves no v2 token (scenario 2)', async ({ pa
   expect(response?.status(), 'the build must have AVER_ENABLE_UI_LIBRARY=1').toBe(200);
   await page.evaluate(() => { window.__boundaryMarker = 'kept'; });
   await page.getByTestId('to-v1').click();
-  await page.waitForURL('**/flashcard-study');
+  await page.waitForURL('**/vocabulary/flashcards/study');
   await page.waitForLoadState('networkidle');
   const after = await tree(page);
   expect(after.marker).toBeNull();
@@ -80,7 +80,7 @@ test('v2 → v1 is a full load and leaves no v2 token (scenario 2)', async ({ pa
 // G03-T13 (acceptance scenario 2): the legal pages are the first real v2
 // pages. A link to /terms from the legacy chrome must load a new document.
 test('legacy chrome → /terms is a full load with no legacy stylesheet (scenario 2)', async ({ page }) => {
-  await page.goto('/flashcard-study', { waitUntil: 'networkidle' });
+  await page.goto('/vocabulary/flashcards/study', { waitUntil: 'networkidle' });
   let loads = 0;
   page.on('load', () => { loads += 1; });
   await clickChromeLink(page, '/terms');

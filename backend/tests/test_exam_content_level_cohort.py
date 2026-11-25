@@ -1108,12 +1108,18 @@ def test_replacing_the_cohort_set_is_not_a_post():
 def test_the_verb_used_by_the_page_is_in_the_cors_allowlist():
     """A method the allowlist does not carry is blocked in the browser BEFORE it
     is sent — and nothing server-side ever sees it."""
+    import re
+
     import main as app_main
-    js = (BACKEND.parent / "frontend" / "public" / "js" / "admin-exam-content.js").read_text(encoding="utf-8")
-    for verb, fn in (("PATCH", "window.api.patch("), ("GET", "window.api.get(")):
-        if fn in js:
-            assert verb in app_main._CORS_METHODS, verb
-    assert "window.api.put(" not in js, "api.js has no put(), and PUT is not allowed by CORS"
+    # LEGACYJS-0075 W2 retired admin-exam-content.js; the library now lives in
+    # the Next mock-exams route.
+    page = (BACKEND.parent / "frontend" / "app" / "(authed-admin-mock-exams)" / "admin"
+            / "mock-exams" / "exam-content-library.tsx").read_text(encoding="utf-8")
+    verbs = set(re.findall(r"window\.api\.(\w+)\b", page))
+    assert "patch" in verbs, "the cohort editor must still PATCH"
+    for verb in verbs:
+        assert verb.upper() in app_main._CORS_METHODS, verb
+    assert "put" not in verbs, "api.js has no put(), and PUT is not allowed by CORS"
 
 
 # ── A broken library is NAMED, not silently rendered as empty ─────────
