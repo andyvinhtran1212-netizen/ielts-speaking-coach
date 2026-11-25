@@ -4,8 +4,9 @@ Bộ tài liệu + tài sản của đợt thiết kế lại bộ nhận diện
 (project "Aver Learning Design System", id `019de70a-8d73-7550-b19b-6743c83c6c3f`).
 
 > **Trạng thái:** hoàn tất phần thiết kế trong Claude Design project + artifact.
-> **CHƯA áp vào web production** — việc đó đụng code, xếp lịch ở `TECH_DEBT.md` →
-> **DEBT-2026-07-24-I** (chờ sau soak Pilot-1 + sau khi migrate Next ổn định).
+> **CHƯA áp vào web production** — việc đó đụng code; muốn làm thì mở một spec
+> trong [`specs/`](../../specs/README.md) (mục cũ: **DEBT-2026-07-24-I** trong
+> `TECH_DEBT.md`, nay đã đóng băng).
 > Nhánh này lưu để tham chiếu; **không merge vào main trong lúc soak còn chạy**.
 
 ## Quyết định chốt
