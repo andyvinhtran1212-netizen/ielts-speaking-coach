@@ -8,11 +8,11 @@ import { normalizeStudentWork, studentWorkAction } from '../lib/admin-class-stud
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const UI = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-student-work.tsx');
-const DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
-const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
+const UI = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-student-work.tsx');
+const DETAIL = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const SUBMISSIONS = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
 const DIALOG = read('components', 'admin-directory-ui.tsx');
-const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(classes)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-class-student-work-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');

@@ -129,6 +129,9 @@ export function normalizeAccessCode(value) {
     assigned_user_count: Math.max(assignedUsers.length, finite(row.assigned_user_count)),
     assigned_users: assignedUsers,
     association_lookup_failed: Boolean(row.association_lookup_failed),
+    // G04 credits granted with the code; the list API does not return it yet,
+    // so it stays null and the ledger shows "chưa có" (ADMINIA-0074 FR-048).
+    grant_credits: optionalFinite(row.grant_credits),
   };
 }
 
@@ -241,4 +244,139 @@ export function validateCodeDraft({ codeType, cohortId, permissions, sessionLimi
     return { ok: false, error: 'Số lượng mã phải từ 1 đến 100.' };
   }
   return { ok: true, sessionLimit, count };
+}
+
+// ADMINIA-0074 FR-048: ledger states of an activation code. `expiringDays` is
+// the `code_expiring_days` threshold (backend/services/ops_thresholds.py).
+export const DEFAULT_CODE_EXPIRING_DAYS = 14;
+const DAY_MS = 86_400_000;
+
+export function codeLedgerState(code, { now = Date.now(), expiringDays = DEFAULT_CODE_EXPIRING_DAYS } = {}) {
+  if (code?.is_revoked) return { state: 'revoked', label: 'Đã thu hồi', expiringSoon: false };
+  if (code?.is_used || code?.used_by || finite(code?.assigned_user_count) > 0) {
+    return { state: 'used', label: 'Đã dùng', expiringSoon: false };
+  }
+  const deadline = code?.expires_at ? Date.parse(code.expires_at) : Number.NaN;
+  if (Number.isFinite(deadline) && deadline <= now) return { state: 'expired', label: 'Hết hạn nhập', expiringSoon: false };
+  const expiringSoon = Number.isFinite(deadline) && expiringDays != null && deadline - now <= expiringDays * DAY_MS;
+  return { state: 'unused', label: 'Chưa dùng', expiringSoon };
+}
+
+export function grantCreditsLabel(code) {
+  return code?.grant_credits == null ? 'chưa có' : `${Number(code.grant_credits).toLocaleString('vi-VN')} lượt`;
+}
+
+export function expiringDaysFromThresholds(payload) {
+  const items = Array.isArray(object(payload).items) ? object(payload).items : [];
+  const item = object(items.find((entry) => object(entry).key === 'code_expiring_days'));
+  const value = optionalFinite(item.value);
+  return value != null && value >= 1 ? Math.floor(value) : DEFAULT_CODE_EXPIRING_DAYS;
+}
+
+// ── ADMINIA-0074 FR-055: code detail page and danger-zone revoke ─────────────
+// The detail endpoint returns `assignments[{display_name, email, ...}]`, not
+// the list's `assigned_users[{name, email, ...}]` (AGENTS.md › Admin
+// conventions); it is transformed explicitly here, never assigned as-is.
+
+export const REVOKE_REASON_MIN = 10;
+export const REVOKE_REASON_MAX = 500;
+
+export function normalizeCodeDetail(value) {
+  const row = object(value);
+  const assignments = Array.isArray(row.assignments) ? row.assignments : [];
+  const assignedUsers = assignments.map((item) => {
+    const entry = object(item);
+    const userId = text(entry.user_id);
+    if (!userId) return null;
+    const fallback = Boolean(entry.is_fallback_used_by);
+    return {
+      user_id: userId,
+      name: text(entry.display_name),
+      email: text(entry.email),
+      assigned_at: text(entry.assigned_at) || null,
+      is_active: entry.is_active === true,
+      is_fallback_used_by: fallback,
+      removable: !fallback && entry.is_active === true,
+      quota: null,
+    };
+  }).filter(Boolean);
+  const base = normalizeAccessCode({ ...row, assigned_users: [], assigned_user_count: 0 });
+  if (!base) return null;
+  // `access_holders` is the server's own list of who loses access on revoke
+  // (active assignments + a legacy redeemer with no row); null when the
+  // assignment lookup failed. The page never recounts it from `assignments`.
+  const holders = Array.isArray(row.access_holders)
+    ? row.access_holders.map((item) => {
+      const entry = object(item);
+      const userId = text(entry.user_id);
+      return userId ? { user_id: userId, name: text(entry.display_name), email: text(entry.email) } : null;
+    }).filter(Boolean)
+    : null;
+  return {
+    ...base,
+    assigned_users: assignedUsers,
+    assigned_user_count: assignedUsers.filter((user) => user.is_active || user.is_fallback_used_by).length,
+    access_holders: holders,
+  };
+}
+
+const AUDIT_ACTIONS = Object.freeze({
+  create: 'Tạo mã',
+  edit: 'Sửa quyền',
+  revoke: 'Thu hồi mã',
+  remove_user: 'Gỡ người dùng',
+  reassign: 'Gán lại',
+  refill: 'Cấp mã mới',
+  hard_delete: 'Xoá hẳn',
+});
+
+export function auditActionLabel(action) {
+  return AUDIT_ACTIONS[action] || text(action) || 'Thao tác';
+}
+
+export function normalizeCodeAudit(value) {
+  return (Array.isArray(value) ? value : []).map((item) => {
+    const row = object(item);
+    const id = text(row.id) || (row.id != null ? String(row.id) : '');
+    if (!id) return null;
+    const after = object(row.after);
+    return {
+      id,
+      action: text(row.action),
+      actor_user_id: text(row.actor_user_id) || null,
+      target_user_id: text(row.target_user_id) || null,
+      created_at: text(row.created_at) || null,
+      reason: text(after.reason) || null,
+      affected_user_count: Array.isArray(after.affected_user_ids) ? after.affected_user_ids.length : null,
+      source: text(after.source) || null,
+    };
+  }).filter(Boolean);
+}
+
+/** First problem with a danger-zone revoke draft, or null when it can be sent. */
+export function revokeUsedDraftError({ code, confirmCode, reason }) {
+  if (text(confirmCode).trim().toUpperCase() !== text(code).trim().toUpperCase() || !text(code).trim()) {
+    return 'Gõ lại đúng mã cần thu hồi.';
+  }
+  const trimmed = text(reason).trim();
+  if (trimmed.length < REVOKE_REASON_MIN) return `Lý do cần ít nhất ${REVOKE_REASON_MIN} ký tự.`;
+  if (trimmed.length > REVOKE_REASON_MAX) return `Lý do tối đa ${REVOKE_REASON_MAX} ký tự.`;
+  return null;
+}
+
+/** The message shown after `POST /admin/access-codes/{id}/revoke-used`. */
+export function revokeUsedResultMessage(result) {
+  const row = object(result);
+  const code = text(row.code);
+  if (row.already_revoked) {
+    return row.audit_recorded === false
+      ? { kind: 'error', text: `Mã ${code} đã được thu hồi từ trước, nhưng không thấy lý do thu hồi trong nhật ký mã.` }
+      : { kind: 'success', text: `Mã ${code} đã được thu hồi từ trước.` };
+  }
+  const count = Math.max(0, finite(row.affected_user_count));
+  const base = `Đã thu hồi mã ${code}. ${count} học viên mất quyền từ mã này.`;
+  if (row.audit_recorded === false) {
+    return { kind: 'error', text: `${base} Chưa ghi được lý do vào nhật ký mã; hãy báo kỹ thuật để ghi bù.` };
+  }
+  return { kind: 'success', text: base };
 }

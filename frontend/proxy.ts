@@ -1,4 +1,4 @@
-// Two request-time jobs that Next 16 can only do before rendering starts.
+// Request-time jobs that Next 16 can only do before rendering starts.
 //
 // 1. Real HTTP 404 for unknown Grammar articles (content audit 2026-10-27).
 //    Under cacheComponents the article route serves its App Shell
@@ -10,6 +10,21 @@
 //    its full server HTML. If the list is unavailable, confirm a miss from
 //    the article endpoint itself (its JSON article-not-found, not a gateway
 //    404); articles and backend errors pass through.
+//
+//    The same applies to a Speaking question, `/library/speaking/:slug`
+//    (LIBRARY-0061 T013): a slug missing from a fresh published-question
+//    index (`/api/library/speaking/index`) is rewritten to the same 404
+//    path; if the index is unavailable, only the backend's own
+//    `speaking_not_found` JSON 404 counts as a miss.
+//
+// 1b. Real HTTP 404 / 308 for Library Writing samples (LIBRARY-0061 FR-019,
+//    G06-T10). `/library/writing-samples/[slug]` is a partial prerender, so
+//    its notFound() / permanentRedirect() can only be a soft 404 (200 +
+//    noindex) or a client redirect (measured 23/11). The proxy asks the
+//    backend detail endpoint, uncached, so unpublishing takes effect on the
+//    next request: its own `sample_not_found` 404 → the root 404; its 308 to
+//    the current slug → a 308 to the current page. Anything else (200, other
+//    statuses, timeout) passes through to the page's own handling.
 //
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
@@ -105,6 +120,135 @@ async function grammarArticle(request: NextRequest) {
     : NextResponse.next();
 }
 
+// LIBRARY-0061 T013: published Speaking questions, keyed `speaking/<slug>`
+// so the shared index helper can hold them. Like the Grammar list, an empty
+// list is "unknown", not "every slug is a miss": a table briefly empty during
+// a re-import must not hard-404 every question; each slug then asks the detail.
+const speakingIndex = createArticleIndex({
+  async load() {
+    const res = await fetch(`${API_BASE}/api/library/speaking/index`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`backend ${res.status} for /api/library/speaking/index`);
+    const rows = await res.json();
+    if (!Array.isArray(rows)) throw new TypeError('speaking index payload must be an array');
+    const keys = new Set(rows.flatMap((row) => (typeof row?.slug === 'string' ? [`speaking/${row.slug}`] : [])));
+    if (!keys.size) throw new Error('speaking index lists no questions');
+    return keys;
+  },
+});
+
+// routers/library.py `_speaking_not_found`: a JSON 404 `{"detail": "speaking_not_found"}`.
+async function isBackendSpeakingMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
+    await res.body?.cancel();
+    return false;
+  }
+  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  return body?.detail === 'speaking_not_found';
+}
+
+async function speakingQuestion(request: NextRequest) {
+  const [, , , rawSlug = ''] = request.nextUrl.pathname.split('/');
+  const slug = segment(rawSlug);
+  const indexed = slug === null ? false : await speakingIndex.has('speaking', slug);
+  let missing = indexed === false;
+  if (indexed !== false) {
+    // The index only proves a miss. A hit may be up to the TTL old, and a
+    // question unpublished since then must still answer 404, so a hit (or an
+    // unavailable index) asks the detail. Same rule as PC-J526: only the
+    // backend's own miss is a 404; any other outcome leaves the page's own
+    // loading and error handling.
+    try {
+      const res = await fetch(`${API_BASE}/api/library/speaking/${encodeURIComponent(slug!)}`, {
+        signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+        cache: 'no-store',
+        redirect: 'manual',
+      });
+      missing = await isBackendSpeakingMiss(res);
+    } catch {
+      // Network or timeout: the page shows its own error state.
+    }
+  }
+  return missing
+    ? NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url))
+    : NextResponse.next();
+}
+
+// Library Writing samples (FR-019). The backend's own miss is the JSON body
+// `{"detail": "sample_not_found"}` (routers/library.py); a gateway or host 404
+// is not evidence that the set is gone.
+const SAMPLE_API_PATH = '/api/library/writing-samples/';
+const SAMPLE_PAGE_PATH = '/library/writing-samples/';
+
+async function isBackendSampleMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) return false;
+  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  return body?.detail === 'sample_not_found';
+}
+
+// Slug format the backend writes (plan §5.4: lower-case [a-z0-9], words joined
+// by `-`, at most 80 characters).
+const SAMPLE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Current slug from the backend's 308 `Location`, or null. Only the exact
+ * target the backend emits counts: `/api/library/writing-samples/<slug>`
+ * (relative, or absolute on the API origin itself), no query or fragment, and
+ * a slug in the server's format. Anything else, even a URL that merely
+ * contains the route, passes through instead of becoming a permanent redirect.
+ */
+function movedSampleSlug(res: Response, slug: string) {
+  if (res.status !== 308) return null;
+  const location = res.headers.get('location');
+  if (!location) return null;
+  let target: URL;
+  try {
+    const api = new URL(API_BASE);
+    target = new URL(location, api);
+    if (target.origin !== api.origin) return null;
+  } catch {
+    return null;
+  }
+  if (target.search || target.hash || !target.pathname.startsWith(SAMPLE_API_PATH)) return null;
+  const moved = target.pathname.slice(SAMPLE_API_PATH.length);
+  if (moved.length > 80 || !SAMPLE_SLUG.test(moved) || moved === slug) return null;
+  return moved;
+}
+
+async function writingSample(request: NextRequest) {
+  const raw = request.nextUrl.pathname.slice(SAMPLE_PAGE_PATH.length);
+  const slug = segment(raw);
+  // Not valid percent-encoding, or more than one segment: no set can have it.
+  if (slug === null || !slug || slug.includes('/')) {
+    return NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url));
+  }
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${SAMPLE_API_PATH}${encodeURIComponent(slug)}`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+  } catch {
+    // Backend/network error: the page's own loader decides (it fails closed).
+    return NextResponse.next();
+  }
+  const moved = movedSampleSlug(res, slug);
+  if (moved) {
+    await res.body?.cancel();
+    const target = new URL(`${SAMPLE_PAGE_PATH}${encodeURIComponent(moved)}`, request.url);
+    target.search = request.nextUrl.search;
+    return NextResponse.redirect(target, 308);
+  }
+  if (await isBackendSampleMiss(res)) {
+    return NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url));
+  }
+  await res.body?.cancel().catch(() => undefined);
+  return NextResponse.next();
+}
+
 // Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
 // Unusable → null, which keeps the nonce policy on every prefixed URL.
 const nonceRoutes = parseNonceRouteTable(process.env.AVER_CSP_NONCE_ROUTES);
@@ -168,6 +312,9 @@ function noncePolicy(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  // One segment only, as the matcher; never a nonce route (public Library).
+  if (request.nextUrl.pathname.startsWith('/library/speaking/')) return speakingQuestion(request);
+  if (request.nextUrl.pathname.startsWith(SAMPLE_PAGE_PATH)) return writingSample(request);
   return request.nextUrl.pathname.startsWith('/grammar/')
     ? grammarArticle(request)
     : noncePolicy(request);
@@ -181,8 +328,10 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/grammar/:category/:slug',
+    '/library/speaking/:slug',
+    '/library/writing-samples/:slug',
     {
-      source: '/:section(admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|start|writing)/:path*',
+      source: '/:section(admin|advanced-vocabulary|course-exercises|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|start|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {
