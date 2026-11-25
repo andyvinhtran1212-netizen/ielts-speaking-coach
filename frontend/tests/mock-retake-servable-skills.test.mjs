@@ -13,7 +13,8 @@
  * pin the admin-side half, whose job is to make it visible BEFORE the button is
  * pressed rather than as a rejected request.
  *
- * Source-sentinels.
+ * Model and source-sentinels on the Next retake dialog. LEGACYJS-0075 W2 ported
+ * these from the retired `admin-mock-exams.js`.
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,62 +22,53 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { mergeRetestCandidates, retakeServableSkills } from '../lib/admin-mock-exams-model.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const JS = readFileSync(
-  join(__dirname, '..', 'public', 'js', 'admin-mock-exams.js'), 'utf8');
+const DIALOG = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-exams)', 'admin', 'mock-exams',
+  'retake-assignment-dialog.tsx'), 'utf8');
 
 describe('retake assign — only skills this exam can serve', () => {
-  test('the admin page derives servable skills from the exam row', () => {
-    assert.match(JS, /function servableSkills\(ex\)/);
-    assert.match(JS, /if \(ex\.listening_test_id\) out\.push\('listening'\)/);
-    assert.match(JS, /if \(ex\.reading_test_id\) out\.push\('reading'\)/);
+  test('servable skills come from the exam row', () => {
+    assert.deepEqual(retakeServableSkills({ listeningTestId: 'l', readingTestId: 'r' }), ['listening', 'reading', 'writing']);
+    assert.deepEqual(retakeServableSkills({ readingTestId: 'r' }), ['reading', 'writing']);
   });
 
   test('Writing is always servable — a missing prompt is not a missing paper', () => {
     // Same rule as _configured_sections() in mock_exam_service.py: the Writing
     // panel is native textareas and the runner renders "(Không có đề Task N)".
-    // Gating Writing on a prompt would break the ordinary retake, which is
-    // mostly Writing.
-    const fn = JS.slice(JS.indexOf('function servableSkills(ex)'));
-    const body = fn.slice(0, fn.indexOf('\n  }'));
-    assert.match(body, /out\.push\('writing'\)/);
-    assert.doesNotMatch(body, /writing_task1_prompt_id/);
+    assert.deepEqual(retakeServableSkills({}), ['writing']);
+    assert.deepEqual(retakeServableSkills(null), ['writing']);
   });
 
   test('an unservable skill is rendered disabled AND unchecked', () => {
     // Unchecked matters as much as disabled: a checked-but-disabled box still
     // reads as "this student is getting Listening".
-    const at = JS.slice(JS.indexOf("RETAKE_SKILLS.map(function (sk) {\n              //"));
-    const cell = at.slice(0, at.indexOf('}).join(\'\')'));
-    assert.match(cell, /var ok = can\.indexOf\(sk\.key\) !== -1;/);
-    assert.match(cell, /ok && flagged\.indexOf\(sk\.key\) !== -1 \? ' checked' : ''/);
-    assert.match(cell, /ok \? '' : ' disabled/);
+    assert.match(DIALOG, /disabled=\{!servable\.includes\(skill\.id\)\}/);
+    assert.deepEqual(
+      mergeRetestCandidates([{ userId: 'u1', studentName: 'An', skills: ['listening', 'writing'] }], ['reading', 'writing']),
+      [{ userId: 'u1', studentName: 'An', skills: ['writing'] }],
+    );
+    assert.match(DIALOG, /skills\.filter\(\(skill\) => servable\.includes\(skill\)\)/);
   });
 
-  test('the modal says which skills the exam cannot serve, before any click', () => {
-    assert.match(JS, /Đề này chưa có nội dung cho/);
-    assert.match(JS, /var missing = RETAKE_SKILLS\.filter\(/);
+  test('the dialog says which skills the exam can serve, before any click', () => {
+    assert.match(DIALOG, /Kỹ năng phục vụ được: \{servable\.join\(', '\)\}\. Kỹ năng thiếu đề bị khóa trước khi gửi\./);
   });
 
   test('the roster is built against the TARGET exam, not the source', () => {
-    // loadRetestStudents renders the skill cells, so it needs the exam being
-    // assigned TO — passing only the source id is what let the mismatch exist.
-    assert.match(JS, /function loadRetestStudents\(sourceId, targetEx\)/);
-    assert.match(JS, /var can = servableSkills\(targetEx \|\| \{\}\);/);
-    assert.match(JS, /loadRetestStudents\(el\('a-source'\)\.value, ex\)/);
+    // `exam` is the exam being assigned TO; the source only feeds candidates.
+    assert.match(DIALOG, /const servable = useMemo\(\(\) => retakeServableSkills\(exam\), \[exam\]\);/);
+    assert.match(DIALOG, /mergeRetestCandidates\(rows as Candidate\[\], servable\)/);
   });
 });
 
 describe('retake assign — aiming at the right class', () => {
   test('the source-exam picker names the cohort that sat it', () => {
-    // A retake targets the students of ONE previous exam; the class name is how
-    // the admin confirms the target group before the roster loads.
-    assert.match(JS, /_cohortName\[e\.cohort_id\]/);
-    assert.match(JS, /' · lớp ' \+ cls/);
+    assert.match(DIALOG, /row\.cohortId \? ` · \$\{cohortNames\.get\(row\.cohortId\) \|\| row\.cohortId\}` : ''/);
   });
 
-  test('the cohort map is filled from the picker load, not refetched', () => {
-    assert.match(JS, /_cohortName = \{\};/);
-    assert.match(JS, /_cohortName\[c\.id\] = c\.name \|\| c\.id;/);
+  test('the cohort names come from the cohorts already loaded, not refetched', () => {
+    assert.match(DIALOG, /const cohortNames = useMemo\(\(\) => new Map\(cohorts\.map\(\(row\) => \[row\.id, row\.name \|\| row\.id\]\)\), \[cohorts\]\);/);
   });
 });

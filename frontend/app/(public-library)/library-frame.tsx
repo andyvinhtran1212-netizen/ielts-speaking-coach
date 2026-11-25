@@ -16,7 +16,7 @@ import type { LearnerUser } from '@/components/ui/shell/account-menu';
 import { getCurrentUser } from '@/lib/auth-api';
 import { AuthProvider, useAuth } from '@/lib/auth/auth-provider';
 
-type Profile = { accountId: string; displayName: string | null; isAdmin: boolean; expired?: boolean };
+type Profile = { accountId: string; displayName: string | null; isAdmin: boolean; isInstructor?: boolean; expired?: boolean };
 
 /** Two initials from the name ("Vũ Thu Trang" → "VT"), else the email's first letter. */
 export function learnerInitials(name: string | null, email: string): string {
@@ -36,7 +36,12 @@ function Frame({ children }: { children: ReactNode }) {
     // noRedirect: a 401 (expired session) must not move a reader off the
     // public Library to /login (FR-001); it lands in the failure branch.
     getCurrentUser(abort.signal, { noRedirect: true }).then(
-      (me) => setProfile({ accountId, displayName: me.display_name, isAdmin: me.role === 'admin' }),
+      (me) => setProfile({
+        accountId,
+        displayName: me.display_name,
+        isAdmin: me.role === 'admin',
+        isInstructor: me.role === 'instructor' || me.role === 'admin',
+      }),
       // Profile unreadable: keep the learner frame with the email and no admin
       // switch (fail closed), and leave a trace instead of failing silently.
       (error) => {
@@ -65,7 +70,7 @@ function Frame({ children }: { children: ReactNode }) {
   const name = own?.displayName?.trim() || email;
   const learner: LearnerUser = { name, email, initials: learnerInitials(own?.displayName ?? null, email) };
   return (
-    <LearnerShell user={learner} canSwitchToAdmin={own?.isAdmin ?? false}>
+    <LearnerShell user={learner} canSwitchToAdmin={own?.isAdmin ?? false} canSwitchToInstructor={own?.isInstructor ?? false}>
       {children}
     </LearnerShell>
   );

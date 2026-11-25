@@ -1,12 +1,13 @@
 /**
- * mock-roster-bulk-claim-bands.test.mjs — the roster's two new bulk steps:
- * NHẬN and CHỐT BAND, which used to cost one click per student.
+ * mock-roster-bulk-claim-bands.test.mjs — the roster's bulk steps NHẬN and
+ * CHỐT BAND, which used to cost one click per student.
  *
  * The pipeline is queued → claimed → reviewed → released. Bulk release (#778)
- * only ever covered the last hop, so a 13-student class still meant 13 claims
- * and 13 saves by hand.
+ * only covered the last hop, so a 13-student class still meant 13 claims and 13
+ * saves by hand.
  *
- * Source-sentinel (the page is a DOM/IIFE).
+ * LEGACYJS-0075 W2 retired `admin-mock-reviews.js`; these now pin the Next
+ * roster in `admin-mock-reviews.tsx` (`reconcileBulk`, the bulk bar).
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,94 +16,77 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const JS = readFileSync(join(__dirname, '..', 'js', 'admin-mock-reviews.js'), 'utf8');
+const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
 
-const fn = (name) => {
-  const m = JS.match(new RegExp(`(?:async )?function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n  \\}`));
-  assert.ok(m, `${name}() not found — sentinel is stale`);
-  return m[1];
+const reconcileBulk = () => {
+  const m = TSX.match(/const reconcileBulk = async \([\s\S]*?\n  \};/);
+  assert.ok(m, 'reconcileBulk not found — sentinel is stale');
+  return m[0];
 };
 
 describe('roster — bulk NHẬN', () => {
   test('the bar carries a claim button', () => {
-    assert.match(JS, /id="bulk-claim-btn"/);
+    assert.match(TSX, /onClick=\{\(\) => void reconcileBulk\('claim', actionRows\(\['queued'\]\)\.map\(\(row\) => row\.sittingId\)\)\}>Nhận bài \(/);
   });
 
-  // claim() only takes a 'queued' row. Counting a claimed one would promise the
-  // admin an action the server turns into a no-op refusal.
+  // claim() only takes a 'queued' row. Counting a claimed one would promise an
+  // action the server turns into a refusal.
   test('only a "chưa nhận" row counts toward the button', () => {
-    assert.match(fn('wireBulkBar'), /function claimable\(\)[\s\S]*?data-review-status'\) === 'queued'/);
+    assert.match(TSX, /disabled=\{!actionRows\(\['queued'\]\)\.length \|\| Boolean\(busy\)\}/);
   });
 
-  test('it sends only the claimable rows, not everything ticked', () => {
-    assert.match(fn('wireBulkBar'), /claimable\(\)\.map[\s\S]*?bulkClaim\(ids\)/);
-  });
-
-  // Publishing confirms because a student sees it and it needs a revoke to undo.
-  // Claiming shows the student nothing and has an explicit "bỏ nhận" — a confirm
-  // there would just train the admin to click through dialogs.
-  test('claiming does not confirm — it is reversible and invisible to the student', () => {
-    assert.doesNotMatch(fn('bulkClaim'), /confirm\(/);
+  // Publishing confirms because a student sees it. Claiming shows the student
+  // nothing and has "bỏ nhận"; a confirm there would train click-through.
+  test('claiming does not confirm: only release opens the dialog', () => {
+    assert.doesNotMatch(TSX, /confirm\(/);
+    assert.match(TSX, /setReleaseTarget\(\{ kind: 'bulk', ids: actionRows\(\['reviewed'\]\)/);
   });
 });
 
 describe('roster — bulk CHỐT BAND', () => {
   test('the bar carries a chốt band button', () => {
-    assert.match(JS, /id="bulk-bands-btn"/);
+    assert.match(TSX, />Chốt band \(\{actionRows\(\['claimed', 'edited'\]\)\.length\}\)</);
   });
 
-  test('only a row this admin holds and has not banded counts', () => {
-    const body = fn('wireBulkBar');
-    assert.match(body, /function bandable\(\)[\s\S]*?s === 'claimed' \|\| s === 'edited'/);
-    // a released row must never be re-banded from the roster — save refuses it
-    assert.doesNotMatch(body, /function bandable\(\)[\s\S]*?'released'[\s\S]*?\n    \}/);
+  test('only a row held and not yet banded counts; a released row never does', () => {
+    assert.match(TSX, /reconcileBulk\('bands', actionRows\(\['claimed', 'edited'\]\)\.map/);
   });
 
-  // The whole point: the client must not post bands. The server re-derives what
-  // the form would have pre-filled, so a stale tab cannot publish a stale number.
+  // The client must not post bands. The server re-derives what the form would
+  // have pre-filled, so a stale tab cannot publish a stale number.
   test('the client posts sitting ids ONLY — never a band', () => {
-    const body = fn('bulkSaveBands');
-    assert.match(body, /\{ sitting_ids: sittingIds \}/);
-    assert.doesNotMatch(body, /final_bands|collectBands|data-band/);
+    const body = reconcileBulk();
+    assert.match(body, /\{ sitting_ids: ids \}/);
+    assert.doesNotMatch(body, /final_bands|bandDraft|buildFinalBandsPayload/);
   });
 
   test('it hits the bulk-final-bands route', () => {
-    assert.match(fn('bulkSaveBands'), /\/bulk-final-bands/);
+    assert.match(reconcileBulk(), /\/bulk-\$\{kind === 'bands' \? 'final-bands' : kind\}/);
   });
 });
 
-describe('roster — the bulk bar is wired on every roster that renders it', () => {
-  // #778 widened bulkBarHtml to anySubmitted so an essay-less L/R-only roster
-  // keeps its release button — but the wiring stayed on `gradable`, so on such a
-  // roster every control was rendered permanently disabled. Same shape as the
-  // .hidden bug in #785: drawn, but dead.
-  test('wireBulkBar runs on anySubmitted, not on gradable', () => {
-    assert.match(JS, /if \(anySubmitted\) wireBulkBar\(list\)/);
-    assert.doesNotMatch(JS, /if \(gradable\) wireBulkBar\(list\)/);
+describe('roster — the bulk bar is shown on every loaded roster', () => {
+  // #778: a roster without essays kept its release control rendered but dead.
+  // The Next bar is drawn for every loaded roster; only the grade button depends on essays.
+  test('the bulk bar is not gated on gradable rows', () => {
+    assert.match(TSX, /<section className="mrr-roster-card">\s*<div className="mrr-bulkbar">/);
   });
 });
 
 describe('roster — refusals are named for every bulk action', () => {
-  // "Chưa công bố được 2 bài" is simply false after a bulk NHẬN, so the shared
-  // renderer takes the action's name.
-  test('the skip renderer is action-named, not release-only', () => {
-    assert.match(JS, /function renderSkips\(skips, what\)/);
-    assert.match(JS, /Chưa ' \+ esc\(what\) \+ ' được '/);
+  test('the notice names the action that ran', () => {
+    assert.match(reconcileBulk(), /kind === 'claim' \? 'nhận' : kind === 'bands' \? 'chốt band' : 'công bố'/);
   });
 
-  for (const [name, what] of [['bulkClaim', 'nhận'], ['bulkSaveBands', 'chốt band']]) {
-    test(`${name} names its refusals ("${what}") after the awaited reload`, () => {
-      const body = fn(name);
-      // The #778 Codex P2: loadRoster() blanks #queue-list, which is where the box
-      // goes — rendering first wipes it before the admin can read it.
-      const iLoad = body.indexOf('await loadRoster()');
-      const iSkips = body.indexOf(`renderSkips(sk, '${what}')`);
-      assert.ok(iLoad !== -1, 'the roster reload must be awaited');
-      assert.ok(iSkips > iLoad, `renderSkips must run AFTER the reload in ${name}`);
-    });
+  test('refusals are set AFTER the awaited reload, so the reload cannot wipe them', () => {
+    const body = reconcileBulk();
+    const iLoad = body.indexOf('await loadRoster()');
+    const iSkips = body.indexOf('setSkips(allSkips)');
+    assert.ok(iLoad !== -1, 'the roster reload must be awaited');
+    assert.ok(iSkips > iLoad, 'setSkips must run AFTER the reload');
+  });
 
-    test(`${name} refetches rather than leaving a stale roster on failure`, () => {
-      assert.match(fn(name), /catch \(e\)[\s\S]*?loadRoster\(\)/);
-    });
-  }
+  test('a failed batch refetches rather than leaving a stale roster', () => {
+    assert.match(reconcileBulk(), /catch \(caught\) \{\s*await loadRoster\(\);/);
+  });
 });
