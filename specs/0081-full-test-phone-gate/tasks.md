@@ -1,6 +1,6 @@
 # Tasks
 
-Mỗi task một PR vào `staging`, nhánh `codex/<task>`, lớp `feature`, `Spec: PHONEGATE-0081`, sau khi spec `approved`.
+Mỗi task một PR vào `staging`, nhánh `claude/<thread>-<mã việc>` (nhóm Codex đã dừng 19/11), lớp `feature`, `Spec: PHONEGATE-0081`, sau khi spec `approved`.
 G11-T03 là chính PR spec này. Số task = số nhiệm vụ trong gói.
 
 - [ ] T19 (G11-T19) Thư viện cổng, màn chặn và `/tests`. `depends: spec approved; xem bảng gói mục 6`

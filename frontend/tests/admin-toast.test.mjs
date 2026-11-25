@@ -54,12 +54,12 @@ describe('migration — mechanical, timing preserved', () => {
 
   // admin-listening-upload.js + admin-listening-render.js dropped from the
   // list 2026-07-17 — those admin surfaces were decommissioned (usage audit).
-  test('all 19 showBanner now delegate to showToast', () => {
+  // LEGACYJS-0075 W1 (2026-11-23): the 7 admin-listening-* scripts were deleted;
+  // their Next owners under app/(authed-admin-listening) use inline banners.
+  test('all 12 showBanner now delegate to showToast', () => {
     for (const f of [
       'admin-access-codes.js','admin-dashboard.js','admin-error-logs.js',
-      'admin-listening-content-detail.js','admin-listening-content-list.js','admin-listening-content-meta.js',
-      'admin-listening-gist.js','admin-listening-mcq.js','admin-listening-segments.js',
-      'admin-listening-tf.js','admin-reading-attempts.js','admin-speaking-sessions.js',
+      'admin-reading-attempts.js','admin-speaking-sessions.js',
       'admin-speaking-topics.js','admin-users.js','admin-vocab-d1.js','admin-vocab-exercises.js',
       'admin-vocab-lemmas.js','admin-vocab-stats.js','admin-writing-queue.js',
     ]) delegates(f);
@@ -68,7 +68,7 @@ describe('migration — mechanical, timing preserved', () => {
   // admin-classes.js (GĐ 1) replaced admin-cohorts.js and never carried the
   // showBanner wrapper — it calls the shared primitive directly, so the legacy
   // regex above does not describe it. Its real contract is pinned here instead
-  // of loosening that regex for the 19 files it does describe.
+  // of loosening that regex for the 12 files it does describe.
   test('admin-classes.js routes messages through showToast, never native dialogs', () => {
     const src = read('js', 'admin-classes.js');
     assert.match(src, /window\.showToast\(/);
@@ -88,7 +88,6 @@ describe('migration — mechanical, timing preserved', () => {
     assert.match(q, /else showToast\(msg, kind === 'warn' \? 'warn' : 'success', \{ timeout: 5000 \}\)/);
   });
   test('hideBanner/clearBanner now clear toasts', () => {
-    assert.match(read('js', 'admin-listening-segments.js'), /clearToasts\(\)/);
     assert.match(read('js', 'admin-reading-attempts.js'), /function clearBanner[\s\S]*?clearToasts\(\)/);
   });
 });

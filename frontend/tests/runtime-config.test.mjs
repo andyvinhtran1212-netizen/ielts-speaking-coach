@@ -64,6 +64,16 @@ describe('generator environment resolution', () => {
     const { content } = runGenerator({ AVER_CORE_OPERATION_CORRELATION_ENABLED: 'true' });
     assert.match(content, /"writingAdmissionEnabled": false/);
   });
+  test('exam room surfaces (EXAMROOM-0066 FR-022) default to none; only known names pass', () => {
+    const { status, content } = runGenerator({});
+    assert.equal(status, 0);
+    assert.match(content, /"examRoomSurfaces": \[\]/);
+    const on = runGenerator({ AVER_EXAM_ROOM_SURFACES: ' Reading,writing,bogus,reading,' });
+    assert.equal(on.status, 0);
+    const parsed = JSON.parse(on.content.slice(on.content.indexOf('Object.freeze(') + 14, on.content.lastIndexOf(');')));
+    assert.deepEqual(parsed.examRoomSurfaces, ['reading', 'writing']);
+    assert.match(on.stderr, /ignoring unknown exam room surface "bogus"/);
+  });
   test('core-operation correlation is disabled unless explicitly opted in', () => {
     for (const flag of ['', 'false', '1', 'TRUE']) {
       const { status, content } = runGenerator({ AVER_CORE_OPERATION_CORRELATION_ENABLED: flag });

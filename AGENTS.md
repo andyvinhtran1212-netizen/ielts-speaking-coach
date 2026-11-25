@@ -164,7 +164,7 @@ When working in `backend/services/claude_grader.py`:
 
 ## Admin conventions
 
-When working in `backend/routers/admin.py` or Next admin routes under
+When working in `backend/routers/admin/` (package; `__init__.py` holds the guards) or Next admin routes under
 `frontend/app/(authed-admin-*)/`:
 
 - **Admin UI must reflect canonical backend truth.** If the UI shows a different state than what the database holds, the bug is in the pipeline that reads/transforms the data, not just in the rendering.
