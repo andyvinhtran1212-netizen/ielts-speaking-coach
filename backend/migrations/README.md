@@ -23,7 +23,7 @@ Take the next number after the highest `present` or `reserved` row in
 [`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
 task ID) in the same PR as the file, and change it to `present` when the file
 lands. Do **not** assume the sequence is dense. As of 2026-11-25 the highest is `509`
-(course-give idempotency hotfix, #2693/#2694; 503–508 are held by open PRs); before it `502`
+(course-give idempotency hotfix, #2693/#2694; 503–507 are held by open PRs); before it `502`
 (COURSEACCESS-0055 G04-T13 pronunciation sample; before it `501`, GRAMMARAUDIT-0019
 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`, both from the reserve
 band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
@@ -97,7 +97,7 @@ columns (turn the flag off first).
 one partial unique index `uq_course_give_request` on `class_assignments (cohort_id,
 content_config->>'give_request_id') WHERE skill='course'`, so two simultaneous course
 gives with the same request id create one assignment (the loser replays its receipt).
-No data or privilege change; the rollback drops the index. 503–508 are held by open PRs.
+No data or privilege change; the rollback drops the index. 503–507 are held by open PRs.
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
