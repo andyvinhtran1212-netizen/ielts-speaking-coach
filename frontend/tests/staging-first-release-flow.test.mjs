@@ -125,6 +125,63 @@ describe('staging-first production release contract', () => {
     }
   });
 
+  test('the merge result must deploy exactly the smoked tree', () => {
+    const step = PROMOTION.split(/\n      - name: /)
+      .find((body) => body.startsWith('Require the merge result to deploy exactly the smoked tree\n'));
+    assert.ok(step, 'merge-tree step');
+    assert.ok(PROMOTION.indexOf('Require the merge result to deploy exactly the smoked tree')
+      < PROMOTION.indexOf('Require green integrated staging evidence for the exact SHA'));
+    assert.match(PROMOTION, /uses: actions\/checkout@v\d+\n\s+with:\n\s+fetch-depth: 0/);
+    const script = step.split('        run: |\n')[1]
+      .split('\n').map((line) => line.replace(/^ {10}/, '')).join('\n');
+    const repo = mkdtempSync(path.join(os.tmpdir(), 'promotion-tree-'));
+    const git = (...args) => {
+      const result = spawnSync('git', args, { cwd: repo, encoding: 'utf8',
+        env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    const commit = (file, text, message) => {
+      writeFileSync(path.join(repo, file), text);
+      git('add', '-A');
+      git('commit', '-q', '-m', message);
+      return git('rev-parse', 'HEAD');
+    };
+    git('init', '-q', '-b', 'main');
+    const base = commit('app.txt', 'v1\n', 'base');
+    git('checkout', '-q', '-b', 'staging');
+    commit('feature.txt', 'feature\n', 'feature');
+    const cut = commit('fix.txt', 'fix\n', 'fix in staging');
+    const run = (mainSha) => {
+      git('update-ref', 'refs/remotes/origin/main', mainSha);
+      const result = spawnSync('bash', ['-e', '-c', script], {
+        cwd: repo, env: { PATH: process.env.PATH, BASE_REF: 'main', HEAD_SHA: cut }, encoding: 'utf8' });
+      return { status: result.status, log: result.stdout + result.stderr };
+    };
+    // main still at the old base: the merge result is the cut's tree.
+    assert.equal(run(base).status, 0, run(base).log);
+    // main got the same fix as its own hotfix (other SHA, same content): still the cut's tree.
+    git('checkout', '-q', '-b', 'hotfix-same', base);
+    const sameHotfix = commit('fix.txt', 'fix\n', 'same hotfix on main');
+    assert.notEqual(sameHotfix, cut);
+    const same = run(sameHotfix);
+    assert.equal(same.status, 0, same.log);
+    assert.match(same.log, /equals the smoked tree/);
+    // main got a hotfix the cut does not contain: the merge would deploy an unsmoked tree.
+    git('checkout', '-q', '-b', 'hotfix-own', base);
+    const ownHotfix = commit('hotfix.txt', 'only on main\n', 'own hotfix on main');
+    const own = run(ownHotfix);
+    assert.notEqual(own.status, 0, own.log);
+    assert.match(own.log, /differs from the smoked cut/);
+    assert.match(own.log, /hotfix\.txt/);
+    // main changed the same file differently: a conflict is refused too.
+    git('checkout', '-q', '-b', 'hotfix-conflict', base);
+    const conflicting = commit('fix.txt', 'other fix\n', 'conflicting hotfix');
+    const conflict = run(conflicting);
+    assert.notEqual(conflict.status, 0, conflict.log);
+    assert.match(conflict.log, /conflicts/);
+  });
+
   test('release cuts need existing staging push runs and a smoke that really ran', () => {
     assert.match(PROMOTION, /runs\?branch=staging&event=push&head_sha=\$HEAD_SHA/);
     assert.match(PROMOTION, /"\$RUN_ID" = "missing" \] && \[ "\$MODE" = "release" \]/);

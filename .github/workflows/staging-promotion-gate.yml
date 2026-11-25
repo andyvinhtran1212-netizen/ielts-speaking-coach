@@ -56,6 +56,33 @@ jobs:
             exit 1
           fi
 
+      - name: Check out full history for the merge-tree comparison
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Require the merge result to deploy exactly the smoked tree
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Staging evidence is for HEAD_SHA's tree. If main gained a change of its
+          # own (a hotfix) that the cut does not contain, merging would deploy a
+          # tree no staging smoke ever ran. An identical change (same tree, other
+          # SHA) is fine, as with #2674 under #2672.
+          CUT_TREE=$(git rev-parse "$HEAD_SHA^{tree}")
+          if ! MERGE_OUT=$(git merge-tree --write-tree "origin/$BASE_REF" "$HEAD_SHA"); then
+            echo "::error::Merging $HEAD_SHA into $BASE_REF conflicts. Cut a new release from staging that already contains $BASE_REF's changes."
+            exit 1
+          fi
+          MERGE_TREE=${MERGE_OUT%%$'\n'*}
+          if [ "$MERGE_TREE" != "$CUT_TREE" ]; then
+            echo "::error::Merging $HEAD_SHA into $BASE_REF would deploy a tree that differs from the smoked cut. Bring $BASE_REF's own changes into staging, cut a new release and re-verify staging."
+            git diff --stat "$CUT_TREE" "$MERGE_TREE" | tail -20
+            exit 1
+          fi
+          echo "Merge result tree $MERGE_TREE equals the smoked tree of $HEAD_SHA."
+
       - name: Require green integrated staging evidence for the exact SHA
         env:
           GH_TOKEN: ${{ github.token }}

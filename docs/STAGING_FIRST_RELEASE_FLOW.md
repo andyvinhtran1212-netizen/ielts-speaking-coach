@@ -47,6 +47,12 @@ Friday) is cut from a fixed commit instead of the moving branch:
    `staging`, that the branch does not move while the gate waits, and that every
    integrated staging push run for `S` passed. `Spec and PR metadata` treats this
    PR like a `staging` promotion.
+   For every promotion head the gate also merges `S` into current `main` with
+   `git merge-tree` and requires the result to be exactly `S`'s tree. A hotfix
+   that main has on its own (not already in `S` with the same content) or a
+   conflict fails the gate: bring that change into staging, cut a new release
+   and verify staging again. A hotfix with identical content (other SHA, same
+   tree, like #2674 under #2672) passes.
 4. Any other `release/...` name (for example `release/<sha>-hotfix-N`) is not a
    promotion head: it is validated and gated like a normal PR.
 
