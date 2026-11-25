@@ -14,7 +14,7 @@
  *      that was never broken.
  *
  * LEGACYJS-0075 W3b: admin-classes.js is deleted. The class list is
- * app/(authed-admin-classes)/admin/classes/admin-classes-directory.tsx and its
+ * app/(authed-admin)/(classes)/admin/classes/admin-classes-directory.tsx and its
  * pure helpers live in lib/admin-classes-model.mjs, which are EXECUTED here.
  * The old GĐ 1b tab/panel bootstrap pins retired with the merged page: Lớp and
  * Học viên are now two routes, each with its own static `subsection`.
@@ -30,7 +30,7 @@ import { cohortDraft, courseOptionLabel, validateCohortDraft } from '../lib/admi
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(HERE, '..', ...p), 'utf8');
-const DIR = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const DIR = read('app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
 const CELL = DIR.slice(DIR.indexOf('function CourseCell'), DIR.indexOf('\n}\n', DIR.indexOf('function CourseCell')));
 const COURSES_API = read('lib', 'admin-courses-api.ts');
 

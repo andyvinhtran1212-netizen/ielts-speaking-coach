@@ -305,6 +305,9 @@ def test_me_flag_parity_query_order_request_memo_and_private_cache(app, me_setup
         'target_band': None, 'exam_date': None, 'self_level': None,
         'preferred_topics': [], 'vocab_bank_enabled': False, 'd1_enabled': False,
         'd3_enabled': False, 'flashcard_enabled': True, 'vocab_curated_enabled': True,
+        # G07-T05: every runtime flag is stubbed on, so learner_v2_all grants it
+        # without a per-user lookup (the DB call order below is unchanged).
+        'learner_v2_enabled': True,
     }
     assert [c[0] for c in me_setup.calls] == ['select', 'upsert', 'select', 'update']
     assert me_setup.calls[1][3] == {'on_conflict': 'id', 'ignore_duplicates': True}

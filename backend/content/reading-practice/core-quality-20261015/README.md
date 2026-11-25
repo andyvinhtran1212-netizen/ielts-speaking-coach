@@ -36,3 +36,10 @@ Before any approved hosted apply, verify the deployed asset bytes against `relea
 - Both exact SQL files were executed on temporary local PostgreSQL: five updates, eighteen unchanged reviewed articles, 133 questions and non-target/Full Test sentinels unchanged; repeat apply refused; drift caused atomic abort; rollback restored the baseline and refused concurrent edits.
 
 Private source snapshots, QA screenshots and command evidence remain outside the repository. No translation, dictionary, image or AI API was called.
+
+## Apply SQL removed from the tree (G01-T15)
+
+The `release/*-apply.sql` files were applied on staging and production (release PR #1680) and
+are no longer kept in the tree. Recover the exact bytes with
+`git show cc6dd4c8ff7d:backend/content/reading-practice/core-quality-20261015/release/<env>-apply.sql` and check them against
+`release/manifest.json` (`sql_sha256`) before any use. The rollback files stay.

@@ -7,7 +7,7 @@
  *
  * LEGACYJS-0075 W3b: admin-classes.js is deleted. The progress tab is the
  * `acx-panel-progress` section of
- * app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-detail.tsx;
+ * app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-detail.tsx;
  * `normalizeProgressPayload` / `latestSkillActivity`
  * (lib/admin-class-detail-model.mjs) are EXECUTED here and `SkillCell` is
  * pinned. The per-student work dialog that replaced the legacy drawer is pinned
@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 import { latestSkillActivity, normalizeProgressPayload } from '../lib/admin-class-detail-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx'), 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx'), 'utf8');
 const CSS = readFileSync(join(HERE, '..', 'public', 'css', 'admin-class-detail-next.css'), 'utf8');
 const CELL = SRC.slice(SRC.indexOf('function SkillCell'), SRC.indexOf('function EmptyState'));
 const PANEL = SRC.slice(SRC.indexOf('<section id="acx-panel-progress"'), SRC.indexOf("{tab === 'lessons' && ("));

@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 import { normalizeActionLog } from '../lib/admin-class-homework-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CLASS_DIR = join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]');
+const CLASS_DIR = join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]');
 const HW = readFileSync(join(CLASS_DIR, 'admin-class-homework.tsx'), 'utf8');
 const SUB = readFileSync(join(CLASS_DIR, 'admin-class-submissions.tsx'), 'utf8');
 

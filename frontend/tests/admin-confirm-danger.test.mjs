@@ -18,12 +18,12 @@ const CD = read('js', 'confirm-danger.js');
 const ADMINCSS = read('css', 'aver-design', 'admin-components.css');
 // LEGACYJS-0075 W3a: the codes and users controllers are the Next panels now;
 // they confirm through the shared React dialog (`danger: true`), not window.confirmDanger.
-const AC = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
-const USERS = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-users-panel.tsx');
+const AC = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const USERS = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
 // LEGACYJS-0075 W3b: admin-classes.js and admin-students-panel.js are deleted;
 // the class roster and the students directory confirm through the shared Dialog.
-const COH = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
-const STU = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const COH = read('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const STU = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
 
 
 describe('confirmDanger helper — modal + a11y', () => {
@@ -58,7 +58,7 @@ describe('confirmDanger helper — modal + a11y', () => {
 
 describe('migration — 4 core revoke/gỡ confirms → confirmDanger (gate preserved)', () => {
   test('access-codes revoke + remove-user confirm as danger (action only in run)', () => {
-    assert.match(AC, /title: 'Thu hồi mã',[\s\S]{0,160}danger: true,\s*run: async \(\) => mutate\(\s*\(\) => window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}`\)/);
+    assert.match(AC, /title: 'Thu hồi mã',[\s\S]{0,200}danger: true,\s*run: async \(\) => mutate\(\s*\(\) => window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}`\)/);
     assert.match(AC, /title: 'Gỡ người dùng khỏi mã',[\s\S]{0,260}danger: true,\s*run: async \(\) => mutate\(/);
   });
   test('users remove-from-code confirms as danger; canonical refetch preserved', () => {

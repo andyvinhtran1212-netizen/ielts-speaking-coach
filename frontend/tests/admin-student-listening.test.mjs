@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const PAGE = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const PAGE = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
 
 describe('hồ sơ học viên — mục Listening', () => {
   test('có 4 stat: lượt làm, đúng TB, bỏ dở, chép chính tả', () => {

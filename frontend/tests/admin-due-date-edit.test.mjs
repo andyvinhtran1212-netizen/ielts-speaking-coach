@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { dueParts } from '../lib/admin-class-homework-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'), 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'), 'utf8');
 const SAVE_AT = SRC.indexOf('const saveDue = async');
 const SAVE = SRC.slice(SAVE_AT, SRC.indexOf('\n  };\n', SAVE_AT));
 const DIALOG = SRC.slice(SRC.indexOf('<Dialog open={Boolean(dueEditor)}'), SRC.indexOf('</Dialog>', SRC.indexOf('<Dialog open={Boolean(dueEditor)}')));

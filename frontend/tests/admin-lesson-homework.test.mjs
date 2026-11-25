@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { homeworkDraft, normalizeCatalog, validateHomeworkDraft } from '../lib/admin-class-homework-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DIR = join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]');
+const DIR = join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]');
 const SRC = readFileSync(join(DIR, 'admin-class-homework.tsx'), 'utf8');
 const SUB = readFileSync(join(DIR, 'admin-class-submissions.tsx'), 'utf8');
 

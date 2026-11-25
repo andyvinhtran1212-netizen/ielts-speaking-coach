@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { homeworkDraft, normalizeQuestions, validateHomeworkDraft } from '../lib/admin-class-homework-model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'), 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'), 'utf8');
 
 const catalog = [{ id: 'topic-1', title: 'Hometown', ready: true, already_given: false }];
 const questions = [
