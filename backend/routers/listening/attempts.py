@@ -33,6 +33,7 @@ from starlette.concurrency import run_in_threadpool
 from database import supabase_admin
 from services.core_attempt_observation import (
     admit_start, bind_owned_attempt, note_abandoned_dictation_attempt, note_abandoned_exam_attempts, note_persisted_exam_result, observe_operation,
+    record_explicit_exam_abandonment,
 )
 from services.class_assignment_service import (
     active_exam_assignment_references,
@@ -1529,14 +1530,18 @@ def _abandon_conflict(reason: str) -> HTTPException:
     return HTTPException(409, {"reason": reason}, headers=_NO_STORE)
 
 
-def _abandon_listening_attempt(attempt_id: str, user_id: str) -> dict:
+def _abandon_listening_attempt(attempt_id: str, user_id: str) -> tuple[dict, list, str]:
     """One conditional UPDATE (CAS on status), then a re-read to explain a miss.
 
     Only the learner's own self-selected attempt closes: no class item, no
     mock sitting, still ``in_progress`` and inside its resume window. The
     UPDATE is not bound to ``answers`` (abandoning drops the whole attempt),
     while both finalize UPDATEs of ``submit`` require ``status='in_progress'``,
-    so exactly one of a racing submit and abandon writes.
+    so exactly one of a racing submit and abandon writes. ``updated_at`` moves
+    with the status, in the same UPDATE.
+
+    Returns the body, the rows the UPDATE acknowledged (empty on a repeat) and
+    the attempt's ``test_id``, for the evidence receipt.
     """
     attempt = _fetch_attempt_or_404(attempt_id, user_id)
     if blackeye.attempt_is_blackeye(supabase_admin, attempt):
@@ -1546,7 +1551,7 @@ def _abandon_listening_attempt(attempt_id: str, user_id: str) -> dict:
     now_iso = datetime.now(timezone.utc).isoformat()
     closed = (
         supabase_admin.table("listening_test_attempts")
-        .update({"status": "abandoned"})
+        .update({"status": "abandoned", "updated_at": now_iso})
         .eq("id", attempt_id)
         .eq("user_id", user_id)
         .eq("status", "in_progress")
@@ -1555,12 +1560,13 @@ def _abandon_listening_attempt(attempt_id: str, user_id: str) -> dict:
         .gt("resume_expires_at", now_iso)
         .execute().data or []
     )
+    body = {"attempt_id": attempt_id, "status": "abandoned"}
     if closed:
-        return {"attempt_id": attempt_id, "status": "abandoned"}
+        return body, closed, str(attempt.get("test_id"))
     fresh = _fetch_attempt_or_404(attempt_id, user_id)
     status = fresh.get("status")
     if status == "abandoned":
-        return {"attempt_id": attempt_id, "status": "abandoned"}
+        return body, [], str(attempt.get("test_id"))
     if status == "submitted":
         raise _abandon_conflict("already_submitted")
     if fresh.get("sitting_id") or fresh.get("class_assignment_item_id"):
@@ -1587,7 +1593,13 @@ async def abandon_listening_test_attempt(
     "Start test" creates a new attempt.
     """
     user = await _require_auth(authorization)
-    result = await asyncio.to_thread(_abandon_listening_attempt, str(attempt_id), user["id"])
+    result, closed, test_id = await asyncio.to_thread(_abandon_listening_attempt, str(attempt_id), user["id"])
+    if closed:
+        # The same core-evidence receipt as the start-over path
+        # (note_abandoned_exam_attempts), written after the committed write.
+        await record_explicit_exam_abandonment(
+            closed, surface="listening_test", attempt_id=str(attempt_id), test_id=test_id, user_id=user["id"],
+        )
     from starlette.responses import JSONResponse
     return JSONResponse(result, headers=_NO_STORE)
 

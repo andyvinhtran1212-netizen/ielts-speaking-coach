@@ -17,6 +17,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from routers import listening as lr
+from services import core_attempt_observation as obs
 from services import student_home_aggregator
 
 USER = "11111111-1111-4111-8111-111111111111"
@@ -122,7 +123,7 @@ def _attempt(**over):
         "answers": [{"q_num": 1, "answer": "x"}], "scoring_policy": "diagnostic",
         "paper_revision": None, "sitting_id": None, "class_assignment_item_id": None,
         "attempt_purpose": "delivery", "started_at": _iso(-10), "resume_expires_at": _iso(60),
-        "created_at": _iso(-10), "submitted_at": None, "score": None, "grading_details": None,
+        "created_at": _iso(-10), "updated_at": _iso(-10), "renderer_affinity": "next", "submitted_at": None, "score": None, "grading_details": None,
     }
     row.update(over)
     return row
@@ -168,6 +169,81 @@ def test_abandon_closes_the_own_self_selected_attempt_with_one_conditional_updat
 def test_repeating_abandon_returns_the_same_200(db):
     _abandon()
     assert _body(_abandon()) == {"attempt_id": ATTEMPT, "status": "abandoned"}
+
+
+def test_abandon_moves_updated_at_only_when_it_closes_the_attempt(db):
+    before = db.attempt["updated_at"]
+    _abandon()
+    closed_at = db.attempt["updated_at"]
+    assert closed_at > before
+    _abandon()  # the repeat changes nothing
+    assert db.attempt["updated_at"] == closed_at
+
+
+def test_a_refused_abandon_leaves_updated_at_alone(db):
+    db.attempt["resume_expires_at"] = _iso(-1)
+    before = db.attempt["updated_at"]
+    with pytest.raises(HTTPException):
+        _abandon()
+    assert db.attempt["updated_at"] == before
+
+
+@pytest.fixture
+def receipts(monkeypatch):
+    events = []
+
+    async def record(**fields):
+        events.append(fields)
+
+    monkeypatch.setattr(obs.settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", True)
+    monkeypatch.setattr(obs, "try_record_event", record)
+    return events
+
+
+def test_abandon_writes_the_same_abandonment_receipt_as_start_over(db, receipts):
+    _abandon()
+    assert len(receipts) == 1
+    event = receipts[0]
+    assert event["surface"] == "listening_test" and event["attempt_kind"] == "default"
+    assert str(event["canonical_attempt_id"]) == ATTEMPT
+    assert (event["operation"], event["event_kind"], event["outcome"]) == ("start", "outcome_observed", "abandoned")
+    assert event["renderer"] == "next"
+    assert set(event) == {"event_id", "operation_id", "surface", "attempt_kind", "canonical_attempt_id",
+                          "operation", "event_kind", "outcome", "renderer"}
+
+
+def test_repeat_or_refused_abandon_writes_no_receipt(db, receipts):
+    _abandon()
+    receipts.clear()
+    _abandon()
+    assert receipts == []
+    db.attempt.update(status="submitted")
+    with pytest.raises(HTTPException):
+        _abandon()
+    assert receipts == []
+
+
+def test_no_receipt_when_evidence_is_disabled(db, receipts, monkeypatch):
+    monkeypatch.setattr(obs.settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", False)
+    assert _body(_abandon())["status"] == "abandoned"
+    assert receipts == []
+
+
+def test_receipt_failure_never_fails_the_abandon(db, monkeypatch):
+    async def broken(**_fields):
+        raise RuntimeError("evidence down")
+
+    monkeypatch.setattr(obs.settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", True)
+    monkeypatch.setattr(obs, "try_record_event", broken)
+    assert _body(_abandon()) == {"attempt_id": ATTEMPT, "status": "abandoned"}
+    assert db.attempt["status"] == "abandoned"
+
+
+def test_unverified_update_row_writes_no_receipt(receipts):
+    row = {"id": ATTEMPT, "test_id": TEST, "user_id": OTHER, "status": "abandoned", "renderer_affinity": "next"}
+    asyncio.run(obs.record_explicit_exam_abandonment(
+        [row], surface="listening_test", attempt_id=ATTEMPT, test_id=TEST, user_id=USER))
+    assert receipts == []
 
 
 def test_someone_elses_attempt_is_404_and_untouched(db):
