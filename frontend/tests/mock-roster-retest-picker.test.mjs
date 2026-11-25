@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { MOCK_REVIEW_SKILLS, normalizeReviewRoster, retestFlagConfirmed } from '../lib/admin-mock-reviews-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
+const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
 
 const block = (re, what) => {
   const m = TSX.match(re);

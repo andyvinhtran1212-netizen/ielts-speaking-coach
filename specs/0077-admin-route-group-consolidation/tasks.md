@@ -9,6 +9,7 @@ Mỗi task một PR vào `staging`, lớp `feature`, `Spec: ADMINGROUP-0077`, ch
 - [ ] T005 (G10-T15-4) `listening`, `speaking`, `speaking-sessions`, `speaking-topics`. `depends: T004`
   - 23/11 (coordinator, phương án a): `listening` giữ group riêng như `system`/`mfa`. Layout của nó đặt `aver-design/components.css` ngay sau `admin-surface.css`, trước `admin-components`/`admin-buttons`/`admin-status`; layout con chỉ phát `<link>` sau 4 sheet nền của cha, nên dời vào cha sẽ đổi thứ tự cascade (trái FR-001). T005 chỉ dời 3 group speaking.
 - [ ] T006 (G10-T15-5) `reading`, `reading-attempts`, `reading-content`, `mock-exams`, `mock-live`, `mock-reviews`. `depends: T005`
+  - 23/11: `reading-content` giữ group riêng theo cùng lý do với `listening` (T005, phương án a): layout của nó cũng đặt `aver-design/components.css` giữa `admin-surface.css` và `admin-components.css`. T006 dời 5 group còn lại.
 - [ ] T007 (G10-T15-6/7) `mock-tests`, `writing`, `writing-assignments`, `writing-cohorts`, `writing-instructor-queue`, `writing-new`, `writing-prompts`, `writing-queue`, `writing-regrade`, `writing-status` (hai PR). `depends: T006`
 
 Thứ tự đợt có thể đổi theo nhu cầu G09 (đợt chứa trang G09 sắp sửa đi trước), giữ ≤ 6 group và ≤ 30 file test mỗi PR. Mỗi PR: quy tắc chuyển ở `plan.md`, nghiệm thu ở "Verification strategy", ghi SHA và kết quả vào `verification.md`.

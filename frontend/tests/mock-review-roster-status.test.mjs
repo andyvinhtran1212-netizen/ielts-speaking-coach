@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizeReviewRoster } from '../lib/admin-mock-reviews-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
+const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
 const CSS = readFileSync(join(__dirname, '..', 'public', 'css', 'admin-mock-reviews-next.css'), 'utf8');
 
 const rosterRow = (over) => ({

@@ -1113,7 +1113,7 @@ def test_the_verb_used_by_the_page_is_in_the_cors_allowlist():
     import main as app_main
     # LEGACYJS-0075 W2 retired admin-exam-content.js; the library now lives in
     # the Next mock-exams route.
-    page = (BACKEND.parent / "frontend" / "app" / "(authed-admin-mock-exams)" / "admin"
+    page = (BACKEND.parent / "frontend" / "app" / "(authed-admin)" / "(mock-exams)" / "admin"
             / "mock-exams" / "exam-content-library.tsx").read_text(encoding="utf-8")
     verbs = set(re.findall(r"window\.api\.(\w+)\b", page))
     assert "patch" in verbs, "the cohort editor must still PATCH"

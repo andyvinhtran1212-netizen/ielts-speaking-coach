@@ -241,7 +241,7 @@ describe('admin mock-review report — a real href, not history.back()', () => {
     assert.match(REPORT, /id="rp-back" href="\/pages\/admin\/mock-reviews\/index\.html"/);
   });
   // LEGACYJS-0075 W2: the opener is the Next review console now.
-  const OPENER = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx');
+  const OPENER = read('app', '(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx');
   test('the opener really does open a new tab — so history.back could never work', () => {
     assert.match(OPENER, /target="_blank" rel="noreferrer" href=\{`\/admin\/mock-reviews\/report\?review_id=/);
   });
@@ -255,7 +255,7 @@ describe('admin mock-review report — a real href, not history.back()', () => {
 // came from. LEGACYJS-0075 W2: the retired `admin-mock-report.js` wireBack() is
 // replaced by the Next report's `back` link.
 describe('admin mock-review report — back returns to the SAME exam queue', () => {
-  const REPORT = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx');
+  const REPORT = read('app', '(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx');
   test('replays the exam id, encoded, as a query VALUE on a fixed path', () => {
     assert.match(REPORT, /const back = examId \? `\/admin\/mock-reviews\?mock_exam_id=\$\{encodeURIComponent\(examId\)\}` : '\/admin\/mock-tests\?tab=review';/);
   });

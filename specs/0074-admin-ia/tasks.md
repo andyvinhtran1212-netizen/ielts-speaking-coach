@@ -74,8 +74,8 @@ Chi tiết từng nhiệm vụ (gói mục 6, chép nguyên):
 
 ### G09-T02 — "Duyệt bài thi" không còn mở lỗi thiếu mock_exam_id — GIỮ
 - Mục đích: FR-063, làm ngay trên trang hiện có (lớp `small`). T34 thay hẳn trang này sau.
-- Đầu vào: `app/(authed-admin-mock-reviews)/admin/mock-reviews/page.tsx`, `admin-mock-reviews.tsx` dòng 119/140, `lib/admin-mock-tests-model.mjs`, test `tests/admin-mock-reviews-next-behavior.test.mjs`; GOI-02.
-- Việc làm: 1) Kiểm G02 đã sửa chưa (`git log origin/staging --oneline -- 'frontend/app/(authed-admin-mock-reviews)'`); đã sửa → đóng bằng bằng chứng. 2) Trong `page.tsx`: `mock_exam_id` rỗng và không `embed=1` → `redirect('/admin/mock-tests?tab=review&notice=choose-exam')`; `embed=1` mà rỗng → đổi câu thành "Chọn một kỳ thi để duyệt bài." 3) Trung tâm Mock Test đọc `notice=choose-exam` hiện một dòng. 4) Test React.
+- Đầu vào: `app/(authed-admin)/(mock-reviews)/admin/mock-reviews/page.tsx`, `admin-mock-reviews.tsx` dòng 119/140, `lib/admin-mock-tests-model.mjs`, test `tests/admin-mock-reviews-next-behavior.test.mjs`; GOI-02.
+- Việc làm: 1) Kiểm G02 đã sửa chưa (`git log origin/staging --oneline -- 'frontend/app/(authed-admin)/(mock-reviews)'`); đã sửa → đóng bằng bằng chứng. 2) Trong `page.tsx`: `mock_exam_id` rỗng và không `embed=1` → `redirect('/admin/mock-tests?tab=review&notice=choose-exam')`; `embed=1` mà rỗng → đổi câu thành "Chọn một kỳ thi để duyệt bài." 3) Trung tâm Mock Test đọc `notice=choose-exam` hiện một dòng. 4) Test React.
 - Đầu ra: 1 PR.
 - Nghiệm thu: mở `/admin/mock-reviews` → về trung tâm với dòng "Chọn một kỳ thi để duyệt bài."; `grep -rn "Thiếu mock_exam_id" frontend/app` rỗng; test frontend qua.
 - Không làm: không đổi API, không đổi iframe.
