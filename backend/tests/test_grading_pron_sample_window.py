@@ -312,7 +312,8 @@ def test_route_part1_second_answer_is_not_sampled(monkeypatch):
     assert _cols(r.row) == ("not_sampled", None, None)
     # Không lấy mẫu ⇒ không có P của Azure. `final_*` được ghi None (không
     # bỏ trống) để bản ghi âm lại không mang điểm của lần trước (săn lỗi B2-01).
-    assert "pronunciation_status" not in r.row
+    # Dữ liệu phát âm cũ cũng bị xoá (None), không còn "completed" (CR #2696).
+    assert r.row["pronunciation_status"] is None and r.row["pronunciation_score"] is None
     assert r.row["final_band_p"] is None and r.row["final_overall_band"] is None
     assert r.result["band_p"] is None
     assert r.result["p_feedback"] == grading._PRON_NOT_SAMPLED_FEEDBACK

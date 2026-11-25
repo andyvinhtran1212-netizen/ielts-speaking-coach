@@ -1271,6 +1271,17 @@ async def grade_response_endpoint(
             if grading and session_mode != "practice" and grading.get("band_p") is not None:
                 db_row["final_band_p"]       = grading["band_p"]
                 db_row["final_overall_band"] = grading["overall_band"]
+        else:
+            # Ghi âm lại mà lần này Azure không chạy: `_upsert_response` chỉ ghi
+            # khoá có mặt, nên điểm phát âm và `pronunciation_status='completed'`
+            # của bản ghi CŨ ở lại; Full Test summary đọc các dòng `completed`
+            # nên học viên thấy chỉ số phát âm của lần trước cạnh band mới (CR
+            # #2696 trên B2-01). Bản ghi mới chỉ mang dữ liệu phát âm của chính nó.
+            for col in ("pronunciation_score", "pronunciation_fluency",
+                        "pronunciation_accuracy", "pronunciation_completeness",
+                        "pronunciation_status", "pronunciation_provider",
+                        "pronunciation_locale", "pronunciation_payload"):
+                db_row[col] = None
 
         # FR-036 (G04-T13): with `pron_sample_window` on, always record what
         # Azure heard — not_sampled included (migration 502). Outside

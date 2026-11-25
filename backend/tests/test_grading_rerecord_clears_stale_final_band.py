@@ -67,3 +67,26 @@ def test_core_row_fallback_also_clears_final_bands_on_a_graded_rerecord():
     i = src.index("response_id, partial = _persist_response_with_fallback")
     seg = src[i:i + 1400]
     assert 'if partial and response_id and db_row.get("final_overall_band", 0) is None:' in seg
+
+
+def test_rerecord_without_azure_drops_old_pronunciation_from_full_test_summary(monkeypatch):
+    # CR #2696: dòng cũ có điểm Azure; ghi âm lại không có Azure. Dòng sau khi
+    # upsert (khoá có mặt đè khoá cũ) không được để Full Test summary lấy chỉ
+    # số phát âm của lần trước.
+    from routers.sessions import _persisted_pronunciation_summary
+
+    old = {**_old_row(), "pronunciation_score": 91.0, "pronunciation_fluency": 88.0,
+           "pronunciation_accuracy": 90.0, "pronunciation_completeness": 95.0,
+           "pronunciation_provider": "azure", "pronunciation_locale": "en-US",
+           "pronunciation_payload": "{}"}
+    assert _persisted_pronunciation_summary([old]) is not None
+
+    def extract(_audio):
+        _azure_down(monkeypatch)
+        return b"WAV"
+    r = _route(monkeypatch, part=2, duration=120.0, flag=False, extract=extract)
+    merged = {**old, **r.row}
+    assert merged["pronunciation_status"] is None
+    assert merged["pronunciation_score"] is None
+    assert merged["final_band_p"] is None and merged["final_overall_band"] is None
+    assert _persisted_pronunciation_summary([merged]) is None
