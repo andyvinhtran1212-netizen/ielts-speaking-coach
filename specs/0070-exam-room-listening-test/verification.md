@@ -58,6 +58,7 @@ Review độc lập lần 1, ngày 23/11/2026 (R142), người review không ph�
   - FR-012 phía backend: một câu UPDATE CAS; các mã `reason` của 409 khớp với chỗ frontend đọc `detail.reason`; lượt bỏ không vào lịch sử, Tiến độ hay review. FR-012 vẫn chờ anh Andy gỡ HOLD trên #2549.
 - **Chưa kiểm ở lần này:** FR-018 (cần journey), FR-019 (sự kiện), `/ui-review` trên ảnh chụp (cần staging, T005).
 - Các dòng PENDING ở bảng trên giữ nguyên PENDING cho tới khi F1–F3 được sửa và qua nghiệm thu staging (T005).
+- **Sau lần 1 (25/11).** F1, F3 và F4 đã được sửa ở #2557 `69ef254a`; F2 sửa ở #2518 `8c9752ad`, commit này đã vào `staging`. Trạng thái của cả bốn là **đã sửa, chờ review lần 2**. Các dòng "còn mở" ở trên là ghi nhận của lần 1. Dòng PENDING trong bảng vẫn giữ PENDING tới T005.
 
 ## Contract evidence
 
