@@ -1,0 +1,174 @@
+/* Grammar sub-pages frame (LIBRARY-0061 T014 PR (c)). Only var(--av2-*).
+   Paragraph/heading classes are doubled (.x.x) so legacy `body.av-page` rules
+   from grammar-wiki.css do not reset them while it is still in the layout. */
+.page { min-height: 60vh; }
+
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--av2-space-6) var(--av2-space-8) var(--av2-space-12);
+  font-family: var(--av2-font-sans);
+  color: var(--av2-ink);
+}
+
+.main { margin-top: var(--av2-space-8); outline: none; }
+.narrow { max-width: 760px; }
+
+.header { margin-bottom: var(--av2-space-8); }
+
+.eyebrow.eyebrow {
+  margin: 0 0 var(--av2-space-3);
+  font-size: var(--av2-fs-13);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+
+.title.title {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-40);
+  line-height: var(--av2-lh-tight);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.intro.intro {
+  margin: var(--av2-space-3) 0 0;
+  font-size: var(--av2-fs-16);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-muted);
+}
+
+.muted { color: var(--av2-muted); }
+.vs { margin: 0 var(--av2-space-3); font-weight: var(--av2-fw-regular); color: var(--av2-muted); }
+
+/* Filters: one row of fields + the submit, wrapping on narrow screens. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--av2-space-4);
+  margin-bottom: var(--av2-space-8);
+  padding-bottom: var(--av2-space-6);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+.filterWide { flex: 1 1 280px; }
+.filterField { flex: 0 1 200px; }
+.filterActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-4); }
+.filterActions a { color: var(--av2-link); }
+
+/* Lists of links: rows ruled like a printed index. */
+.list { margin: 0; padding: 0; list-style: none; border-top: var(--av2-rule-w) solid var(--av2-ink); }
+.item {
+  display: grid;
+  row-gap: var(--av2-space-1);
+  padding: var(--av2-space-4) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+.itemTitle.itemTitle {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  line-height: var(--av2-lh-tight);
+  font-weight: var(--av2-fw-strong);
+}
+.itemTitle a { color: var(--av2-link); }
+.itemMeta.itemMeta { margin: 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.itemText.itemText { margin: 0; font-size: var(--av2-fs-15); line-height: var(--av2-lh-body); color: var(--av2-ink); }
+
+.tag {
+  display: inline-block;
+  margin-left: var(--av2-space-2);
+  padding: 0 var(--av2-space-2);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-13);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-muted);
+  vertical-align: middle;
+}
+.tag[data-tone='danger'] { border-color: var(--av2-danger); color: var(--av2-danger); }
+.tag[data-tone='mark'] { background: var(--av2-warn-bg); color: var(--av2-ink); }
+.tag[data-tone='ok'] { border-color: var(--av2-ok); color: var(--av2-ok); }
+
+.count.count { margin: 0 0 var(--av2-space-4); font-size: var(--av2-fs-15); color: var(--av2-muted); }
+.empty.empty { margin: 0; padding: var(--av2-space-8) 0; font-size: var(--av2-fs-16); color: var(--av2-muted); }
+
+/* Compare: two columns of text, ruled between. */
+.compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--av2-space-8);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  padding-top: var(--av2-space-6);
+}
+.compareCol { min-width: 0; }
+.compareCol + .compareCol { padding-left: var(--av2-space-8); border-left: var(--av2-rule-w) solid var(--av2-rule); }
+.colTitle.colTitle {
+  margin: var(--av2-space-2) 0 var(--av2-space-3);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  line-height: var(--av2-lh-tight);
+  color: var(--av2-ink);
+}
+.colLink { display: inline-block; margin: var(--av2-space-3) 0 var(--av2-space-6); color: var(--av2-link); font-weight: var(--av2-fw-strong); }
+
+/* Roadmap: numbered steps. */
+.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; border-top: var(--av2-rule-w) solid var(--av2-ink); }
+.step {
+  display: grid;
+  grid-template-columns: var(--av2-space-10) minmax(0, 1fr);
+  column-gap: var(--av2-space-4);
+  padding: var(--av2-space-5) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+.stepNum { font-family: var(--av2-font-serif); font-size: var(--av2-fs-24); line-height: var(--av2-lh-tight); color: var(--av2-muted); }
+.stepBody { display: grid; row-gap: var(--av2-space-2); }
+
+/* Personal roadmap rows (class kp-node kept for the browser flow). */
+.node {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--av2-space-4);
+  min-height: var(--av2-control-md);
+  padding: var(--av2-space-4) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+a.node .nodeTitle { color: var(--av2-link); text-decoration: underline; }
+.nodeTitle { display: block; font-weight: var(--av2-fw-strong); }
+.nodeNote { display: block; margin-top: var(--av2-space-1); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+
+.footer.footer {
+  margin: var(--av2-space-8) 0 0;
+  padding-top: var(--av2-space-5);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  font-size: var(--av2-fs-16);
+}
+.footer a { color: var(--av2-link); font-weight: var(--av2-fw-strong); }
+
+.list a:focus-visible,
+.steps a:focus-visible,
+.node:focus-visible,
+.colLink:focus-visible,
+.footer a:focus-visible,
+.filterActions a:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+/* Skeleton: plain blocks, no animation. */
+.skeleton { display: grid; row-gap: var(--av2-space-4); margin-top: var(--av2-space-8); max-width: 760px; }
+.skelLine { display: block; height: var(--av2-space-4); background: var(--av2-off); }
+.skelLine[data-w='eyebrow'] { width: 30%; }
+.skelLine[data-w='title'] { width: 70%; height: var(--av2-space-10); }
+.skelBlock { display: block; height: var(--av2-space-12); background: var(--av2-off); }
+
+@media (max-width: 767px) {
+  .inner { padding: var(--av2-space-5) var(--av2-space-5) var(--av2-space-10); }
+  .title.title { font-size: var(--av2-fs-24); }
+  .compare { grid-template-columns: minmax(0, 1fr); row-gap: var(--av2-space-8); }
+  .compareCol + .compareCol { padding-left: 0; padding-top: var(--av2-space-6); border-left: 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+  .filterField, .filterWide { flex: 1 1 100%; }
+}

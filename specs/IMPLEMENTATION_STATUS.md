@@ -156,7 +156,7 @@ older task text) holds every production, migration-apply and paid-evaluation
 gate.
 
 Classes (GOI-10 FR-10f-001): **shipped-pending-evidence** = implementation is
-deployed, acceptance evidence missing; **in-progress** = implementation tasks
+merged (deployed state not verified), acceptance evidence missing; **in-progress** = implementation tasks
 still open; **blocked** = the named condition stops the next step;
 **superseded-proposed** = proposed replacement, waiting for the owner.
 "Pending FR" lists FR numbers whose Result is `PENDING`.

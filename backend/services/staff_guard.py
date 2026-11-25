@@ -44,8 +44,6 @@ with ``reason="new_factor_cooloff"``, however fresh the TOTP.
 
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 import logging
 import math
@@ -59,7 +57,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from config import settings
-from services import activation_gate
+from services import activation_gate, token_claims
 
 logger = logging.getLogger(__name__)
 
@@ -136,26 +134,14 @@ class Assurance:
 
 
 def _bearer_token(authorization: str | None) -> str:
-    # Same extraction as routers.auth.get_supabase_user, so the payload read
-    # here is the token GoTrue accepted.
-    return (authorization or "").replace("Bearer ", "").strip()
+    return token_claims.bearer_token(authorization)
 
 
 def _token_claims(authorization: str | None, user_id: str) -> dict:
     """Claims of an ALREADY ACCEPTED token, or {} when they cannot be trusted
-    as this user's (undecodable, not an object, or another ``sub``)."""
-    parts = _bearer_token(authorization).split(".")
-    if len(parts) != 3:
-        return {}
-    segment = parts[1]
-    try:
-        raw = base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
-        claims = json.loads(raw)
-    except (binascii.Error, ValueError, UnicodeDecodeError):
-        return {}
-    if not isinstance(claims, dict) or str(claims.get("sub") or "") != str(user_id):
-        return {}
-    return claims
+    as this user's (undecodable, not an object, or another ``sub``). The
+    decoding is shared with services.session_gate (services/token_claims.py)."""
+    return token_claims.accepted_token_claims(authorization, user_id)
 
 
 def _verified_totp_count(auth_user: dict) -> int:
