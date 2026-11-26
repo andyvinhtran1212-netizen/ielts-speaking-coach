@@ -111,6 +111,7 @@ describe('useSpeakingTabGuard', () => {
     const before = writeRight.length;
     const b = renderHook(() => useSpeakingTabGuard('s-1'));
     await waitFor(() => expect(b.result.current.state).toBe('read-only'));
+    b.unmount();
     expect(writeRight.slice(before)).not.toContain(true);
     expect(writeRight.at(-1)).toBe(false);
   });

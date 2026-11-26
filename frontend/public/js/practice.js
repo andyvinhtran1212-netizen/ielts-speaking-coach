@@ -77,6 +77,7 @@
   var _roomLevelTimer = null;
   var _roomMicLostDone = false;
   var _roomMicLostShown = false;
+  var _roomResumeCompletionPending = false;
   var _roomWriteRight = true;   // R149: false while another tab holds the write right
   // FR-006–FR-008: a box the room has open, and what it will do when answered.
   var _roomDialogKind = null;
@@ -611,6 +612,10 @@
   function setWriteRight(allowed) {
     if (!_examRoomMode) return;
     _roomWriteRight = allowed !== false;
+    if (_roomWriteRight && _roomResumeCompletionPending) {
+      _roomResumeCompletionPending = false;
+      _finishTestAndShowResults();
+    }
   }
 
   // A recorder still starting (the browser's microphone box may be open)
@@ -5901,6 +5906,7 @@
   function destroy() {
     if (!_playerActive) return;
     _playerActive = false;
+    _roomResumeCompletionPending = false;
     _playerGeneration++;
     _processingRun++;
     _sheetReviewRun++;
@@ -6094,6 +6100,7 @@
   async function init(bootstrap) {
     var generation = ++_playerGeneration;
     _playerActive = true;
+    _roomResumeCompletionPending = false;
     _sittingId = null;
     _ftAllSessionIds = [];
     _sheet = null;
@@ -6335,8 +6342,9 @@
         if (_currentIdx >= _questions.length) {
           // Refresh landed AFTER the last answer was submitted: everything
           // is graded — complete the session and go straight to the
-          // canonical result page.
-          _finishTestAndShowResults();
+          // canonical result page once this tab has the write right.
+          if (_roomReadOnly()) _roomResumeCompletionPending = true;
+          else _finishTestAndShowResults();
           return;
         }
       }

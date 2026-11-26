@@ -4,6 +4,8 @@
 // hand-over flush is "secured" only with nothing recording, unsent or
 // uploading, because takes live only in page memory (FR-009). The room helpers
 // of practice.js run for real in a sandbox.
+import { JSDOM } from 'jsdom';
+import { installPracticePlayerController } from '../lib/practice-player-lifecycle.mjs';
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -30,7 +32,7 @@ function sandbox({ on = true, sub = 'idle', dirty = false, slots = null, fullTes
   return new Function(...Object.keys(env), `
     var _examRoomMode = ${on ? 'true' : 'false'};
     var _roomMicState = 'granted', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomMicLostDone = false, _roomMicLostShown = false;
-    var _roomWriteRight = true;
+    var _roomWriteRight = true, _roomResumeCompletionPending = false;
     var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
     var _playerGeneration = 1, _playerActive = true, _analyser = null, _recorder = null, _stream = null;
     var _p2RetryQuestionId = ${JSON.stringify(p2Retry)};
@@ -51,6 +53,31 @@ describe('flag on: the write right', () => {
     api.setWriteRight(true);
     assert.equal(api.readOnly(), false);
   });
+});
+
+test('fully answered test_part resumes once the tab can write', async (t) => {
+  const dom = new JSDOM('', { url: 'https://example.test/practice/session', runScripts: 'outside-only' });
+  const browser = dom.window;
+  const calls = [];
+  browser.fetch = async () => ({ ok: false });
+  browser.api = { patch: async (url) => { calls.push(url); } };
+  const player = installPracticePlayerController(browser);
+  t.after(() => {
+    player.cleanup();
+    dom.window.close();
+  });
+  browser.eval(JS);
+  const sessionId = 'answered-session';
+  await browser.PracticeApp.init({
+    source: 'next-native-bootstrap-v1', rendererAffinity: 'next', examRoomMode: true,
+    sessionId, sessionData: { mode: 'test_part', part: 1, responses: [{ question_id: 'q1' }] },
+    questions: [{ id: 'q1' }], navigate: (url) => calls.push(url),
+  });
+  browser.PracticeApp.setWriteRight(false);
+  assert.deepEqual(calls, []);
+  browser.PracticeApp.setWriteRight(true);
+  browser.PracticeApp.setWriteRight(true);
+  assert.deepEqual(calls, ['/sessions/answered-session/complete', '/result?id=answered-session']);
 });
 
 describe('flag on: the hand-over flush', () => {
@@ -243,7 +270,7 @@ describe('a "Nộp bài" still waiting keeps the right in tab A', () => {
     const api = new Function(...Object.keys(env), `
       var _examRoomMode = ${on ? 'true' : 'false'};
       var _roomMicState = 'granted', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomMicLostDone = false, _roomMicLostShown = false;
-      var _roomWriteRight = true;
+      var _roomWriteRight = true, _roomResumeCompletionPending = false;
       var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
       var _playerGeneration = 1, _playerActive = true, _analyser = null, _recorder = null, _stream = null;
       var _p2RetryQuestionId = null, _currentState = 'sheet', _recSubState = 'idle', _recordingDirty = false;
