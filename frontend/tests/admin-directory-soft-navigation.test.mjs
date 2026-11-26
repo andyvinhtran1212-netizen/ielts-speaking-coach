@@ -5,9 +5,9 @@ import { describe, test } from 'node:test';
 
 const FRONTEND = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(FRONTEND, ...parts), 'utf8');
-const CLASSES = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
-const CLASS_DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
-const STUDENTS = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const CLASSES = read('app', '(authed-admin)/(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const CLASS_DETAIL = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const STUDENTS = read('app', '(authed-admin)/(students)', 'admin', 'students', 'admin-students-directory.tsx');
 const WRITING_QUEUE = read('app', '(authed-admin-writing-queue)', 'admin', 'writing', 'queue', 'admin-writing-queue.tsx');
 
 describe('admin directory navigation stays inside the App Router', () => {

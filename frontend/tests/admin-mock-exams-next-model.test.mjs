@@ -26,11 +26,11 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'page.tsx');
-const COMPONENT = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx');
-const ASSIGN = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'retake-assignment-dialog.tsx');
-const CONTENT = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
-const CREATE = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'exam-create-form.tsx');
+const PAGE = read('app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams', 'page.tsx');
+const COMPONENT = read('app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx');
+const ASSIGN = read('app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams', 'retake-assignment-dialog.tsx');
+const CONTENT = read('app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
+const CREATE = read('app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams', 'exam-create-form.tsx');
 const CSS = read('public', 'css', 'admin-mock-exams-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -159,7 +159,7 @@ describe('/admin/mock-exams native ownership and mutation truth', () => {
     assert.match(PAGE, /AdminAccessGate/);
     assert.match(PAGE, /embed=\{embed \? '' : undefined\}/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'mock-exams', 'index.html')));
-    assert.match(LEDGER, /`\/admin\/mock-exams`[^\n]+authed-admin-mock-exams[^\n]+native React ownership/);
+    assert.match(LEDGER, /`\/admin\/mock-exams`[^\n]+\(authed-admin\)\/\(mock-exams\)[^\n]+native React ownership/);
   });
 
   test('forces canonical reconciliation and preserves irreversible guards', () => {
@@ -175,6 +175,6 @@ describe('/admin/mock-exams native ownership and mutation truth', () => {
 
   test('pins responsive evidence in CI', () => {
     for (const token of ['min-height:44px', '@media(max-width:600px)', ':focus-visible', '@media(prefers-reduced-motion:reduce)']) assert.ok(CSS.includes(token), token);
-    for (const token of ['frontend/app/(authed-admin-mock-exams)/**', 'frontend/lib/admin-mock-exams-model.mjs', 'verify-admin-mock-exams-flow.mjs', 'node tooling/verify-admin-mock-exams-flow.mjs']) assert.ok(WORKFLOW.includes(token), token);
+    for (const token of ['frontend/app/(authed-admin)/(mock-exams)/**', 'frontend/lib/admin-mock-exams-model.mjs', 'verify-admin-mock-exams-flow.mjs', 'node tooling/verify-admin-mock-exams-flow.mjs']) assert.ok(WORKFLOW.includes(token), token);
   });
 });

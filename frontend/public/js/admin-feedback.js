@@ -8,7 +8,7 @@
  *
  * Endpoint (#458): GET /api/admin/feedback (?skill&type&status&test_id, grouped)
  *                  PATCH /api/admin/feedback/{id} {status: new|resolved}
- * Pattern reused from admin-access-codes.js: client-side filter + re-render.
+ * Pattern reused from the retired access-codes controller: client-side filter + re-render.
  */
 (function () {
   'use strict';

@@ -39,7 +39,7 @@ Phần của GOI-09 tách thành spec riêng ở G09-T21 vì có migration và h
 
 | Thứ cần biết | File/đường dẫn thật | Ghi chú |
 |---|---|---|
-| Giao diện | `app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-homework.tsx` → `admin-class-submissions.tsx` (ba tab); model `lib/admin-class-submissions-model.mjs` | Ba bộ trạng thái: `status` 5 giá trị, `course_state` 8, `state` 6. |
+| Giao diện | `app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-homework.tsx` → `admin-class-submissions.tsx` (ba tab); model `lib/admin-class-submissions-model.mjs` | Ba bộ trạng thái: `status` 5 giá trị, `course_state` 8, `state` 6. |
 | API "Tổng kết" | `GET /admin/cohorts/{c}/assignments/{a}/tally` (`admin_class_assignments.py` dòng 1648, `_hand_in_status` dòng 1541) | `status`: no-account / missing / pending / late / submitted. GOI-11 phần E mở rộng API này (5.5.8). |
 | API "Tiến độ lớp" | `GET /admin/quiz/banks/{bank}/attempt-report?assignment_id=` (`routers/admin_quiz.py` dòng 194 → `services/quiz_service.py` `course_attempt_report` dòng 6382) | Khối `axes` gom theo `item_key` (trục) và cắt `axes[:15]` (dòng 6792). |
 | API "Inspect học viên" | `GET /admin/quiz/banks/{bank}/students/{user}/report?assignment_id=` (`admin_quiz.py` dòng 211 → `course_answer_report` dòng 6041) | Từng câu của một học viên. **Giữ** để mở "bài làm từng câu". |

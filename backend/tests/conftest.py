@@ -130,6 +130,20 @@ def _auth_thread_client_follows_patched_admin(monkeypatch):
     monkeypatch.setattr(auth, "thread_supabase_admin", lambda: auth.supabase_admin, raising=False)
 
 
+# COURSEACCESS-0055 G04-T07: grading routes now ask credits.charge_plan,
+# whose `credit_metering` read is strict (a lookup error is 503, never "off").
+# With the network blocked every unpatched read would fail, so tests start with
+# the flag cached as "no row" (= off, today's behaviour). A test that drives
+# the flag patches runtime_flags.is_enabled_strict or calls clear_cache().
+@pytest.fixture(autouse=True)
+def _credit_metering_defaults_off(monkeypatch):
+    try:
+        from services import runtime_flags
+    except Exception:
+        return
+    monkeypatch.setitem(runtime_flags._cache, "credit_metering", (None, float("inf")))
+
+
 @pytest.fixture
 def live_activation_gate(monkeypatch):
     """Run the REAL activation gate (and is_active lookup) in this test."""
@@ -140,6 +154,48 @@ def live_activation_gate(monkeypatch):
     monkeypatch.setattr(activation_gate, "alookup_is_active",
                         _ACTIVATION_GATE_ORIGINALS["alookup_is_active"])
     return activation_gate
+
+
+# COURSEACCESS-0055 T009 — the single-session gate runs inside the activation
+# gate. Many tests stub runtime_flags.is_enabled to answer True for every key,
+# which would switch it on by accident; keep it off unless a test opts in with
+# the `live_session_gate` fixture (tests/test_session_gate.py).
+_SESSION_GATE_ORIGINALS: dict = {}
+
+
+@pytest.fixture(autouse=True)
+def _session_gate_defaults_off(monkeypatch):
+    try:
+        from services import session_gate
+    except Exception:
+        return
+    _SESSION_GATE_ORIGINALS.setdefault("flag_on", session_gate.flag_on)
+
+    async def _off():
+        return False
+
+    monkeypatch.setattr(session_gate, "flag_on", _off)
+    # G04-T16: a test that opts into the gate but not into login events must
+    # never reach a real database from login_events.record (which swallows
+    # the error, as it does in production).
+    try:
+        from services import login_events
+    except Exception:
+        return
+
+    class _NoLoginEventsDB:
+        def table(self, _name):
+            raise RuntimeError("login_events: no database in tests unless a test provides one")
+
+    monkeypatch.setattr(login_events, "supabase_admin", _NoLoginEventsDB())
+
+
+@pytest.fixture
+def live_session_gate(monkeypatch):
+    """Run the REAL single-session flag read in this test."""
+    from services import session_gate
+    monkeypatch.setattr(session_gate, "flag_on", _SESSION_GATE_ORIGINALS["flag_on"])
+    return session_gate
 
 
 @pytest.fixture(autouse=True)

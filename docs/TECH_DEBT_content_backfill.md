@@ -61,7 +61,7 @@ Prereqs — do the quality fixes above FIRST, or you'll reproduce the same error
    (12 blew past the per-minute quota). Injects clean ones in-place → commit + PR.
 3. Reading: `python -m scripts.gen_reading_solutions content/reading/<test>.md --out …`
    → review EVERY item (not just ⚠) → paste into the .md.
-4. Verify coverage (`check_quiz_why_wrong` / `check_reading_solution_depth`) →
+4. Verify coverage (`check_quiz_why_wrong` / `check_reading_solution_depth`, removed G01-T12) →
    enable `--strict` in content-CI once full. **Do a real human review before merge.**
 
 Note: pushing content trips the pre-push hook (it runs the live-Gemini smoke test
@@ -77,7 +77,7 @@ generate replacement distractors (draft) for admin review. NOT a file injection.
 
 ## FLIP the strict gates (after coverage lands)
 
-- Reading: after #708 + #710 merge → `check_reading_solution_depth --strict` in content-CI.
+- Reading: after #708 + #710 merge → `check_reading_solution_depth --strict` in content-CI (script removed G01-T12; recover from Git history if this step is revived).
 - Quiz: after the resume completes → `check_quiz_why_wrong --strict`.
 (Enabling early reds the build at the current partial coverage.)
 

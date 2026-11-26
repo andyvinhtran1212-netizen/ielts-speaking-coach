@@ -54,29 +54,37 @@ describe('migration — mechanical, timing preserved', () => {
 
   // admin-listening-upload.js + admin-listening-render.js dropped from the
   // list 2026-07-17 — those admin surfaces were decommissioned (usage audit).
-  test('all 19 showBanner now delegate to showToast', () => {
+  // LEGACYJS-0075 W1 (2026-11-23): the 7 admin-listening-* scripts were deleted;
+  // their Next owners under app/(authed-admin-listening) use inline banners.
+  // LEGACYJS-0075 W3a: admin-access-codes.js and admin-users.js were deleted;
+  // the Next /admin/users panels show inline role="status"/"alert" banners.
+  test('all 10 showBanner now delegate to showToast', () => {
     for (const f of [
-      'admin-access-codes.js','admin-dashboard.js','admin-error-logs.js',
-      'admin-listening-content-detail.js','admin-listening-content-list.js','admin-listening-content-meta.js',
-      'admin-listening-gist.js','admin-listening-mcq.js','admin-listening-segments.js',
-      'admin-listening-tf.js','admin-reading-attempts.js','admin-speaking-sessions.js',
-      'admin-speaking-topics.js','admin-users.js','admin-vocab-d1.js','admin-vocab-exercises.js',
+      'admin-dashboard.js','admin-error-logs.js',
+      'admin-reading-attempts.js','admin-speaking-sessions.js',
+      'admin-speaking-topics.js','admin-vocab-d1.js','admin-vocab-exercises.js',
       'admin-vocab-lemmas.js','admin-vocab-stats.js','admin-writing-queue.js',
     ]) delegates(f);
   });
 
-  // admin-classes.js (GĐ 1) replaced admin-cohorts.js and never carried the
-  // showBanner wrapper — it calls the shared primitive directly, so the legacy
-  // regex above does not describe it. Its real contract is pinned here instead
-  // of loosening that regex for the 19 files it does describe.
-  test('admin-classes.js routes messages through showToast, never native dialogs', () => {
-    const src = read('js', 'admin-classes.js');
-    assert.match(src, /window\.showToast\(/);
-    assert.doesNotMatch(src, /(?<!\.)\balert\(/);
-    assert.doesNotMatch(src, /(?<![.\w])confirm\((?!Danger)/);
+  // LEGACYJS-0075 W3b: admin-classes.js is deleted. The Next class directory
+  // and class detail panels report through the shared inline StatusBanner
+  // (role="alert" for errors, "status" otherwise) and never native dialogs.
+  test('Next class surfaces use StatusBanner, never native dialogs', () => {
+    assert.match(read('components', 'admin-directory-ui.tsx'), /role=\{banner\.kind === 'error' \? 'alert' : 'status'\}/);
+    for (const f of [
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'],
+    ]) {
+      const src = read(...f);
+      assert.match(src, /<StatusBanner banner=\{/, f.at(-1));
+      assert.doesNotMatch(src, /(?<![.\w])alert\(/, f.at(-1));
+      assert.doesNotMatch(src, /(?<![.\w])confirm\(/, f.at(-1));
+    }
   });
-  test('auto-dismiss timing preserved: 4s (access-codes) · 5s (speaking-sessions)', () => {
-    assert.match(read('js', 'admin-access-codes.js'), /showToast\(msg, kind === 'error' \? 'error' : 'success', \{ timeout: 4000 \}\)/);
+  test('auto-dismiss timing preserved: 5s (speaking-sessions)', () => {
     assert.match(read('js', 'admin-speaking-sessions.js'), /timeout: 5000/);
   });
   test('persist preserved: dashboard keeps persist:true', () => {
@@ -88,7 +96,6 @@ describe('migration — mechanical, timing preserved', () => {
     assert.match(q, /else showToast\(msg, kind === 'warn' \? 'warn' : 'success', \{ timeout: 5000 \}\)/);
   });
   test('hideBanner/clearBanner now clear toasts', () => {
-    assert.match(read('js', 'admin-listening-segments.js'), /clearToasts\(\)/);
     assert.match(read('js', 'admin-reading-attempts.js'), /function clearBanner[\s\S]*?clearToasts\(\)/);
   });
 });
@@ -101,18 +108,19 @@ describe('migration — setAlert (4 pages), error-persist not swallowed', () => 
     assert.match(g, /kind === 'error'\)\s*\{?\s*showToast\(msg, 'error', \{ persist: true \}\)/);
     assert.match(g, /timeout: 4000/);
   });
-  test('students setAlert delegates; error persists', () => {
-    const s = read('pages', 'admin', 'classes', 'index.html')
-  + read('js', 'admin-students-panel.js');
-    assert.match(s, /function setAlert\(kind, msg\)[\s\S]*?showToast\(/);
-    assert.match(s, /kind === 'error'\) showToast\(msg, 'error', \{ persist: true \}\)/);
+  // LEGACYJS-0075 W3b: admin-students-panel.js is deleted. The students
+  // directory keeps an error banner until the next action (no auto-dismiss).
+  test('students directory error banner persists (no timer clears it)', () => {
+    const s = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
+    assert.match(s, /<StatusBanner banner=\{banner\} \/>/);
+    assert.match(s, /setBanner\(\{ kind: 'error', text: messageOf\(/);
+    assert.doesNotMatch(s, /setTimeout\([^)]*setBanner/);
   });
 });
 
 
 describe('migration — toast.js loaded on migrated pages', () => {
   for (const p of [
-    ['pages','admin','access-codes','index.html'],
     ['pages','admin','writing','queue.html'],
     ['pages','admin','writing','grade.html'],
     ['pages','admin','classes','index.html'],   // GĐ 1b: bảng Học viên đã chuyển vào đây
