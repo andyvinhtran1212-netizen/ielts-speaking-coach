@@ -407,3 +407,4 @@ number	filename	state	owner	spec	note
 502	502_response_pronunciation_sample.sql	present	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window (responses.pronunciation_sample_*). Andy 2026-11-20.
 506	-	reserved	G07-T18	COURSELESSON-0064	course_lessons + course_lesson_progress (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.1).
 507	-	reserved	G07-T21	RESULTSHEET-0065	essay_regrade_requests reason_code + note (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.2).
+509	509_course_give_request_unique.sql	present	REGIVE-HOTFIX	-	Course-bank give idempotency: partial unique index uq_course_give_request (cohort_id, give_request_id) WHERE skill=course (anh Andy 2026-11-25, thread "Cho giao lại bài đã giao, chỉ ghi chú"). 503–507 are held by open PRs.
