@@ -29,18 +29,12 @@ const readJs = (name) => readFileSync(path.join(__dirname, '..', 'js', name), 'u
 // (js file, wrapper id) — every admin list/table wrapper whose render path
 // toggles visibility by empty/non-empty result.
 const WRAPS = [
-  ['admin-ai-usage.js', 'users-wrap'],
-  ['admin-alerts.js', 'alr-sessions-wrap'],
-  ['admin-alerts.js', 'alr-grading-wrap'],
-  ['admin-foot-traffic.js', 'ft-body'],
   ['admin-error-logs.js', 'logs-table-wrap'],
   ['admin-grammar-analytics.js', 'top-wrap'],
   ['admin-grammar-analytics.js', 'saved-wrap'],
   ['admin-grammar-analytics.js', 'zero-wrap'],
   ['admin-grammar-articles.js', 'gra-table-wrap'],
   ['admin-reading.js', 'ar-list-table'],
-  ['admin-usage.js', 'usage-table-wrap'],
-  ['admin-usage.js', 'code-usage-table-wrap'],
 ];
 
 for (const [file, wrap] of WRAPS) {
@@ -77,3 +71,10 @@ for (const [file, wrap] of WRAPS) {
 // is deleted; the Next class directory and class detail render their tables
 // from React state, with no hidden-toggle wrapper (admin-classes-next-behavior,
 // admin-class-detail-next-behavior).
+// LEGACYJS-0075 W4a: admin-ai-usage.js (#users-wrap), admin-alerts.js
+// (#alr-sessions-wrap, #alr-grading-wrap), admin-foot-traffic.js (#ft-body) and
+// admin-usage.js (#usage-table-wrap, #code-usage-table-wrap) are deleted; the
+// Next /admin/system/ai-usage, /admin/system/alerts, /admin/foot-traffic and
+// /admin/usage owners render their tables from React state, with no
+// hidden-toggle wrapper (admin-ai-usage-next-behavior, admin-alerts-next-behavior,
+// admin-foot-traffic-next-behavior, admin-usage-next-behavior).

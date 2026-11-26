@@ -69,6 +69,47 @@ See [wave 7 mapping and evidence](audits/GATE_F_PRICING_RETIREMENT_REHEARSAL_202
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
 
+## LEGACYJS-0075 W4a — 2026-11-23
+
+Spec `specs/0075-legacy-public-js-retirement` T005 (G10-T07-W4a) deletes 10
+overview/system/traffic scripts in `frontend/public/js/` (1,360 lines):
+`admin-overview.js` (249), `admin-dashboard.js` (200), `admin-feedback.js`
+(277), `admin-alerts.js` (134), `admin-ai-usage.js` (132), `admin-usage.js`
+(128), `admin-foot-traffic.js` (98), `admin-usage-util.js` (58),
+`admin-instructors.js` (47) and `admin-embed.js` (37). `/admin`,
+`/admin/usage`, `/admin/system/alerts`, `/admin/system/ai-usage`,
+`/admin/foot-traffic`, `/admin/feedback`, `/admin/instructors` and the three
+embedded mock pages are owned by Next routes with their `lib/admin-*-model.mjs`
+models; no Next code, kept `public/js` file or browser flow loads these
+scripts. `admin-usage-util.js` loses its last consumers (`admin-classes.js` in
+W3b, `admin-usage.js` here). The CI path filter drops the two deleted paths.
+`tooling/verify-admin-feedback-flow.mjs` drops its rollback-page block (it
+opened `/pages/admin/feedback/index.html`, whose script is deleted; CI already
+ran the flow with `--next-only`, now a no-op).
+Retired HTML fixtures stay (ADR-005); assertions on them are kept. Gaps are
+recorded, not built. One row per test edited in the same PR (FR-002):
+
+| Test file | Assertions removed (only those reading a deleted script) | Disposition | Replacement that holds the invariant now |
+|---|---|---|---|
+| `admin-dashboard-redesign.test.mjs` | `before()` read `admin-dashboard.js`, so all 14 tests failed; JS pins on dual fetch, `renderSpark`/`renderDelta`/`renderChart`, `_trends` cache | port | same file: fixture describe kept as is; new pins on `admin-overview.tsx` (native `Sparkline`/`AreaChart` with `currentColor`, six tiles, series + `Delta` slots, trend tablist, "Cần chú ý" counts, `getAdminDashboardOverview`/`Trends`, trends failure → `setTrends(null)` only, tab switch reads cached `trends[seriesKey]`), the overview layout stylesheets, `admin-overview.css` banner token, and executed `periodDelta`/`chartPoints`. `charts/sparkline.js` pins unchanged |
+| `dashboard-tweaks.test.mjs` | `before()` read `admin-dashboard.js`; JS pins on `load('windowed')`, `.db-card--windowed`, `fmtTokens`, `setLoading`, `_reqId` | port | same file: fixture and backend pins kept; all-time tiles shimmer only on `loadingScope === 'all'`, the 2 windowed tiles on any load, window change → `loadOps(windowDays, 'windowed')`, refresh → `loadAll('all')`, `opsSequence` stale guard, `db-refresh` disabled while loading; executed `formatTokens` (K/M/B, `—`) and `normalizeTrendsPayload` |
+| `viewers-anonymous.test.mjs` | `before()` read `admin-dashboard.js`; JS pins on the visitors split | port | same file: backend + fixture pins kept; tile renders `formatInteger(ops.visitors.count)` with "đăng nhập · … lượt ẩn danh" split; executed `normalizeOpsPayload` keeps `count/authenticated/anonymous/windowDays` |
+| `sprint-18-2-dashboard.test.mjs` | controller slot ids, listener wiring, `/admin/dashboard/overview?visitors_window=`, `v == null → '—'`, no inline colour in `admin-dashboard.js` | port | same file: fixture + chrome pins kept; six rendered values, 7/30/90 options, windowed reload, refresh, `getAdminDashboardOverview(days)`, executed `formatInteger(null)`/`formatTokens(undefined)` → `—`, no inline colour/bg in `admin-overview.tsx` |
+| `admin-overview.test.mjs` | 7 controller pins on `admin-overview.js` (GET, 5-min refresh, visibility pause, stale refocus, `escapeHtml`, vi-VN, `is-warning`) | port | same file: Next `admin-overview.tsx` (`getAdminContentOverview`, `REFRESH_MS`, visible-only interval, `visibilitychange` stop, `lastContentAt` ≥ `REFRESH_MS`, no `dangerouslySetInnerHTML`, vi-VN, `is-warning` when undismissed > 0); fixture pins kept |
+| `admin-listening-reporting-wave2.test.mjs` | Listening tile pins on `admin-overview.js` | port | same file: `SkillStat` "Đúng TB" formats `avg_score_7d` as `Math.round(value * 100)%` (no `toFixed(2)`) and "Chép ch.tả 7d" reads `dictation_7d` in `admin-overview.tsx` |
+| `admin-reading-next-behavior.test.mjs` | `skills.reading?.avg_score_7d` pin on rollback `admin-overview.js` | port | same file: Next card formats Reading accuracy as a percentage; fixture slot pins kept |
+| `admin-progressive-loading-toggle.test.mjs` | 6 wrapper pins (`users-wrap`, `alr-sessions-wrap`, `alr-grading-wrap`, `ft-body`, `usage-table-wrap`, `code-usage-table-wrap`) | retire | Next owners render tables from React state with no hidden-toggle wrapper: `admin-ai-usage-next-behavior`, `admin-alerts-next-behavior`, `admin-foot-traffic-next-behavior`, `admin-usage-next-behavior` |
+| `admin-toast.test.mjs` | `admin-dashboard.js` in the showBanner list; "dashboard keeps persist:true" | port | list drops to 9 kept scripts; overview load error is an inline `role="alert"` `db-banner` cleared only by the next load (one `setOpsError(null)`, no timer) |
+| `feedback-admin-inbox.test.mjs` | endpoint, optimistic toggle, coverage and identity pins on `admin-feedback.js`; helpers extracted from it in a VM | port | same file: `admin-feedback.tsx` GET/PATCH, waits for the server echo then re-reads canonical state (no optimistic flip, per AGENTS › Source of truth), unavailable/partial copy and `≥` lower bound; executed `normalizeFeedbackFilters`, `groupFeedbackItems`, `feedbackDeepLink`, `averageRating`, `normalizeFeedbackInbox` (unavailable ≠ empty, partial needs `truncated`); fixture/CSS/chrome pins kept. Deep links now go to `/admin/reading/preview?test_id=…#qN` and `/admin/listening/tests` (no `?test=` on Listening: the list has no test-id search yet) |
+| `feedback-widgets.test.mjs` | `^(practice\|exercise):` pin on `admin-feedback.js` | port | executed `feedbackDeepLink` returns `null` for `practice:`/`exercise:` ids |
+| `foot-traffic-truncated-banner.test.mjs` | ran `render()` of `admin-foot-traffic.js` on a stub DOM | port | executed `normalizeFootTrafficPayload` + `formatTrafficCount` (`≥` when partial) and the `partial && aft-banner is-warning` pin in `admin-foot-traffic.tsx`; the backend sets `data_status: "partial"` whenever it sets `truncated` (`backend/routers/admin.py` `foot_traffic`). A payload without `data_status` is now rejected instead of shown as complete. Fixture pin kept |
+| `sprint-17-4-foot-traffic.test.mjs` | endpoint, summary ids, `esc(p.path)`, inline-style pins on `admin-foot-traffic.js` | port | `admin-foot-traffic.tsx`: `/admin/analytics/foot-traffic?${params}`, three summary counts, top pages, `DailyChart`, path as React text, only height/width inline styles |
+| `sprint-17-2-usage.test.mjs` | `admin-usage-util.js` helpers; `admin-usage.js` wiring | port | executed `formatUsageCost`/`Count`/`Date`, `filterUsageRows`, `sortUsageRows` (nulls last, email fallback); `admin-usage.tsx` `code_id` branch, both endpoints, no injected HTML or inline colour, both empty states. Cost `0` now shows `$0.0000` (was `$0`). **Gap:** sort is a select with one fixed direction per field (no asc/desc toggle) |
+| `sprint-17-3-cohorts.test.mjs` | "reused usage-util still exports formatters" | retire | util has no consumer left; class formatting is pinned in the same file's Next class wiring tests (W3b) |
+| `sprint-18-3-components.test.mjs` | no-inline-colour pins on `admin-usage.js` and `admin-foot-traffic.js` | port | same check on `admin-usage.tsx` and `admin-foot-traffic.tsx`, plus a JSX `style={{…}}` colour/background guard |
+| `admin-system-extract.test.mjs` | `/admin/ai-usage?days=` and `/admin/alerts` pins on the deleted controllers | port | `admin-ai-usage.tsx` builds `/admin/ai-usage` with optional `?days=`; `admin-alerts.tsx` reads `/admin/alerts?limit=30` |
+| `mock-cockpit-consolidation.test.mjs` | `admin-embed.js` adds `is-embedded` and returns early without `?embed=1` | port | Next `mock-exams` reads `embed === '1'`, `mock-live`/`mock-reviews` pages pass `params.embed === '1'`, and all three owners drop their hero behind `{!embedded && <>`; fixture pins (helper tag order, `data-embed-hide`) kept |
+
 ## LEGACYJS-0075 W3b — 2026-11-23
 
 Spec `specs/0075-legacy-public-js-retirement` T004 (G10-T07-W3b) deletes the 2
