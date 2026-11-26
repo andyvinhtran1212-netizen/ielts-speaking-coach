@@ -5126,7 +5126,10 @@
   // trong, không có con số nào trong CSS. Ghim một hằng số ở đây là ghim một
   // giá trị sẽ sai ngay lần đầu ai đó đổi cỡ chữ trong thanh.
   function _syncMeterTop() {
-    var bar = document.querySelector('.practice-context-bar');
+    // The exam room (EXAMSPEAK-0072) swaps the context bar for FocusShell's
+    // sticky bar, which mounts lazily; the next render or resize measures it.
+    var bar = document.querySelector('.practice-context-bar')
+      || document.querySelector('[data-speaking-room-root] header');
     var sheet = $('state-sheet');
     if (!bar || !sheet) return;
     sheet.style.setProperty('--practice-meter-top', bar.offsetHeight + 'px');
