@@ -1,12 +1,8 @@
 /**
- * admin-classes.js — the course cell and course picker must not lie (GĐ 1a).
+ * Class directory — the course cell and course picker must not lie (GĐ 1a).
  *
  * Codex review on the GĐ 1a branch found two ways this screen could quietly
- * misreport canonical data. Both are pinned here by EXECUTING the real
- * functions, not by matching their source: the bugs were about what the
- * rendered value means, and a regex over the source cannot tell the difference
- * between "Chưa gán khoá" printed for an unassigned class and the same string
- * printed for one whose course simply failed to load.
+ * misreport canonical data:
  *
  *   1. A class pointing at an ARCHIVED course. The picker used to list active
  *      courses only, so no option matched, the <select> fell back to its empty
@@ -17,9 +13,11 @@
  *      assignment displayed as an empty one, sending the admin to fix something
  *      that was never broken.
  *
- * The functions are lifted out of the module source and run with stubs because
- * the module has top-level browser side effects (window.api, Supabase bootstrap)
- * that cannot be imported under node --test.
+ * LEGACYJS-0075 W3b: admin-classes.js is deleted. The class list is
+ * app/(authed-admin)/(classes)/admin/classes/admin-classes-directory.tsx and its
+ * pure helpers live in lib/admin-classes-model.mjs, which are EXECUTED here.
+ * The old GĐ 1b tab/panel bootstrap pins retired with the merged page: Lớp and
+ * Học viên are now two routes, each with its own static `subsection`.
  */
 
 import { test, describe } from 'node:test';
@@ -28,131 +26,52 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { cohortDraft, courseOptionLabel, validateCohortDraft } from '../lib/admin-classes-model.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
-
-/** Lift the pure render helpers out of the module and bind them to stubs. */
-function loadHelpers(courses) {
-  const start = SRC.indexOf('function courseLabel');
-  const end = SRC.indexOf('function renderList');
-  assert.ok(start !== -1 && end > start, 'helper block not found — did the module get restructured?');
-
-  const esc = (s) => String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
-  const el = { innerHTML: '', value: '' };
-  const $ = () => el;
-  const countLabel = (n) => String(n);
-
-  const factory = new Function(
-    'esc', '$', 'countLabel', '_courses',
-    `${SRC.slice(start, end)}
-     return { courseLabel, renderCourseOptions, courseOptionLabel };`,
-  );
-  return { ...factory(esc, $, countLabel, courses), el };
-}
-
-const ACTIVE = { id: 'c-active', code: 'C2', name: 'Kỹ năng nền tảng', is_active: true };
-const ARCHIVED = { id: 'c-archived', code: 'C9', name: 'Khoá cũ', is_active: false };
-
+const read = (...p) => readFileSync(join(HERE, '..', ...p), 'utf8');
+const DIR = read('app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const CELL = DIR.slice(DIR.indexOf('function CourseCell'), DIR.indexOf('\n}\n', DIR.indexOf('function CourseCell')));
+const COURSES_API = read('lib', 'admin-courses-api.ts');
 
 describe('course cell tells apart unassigned / archived / unreadable', () => {
   test('no course id at all → "Chưa gán khoá"', () => {
-    const { courseLabel } = loadHelpers([ACTIVE]);
-    assert.match(courseLabel(null, null), /Chưa gán khoá/);
+    assert.match(CELL, /return <span className="acd-muted">Chưa gán khoá<\/span>;\s*$/);
   });
-
   test('course id present but unresolved → "Không đọc được", never "Chưa gán khoá"', () => {
-    const { courseLabel } = loadHelpers([ACTIVE]);
-    const html = courseLabel(null, 'c-active');
-    assert.match(html, /Không đọc được khoá/);
-    assert.doesNotMatch(html, /Chưa gán khoá/,
-      'a failed lookup rendered as "unassigned" sends the admin to re-assign a course that is already assigned');
+    assert.match(CELL, /if \(cohort\.course_id\) return <span className="acd-unknown">\{lookupFailed \? 'Không đọc được khoá' : 'Khoá không còn trong danh mục'\}<\/span>;/);
+    assert.ok(CELL.indexOf('cohort.course_id') < CELL.indexOf('Chưa gán khoá'), 'the unresolved branch must run first');
   });
-
   test('resolved course renders its code, and marks an archived one', () => {
-    const { courseLabel } = loadHelpers([ACTIVE, ARCHIVED]);
-    assert.match(courseLabel(ACTIVE, ACTIVE.id), /C2/);
-    assert.doesNotMatch(courseLabel(ACTIVE, ACTIVE.id), /đã lưu trữ/);
-    assert.match(courseLabel(ARCHIVED, ARCHIVED.id), /đã lưu trữ/);
+    assert.match(CELL, /\{cohort\.course\.code && <span className="adm-chip">\{cohort\.course\.code\}<\/span>\}/);
+    assert.match(CELL, /\{!cohort\.course\.is_active && <small>Đã lưu trữ<\/small>\}/);
+    assert.equal(courseOptionLabel({ code: 'C0', name: 'Khoá cũ', is_active: false }), 'C0 — Khoá cũ (đã lưu trữ)');
   });
 });
-
 
 describe('course picker never silently detaches a class', () => {
-  const selectedValues = (html) => {
-    const out = [];
-    const re = /<option value="([^"]*)"[^>]*\sselected[^>]*>/g;
-    let m;
-    while ((m = re.exec(html)) !== null) out.push(m[1]);
-    return out;
-  };
-
-  test('an archived course the class still points at stays selected', () => {
-    const { renderCourseOptions, el } = loadHelpers([ACTIVE, ARCHIVED]);
-    renderCourseOptions(ARCHIVED.id);
-    assert.deepEqual(selectedValues(el.innerHTML), [ARCHIVED.id]);
+  test('an archived or unknown course the class still points at stays selected', () => {
+    assert.match(DIR, /const selectedCourseKnown = !draft\?\.courseId \|\| courses\.some\(\(course\) => course\.id === draft\.courseId\);/);
+    assert.match(DIR, /\{draft\?\.courseId && !selectedCourseKnown && <option value=\{draft\.courseId\}>Khóa hiện tại \(không đọc được tên\)<\/option>\}/);
   });
-
-  test('a course id missing from the list keeps its own selected option', () => {
-    // This is the failed-fetch case: _courses is empty but the class has a course.
-    const { renderCourseOptions, el } = loadHelpers([]);
-    renderCourseOptions('c-unknown');
-    assert.deepEqual(selectedValues(el.innerHTML), ['c-unknown'],
-      'with no option selected the <select> falls back to "" and the next save posts course_id: null');
-    assert.match(el.innerHTML, /Khoá hiện tại/);
+  test('renaming a class keeps its course id (no course_id: null on save)', () => {
+    const draft = cohortDraft({ id: 'c1', name: 'Lớp A', course_id: 'archived-course' });
+    draft.name = 'Lớp A mới';
+    assert.equal(validateCohortDraft(draft).body.course_id, 'archived-course');
   });
-
-  test('a class with no course selects nothing (so saving keeps it unassigned)', () => {
-    const { renderCourseOptions, el } = loadHelpers([ACTIVE]);
-    renderCourseOptions(null);
-    assert.deepEqual(selectedValues(el.innerHTML), []);
-  });
-
-  test('the normal case still selects the right active course', () => {
-    const { renderCourseOptions, el } = loadHelpers([ACTIVE, ARCHIVED]);
-    renderCourseOptions(ACTIVE.id);
-    assert.deepEqual(selectedValues(el.innerHTML), [ACTIVE.id]);
+  test('a class with no course saves unassigned', () => {
+    assert.equal(validateCohortDraft(cohortDraft({ id: 'c2', name: 'Lớp B', course_id: null })).body.course_id, null);
   });
 });
-
 
 describe('the course fetch includes archived courses', () => {
-  test('loadCourses does not filter to is_active=true', () => {
-    // The picker cannot keep an archived course selected if it never arrives.
-    assert.doesNotMatch(SRC, /\/admin\/courses\?is_active=true/,
-      'filtering the fetch to active courses reintroduces the silent-detach bug');
-    assert.match(SRC, /api\.get\('\/admin\/courses'\)/);
+  test('the directory reads every course, not is_active=true only', () => {
+    assert.match(DIR, /getAdminCohorts\(\{ withRollup: true \}\),\s*getAdminCourses\(\),/);
+    assert.match(COURSES_API, /if \(options\.isActive !== undefined\) query\.set\('is_active'/);
+    assert.match(DIR, /Bao gồm cả khóa đã lưu trữ để không làm mất liên kết lịch sử\./);
   });
-});
-
-
-describe('tab state stays in sync with the sidebar (GĐ 1b)', () => {
-  // Lớp and Học viên are two tabs of one page, but the sidebar child highlight
-  // is driven by the host element's static `subsection` attribute. Without an
-  // explicit sync the sidebar keeps marking "Lớp" while Học viên is open —
-  // wrong navigation state on a real route (?tab=students).
-  test('showTab updates the chrome subsection, not just the local tabs', () => {
-    const fn = SRC.slice(SRC.indexOf('function showTab'), SRC.indexOf('async function main'));
-    assert.match(fn, /aver-admin-chrome/,
-      'showTab must reach the host chrome element');
-    assert.match(fn, /setAttribute\('subsection',\s*students \? 'students' : 'classes'\)/,
-      'the subsection must follow the active tab in BOTH directions');
-  });
-
-  test('the panel is started lazily, not on page load', () => {
-    // The Lớp tab must not pay for /admin/students + /admin/cohorts it never
-    // renders — the same reason the roster rollup is opt-in server-side.
-    assert.doesNotMatch(SRC, /AdminStudentsPanel\.init\(\)/,
-      'init() must go through startStudentsPanel(), which guards on first use');
-    assert.match(SRC, /function startStudentsPanel/);
-    assert.match(SRC, /_studentsPanelStarted/);
-  });
-
-  test('a missing panel reports an error instead of an empty tab', () => {
-    // An empty table reads as "no students", which is a lie.
-    const fn = SRC.slice(SRC.indexOf('function startStudentsPanel'), SRC.indexOf('/** Top-level tab'));
-    assert.match(fn, /toast\(/);
+  test('a failed course catalogue locks the picker instead of offering a wrong empty choice', () => {
+    assert.match(DIR, /disabled=\{Boolean\(coursesError\)\}/);
+    assert.match(DIR, /Không đọc được danh mục; giá trị hiện tại được giữ nguyên khi lưu\./);
   });
 });
