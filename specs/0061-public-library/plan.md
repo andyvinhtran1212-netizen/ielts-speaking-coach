@@ -60,7 +60,9 @@ Nguồn: `backend/content/library/topics.json` (14 chủ đề, đã merge #2362
 | `justification` | jsonb | not null, chỉ `by_criterion` (bỏ `integrity_check`; `overrides.justification_jumps` của manifest đã gộp) |
 | `task1_data` | jsonb null | `data` của Task 1 |
 | `content_hash` | text | not null — sha256 của JSON chuẩn hoá phần được nhập (`ensure_ascii=False, sort_keys=True, separators=(',',':')`) |
-| `source_review_status` | text null | `review_status` của nguồn |
+| `source_review_status` | text null | `review_status` của nguồn (lịch sử biên tập, **không** phải chữ ký duyệt) |
+| `review_status` | text | not null default `'needs_review'`, `in ('approved','needs_review','excluded')` — `review.status` của manifest (**Amendment 2**, migration 401) |
+| `reviewed_by`, `reviewed_at` | text null, timestamptz null | `review.by`, `review.at` của manifest; bắt buộc khi `review_status='approved'` (CHECK, **Amendment 2**) |
 | `published` | boolean | not null default false |
 | `published_at`, `created_at`, `updated_at` | timestamptz | `updated_at` chỉ đổi khi `content_hash`, tiêu đề, chủ đề hoặc ảnh đổi |
 
@@ -98,6 +100,19 @@ Ràng buộc chéo: `check ((task_type='task2' and question_type is not null and
 
 RLS bật trên cả năm bảng; không policy cho `anon`/`authenticated`; `REVOKE ALL … FROM anon, authenticated` theo mẫu migration gần nhất có REVOKE; mọi đọc/ghi qua backend `service_role`. Migration áp được lại (idempotent `if not exists`), postcondition kiểm RLS bật và không có grant cho hai vai trò client.
 
+### 5.2b Chữ ký duyệt bài mẫu Writing — migration `401_writing_sample_review_signoff.sql` (Amendment 2, anh Andy duyệt 23/11/2026 17:04)
+
+**Vì sao:** điều kiện xuất bản FR-019 là chữ ký trong manifest (`review.status='approved'` + `review.by/at`, mã `E_NOT_APPROVED`). Migration 400 chỉ có `source_review_status` (lịch sử biên tập của nguồn, 530 bộ `needs_review` cũng có), nên DB không phân biệt được bộ đã ký. Hệ quả: `/admin/library` (#2497) phải đóng hẳn nút đăng Writing, và chỉ script nhập (#2498) biết bộ nào được đăng.
+
+**Thay đổi:** số **401** trong dải G06. `writing_samples` thêm `review_status`, `reviewed_by`, `reviewed_at` (bảng 5.2) và ba CHECK:
+- `writing_samples_review_status_valid`: `review_status in ('approved','needs_review','excluded')`;
+- `writing_samples_review_signed`: `review_status <> 'approved'` hoặc có `reviewed_by` (không rỗng) và `reviewed_at`;
+- `writing_samples_published_approved`: `not published or review_status = 'approved'`.
+
+Hàng cũ nhận `needs_review`. Migration từ chối chạy khi đang có bộ `published` (chưa có chữ ký lưu); rollback `rollback/401_…` từ chối khi đã có hàng ký hoặc đang đăng. Không đổi RLS, grant, policy. Feature riêng `public_library_signoff` (không phải `public_library` của 400, để cửa sổ áp 400 không áp lẫn 401), không áp khi merge.
+
+**Ai ghi:** script nhập chép `review.{status,by,at}` của manifest vào ba cột ở `--execute` (nối trong PR T003b, #2498); `/admin/library` mở lại nút đăng Writing cho bộ `review_status='approved'` (nối trong PR T020, #2497). Ký duyệt trên giao diện admin không thuộc amendment này (vẫn ký ở manifest, câu N1). FR không đổi: đây là cách lưu điều kiện FR-019 trong DB.
+
 ### 5.3 Bảng chủ đề
 
 `prompt.domain` có 480 giá trị cho 549 bộ nên không dùng trực tiếp. `topics.json` (14 chủ đề) và `topic_slug` của 549 bộ đã có ở #2362. Chủ đề Speaking: N2. Kiến thức nền (GOI-13) dùng bộ chủ đề riêng và bảng nối `background_topic_writing_links` (migration 492 của GOI-13), không dùng `library_topics`.
@@ -117,6 +132,7 @@ RLS bật trên cả năm bảng; không policy cho `anon`/`authenticated`; `REV
 - Bucket mới **`library-media`, `public = false`**, ghi chỉ `service_role`, tạo trong migration 400 với `file_size_limit` và `allowed_mime_types`, khai trong `backend/services/storage_limits.py` theo STORAGELIMITS-0038: png/webp ≤ 2 MB; mp3/m4a ≤ 10 MB. Không có policy `storage.objects` nào cho `anon`/`authenticated` trên bucket này.
 - DB và API chỉ lưu **đường dẫn object**, không lưu và không trả URL Storage nào (kể cả URL ký). Trang và API công khai trỏ tệp qua route backend `GET /api/library/media/{shelf}/{key}/{asset}` (`shelf` ∈ `writing-sample|speaking-sample`, `key` = slug hiện hành, `asset` ∈ `figure|audio`). **Tầng phục vụ tệp là chính route này** (sửa theo review thứ hai #2397: Smart CDN của Supabase có thể tiếp tục phục vụ bản đã cache của URL ký sau khi token hết hạn, nên URL ký không thu hồi được đúng hạn). Mỗi yêu cầu, route đọc bản ghi: không có, `published = false`, hoặc thiếu object → 404 `{"detail":"media_not_found"}`; đã đăng → backend tải object bằng `service_role` và **trả thẳng nội dung** (`200`, hoặc `206` khi có `Range` để tua audio; `Content-Type` từ danh sách MIME của bucket; `Accept-Ranges: bytes`) với `Cache-Control: no-store` và `Vary` không dùng. Phản hồi 404 cũng `no-store`. Không CDN nào (Vercel, Supabase) đứng giữa với quyền cache, vì mọi phản hồi đều `no-store`.
 - Hệ quả đo được: nháp không đọc được tệp ở bất kỳ thời điểm nào; đã đăng đọc được; **đã gỡ thì yêu cầu kế tiếp tới đúng URL cũ trả 404 ngay** (thời hạn thu hồi = 0 s cho yêu cầu mới; chỉ lượt tải đang dở lúc gỡ có thể chạy nốt). Ghi trong verification là `LIBRARY_MEDIA_REVOKE_MAX_SECONDS` = 0 với yêu cầu mới. Trang HTML cache phía Next chỉ chứa URL route backend, nên cache trang không kéo dài quyền đọc tệp. Chi phí: ảnh ≤ 2 MB và audio ≤ 10 MB đi qua backend Railway; chấp nhận ở quy mô hiện tại (kệ Speaking đang 0 đề), đo băng thông trong rollout và nếu cần thì đổi sang cơ chế khác bằng một thay đổi spec riêng có bằng chứng thu hồi.
+- **Giới hạn tải (SA 23/11, S-1; #2451):** route giới hạn mỗi địa chỉ client (`request_client_ip`) 120 yêu cầu/phút trên mỗi worker, kiểm **trước** mọi lần đọc DB hay Storage. Quá mức trả `429 {"detail":"media_rate_limited"}` với `Retry-After` và `no-store`; vì kiểm trước, với client đã quá mức thì 429 được ưu tiên hơn 404 (client không biết thêm gì về đề). Backend giữ cache nội dung tệp trong bộ nhớ worker (60 s, tối đa 48 MiB) chỉ để một loạt yêu cầu `Range` khi tua audio tải thân tệp một lần. Cache chỉ dùng sau khi yêu cầu này đã đọc lại `published`, và mỗi yêu cầu vẫn hỏi Storage metadata của object (`info`, không tải thân) rồi dùng nó làm khoá cache, nên đề bị gỡ, object bị xoá hay bị thay đều có hiệu lực ở yêu cầu kế tiếp (404 hoặc bytes mới). Khi Storage không trả được metadata, route tải thẳng không qua cache. Phản hồi HTTP vẫn `no-store`.
 - Ảnh đề Task 1 và audio vẫn công khai với khách khi đề đã đăng (FR-001): route không cần đăng nhập, chỉ cần `published`. Không chuyển ảnh sang `writing-images` (riêng tư; mở nó sẽ lộ ảnh đề thi thử `exam_only`). Đường dẫn theo `source_key`: `writing-samples/<source_key>/figure.png`; audio `speaking-samples/<source_id>/answer.<ext>`. Ba hình T19 lấy từ `backend/content/library/figures/` qua `overrides.image_path`.
 
 ### 5.6 CSP cho video
@@ -130,7 +146,7 @@ Thêm có giới hạn trong `frontend/tooling/content-security-policy.mjs`: `fr
 | `GET /summary` | không | `{writing_samples:{total, task2, task1}, writing_guides:{total}, speaking:{total, with_video}, grammar:{total}, vocabulary:{total}}`; trường null khi không đếm được | Cho `/library`. |
 | `GET /writing-samples` | không | `{items:[{slug,title_en,task_type,question_type,task1_subtype,topic_slug,prompt_text}], total, page, page_size:12, facets:{task:{…}, question_type:{…}, topic:{…}}}` | `task`, `dang`, `chude`, `q` (≤ 100 ký tự), `trang` ≥ 1; sai → 422. Facet "bỏ chính nhóm đó" (đếm mỗi nhóm khi bỏ bộ lọc của chính nhóm). |
 | `GET /writing-samples/{slug}` | không | bộ đề đã lọc trường (không `source_key`, `content_hash`, `source_review_status`, `integrity_check`, `difficulty_notes`, điểm ước tính) + `related[≤4]`, `prev`, `next`, `figure_url` (đường dẫn route `/api/library/media/writing-sample/<slug>/figure`, không phải URL Storage) | Slug cũ → 308 `Location`; không có → 404 `{"detail":"sample_not_found"}`. |
-| `GET /media/{shelf}/{key}/{asset}` | không | nội dung tệp (`200`/`206` theo `Range`) khi bản ghi `published`; 404 `media_not_found` khi nháp, gỡ, hoặc thiếu tệp | `Cache-Control: no-store`; kiểm `published` mỗi yêu cầu; không redirect, không URL Storage (5.5, FR-064). |
+| `GET /media/{shelf}/{key}/{asset}` | không | nội dung tệp (`200`/`206` theo `Range`) khi bản ghi `published`; 404 `media_not_found` khi nháp, gỡ, hoặc thiếu tệp | `Cache-Control: no-store`; kiểm `published` mỗi yêu cầu; không redirect, không URL Storage; 429 `media_rate_limited` khi quá 120/phút/IP, kiểm trước 404 (5.5, FR-064). |
 | `GET /writing-samples/index` | không | `[{slug, updated_at}]` | Cho sitemap; khai route trước `/{slug}`. |
 | `GET /writing-guides`, `/{slug}` | không | `writing_tips` `published` có `content_type in ('knowledge','tip')`, kèm `groups[]` (Open question 4) | Không đụng hai route học viên hiện có. |
 | `GET /speaking`, `/speaking/{slug}`, `/speaking/index` | không | tương tự; mỗi đề có `voice` | Chỉ `published` và `sample_text` không rỗng. |

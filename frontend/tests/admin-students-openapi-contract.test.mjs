@@ -7,7 +7,7 @@ const FRONTEND = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(FRONTEND, ...parts), 'utf8');
 const API = read('lib', 'admin-students-api.ts');
 const OPENAPI = read('types', 'api.d.ts');
-const DIRECTORY = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
+const DIRECTORY = read('app', '(authed-admin)/(students)', 'admin', 'students', 'admin-students-directory.tsx');
 
 describe('admin student directory read contract', () => {
   test('derives the list wire shape from generated OpenAPI', () => {

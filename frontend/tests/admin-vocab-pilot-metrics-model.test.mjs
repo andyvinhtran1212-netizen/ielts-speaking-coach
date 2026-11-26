@@ -8,7 +8,7 @@ import {
   normalizePilotMetrics,
 } from '../lib/admin-vocab-pilot-metrics-model.mjs';
 
-const PAGE = fs.readFileSync(new URL('../app/(authed-admin-vocab)/admin/vocab/pilot-metrics/admin-vocab-pilot-metrics.tsx', import.meta.url), 'utf8');
+const PAGE = fs.readFileSync(new URL('../app/(authed-admin)/(vocab)/admin/vocab/pilot-metrics/admin-vocab-pilot-metrics.tsx', import.meta.url), 'utf8');
 
 const delayed = {
   eligible_unit_starts: 0,

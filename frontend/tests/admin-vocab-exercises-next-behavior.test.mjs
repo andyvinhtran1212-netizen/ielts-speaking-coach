@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const CLIENT = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'exercises', 'admin-vocab-exercises.tsx');
-const PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'exercises', 'page.tsx');
-const HUB = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'page.tsx');
+const CLIENT = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'exercises', 'admin-vocab-exercises.tsx');
+const PAGE = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'exercises', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 
 describe('Admin Vocabulary Exercises native ownership', () => {

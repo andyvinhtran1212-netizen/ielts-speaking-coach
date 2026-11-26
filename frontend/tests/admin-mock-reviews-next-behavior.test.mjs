@@ -6,10 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const COMPONENT = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx');
-const REPORT = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx');
-const PAGE = read('app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-mock-reviews)', 'layout.tsx');
+const COMPONENT = read('app', '(authed-admin)/(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx');
+const REPORT = read('app', '(authed-admin)/(mock-reviews)', 'admin', 'mock-reviews', 'report', 'admin-mock-review-report.tsx');
+const PAGE = read('app', '(authed-admin)/(mock-reviews)', 'admin', 'mock-reviews', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(mock-reviews)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-mock-reviews-next.css');
 const ADMIN_CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const COCKPIT = read('app', '(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
@@ -19,7 +19,7 @@ describe('/admin/mock-reviews native ownership', () => {
   test('owns the canonical routes behind the backend admin gate', () => {
     assert.match(PAGE, /<AdminAccessGate>/);
     assert.match(PAGE, /mock_exam_id/);
-    assert.ok(existsSync(join(ROOT, 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'report', 'page.tsx')));
+    assert.ok(existsSync(join(ROOT, 'app', '(authed-admin)/(mock-reviews)', 'admin', 'mock-reviews', 'report', 'page.tsx')));
     assert.match(LAYOUT, /admin-mock-reviews-next\.css/);
     assert.match(MODEL, /\/admin\/mock-reviews\?mock_exam_id=/);
     assert.doesNotMatch(MODEL, /pages\/admin\/mock-reviews\/index\.html/);
@@ -52,6 +52,8 @@ describe('/admin/mock-reviews native ownership', () => {
   test('preserves skill review, Writing, Speaking and final-band capabilities', () => {
     for (const token of ['/api/reading/test/attempts/', '/api/listening/tests/attempts/', '/admin/writing/essays/', '/start-grading', '/speaking-assessment', '/final-bands', '/release-claim', '/full-test-result?session_id=', '/admin/writing/grade?essay_id=', 'Cần test lại', 'Overall xem trước']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /requiredSkills\.includes\(skill\)\s*&&\s*<em>/);
+    // Each band box carries the restored caption from the model (bandCaption), not a fixed string.
+    assert.match(COMPONENT, /\{bandCaption\(detail, skill\) && <small>\{bandCaption\(detail, skill\)\}<\/small>\}/);
   });
 
   test('renders report from canonical final bands including LRW live Speaking extras', () => {
