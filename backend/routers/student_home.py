@@ -19,7 +19,7 @@ student_id filter as defense-in-depth.
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Response
+from fastapi import APIRouter, Header, HTTPException, Request, Response
 
 from database import thread_supabase_admin
 from routers.auth import get_supabase_user
@@ -28,7 +28,7 @@ from services.feature_flags import is_learner_v2_enabled
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
 from models.student_today import StudentTodayResponse, TodaySeenRequest
-from services import activation_gate, student_today
+from services import activation_gate, session_gate, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -87,7 +87,7 @@ async def _require_learner_v2(user_id: str) -> None:
 
 
 @router.get("/today", response_model=StudentTodayResponse)
-async def today(response: Response, authorization: str | None = Header(default=None)):
+async def today(request: Request, response: Response, authorization: str | None = Header(default=None)):
     """New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
 
     Writes nothing of its own, not even the seen cursor (FR-078). The only write
@@ -101,6 +101,7 @@ async def today(response: Response, authorization: str | None = Header(default=N
     # FR-094: exempt from the router gate, so the caller is checked here
     # (503 on a failed read, 403 when suspended or inactive without learner_v2).
     status = await activation_gate.aopen_learner_status(auth_user["id"])
+    await session_gate.ensure_current(auth_user["id"], authorization, request.headers.get("user-agent"))
     if status == activation_gate.OPEN_ACTIVE:
         await _require_learner_v2(auth_user["id"])
     email = auth_user.get("email") or ""

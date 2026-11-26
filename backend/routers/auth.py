@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Response
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 
 logger = logging.getLogger(__name__)
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ from models.auth import (
     AuthProfileResponse,
     AuthProfileUpdateResponse,
 )
-from services import activation_gate, staff_security
+from services import activation_gate, session_gate, staff_security
 from services.db_async import aexecute
 from services.errors import new_ref, safe_error
 from services.request_context import current_request_id
@@ -1124,6 +1124,7 @@ async def activate_account(
     dependencies=[Depends(require_flag("profile_update"))],
 )
 async def update_profile(
+    request: Request,
     payload: ProfileUpdate,
     response: Response,
     authorization: str | None = Header(default=None),
@@ -1137,6 +1138,7 @@ async def update_profile(
     # the gate's 403 for an inactive account without learner_v2. An inactive
     # learner_v2 account ("Lần đầu vào") may set only these three fields.
     status = await activation_gate.aopen_learner_status(user_id)
+    await session_gate.ensure_current(user_id, authorization, request.headers.get("user-agent"))
     if status == activation_gate.OPEN_INACTIVE:
         extra = payload.model_fields_set - INACTIVE_PROFILE_FIELDS
         if extra:

@@ -17,13 +17,14 @@ Every other learner route still answers the gate's 403 to that account.
 from __future__ import annotations
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import main
 import routers.auth as auth_module
 from config import settings
 from routers import student_home
-from services import activation_gate, feature_flags
+from services import activation_gate, feature_flags, session_gate
 from services import student_today as st
 from services.activation_gate import INACTIVE_DETAIL
 from services.staff_security import ACCOUNT_SUSPENDED_CODE
@@ -307,3 +308,23 @@ def test_async_db_path_gives_the_same_answers(app, monkeypatch):
     with pytest.raises(Exception) as failed:
         asyncio.run(activation_gate.aopen_learner_status(INACTIVE))
     assert failed.value.status_code == 503
+
+@pytest.mark.parametrize("method,path,kwargs", [
+    ("GET", "/api/student/today", {}),
+    ("PATCH", "/auth/profile", {"json": {"target_band": 7}}),
+])
+@pytest.mark.parametrize("uid", [ACTIVE, INACTIVE])
+def test_open_routes_keep_the_current_session_gate(app, monkeypatch, method, path, kwargs, uid):
+    calls = []
+
+    async def check_session(user_id, authorization, user_agent):
+        calls.append((user_id, authorization, user_agent))
+        raise HTTPException(409, {"code": "session_not_current"})
+
+    monkeypatch.setattr(session_gate, "ensure_current", check_session)
+    response = app.call(method, path, uid, **kwargs)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "session_not_current"
+    assert calls == [(uid, f"Bearer {uid}", "testclient")]
+    assert not app.users.writes
+    assert not (_WORK_TABLES & set(app.users.reads))
