@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const students = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
-const classHomework = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
+const students = read('app', '(authed-admin)/(students)', 'admin', 'students', 'admin-students-directory.tsx');
+const classHomework = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
 const prompts = read('app', '(authed-admin-writing-prompts)', 'admin', 'writing', 'prompts', 'admin-writing-prompts.tsx');
 const assignments = read('app', '(authed-admin-writing-assignments)', 'admin', 'writing', 'assignments', 'admin-writing-assignments.tsx');
 const classBackend = read('..', 'backend', 'routers', 'admin_class_assignments.py');

@@ -47,9 +47,9 @@ J213 = "SkillNotInSittingError keys clipped by _clip_skill_key (PC-J213, PR #201
 
 ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     # path, enclosing function, interpolated expression → (count, reason)
-    ("routers/admin.py", "generate_access_codes", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
-    ("routers/admin.py", "generate_and_assign_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
-    ("routers/admin.py", "patch_access_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
+    ("routers/admin/access_codes.py", "generate_access_codes", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
+    ("routers/admin/access_code_admin.py", "generate_and_assign_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
+    ("routers/admin/access_code_admin.py", "patch_access_code", "str(e)"): (1, "validate_permissions_or_raise: refused values via clip_user_values"),
     ("routers/admin_ai.py", "patch_ai_model_override", "str(exc)"): (1, "OverrideValidationError names allowlisted values only (ai_model_overrides.validate)"),
     ("routers/admin_class_assignments.py", "_pick_chosen_questions", "body.part; want"): (1, TYPED_INT),
     ("routers/admin_class_assignments.py", "_resolve_course_bank", "str(exc)"): (1, APP_AUTHORED),
@@ -73,6 +73,7 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin_mock_exams.py", "create_exam", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "delete_assignment", "str(e)"): (1, "RevocationError: constant text + count"),
     ("routers/admin_mock_exams.py", "live_monitor", "str(e)"): (1, UUID_LOOKUP),
+    ("routers/admin_mock_exams.py", "schedule_exam", "str(e)"): (1, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "section_progress", "str(e)"): (1, UUID_LOOKUP),
     ("routers/admin_mock_exams.py", "set_open", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "set_sitting_retest", "str(e)"): (1, UUID_LOOKUP),
@@ -136,11 +137,10 @@ TYPED_PATH = "int- or uuid-typed path/body value (FastAPI rejects other text wit
 
 ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("main.py", "permission_error_handler", "str(_uuid.uuid4())"): (1, "server-generated request id"),
-    ("routers/admin.py", "_run_regrade_response", "response_id"): (2, DB_VALUE),
-    ("routers/admin.py", "_validate_code_type_combo", "code_type"): (1, VALIDATED + " (in _VALID_CODE_TYPES; the refusing branch clips)"),
-    ("routers/admin.py", "delete_access_code", "active_count"): (1, SERVER_NUMBER),
-    ("routers/admin.py", "hard_delete_access_code", "active_count"): (1, SERVER_NUMBER),
-    ("routers/admin_class_assignments.py", "_resolve_course_bank", "bank['title']; dup[0].get('title')"): (1, DB_VALUE),
+    ("routers/admin/sessions.py", "_run_regrade_response", "response_id"): (2, DB_VALUE),
+    ("routers/admin/_common.py", "_validate_code_type_combo", "code_type"): (1, VALIDATED + " (in _VALID_CODE_TYPES; the refusing branch clips)"),
+    ("routers/admin/access_code_admin.py", "delete_access_code", "active_count"): (1, SERVER_NUMBER),
+    ("routers/admin/access_code_admin.py", "hard_delete_access_code", "active_count"): (1, SERVER_NUMBER),
     ("routers/admin_class_assignments.py", "_resolve_speaking_lesson_set", "missing"): (1, SERVER_NUMBER),
     ("routers/admin_class_assignments.py", "_resolve_speaking_lesson_set", "st['title']; dup[0].get('title')"): (1, DB_VALUE),
     ("routers/admin_class_assignments.py", "_resolve_speaking_topic", "topic['title']; dup[0].get('title')"): (1, DB_VALUE),
@@ -222,6 +222,7 @@ ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("services/essay_service.py", "_ensure_student_exists", "student_id"): (1, TYPED_PATH + " (CreateEssayRequest.student_id: UUID)"),
     ("services/essay_service.py", "compose_version", "crit; src_v"): (1, "criterion names constant; versions int-typed (ComposeBody)"),
     ("services/essay_service.py", "upsert_grade_rating", "essay_id"): (1, TYPED_PATH),
+    ("services/library_media.py", "throttle", "str(retry_after)"): (1, "server-computed integer seconds from the sliding window, not request text (feeds Retry-After)"),
     ("services/quiz_service.py", "_review_course_section_result", "section"): (1, LITERAL_ARG),
     ("services/quiz_service.py", "_save_course_section_result", "qid"): (1, "qid from the stored answer key"),
     ("services/quiz_service.py", "_save_course_section_result", "section"): (4, LITERAL_ARG),

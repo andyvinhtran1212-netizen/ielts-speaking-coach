@@ -120,6 +120,8 @@ Quy ước chung: mỗi component nhận `className?` để ghép; không nhận
 
 Bảng có 32 dòng vì tách nhỏ cho rõ; theo cách gom của tờ (các ô nhập là một họ, ba ô ngày là một họ) là khoảng 25 thành phần.
 
+Lệch so với dòng 18 (G03-T08, PR #2494): trên điện thoại `DataTable` **không** thành thẻ mà cuộn ngang trong khung bảng, ghim cột chọn, cột đầu (`columns[0]`) và cột "Hành động", theo tờ chuẩn ThanhPhanDuLieu §2 (tờ vẽ khung cuộn). Đảo ngược được (thêm chế độ thẻ sau, không đổi API). Trạng thái: coordinator OK 23/11, chờ anh Andy xác nhận khi duyệt.
+
 `AudioPlayer`/`VideoFrame` chỉ là giao diện điều khiển bằng props; không tự tạo `<audio>`/`<video>`. G07/G08 nối với vòng đời phát hiện có (quy tắc `frontend/AGENTS.md`: giữ nguyên vòng đời trình phát).
 
 ### 5.5 Khung trang trong `frontend/components/ui/shell/`

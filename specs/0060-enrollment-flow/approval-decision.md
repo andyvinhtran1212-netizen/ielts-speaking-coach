@@ -23,4 +23,3 @@ Changed text (plan.md section 5.7, the `POST` and `DELETE …/open-alerts` rows)
 - `DELETE /api/courses/{slug}/open-alerts`: still 20 per hour; with a session per account, a mail-link unsubscribe without a session per hashed IP.
 
 Limits, response shapes and error codes are unchanged. Implemented in #2582 (migration 394 counter key `user:<id>` / `ip:<hash>`). This amendment authorizes no migration apply, flag, env change or merge.
-

@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from typing import Iterable, Optional
+from uuid import UUID
 
 from fastapi import HTTPException
 
@@ -71,10 +72,41 @@ async def resolve_staff_scope(authorization: str | None) -> StaffScope:
         # require_instructor just admitted this caller; a role that changed
         # in between is refused rather than guessed.
         raise HTTPException(403, "Chỉ giáo viên hoặc quản trị viên mới xem được trang này.")
+    return StaffScope(role="instructor", user_id=user_id, cohort_ids=await _teacher_cohorts(user_id))
+
+
+async def _teacher_cohorts(user_id: str) -> frozenset[str]:
     try:
         res = await asyncio.to_thread(
             lambda: supabase_admin.table("cohorts").select("id").eq("instructor_id", user_id).execute())
     except Exception as exc:
         raise _unavailable() from exc
-    ids = frozenset(str(r["id"]) for r in (getattr(res, "data", None) or []) if r.get("id"))
-    return StaffScope(role="instructor", user_id=user_id, cohort_ids=ids)
+    return frozenset(str(r["id"]) for r in (getattr(res, "data", None) or []) if r.get("id"))
+
+
+_NOT_A_TEACHER = "Không thể xem như: tài khoản không phải giảng viên."
+
+
+async def scope_as_instructor(admin: StaffScope, target: str) -> StaffScope:
+    """An admin's "xem như giáo viên" (``?as_instructor=``): the scope of
+    ``target``'s classes, never every class.
+
+    Only an admin scope may ask (anything else is a programming error). A
+    target that is not a UUID, not a user, or not an instructor is refused
+    with 403; an unreadable role or class list is 503. No path falls back to
+    the admin's own every-class scope. The caller audits the impersonation
+    before it returns any data (``routers.instructor._audit_impersonate``).
+    """
+    if not admin.is_admin:
+        raise ValueError("scope_as_instructor needs an admin scope")
+    try:
+        target_id = str(UUID(str(target)))
+    except (TypeError, ValueError, AttributeError):
+        raise HTTPException(403, _NOT_A_TEACHER)
+    try:
+        rows = getattr(await _staff_role_row(target_id), "data", None) or []
+    except Exception as exc:
+        raise _unavailable() from exc
+    if not rows or (rows[0] or {}).get("role") != "instructor":
+        raise HTTPException(403, _NOT_A_TEACHER)
+    return StaffScope(role="instructor", user_id=target_id, cohort_ids=await _teacher_cohorts(target_id))

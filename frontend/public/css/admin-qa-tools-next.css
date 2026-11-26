@@ -1,0 +1,21 @@
+/* ADMINIA-0074 FR-073 — /admin/qa-tools. */
+.aqa-shell { width: min(1180px, calc(100vw - 328px)); margin: 0 auto; padding: var(--av-space-6); display: grid; gap: var(--av-space-6); min-width: 0; }
+aver-admin-chrome[data-collapsed="1"] > .aqa-shell { width: min(1180px, calc(100vw - 136px)); }
+.aqa-eyebrow { margin: 0 0 var(--av-space-1); color: var(--av-primary); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); letter-spacing: var(--av-tracking-widest); text-transform: uppercase; }
+.aqa-header h1 { margin: 0; font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -.03em; }
+.aqa-subtitle, .aqa-text { max-width: 760px; margin: var(--av-space-2) 0 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: 1.6; }
+.aqa-section { display: grid; gap: var(--av-space-3); padding: var(--av-space-4); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg); background: var(--av-surface-card); }
+.aqa-section h2 { margin: 0; font-size: var(--av-fs-lg); }
+.aqa-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--av-space-3); }
+.aqa-card { display: grid; gap: var(--av-space-1); height: 100%; padding: var(--av-space-3); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); color: var(--av-text-primary); text-decoration: none; }
+.aqa-card span { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+.aqa-card:hover { background: var(--av-surface-sunken); }
+.aqa-card:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+.aqa-actions { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
+.aqa-note, .aqa-status { margin: 0; font-size: var(--av-fs-sm); color: var(--av-text-muted); }
+.aqa-status { color: var(--av-text-secondary); }
+.aqa-status.is-error { color: var(--av-error); }
+@media (max-width: 768px) {
+  .aqa-shell { width: calc(100vw - 32px); padding: var(--av-space-4) 0 var(--av-space-8); }
+}
+.aqa-text a, .aqa-status a { color: var(--av-primary); text-underline-offset: 2px; }

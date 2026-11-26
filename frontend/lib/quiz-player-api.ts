@@ -11,15 +11,28 @@ type End = paths['/api/quiz/sessions/{session_id}']['patch'];
 type EndBody = End['requestBody']['content']['application/json'];
 type EndAck = End['responses'][200]['content']['application/json'];
 
+/**
+ * EXAMDRILL-0073 FR-013: the exam-room branch asks for no navigation on a 401
+ * once the run has loaded; it shows the room's sign-in box instead and keeps
+ * the unsent answers on the page. Without it a 401 goes to /login as before.
+ */
+export interface QuizPlayerApiOptions {
+  noRedirect?: () => boolean;
+  onUnauthorized?: () => void;
+}
+
 /** Existing auth transport; abort also guards its delayed token→fetch dispatch. */
-export function quizPlayerApi(signal: AbortSignal, isCurrent = () => !signal.aborted) {
+export function quizPlayerApi(signal: AbortSignal, isCurrent = () => !signal.aborted, auth: QuizPlayerApiOptions = {}) {
   const options = { signal, noRedirect: true };
   const owned = async <T,>(request: Promise<T>): Promise<T> => {
     try { return await request; }
     catch (error) {
       // A fulfilled 401 cannot be undone by abort. Only its still-current owner
       // may navigate; the native caller supplies the epoch/account/query guard.
-      if ((error as { status?: number })?.status === 401 && !signal.aborted && isCurrent()) window.location.href = '/login';
+      if ((error as { status?: number })?.status === 401 && !signal.aborted && isCurrent()) {
+        if (auth.noRedirect?.()) auth.onUnauthorized?.();
+        else window.location.href = '/login';
+      }
       throw error;
     }
   };
