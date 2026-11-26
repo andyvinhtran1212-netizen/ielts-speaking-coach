@@ -26,14 +26,24 @@ export function PracticeSubmissionBridge() {
     installation.current?.dispose();
     installation.current = null;
     if (status !== 'signed-in' || !user?.id) return;
+    const ownerId = user.id;
+    let active = true;
+    function assertSessionOwner(sessionOwner: string | null) {
+      if (!active || sessionOwner !== ownerId) {
+        throw Object.assign(new Error('Phiên đăng nhập đã thay đổi.'), { status: 401 });
+      }
+    }
     const submission = Object.assign(new SpeakingSubmissionController({
       // A redirect here would destroy the only in-memory copy of an
       // unconfirmed recording. Preserve 401 and let the player keep the blob.
-      upload: (path: string, formData: FormData, { signal }: { signal: AbortSignal }) => (
-        coreSpeakingUpload({ accountId: user.id, path, formData }, (headers: Record<string, string>) =>
-          win.api.uploadWith(path, formData, { noRedirect: true, signal }, headers))
+      upload: (path: string, formData: FormData, { signal }: { signal: AbortSignal }) => coreSpeakingUpload(
+        { accountId: ownerId, path, formData },
+        (headers: Record<string, string>) => win.api.uploadWith(
+          path, formData, { noRedirect: true, signal, assertSessionOwner }, headers,
+        ),
+        () => assertSessionOwner(ownerId),
       ),
-      getSession: (path: string, { signal }: { signal: AbortSignal }) => win.api.getWith(path, {}, { noRedirect: true, signal }),
+      getSession: (path: string, { signal }: { signal: AbortSignal }) => win.api.getWith(path, {}, { noRedirect: true, signal, assertSessionOwner }),
     }), {
       // EXAMSPEAK-0072 FR-010: the exam room passes `{ noRedirect: true }` so a
       // 401 stays in the page; without options the call is exactly as before.
@@ -51,6 +61,7 @@ export function PracticeSubmissionBridge() {
     win.PracticeSubmission = submission;
 
     installation.current = { ownerId: user.id, dispose: () => {
+      active = false;
       submission.destroy();
       if (win.PracticeSubmission === submission) delete win.PracticeSubmission;
     } };

@@ -200,9 +200,18 @@
       body = versionedSessionBody;
     }
 
-    var token = (opts && opts.keepalive && _lastToken !== null)
-      ? _lastToken
-      : await _getAuthToken();
+    var token;
+    if (opts && opts.assertSessionOwner) {
+      // Bind owner and credential to one snapshot, immediately before dispatch.
+      var sessionResult = _sb ? await _sb.auth.getSession() : null;
+      var session = sessionResult && sessionResult.data.session;
+      opts.assertSessionOwner(session && session.access_token && session.user ? session.user.id : null);
+      token = session.access_token;
+    } else {
+      token = (opts && opts.keepalive && _lastToken !== null)
+        ? _lastToken
+        : await _getAuthToken();
+    }
     var headers = /** @type {Record<string, string>} */ ({});
 
     // ADR-012 §2 — correlation id browser → FastAPI (middleware echoes it;
