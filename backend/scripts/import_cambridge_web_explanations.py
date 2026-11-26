@@ -378,7 +378,13 @@ def commit_rows(
     from config import settings
     from database import supabase_admin
 
-    if os.getenv("ENVIRONMENT", "").strip().lower() == "production" and not allow_production_hidden:
+    # Báo cáo săn lỗi #46: chỉ đọc os.environ thì ENVIRONMENT=production nằm
+    # trong .env (settings) bị bỏ qua ⇒ ghi prod không cần cờ. Xét cả hai.
+    labels = {
+        os.getenv("ENVIRONMENT", "").strip().lower(),
+        str(getattr(settings, "ENVIRONMENT", "") or "").strip().lower(),
+    }
+    if "production" in labels and not allow_production_hidden:
         raise ImportValidationError(
             "Production commit cần --allow-production-hidden; importer vẫn kiểm tra "
             "exam_only=true, public_practice_enabled=false và web_explanation_mode=disabled."

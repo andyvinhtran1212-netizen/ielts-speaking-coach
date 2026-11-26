@@ -25,7 +25,47 @@ Mọi dòng ở trạng thái `PENDING`: spec đang `draft`, chưa có dòng mã
 | FR-075 | kind=screenshot; ref=planned /home before/after with flag off on staging (T14) | PENDING |
 | FR-076 | kind=test; ref=planned pytest response_model shape and own-user filters (T13); git diff --exit-code frontend/types/api.d.ts | PENDING |
 | FR-077 | kind=test; ref=planned React no 0/0, no bare dash, hidden blocks when source null (T14) | PENDING |
-| FR-078 | kind=test; ref=planned pytest GET writes nothing, POST seen forward-only in (seen_until, seen_key) tuple order and own-row only; 3 results at one returned_at show 2, then 1, then 0 (T13); React seen call only after render (T14) | PENDING |
+| FR-078 | kind=test; ref=planned pytest GET writes nothing, POST seen forward-only in (seen_until, seen_key) tuple order and own-row only; 3 results at one returned_at show 2, then 1, then 0 (T13); React seen call only after render (T14) + GET writes only via _visible_assignments ledger reconcile, every other table 0 writes (HOLD patch) | PENDING |
+| FR-030 | kind=test; ref=planned React course-hub three tabs, n=0 without count, class tab hidden without class or when /course/class not live (T15) | PENDING |
+| FR-031 | kind=test; ref=planned pytest student_course online order and other_products excluding owned slugs; React days_left, credits_left null hides line, commerce flag off hides buy links (T15) | PENDING |
+| FR-032 | kind=test; ref=planned pytest archived class excluded and repractice [] before G04; React no class shows empty copy and /activate only when live (T15) | PENDING |
+| FR-033 | kind=test; ref=planned React only-online collapses class group with aria-expanded, group never removed (T15) | PENDING |
+| FR-034 | kind=test; ref=planned React lessons 404 or missing API shows "Bài học của khoá sẽ mở dần", 500 errors only the lesson block, no locked state, ?course= fallback (T15) | PENDING |
+| FR-035 | kind=test; ref=planned React class-only router.replace to assigned tab target before rendering groups; degraded part does not redirect (T15) | PENDING |
+| FR-036 | kind=test; ref=planned React exact grading-flow notes under each group (T15) | PENDING |
+| FR-037 | kind=test; ref=planned React expired course label and renew button only with can_renew and labels module; 403 course_access_expired from 0064 lessons renders no lesson list and no load-error banner (T15) | PENDING |
+| FR-079 | kind=test; ref=planned React practice-hub four cards in order via liveHref, resume error only on the resume block (T16) | PENDING |
+| FR-080 | kind=test; ref=planned React tests-hub self-select rows per skill full and mini only, rows hidden when target not live, no four-skill self-select in any state (T16) | PENDING |
+| FR-081 | kind=test; ref=planned React no assigned block when empty; self_paced line with total_minutes; partial skill set named; buttons per state (T16); pytest assigned_exams from list_open_exams and my_sittings (T16) | PENDING |
+| FR-082 | kind=test; ref=planned pytest results order and stable cursor, band only for 40-question L/R, overall only for four-skill assigned mock via overall_readiness (T16); pytest mock sitting with four bands but status not released returns no band/overall/pending_skills in JSON, then released returns them (T16); React empty Overall cell has screen-reader label (T16) | PENDING |
+| FR-083 | kind=test; ref=planned React 390px replaces full-test and assigned entry buttons with PHONEGATE-0081 warning, mini test keeps its button (T16) | PENDING |
+| FR-084 | kind=test; ref=planned React credits.total 1 marks Writing full "Không đủ lượt" with CreditsEmptyNotice, credits null marks nothing (T16) | PENDING |
+| FR-085 | kind=test; ref=planned pytest response_model shapes, caller-only filters, degraded vs missing source for student_course and student_tests (T15, T16) | PENDING |
+| FR-086 | kind=test; ref=planned React flag off: /tests renders T12a page unchanged, /course and /practice replace URL with no new API call (T15, T16); registry guard test after /course and /practice go live | PENDING |
+| FR-060 | kind=test; ref=planned React account-page two groups, one shared credit total with by-source lines, history label_vi and balance_after, no skill column, carry line, no "50%" (T17) | PENDING |
+| FR-061 | kind=test; ref=planned React progress one row per skill with FR-077 rule, goal edit via PATCH /auth/profile, profile_update off makes fields read-only (T17) | PENDING |
+| FR-062 | kind=test; ref=planned node help-search-model accent and case insensitive; React six fixed groups, no contact block before G05-T23 (T17) | PENDING |
+| FR-063 | kind=test; ref=planned React account and profile have no consent toggle and make no consent call (T17) | PENDING |
+| FR-064 | kind=test; ref=planned React profile-v2 login-events outcomes, is_current label, no location column, hidden on enabled=false or 500 (T17) | PENDING |
+| FR-065 | kind=test; ref=planned React start-page skip writes onboarding_completed then /home, class learner skips direction step; node login-model first sign-in target (T17) | PENDING |
+| FR-066 | kind=test; ref=planned React start-page makes no request whose URL contains consent (T17) | PENDING |
+| FR-087 | kind=test; ref=planned React content_visible_until line present or absent on /account and /progress; 410 content_expired copy (T17) | PENDING |
+| FR-088 | kind=test; ref=planned React mocked ChangeEmail rendered when its flag is on and absent when off; /auth/me re-read after change (T17) | PENDING |
+| FR-089 | kind=test; ref=planned React data and deletion blocks hidden until G04-T18 API exists (T17) | PENDING |
+| FR-090 | kind=test; ref=planned nonce and robots tests for the four new prefixes; React /profile flag off renders old tree; login-model flag on /start, off /onboarding (T17) | PENDING |
+| FR-091 | kind=test; ref=planned React auth-provider inactive_open on /home renders the page; staging scenario 16 (T26) | PENDING |
+| FR-092 | kind=test; ref=planned React auth-provider inactive_open on /course renders NeedsCourseScreen and the page never mounts (T26) | PENDING |
+| FR-093 | kind=test; ref=planned node activation-gate missing learner_v2_enabled gives inactive and /login; unknown stays open (T26) | PENDING |
+| FR-094 | kind=test; ref=planned pytest activation gate inventory with exactly two new exemptions, today for inactive queries no work tables, other learner route still 403, check-active flag field in both DB branches (T26) | PENDING |
+| FR-095 | kind=test; ref=planned React assigned-v2 flag on draws new tree with course tabs, flag off draws MyClassWorkspace (T30a) | PENDING |
+| FR-096 | kind=test; ref=planned pytest student_assigned four groups; React group order, empty groups hidden, overdue banner count (T30a) + reopened failed course work (course_action retake) groups as todo (HOLD patch) | PENDING |
+| FR-097 | kind=test; ref=planned React button per action and hrefs via my-class-model; Writing band only when returned (T30a) | PENDING |
+| FR-098 | kind=test; ref=planned React skill and state filters with counts, clear filter, query keeps selection (T30a) | PENDING |
+| FR-099 | kind=test; ref=planned React accepting=false shows "Không còn nhận bài" and only the self-practice button (T30a) | PENDING |
+| FR-100 | kind=test; ref=planned pytest self-practice route 404, 409, 422, 422 for vocab/grammar/course and for papers not open to self practice (exam_only, non-public, mock-reserved), launch params without class_assignment_item_id, zero writes, completion leaves item state unchanged (T30b) + stale row after class transfer 404, archived class still member 200, assigned_practice-only paper 422 (HOLD patch) | PENDING |
+| FR-101 | kind=test; ref=planned pytest Speaking self-practice session goes through POST /sessions quota and charge_plan like any self practice (T30b) | PENDING |
+| FR-102 | kind=test; ref=planned React repractice block hidden when empty, grading steps copy (T30a) | PENDING |
+| FR-103 | kind=test; ref=planned pytest response_model shape, caller-only rows, degraded part, homework_stale passthrough, _visible_assignments unchanged (T30a) + unreconciled Reading hand-in lands in submitted group, only reconcile writes (HOLD patch) | PENDING |
 
 ## Kịch bản staging (gói 9.1 mục 1, 3, 3b, 3c, 8; 9.4)
 
@@ -37,6 +77,16 @@ Tài khoản QA và dữ liệu thử; không bật cờ cho học viên thật.
 4. **Chưa có khoá / đơn chờ / hết lượt** (gói 3, 3b, 3c): chỉ chạy trên staging sau G07-T26 và G04 có dữ liệu thử; trước đó là test React với dữ liệu giả.
 5. **Vừa có kết quả.** Given bài Writing thử của QA được trả. When mở `/home`, tải lại. Then lần đầu có khối, lần sau không.
 6. **Bật cờ theo người.** Given admin. When bật rồi tắt cờ cho QA. Then `/auth/me` đổi đúng, tài khoản khác không đổi.
+
+7. **Lộ trình** (bản sửa đổi 1). Given QA chỉ lớp, cờ bật. When mở `/course`. Then URL đổi sang trang bài được giao. Given QA chỉ online (khi G04 có dữ liệu thử). Then nhóm lớp thu gọn, dòng khoá có "còn X ngày"; ảnh 1280px và 390px.
+8. **Thi thử** (bản sửa đổi 1). Given QA không được giao kỳ nào. When mở `/tests`. Then không có khối "Mock test được giao", không có đề bốn kỹ năng. Given QA được giao một kỳ thử trên staging (không thi trên production). Then dòng kỳ đúng trạng thái; ở 390px nút full test là dòng cảnh báo, mini test vẫn vào được.
+9. **Tắt cờ ba trang mới** (bản sửa đổi 1). Given cờ tắt. When mở `/course`, `/practice`, `/tests`. Then về trang tạm như hôm nay, không có lời gọi API mới (xem tab mạng).
+
+10. **Tài khoản và Hồ sơ** (bản sửa đổi 2). Given QA có lớp, cờ bật. When mở `/account`, `/profile`. Then đúng nhóm khoá, lượt một số chung; khối phiên đăng nhập hiện hoặc ẩn đúng theo G04-T16; ảnh 1280px và 390px.
+11. **Lần đầu vào** (bản sửa đổi 2). Given tài khoản QA mới, cờ bật. When đăng nhập. Then tới `/start`, "Bỏ qua" về `/home`, lần sau không tới `/start`.
+12. **Chưa kích hoạt** (bản sửa đổi 2, high-risk auth). Kịch bản 16 của spec trên staging, bằng tài khoản QA mới tạo; ghi SHA, giờ bật/tắt cờ; gọi một route học viên khác bằng token đó và ghi mã 403.
+
+13. **Bài được giao** (bản sửa đổi 3). Kịch bản 17, 18 của spec trên staging với lớp thử; ảnh 1280px và 390px; ghi bảng nộp bài của giáo viên trước và sau khi tự luyện (không đổi).
 
 ## Contract evidence
 

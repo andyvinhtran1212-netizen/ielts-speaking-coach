@@ -1180,7 +1180,9 @@ def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str
         "p_item_id":    item_id,
         "p_user_id":    user_id,
     }).execute().data
-    return rows is True or rows == [True] or bool(rows)
+    # RPC trả boolean. `bool([False])` là True ⇒ lời từ chối bị đọc thành "đã
+    # gắn" (báo cáo săn lỗi #54). Chỉ True thật mới là đã gắn.
+    return rows is True or rows == [True]
 
 
 # Reading/Listening have no completion hook of their own: the student submits on
@@ -1422,12 +1424,14 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     fixed = 0
     for item_id, hit in test_attempt_handins(db, assignments).items():
         at, when_value, artifact_kind = hit["attempt"], hit["when"], hit["artifact_kind"]
-        try:
-            when = datetime.fromisoformat(when_value)
-        except (ValueError, TypeError):
+        when = _at(when_value)
+        if when is None:
             # Stamp nothing rather than stamping now: "now" would make a
-            # hand-in that met the deadline read as late.
-            when = None
+            # hand-in that met the deadline read as late. `now=None` used to
+            # fall through to now() inside mark_item_submitted (báo cáo săn lỗi
+            # #56); leave the item for a later pass instead.
+            logger.warning("[class] unreadable hand-in time item=%s", item_id)
+            continue
         if mark_item_submitted(
             db, item_id=item_id, artifact_kind=artifact_kind,
             artifact_id=at["id"], score=at.get("band_estimate"), now=when,
@@ -1503,13 +1507,7 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     # first hand-in with a different score AND a different on-time verdict. Keep
     # the earliest actual completion.
     def _completed_key(row):
-        raw = row.get("completed_at")
-        if not raw:
-            return None
-        try:
-            return datetime.fromisoformat(raw)
-        except ValueError:
-            return None
+        return _at(row.get("completed_at"))
 
     earliest: Dict[str, Dict[str, Any]] = {}
     for s in sessions:
@@ -1532,15 +1530,19 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
         # late — the repair would manufacture the very verdict it exists to
         # correct. Falls back to now() only when completed_at is somehow absent.
         completed_at = s.get("completed_at")
-        submitted_at = None
-        if completed_at:
-            try:
-                submitted_at = datetime.fromisoformat(completed_at)
-            except ValueError:
-                logger.warning("[class] unparseable completed_at on session=%s", s["id"])
+        # `_at` đọc giờ thiếu múi giờ là UTC: so naive với `due` (aware) từng
+        # ném TypeError và làm hỏng cả trang lớp (báo cáo săn lỗi #64).
+        submitted_at = _at(completed_at)
         due = due_by_item.get(s.get("class_assignment_item_id"))
-        if due and submitted_at and submitted_at > due:
-            logger.info("[class] repair skipped, past deadline item=%s", item_id)
+        if due and submitted_at is None:
+            # Không biết giờ nộp thì không xét được hạn; ghi "now" có thể biến
+            # bài nộp đúng hạn thành trễ. Để lượt sau.
+            logger.warning("[class] repair skipped, unreadable completed_at session=%s",
+                           s["id"])
+            continue
+        if due and submitted_at > due:
+            logger.info("[class] repair skipped, past deadline item=%s",
+                        s.get("class_assignment_item_id"))
             continue
         # CLASSARCHIVE-0030 FR-004, the rule of `_record_class_submission`: no
         # credit for a session completed at or after the archive. A Full Test

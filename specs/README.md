@@ -127,6 +127,7 @@ draft -> approved -> implementing -> verified -> shipped
 | PUBLICSITE-0059 | Visitors see the new public home page, the six online courses with honest status and a free trial entry, legal pages and one consistent set of error pages, in light and dark mode | approved | medium | [spec](0059-public-site/spec.md) |
 | ENROLL-0060 | Learners sign in with Google or a six-digit email code and return where they were, check a class activation code before using it, and register for an online course by bank transfer until an admin confirms it | approved | high | [spec](0060-enrollment-flow/spec.md) |
 | COURSELESSON-0064 | Learners with access to an online course open its lessons in any order, watch the video and resume where they left off, while visitors can open marked preview lessons and admins load lessons by script | approved | high | [spec](0064-course-lessons/spec.md) |
+| RESULTSHEET-0065 | Learners read every Writing, Speaking and mock-test result sheet with the same next steps, honest grading source and band rules, and ask for a Writing regrade by choosing a reason | approved | high | [spec](0065-result-sheet/spec.md) |
 | LEGACYJS-0075 | Legacy public scripts that no page loads are removed in reviewed batches, each file backed by reference and request evidence, without any page losing a script it needs | approved | high | [spec](0075-legacy-public-js-retirement/spec.md) |
 | ADMINIA-0074 | Admins and the class teacher run daily work from one admin frame with eight sidebar groups, a unified learner directory and profile, and canonical queues | approved | high | [spec](0074-admin-ia/spec.md) |
 | BACKENDSPLIT-0076 | The three largest backend modules are split into packages without changing any route, import, OpenAPI contract or test patch target | approved | high | [spec](0076-backend-module-split/spec.md) |
@@ -151,6 +152,7 @@ draft -> approved -> implementing -> verified -> shipped
 | CONTENTBATCH-0087 | Admins see every content import script run as a read-only batch and work one review queue per question on the four-tab content pages | draft | high | [spec](0087-content-import-batches/spec.md) |
 | WRITINGGPT-0088 | Writing grades that Claude cannot serve fall back to GPT before Gemini | draft | high | [spec](0088-writing-gpt-fallback/spec.md) |
 | SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
+| REGIVE-0103 | A teacher can give a class a course lesson bank it already received, and a retried give still creates it once | approved | high | [spec](0103-course-bank-regive/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 

@@ -276,7 +276,6 @@ jobs:
               - 'frontend/tests/listening-review-next-behavior.test.mjs'
               - 'frontend/app/(authed-admin)/(overview)/**'
               - 'frontend/public/css/admin-overview.css'
-              - 'frontend/public/js/admin-overview.js'
               - 'backend/routers/admin_overview.py'
               - 'backend/tests/test_admin_overview.py'
               - 'frontend/app/(authed-admin-system)/**'
@@ -319,7 +318,6 @@ jobs:
               - 'frontend/lib/admin-feedback-model.mjs'
               - 'frontend/public/css/admin-feedback-next.css'
               - 'frontend/public/pages/admin/feedback/index.html'
-              - 'frontend/public/js/admin-feedback.js'
               - 'frontend/app/(authed-admin)/(reading-attempts)/**'
               - 'frontend/lib/admin-reading-attempts-model.mjs'
               - 'frontend/public/css/admin-reading-attempts-next.css'
@@ -447,9 +445,6 @@ jobs:
               - 'frontend/public/pages/admin/vocab/quiz-analytics.html'
               - 'frontend/public/pages/admin/vocab/topics.html'
               - 'frontend/public/pages/admin/vocab/quiz.html'
-              - 'frontend/public/js/admin-vocab-stats.js'
-              - 'frontend/public/js/admin-vocab-d1.js'
-              - 'frontend/public/js/admin-vocab-lemmas.js'
               - 'frontend/tooling/verify-admin-vocab-flow.mjs'
               - 'frontend/tests/admin-vocab-next-behavior.test.mjs'
               - 'frontend/tests/admin-vocab-next-model.test.mjs'
@@ -477,13 +472,11 @@ jobs:
               - 'frontend/public/pages/admin/speaking/index.html'
               - 'frontend/public/pages/admin/speaking/sessions.html'
               - 'frontend/public/pages/admin/speaking/topics.html'
-              - 'frontend/public/js/admin-speaking-sessions.js'
-              - 'frontend/public/js/admin-speaking-topics.js'
               - 'frontend/tooling/verify-admin-speaking-flow.mjs'
               - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
               - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
               - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-              - 'frontend/app/(authed-admin-mock-tests)/**'
+              - 'frontend/app/(authed-admin)/(mock-tests)/**'
               - 'frontend/lib/admin-mock-tests-model.mjs'
               - 'frontend/public/css/admin-mock-tests-next.css'
               - 'frontend/public/pages/admin/mock-tests/index.html'
@@ -510,7 +503,7 @@ jobs:
               - 'frontend/tooling/verify-admin-mock-reviews-flow.mjs'
               - 'frontend/tests/admin-mock-reviews-next-model.test.mjs'
               - 'frontend/tests/admin-mock-reviews-next-behavior.test.mjs'
-              - 'frontend/app/(authed-admin-writing)/**'
+              - 'frontend/app/(authed-admin)/(writing)/**'
               - 'frontend/app/(authed-admin-writing-queue)/**'
               - 'frontend/app/(authed-admin-writing-status)/**'
               - 'frontend/app/(authed-admin-writing-prompts)/**'
@@ -518,7 +511,7 @@ jobs:
               - 'frontend/app/(authed-admin-writing-assignments)/**'
               - 'frontend/app/(authed-admin-writing-cohorts)/**'
               - 'frontend/app/(authed-admin-writing-instructor-queue)/**'
-              - 'frontend/app/(authed-admin-writing-new)/**'
+              - 'frontend/app/(authed-admin)/(writing-new)/**'
               - 'backend/routers/admin_writing.py'
               - 'backend/routers/admin_writing_prompts.py'
               - 'backend/services/student_service.py'
@@ -557,7 +550,6 @@ jobs:
               - 'frontend/public/pages/admin/writing/new.html'
               - 'frontend/public/pages/admin/writing/cohorts.html'
               - 'frontend/public/pages/admin/writing/instructor-queue.html'
-              - 'frontend/public/js/admin-writing-queue.js'
               - 'frontend/tooling/verify-admin-writing-flow.mjs'
               - 'frontend/tooling/verify-admin-writing-queue-flow.mjs'
               - 'frontend/tooling/verify-admin-writing-status-flow.mjs'
@@ -579,18 +571,15 @@ jobs:
               - 'frontend/lib/admin-grammar-articles-model.mjs'
               - 'frontend/public/css/admin-grammar-articles-next.css'
               - 'frontend/public/pages/admin/grammar/articles.html'
-              - 'frontend/public/js/admin-grammar-articles.js'
               - 'frontend/app/(authed-admin)/(grammar-analytics)/**'
               - 'frontend/lib/admin-grammar-analytics-model.mjs'
               - 'frontend/public/css/admin-grammar-analytics-next.css'
               - 'frontend/public/pages/admin/grammar/analytics.html'
-              - 'frontend/public/js/admin-grammar-analytics.js'
               - 'frontend/tooling/verify-admin-grammar-analytics-flow.mjs'
               - 'frontend/app/(authed-admin)/(grammar-recommend)/**'
               - 'frontend/lib/admin-grammar-recommend-model.mjs'
               - 'frontend/public/css/admin-grammar-recommend-next.css'
               - 'frontend/public/pages/admin/grammar/recommend-test.html'
-              - 'frontend/public/js/admin-grammar-recommend.js'
               - 'frontend/tooling/verify-admin-grammar-recommend-flow.mjs'
               - 'frontend/app/(authed-admin)/(error-logs)/**'
               - 'frontend/lib/admin-error-logs-model.mjs'
@@ -788,7 +777,10 @@ jobs:
   browser-regression:
     name: Next-native browser regression
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # 45: the ADMINGROUP-0077 route-group flow visits every ordered pair of
+    # (authed-admin) pages; after T007 it alone takes ~12 min and the job ran
+    # past 30 (570be010).
+    timeout-minutes: 45
     # Job LUÔN chạy và luôn báo check (check bắt buộc của staging): skip ở mức job
     # thì GitHub báo «skipped»; ở đây PR ngoài danh sách chỉ chạy bước báo bỏ qua
     # rồi XANH. `!cancelled()`: `changes` hỏng ⇒ output rỗng ⇒ RUN_BROWSER 'true'.

@@ -17,12 +17,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(__dirname, '..', '..');
 const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 
-let html, js, svc;
-before(() => {
-  // dashboard-consolidation — the ops Dashboard was merged into Tổng quan.
-  html = read('frontend/pages/admin/index.html');
-  js   = read('frontend/js/admin-dashboard.js');
-  svc  = read('backend/services/admin_dashboard.py');
+let html, tsx, css, model, svc;
+before(async () => {
+  // LEGACYJS-0075 W4a — the ops Dashboard lives in the Next Tổng quan owner;
+  // the retired admin-dashboard.js controller is gone.
+  html  = read('frontend/pages/admin/index.html'); // retired fixture (ADR-005)
+  tsx   = read('frontend/app/(authed-admin)/(overview)/admin/admin-overview.tsx');
+  css   = read('frontend/public/css/admin-overview.css');
+  model = await import(path.join(REPO, 'frontend/lib/admin-overview-model.mjs'));
+  svc   = read('backend/services/admin_dashboard.py');
 });
 
 
@@ -53,15 +56,18 @@ describe('frontend — tile total + inline auth/anon split', () => {
   test('tile value is the total; split subline element present', () => {
     assert.match(html, /id="m-visitors"/);
     assert.match(html, /id="m-visitors-split"/);
-    assert.match(html, /\.db-card__split/);   // styled
+    assert.match(html, /\.db-card__split/);
+    assert.match(tsx, /value=\{formatInteger\(ops\?\.visitors\?\.count\)\}/);
+    assert.match(tsx, /<div className="db-card__split">/);
+    assert.match(css, /\.db-card__split/);   // styled
   });
 
   test('controller renders total + an honestly-unit-labelled split', () => {
-    assert.match(js, /m-visitors'\)\.textContent = fmtInt\(dv\.count\)/);
-    assert.match(js, /m-visitors-split/);
-    assert.match(js, /đăng nhập · /);
-    assert.match(js, /lượt ẩn danh/);   // "lượt" = hits, not distinct viewers
-    assert.match(js, /dv\.authenticated/);
-    assert.match(js, /dv\.anonymous/);
+    assert.match(tsx, /đăng nhập · /);
+    assert.match(tsx, /lượt ẩn danh/);   // "lượt" = hits, not distinct viewers
+    assert.match(tsx, /ops\?\.visitors\?\.authenticated/);
+    assert.match(tsx, /ops\?\.visitors\?\.anonymous/);
+    const ops = model.normalizeOpsPayload({ distinct_visitors: { count: 7, authenticated: 3, anonymous: 4, window_days: 7 } }, 30);
+    assert.deepEqual(ops.visitors, { count: 7, authenticated: 3, anonymous: 4, windowDays: 7 });
   });
 });
