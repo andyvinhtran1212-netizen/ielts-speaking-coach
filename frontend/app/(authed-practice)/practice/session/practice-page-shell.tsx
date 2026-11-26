@@ -568,6 +568,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <p className="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p><p id="p2b-timer" className="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6" style={{ color: view.part2.prepUrgent ? '#ef4444' : '#f97316' }}>{view.part2.prepTimer}</p>
           <div className="card p-4 mb-4"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Câu hỏi</p><p id="p2b-question" className="practice-p2b-question text-sm">{view.part2.prepQuestion}</p></div>
           <div className="card p-4 mb-5"><p className="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Ghi chú của bạn</p><textarea key={view.part2.notesRevision} id="p2b-notes" rows={4} className="practice-p2b-notes" placeholder="Ghi nhanh ý chính, từ vựng quan trọng..." /></div>
+          {room?.part2Prep}
           <button type="button" className="btn-ghost w-full py-3 text-sm font-semibold" onClick={() => callPractice('startP2SpeakingEarly')}>Bỏ qua → Bắt đầu nói ngay</button>
         </div>
 

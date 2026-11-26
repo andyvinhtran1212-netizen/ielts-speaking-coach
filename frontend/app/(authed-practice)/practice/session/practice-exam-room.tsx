@@ -59,6 +59,8 @@ export type SpeakingRoomSlots = {
   recorder: ReactNode;
   /** Above the Part 2 cue card start button. */
   part2Cue: ReactNode;
+  /** Above the Part 2 "speak now" button: the microphone is asked for here. */
+  part2Prep: ReactNode;
   /** Above the Part 2 speaking timer. */
   part2Speaking: ReactNode;
 };
@@ -96,6 +98,13 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
         <div className="av2-root" data-room-slot="part2-cue" style={SLOT_STYLE}>
           {micBox}
           <TooShortReason value={tooShortOf(view.part2?.tooShort)} mode={mode} />
+        </div>
+      ) : null,
+      // Part 2 asks for the microphone when preparation ends, on this screen,
+      // so its pending state and any recovery steps show here too.
+      part2Prep: activeState === 'p2b' ? (
+        <div className="av2-root" data-room-slot="part2-prep" style={SLOT_STYLE}>
+          {micBox}
         </div>
       ) : null,
       part2Speaking: activeState === 'p2c' ? (

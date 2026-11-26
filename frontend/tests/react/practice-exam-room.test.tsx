@@ -133,6 +133,16 @@ describe('flag on', () => {
     expect(within(slot).getByRole('alert').textContent).toMatch(/^Bản ghi 61 giây, Part 2 cần ít nhất 80 giây\./);
   });
 
+  it('Part 2 preparation shows the microphone, so a denied start keeps its recovery steps', () => {
+    const p = roomPlayer('p2b');
+    p.updateView('mic', { state: 'denied' });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-p2b [data-room-slot="part2-prep"]') as HTMLElement;
+    expect(slot.classList.contains('av2-root')).toBe(true);
+    expect(within(slot).getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(container.querySelectorAll('[data-room-slot]').length).toBe(1);
+  });
+
   it('Part 2 speaking shows the recording state in words', () => {
     const p = roomPlayer('p2c');
     p.updateView('part2', { speakTimer: '1:40' });

@@ -295,6 +295,12 @@
     return before === 'pending' ? 'prompt' : before;
   }
 
+  function _roomMicBlocked() {
+    if (!_examRoomMode) return false;
+    return _roomMicState === 'denied' || _roomMicState === 'not_found'
+      || _roomMicState === 'busy' || _roomMicState === 'unsupported';
+  }
+
   function _roomMicBeforeStart() {
     if (!_examRoomMode) return 'unknown';
     var before = _roomMicState;
@@ -3504,6 +3510,9 @@
       } catch (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
         _roomMic(_roomMicFromError(err, micBefore));
+        // Exam room: a known mic case stays on the preparation screen, whose
+        // mic box shows the steps and "Thử lại"; "Bắt đầu nói ngay" starts again.
+        if (_roomMicBlocked()) return;
         showError(err && err.message ? err.message : 'Không thể mở microphone.');
         return;
       }
