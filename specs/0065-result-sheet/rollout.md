@@ -3,7 +3,7 @@
 ## Preconditions
 
 - Spec `approved` trên `staging` (anh Andy duyệt, `approval-decision.md`).
-- Số migration trong dải 420–439 còn trống; dòng `register.tsv` thêm cùng PR T21.
+- Số migration 507 vẫn là dòng `reserved` của RESULTSHEET-0065 trong `register.tsv`; PR T21 đổi dòng đó sang `present`.
 - Cờ `learner_v2` của LEARNERCORE-0063 đã có, mặc định tắt.
 - Truy vấn chỉ đọc trên staging trả 0 dòng có `reason` ngoài 50–500 ký tự.
 

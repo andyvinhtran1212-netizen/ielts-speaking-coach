@@ -22,14 +22,16 @@ and must not be "filled in" by tooling:
 Take the next number after the highest `present` or `reserved` row in
 [`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
 task ID) in the same PR as the file, and change it to `present` when the file
-lands. Do **not** assume the sequence is dense. As of 2026-11-25 the highest is `509`
-(course-give idempotency hotfix, #2693/#2694; 503–507 are held by open PRs); before it `502`
+lands. Do **not** assume the sequence is dense. As of 2026-11-26 the highest is `509`
+(course-give idempotency hotfix, #2693/#2694); `503` is COURSEACCESS-0055 G04-T07
+per-attempt credit settlement (Andy 2026-11-23); before them `502`
 (COURSEACCESS-0055 G04-T13 pronunciation sample; before it `501`, GRAMMARAUDIT-0019
 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`, both from the reserve
 band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
 (383, 384, 385, 388, 389 and 502 present; 387 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
+504 is reserved for #2600 and 505 for COURSEACCESS-0055 G04-T10b,
 so the next new migration is `510`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
 the PR that takes one adds its row.
@@ -85,6 +87,14 @@ spec label "387"): backend-only `learner_login_events`, one row per (session,
 outcome) with the derived device kind/label and sign-in method; no IP, location
 or raw User-Agent column. service_role may SELECT, INSERT and DELETE (expiry);
 apply after 388. The rollback drops the table.
+`503` is `pending_feature credit_attempt_settle` (COURSEACCESS-0055 T007,
+G04-T07, FR-015): append-only `credit_attempt_outcomes` (one row per hold and
+request key, graded | failed) and the service_role-only
+`fn_credit_settle_attempt`, which, under the user's credit lock, commits a
+Speaking hold on the first saved grade and releases it only when every answer
+the hold covers has failed. Needs 384; apply it before `credit_metering` is
+turned on with the G04-T07 backend. The rollback drops the RPC and keeps the
+table and its rows.
 `380` is Skill Drill homework, #2294.
 `502` is `pending_feature pron_sample` (COURSEACCESS-0055 T012 / G04-T13, spec
 label "385"): three nullable `responses` columns, `pronunciation_sample_start_s`,
