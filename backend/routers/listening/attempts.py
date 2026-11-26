@@ -255,7 +255,7 @@ async def admin_get_listening_attempt(
 
 @user_router.get("/tests/{test_id}/attempts/in-progress", response_model=BlackEyeInProgress | dict[str, Any])
 async def get_in_progress_listening_attempt(
-    test_id: str,
+    test_id: uuid.UUID,
     sitting_id: str | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
@@ -282,6 +282,7 @@ async def get_in_progress_listening_attempt(
     bundle: that bundle is served to several callers and is cacheable, while
     this is per-user and must never be cached.
     """
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     if standalone and (class_item or sitting_id):
         raise HTTPException(422, "standalone cannot be combined with class_item or sitting_id")
@@ -373,7 +374,7 @@ async def get_in_progress_listening_attempt(
 @user_router.post("/tests/{test_id}/attempts", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "start", correlate_by=("test_id", "body", "class_item"))
 async def start_listening_test_attempt(
-    test_id: str,
+    test_id: uuid.UUID,
     body: _ListeningAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
@@ -390,6 +391,7 @@ async def start_listening_test_attempt(
     design. A caller that wants to CONTINUE must first check GET
     /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     if standalone and class_item:
         raise HTTPException(422, "standalone cannot be combined with class_item")
@@ -799,7 +801,7 @@ def _mock_sealed(attempt: dict) -> bool:
 # retain an answer-derived digest. The client operation ID scopes each intent.
 @observe_operation("listening_test", "save", correlate_by=("attempt_id",))
 async def patch_listening_test_attempt_answer(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     body: TestAttemptAnswerPatchRequest,
     authorization: str | None = Header(default=None),
 ):
@@ -814,6 +816,7 @@ async def patch_listening_test_attempt_answer(
     one — the client debounces per question, so concurrent saves of different
     q_nums are exactly what a fast typist produces.
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     bind_owned_attempt(attempt)
@@ -1059,7 +1062,7 @@ async def reveal_listening_programme_question(
 
 @user_router.get("/tests/{test_id}/practice-windows")
 async def get_practice_audio_windows(
-    test_id: str,
+    test_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """Per-question audio windows for a Luyện nhanh drill — PRACTICE ONLY.
@@ -1079,6 +1082,7 @@ async def get_practice_audio_windows(
     solutions, no transcript. Refused outright for full / mini / drill, so the
     exam guarantee is unchanged and this exception stays visible in one place.
     """
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     _user = await _require_auth(authorization)
     target = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
     if blackeye.is_blackeye(target):
@@ -1117,7 +1121,7 @@ async def get_practice_audio_windows(
 @user_router.post("/tests/attempts/{attempt_id}/check")
 @observe_operation("listening_test", "grade", correlate_by=("attempt_id", "body"))
 async def check_listening_practice_answer(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     body: PracticeCheckRequest,
     authorization: str | None = Header(default=None),
 ):
@@ -1147,6 +1151,7 @@ async def check_listening_practice_answer(
     Returns ``{q_num, correct, canonical_correct, recorded, audio_window, …}``;
     ``expected`` / ``solution`` appear only on a granted reveal.
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     from services import listening_test_grader as grader
 
     user = await _require_auth(authorization)
@@ -1300,13 +1305,14 @@ async def check_listening_practice_answer(
 @user_router.post("/tests/attempts/{attempt_id}/submit", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "submit", correlate_by=("attempt_id",))
 async def submit_listening_test_attempt(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """Finalize a student attempt: load the test's answer key, grade
     each user answer, roll up trap analytics, write the grading
     payload back to the attempt row, and return the result.
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     from datetime import datetime, timezone
 
     from services import listening_test_grader as grader
@@ -1515,13 +1521,14 @@ async def submit_listening_test_attempt(
 
 @user_router.get("/tests/attempts/{attempt_id}", response_model=BlackEyeAttemptState | dict[str, Any])
 async def get_listening_test_attempt(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a past attempt's grading. Owner-only (admin bypass not
     wired here — admins use ``/admin/listening/tests/{id}`` for the
     bundle view; per-attempt admin surfaces land in a future sprint).
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
