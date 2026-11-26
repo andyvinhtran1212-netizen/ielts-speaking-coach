@@ -12830,6 +12830,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library/writing-guides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Writing Guides
+         * @description Published guides in the four fixed groups (FR-020). A guide in two groups
+         *     appears in both with the same slug; a group with no guide is still listed
+         *     with ``items: []`` and the page hides it.
+         */
+        get: operations["list_writing_guides_api_library_writing_guides_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-guides/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Writing Guides Index
+         * @description ``[{slug, updated_at}]`` of every published guide, for the sitemap.
+         */
+        get: operations["writing_guides_index_api_library_writing_guides_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-guides/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Writing Guide
+         * @description One published guide: server-rendered HTML (raw HTML in the body is shown
+         *     as text), its table of contents, its groups, and prev/next within its first
+         *     group. ``updated_at`` is the last content edit (FR-023).
+         */
+        get: operations["get_writing_guide_api_library_writing_guides__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library/speaking": {
         parameters: {
             query?: never;
@@ -49122,6 +49186,77 @@ export interface operations {
         };
     };
     get_writing_sample_api_library_writing_samples__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_writing_guides_api_library_writing_guides_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    writing_guides_index_api_library_writing_guides_index_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_writing_guide_api_library_writing_guides__slug__get: {
         parameters: {
             query?: never;
             header?: never;
