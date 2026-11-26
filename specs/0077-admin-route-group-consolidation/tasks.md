@@ -11,5 +11,6 @@ Mỗi task một PR vào `staging`, lớp `feature`, `Spec: ADMINGROUP-0077`, ch
 - [ ] T006 (G10-T15-5) `reading`, `reading-attempts`, `reading-content`, `mock-exams`, `mock-live`, `mock-reviews`. `depends: T005`
   - 23/11: `reading-content` giữ group riêng theo cùng lý do với `listening` (T005, phương án a): layout của nó cũng đặt `aver-design/components.css` giữa `admin-surface.css` và `admin-components.css`. T006 dời 5 group còn lại.
 - [ ] T007 (G10-T15-6/7) `mock-tests`, `writing`, `writing-assignments`, `writing-cohorts`, `writing-instructor-queue`, `writing-new`, `writing-prompts`, `writing-queue`, `writing-regrade`, `writing-status` (hai PR). `depends: T006`
+  - 23/11 (coordinator, phương án a): 7 group writing (`writing-assignments`, `writing-cohorts`, `writing-instructor-queue`, `writing-prompts`, `writing-queue`, `writing-regrade`, `writing-status`) giữ group riêng: layout của chúng chỉ có 2 sheet nền (`admin-surface`, `admin-components`); dời vào cha sẽ thêm `admin-buttons` + `admin-status` (trái FR-001). T007 chỉ còn một PR: `mock-tests`, `writing`, `writing-new`.
 
 Thứ tự đợt có thể đổi theo nhu cầu G09 (đợt chứa trang G09 sắp sửa đi trước), giữ ≤ 6 group và ≤ 30 file test mỗi PR. Mỗi PR: quy tắc chuyển ở `plan.md`, nghiệm thu ở "Verification strategy", ghi SHA và kết quả vào `verification.md`.
