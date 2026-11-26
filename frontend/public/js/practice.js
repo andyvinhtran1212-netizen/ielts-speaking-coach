@@ -308,6 +308,12 @@
     return before === 'pending' ? 'prompt' : before;
   }
 
+  function _roomMicBlocked() {
+    if (!_examRoomMode) return false;
+    return _roomMicState === 'denied' || _roomMicState === 'not_found'
+      || _roomMicState === 'busy' || _roomMicState === 'unsupported';
+  }
+
   function _roomMicBeforeStart() {
     if (!_examRoomMode) return 'unknown';
     var before = _roomMicState;
@@ -3869,6 +3875,9 @@
       } catch (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
         _roomMic(_roomMicFromError(err, micBefore));
+        // Exam room: a known mic case stays on the preparation screen, whose
+        // mic box shows the steps and "Thử lại"; "Bắt đầu nói ngay" starts again.
+        if (_roomMicBlocked()) return;
         showError(err && err.message ? err.message : 'Không thể mở microphone.');
         return;
       }
@@ -5488,7 +5497,10 @@
   // trong, không có con số nào trong CSS. Ghim một hằng số ở đây là ghim một
   // giá trị sẽ sai ngay lần đầu ai đó đổi cỡ chữ trong thanh.
   function _syncMeterTop() {
-    var bar = document.querySelector('.practice-context-bar');
+    // The exam room (EXAMSPEAK-0072) swaps the context bar for FocusShell's
+    // sticky bar, which mounts lazily; the next render or resize measures it.
+    var bar = document.querySelector('.practice-context-bar')
+      || document.querySelector('[data-speaking-room-root] header');
     var sheet = $('state-sheet');
     if (!bar || !sheet) return;
     sheet.style.setProperty('--practice-meter-top', bar.offsetHeight + 'px');
