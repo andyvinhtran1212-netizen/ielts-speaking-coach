@@ -388,6 +388,20 @@ describe('MicStatus (FR-003)', () => {
     expect(screen.queryByText(VI.micLost)).toBeNull();
   });
 
+  it('Part 2 cut by an unplugged mic: the cue card shows the warning and the held take before anything is sent', () => {
+    const p = player('p2a');
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: 'practice' });
+    p.updateView('mic', { state: 'not_found', lost: true });
+    p.updateView('part2', { retryVisible: true, retryMessage: 'Mất kết nối micro giữa lúc nói. Phần đã ghi được giữ lại.', startVisible: false });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-p2a [data-room-slot="part2-cue"]') as HTMLElement;
+    expect(within(slot).getByText(VI.micLost)).toBeTruthy();
+    const held = container.querySelector('#p2a-submit-retry') as HTMLElement;
+    expect(held.style.display).toBe('');
+    expect(within(held).getByRole('button', { name: 'Gửi lại bản ghi' })).toBeTruthy();
+    expect(within(held).getByRole('button', { name: 'Ghi lại' })).toBeTruthy();
+  });
+
   it('a plain not-found keeps the info tone', () => {
     mic('not_found');
     expect(document.querySelector('[data-mic-tone]')?.getAttribute('data-mic-tone')).toBe('info');
