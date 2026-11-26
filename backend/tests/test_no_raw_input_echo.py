@@ -140,7 +140,6 @@ ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin/_common.py", "_validate_code_type_combo", "code_type"): (1, VALIDATED + " (in _VALID_CODE_TYPES; the refusing branch clips)"),
     ("routers/admin/access_code_admin.py", "delete_access_code", "active_count"): (1, SERVER_NUMBER),
     ("routers/admin/access_code_admin.py", "hard_delete_access_code", "active_count"): (1, SERVER_NUMBER),
-    ("routers/admin_class_assignments.py", "_resolve_course_bank", "bank['title']; dup[0].get('title')"): (1, DB_VALUE),
     ("routers/admin_class_assignments.py", "_resolve_speaking_lesson_set", "missing"): (1, SERVER_NUMBER),
     ("routers/admin_class_assignments.py", "_resolve_speaking_lesson_set", "st['title']; dup[0].get('title')"): (1, DB_VALUE),
     ("routers/admin_class_assignments.py", "_resolve_speaking_topic", "topic['title']; dup[0].get('title')"): (1, DB_VALUE),
