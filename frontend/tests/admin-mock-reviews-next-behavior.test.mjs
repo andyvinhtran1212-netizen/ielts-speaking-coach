@@ -12,7 +12,7 @@ const PAGE = read('app', '(authed-admin)/(mock-reviews)', 'admin', 'mock-reviews
 const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(mock-reviews)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-mock-reviews-next.css');
 const ADMIN_CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const COCKPIT = read('app', '(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
+const COCKPIT = read('app', '(authed-admin)/(mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
 const MODEL = read('lib', 'admin-mock-tests-model.mjs');
 
 describe('/admin/mock-reviews native ownership', () => {
