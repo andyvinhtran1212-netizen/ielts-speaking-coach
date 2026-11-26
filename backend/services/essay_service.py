@@ -58,6 +58,7 @@ from services.core_attempt_outcomes import observe_writing_background, observe_w
 from services.core_writing_observation import note_writing_mutation
 from services.errors import summarize_validation_error
 from services import writing_assignment_status_sync
+from services import credits
 
 logger = logging.getLogger(__name__)
 
@@ -350,7 +351,18 @@ _OPTIONAL_ESSAY_FIELDS = (
 )
 
 
-def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
+def _with_review_mode(data: dict, review_mode: Optional[str]) -> dict:
+    """COURSEACCESS-0055 (mig 384): ``review_mode`` is written only when the
+    caller passes one, so a NULL-mode essay (class work, admin, legacy) sends
+    the same insert as before the column existed."""
+    if review_mode is None:
+        return data
+    if review_mode not in ("ai_instant", "teacher_review"):
+        raise ValueError(f"unknown review_mode {review_mode!r}")
+    return {**data, "review_mode": review_mode}
+
+
+def create_essay_row_only(*, data: dict, admin_id: str, review_mode: Optional[str] = None) -> dict:
     """Sprint 2.7.1: insert ONE writing_essays row, NO grading job,
     NO assignment link. The first leg of the SAGA-pattern submit.
 
@@ -403,6 +415,7 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
     for k in _OPTIONAL_ESSAY_FIELDS:
         if k in data and data[k] is not None:
             essay_payload[k] = data[k]
+    essay_payload = _with_review_mode(essay_payload, review_mode)
 
     try:
         er = supabase_admin.table("writing_essays").insert(essay_payload).execute()
@@ -569,7 +582,7 @@ def delivered_essay_ids(essay_ids: Iterable) -> set:
     return {r["id"] for r in (res.data or []) if r.get("status") == "delivered"}
 
 
-def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
+def create_essay_with_job(*, data: dict, admin_id: str, review_mode: Optional[str] = None) -> dict:
     """Backward-compat wrapper: row + job in one call.
 
     The admin /admin/writing/essays endpoint and any non-SAGA caller
@@ -579,7 +592,7 @@ def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
 
     Returns: {"essay_id": <uuid>, "job_id": <uuid>, "eta_seconds": <int>}.
     """
-    row_info = create_essay_row_only(data=data, admin_id=admin_id)
+    row_info = create_essay_row_only(data=data, admin_id=admin_id, review_mode=review_mode)
     essay_id = row_info["essay_id"]
 
     try:
@@ -599,6 +612,51 @@ def create_essay_with_job(*, data: dict, admin_id: str) -> dict:
         raise
 
     return {"essay_id": essay_id, **job_info}
+
+
+# ── AI credits (COURSEACCESS-0055 plan 5.6, Writing) ─────────────────
+
+WRITING_CREDIT_RESOURCE = "writing_essay"
+
+
+async def reserve_writing_credit(
+    user_id: str, essay_id: str, request_key: str, *,
+    course_ids: Optional[list] = None, kinds: Optional[list] = None,
+    credit_source: Optional[str] = None,
+) -> "credits.CreditHold":
+    """Hold one Writing credit on an essay row that exists but has no grading
+    job yet. Call after ``create_essay_row_only`` and before
+    ``schedule_grading_job``. Raises ``credits.CreditRefused`` (402/403/404/
+    409), ``CreditReplay`` (409) or ``CreditUnavailable`` (503); the caller
+    removes the essay so nothing is left waiting to be graded."""
+    return await credits.reserve(
+        user_id, "writing_grading",
+        request_key=request_key,
+        resource_type=WRITING_CREDIT_RESOURCE,
+        resource_id=str(essay_id),
+        ttl_seconds=settings.CREDIT_HOLD_TTL_WRITING_SECONDS,
+        course_ids=course_ids, kinds=kinds, credit_source=credit_source,
+    )
+
+
+def _settle_writing_credit_after_grade(essay_id: str) -> None:
+    """After every grade write: commit the essay's open hold, then deliver an
+    ``ai_instant`` essay at once. No hold and no mode → nothing happens, and
+    with the flag off no query runs at all (FR-018). Never raises: the grade
+    is already saved and a credit error must not mark it failed."""
+    try:
+        if not credits._metering_on_or_unknown():
+            return
+        credits.commit_for_resource(WRITING_CREDIT_RESOURCE, essay_id)
+        rows = (
+            supabase_admin.table("writing_essays").select("review_mode")
+            .eq("id", essay_id).limit(1).execute()
+        ).data or []
+        if rows and rows[0].get("review_mode") == "ai_instant":
+            if credits.deliver_writing_essay_instant(essay_id) == "delivered":
+                writing_assignment_status_sync.mark_assignment_delivered(essay_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[credits] writing settle after grade failed essay=%s: %s", essay_id, exc)
 
 
 # ── GV-1b: grading-version budget + orphan helpers ───────────────────
@@ -1179,6 +1237,11 @@ async def _bg_grade_essay(
         # regrade of a delivered essay never moves the assignment backwards.
         writing_assignment_status_sync.mark_assignment_graded(essay_id)
 
+        # COURSEACCESS-0055 plan 5.6: commit the credit (and deliver an
+        # ai_instant essay) only after the pointer and job writes above, so a
+        # write that fails and requeues never commits a grade that is retried.
+        await asyncio.to_thread(_settle_writing_credit_after_grade, essay_id)
+
         # Sprint 2.7d.1 — Instructor tier: post-grading hook creates
         # an instructor_reviews queue row so the admin queue page
         # surfaces this essay for human review. Idempotent — a
@@ -1276,6 +1339,12 @@ def _mark_failed(
         }).eq("id", job_id).execute()
     except Exception as inner:
         logger.error("[grade %s] failure-state write also failed: %s", essay_id, inner)
+        return
+    # COURSEACCESS-0055 plan 5.6: a terminal failure returns the credit. A
+    # restored regrade keeps its earlier grade and holds nothing to return.
+    # The RPC settles an open hold once, so a second terminal write is a no-op.
+    if essay_status == "failed":
+        credits.release_for_resource(WRITING_CREDIT_RESOURCE, essay_id, "grader_failed")
 
 
 # ── Stuck-job reaper (Sprint W-MM) ───────────────────────────────────

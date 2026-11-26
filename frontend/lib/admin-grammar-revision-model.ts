@@ -197,14 +197,17 @@ export function normalizeRevisionPreview(value: unknown, canonical: RevisionRead
     validation_messages: value.validation_messages.slice(),
   } as RevisionPreview;
 }
-export function freezeRevisionCommand(actor: string, code: RevisionCode, source: string, preview: RevisionPreview, operation: string): FrozenRevisionCommand | null {
+// `sourceHash` là SHA-256 của chính `source` sắp gửi (grammarSourceHash). Không
+// có nó, lệnh đóng băng nguồn B nhưng vẫn khai hash của bản xem trước A (báo
+// cáo săn lỗi #135): receipt khớp hash A trong khi DB lưu nguồn B.
+export function freezeRevisionCommand(actor: string, code: RevisionCode, source: string, preview: RevisionPreview, operation: string, sourceHash: string): FrozenRevisionCommand | null {
   const canonical = normalizeRevisionRead(preview?.canonical, code);
-  if (!canonical || !normalizeRevisionPreview(preview, canonical, preview.source_sha256)) return null;
+  if (!canonical || !normalizeRevisionPreview(preview, canonical, sourceHash)) return null;
   if (!uuid(actor) || !uuid(operation) || !isGrammarRevisionCode(code) || sourceBytes(source) === null
       || preview.canonical.canonical_code !== code || !preview.canonical.publication_available || preview.canonical.footprint.authoritative_review_required) return null;
   const body = Object.freeze({ source_markdown: source, expected_revision: preview.canonical.revision, preview_fingerprint: preview.preview_fingerprint, operation_id: operation });
   if (!commandFits(body)) return null;
-  return Object.freeze({ actor, code, body, sourceHash: preview.source_sha256, proposedRevision: preview.proposed_revision,
+  return Object.freeze({ actor, code, body, sourceHash, proposedRevision: preview.proposed_revision,
     originalBankId: preview.canonical.original_bank_id, rootBankId: preview.canonical.canonical_root_bank_id, topicId: preview.canonical.topic_id,
     originalQuestionsHash: preview.canonical.original_questions_sha256, originalMetadataHash: preview.canonical.original_metadata_sha256 });
 }

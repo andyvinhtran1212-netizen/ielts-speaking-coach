@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import AdminSpeakingPage from '@/app/(authed-admin-speaking)/admin/speaking/page';
+import AdminSpeakingPage from '@/app/(authed-admin)/(speaking)/admin/speaking/page';
 import { AdminWritingTips } from '@/app/(authed-admin-writing-tips)/admin/writing/tips/admin-writing-tips';
 
 vi.mock('@/components/admin-access-gate', () => ({

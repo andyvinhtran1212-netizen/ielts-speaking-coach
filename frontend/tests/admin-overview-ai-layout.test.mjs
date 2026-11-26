@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 // Static CI guard. Browser measurements of the populated Next /admin page
 // are recorded separately; jsdom cannot measure flex/table overflow.
-const css = readFileSync(new URL('../public/css/admin-overview.css', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../public/css/admin-ai-models-next.css', import.meta.url), 'utf8');
 const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)];
 
 function declarationsFor(selector) {
@@ -15,7 +15,7 @@ function declarationsFor(selector) {
 }
 
 for (const selector of ['.ai-section', '.ai-panel', '.ai-window-panels', '.ai-table-wrap']) {
-  test(`${selector} contains table intrinsic width within the overview`, () => {
+  test(`${selector} contains table intrinsic width within the AI page`, () => {
     const declarations = declarationsFor(selector);
     assert.match(declarations, /(?:^|[;\s])min-width:\s*0\s*;/);
     assert.match(declarations, /(?:^|[;\s])max-width:\s*100%\s*;/);

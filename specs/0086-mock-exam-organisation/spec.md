@@ -1,14 +1,14 @@
 ---
 id: MOCKORG-0086
 title: Admins organise assigned mock exams for classes, single learners and saved groups, run live or self-paced sittings without breaks, and release results from one tab
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Admins organise assigned mock exams for classes, single learners and saved groups, run live or self-paced sittings without breaks, and release results from one tab
 
-Status: **draft** — soạn ngày 18/11/2026 cho nhiệm vụ `G09-T21` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-09-admin-va-giao-vien.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; migration trong dải G09 (440–459).
+Status: **approved** — anh Andy duyệt ngày 23/11/2026 (`approval-decision.md`), kèm câu trả lời Q12, Q13, Q14, Q31 ghi dưới bảng Open questions. Soạn ngày 18/11/2026 cho nhiệm vụ `G09-T21` (đợt A, thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-09-admin-va-giao-vien.md` và `00-QUY-UOC-CHUNG.md` mục 2 (bản trên `staging` sau PR #2331). Chưa dòng mã nào chạy theo spec này; mọi hợp đồng kỹ thuật là đề xuất đã kiểm trên giấy (BAN-GIAO mục 7). Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi vào `approval-decision.md` cùng thư mục, nguyên văn kèm thời điểm, và `status` đổi sang `approved`. Số spec lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; migration trong dải G09 (440–459).
 
 ## Tóm tắt (tiếng Việt)
 
@@ -132,3 +132,5 @@ Câu hỏi của gói (mục 10) liên quan; mỗi câu có mặc định tạm 
 | Q13 | Thi bù theo kỹ năng: gộp kết quả vào kỳ gốc hay giữ kỳ thi bù riêng như hiện nay? | Gộp vào kỳ gốc (phiếu một kỳ) | Giữ cơ chế hiện có (kỳ riêng có `source_exam_id`), hiện liên kết ở thẻ Thí sinh |
 | Q14 | Quy tắc trả kết quả thi thử do người thiết kế đề xuất: (a) mặc định chỉ trả người đã chấm đủ kỹ năng của họ; (b) có lựa chọn trả phần đã xong; (c) không thu hồi sau khi trả; (d) gõ tên kỳ thi để xác nhận; (e) sửa điểm sau khi trả bắt buộc lý do và báo thí sinh. Duyệt? | Duyệt cả năm | Dùng (a), (c), (d), (e); (b) sau cờ `mock_partial_release` tắt |
 | Q31 | **(mới)** Kỳ tự làm chạy liền các phần — bốn chi tiết: (a) người thi mất mạng hoặc đóng trình duyệt giữa chừng thì đồng hồ có dừng không; (b) giữa hai phần có một khoảng chuyển cố định vài chục giây (đọc hướng dẫn phần kế) như kỳ live không; (c) đã bắt đầu gần cuối khoảng mở thì được làm hết hay bị cắt khi khoảng mở đóng; (d) nộp sớm một phần thì phần kế bắt đầu ngay hay chờ tới đúng giờ | (a) không dừng, như full test (00 điểm 22); (b) không, hoặc tối đa 60 giây cố định không bấm bỏ qua được; (c) làm hết, trang bắt đầu cảnh báo khi khoảng mở còn ngắn hơn tổng thời lượng; (d) bắt đầu ngay | (a) đồng hồ không dừng, phần hết giờ tự nộp; (b) `MOCK_SELF_PACED_GAP_SECONDS=0`; (c) làm hết; (d) bắt đầu ngay. Cùng mặc định với G08-T22 |
+
+**Đã trả lời 23/11/2026** (anh Andy, `approval-decision.md`): Q12 theo mặc định: chụp danh sách lúc thêm, học viên vào lớp sau không tự được thêm (10:57Z); nút "Cập nhật theo lớp" để thêm người vào lớp sau anh duyệt riêng lúc 11:14Z; Q13 **giữ kỳ thi bù riêng** (kỳ có `source_exam_id`, liên kết ở thẻ Thí sinh), không gộp vào kỳ gốc trong đợt này; Q14 duyệt (a)–(e), trong đó (b) đi sau cờ `mock_partial_release` tắt; Q31 theo mặc định: (a) đồng hồ không dừng, phần hết giờ tự nộp, (b) `MOCK_SELF_PACED_GAP_SECONDS=0`, (c) đã bắt đầu thì làm hết, (d) nộp sớm thì phần kế bắt đầu ngay.

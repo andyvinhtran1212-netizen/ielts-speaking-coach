@@ -809,3 +809,40 @@ def test_progress_reconciles_required_dictation_only_after_all_sections(monkeypa
     })
     assert cohort_progress(db, COHORT)["students"][0]["homework"]["submitted"] == 1
     assert item["submitted_at"] == "2026-08-01T10:10:00+00:00"
+
+
+# ── báo cáo săn lỗi #59 #60 #66 ─────────────────────────────────────────
+
+
+def test_latest_band_compares_instants_not_strings():
+    # #60: "08:00+07:00" là 01:00 UTC, SỚM hơn "02:00+00:00" dù chuỗi lớn hơn.
+    from services.cohort_progress_aggregator import _fold
+
+    rows = [
+        {"uid": "u1", "at": "2026-10-25T08:00:00+07:00", "band": 5.0},
+        {"uid": "u1", "at": "2026-10-25T02:00:00+00:00", "band": 7.0},
+    ]
+    got = _fold(rows, "uid", "at", "band")["u1"]
+    assert got["last_activity"] == "2026-10-25T02:00:00+00:00"
+    assert got["last_band"] == 7.0
+    assert got["recent_bands"] == [5.0, 7.0]
+
+
+def test_a_naive_deadline_does_not_break_the_whole_class():
+    # #59: hạn thiếu múi giờ từng ném TypeError khi so với now.
+    db = _DB(_hw_tables(
+        [_student("s1", "u1")],
+        [{"id": "a1", "due_at": "2020-01-01T12:00:00", "status": "published",
+          "cohort_id": COHORT}],
+        [{"id": "i1", "assignment_id": "a1", "student_id": "s1", "submitted_at": None}],
+    ))
+    hw = cohort_progress(db, COHORT)["students"][0]["homework"]
+    assert hw["missing"] == 1
+
+
+def test_a_class_with_no_homework_reads_zero_not_unreadable():
+    # #66: {} làm mọi học viên hiện "Không đọc được".
+    db = _DB(_hw_tables([_student("s1", "u1")], [], []))
+    hw = cohort_progress(db, COHORT)["students"][0]["homework"]
+    assert hw == {"assigned": 0, "submitted": 0, "late": 0, "missing": 0,
+                  "on_time_pct": None}
