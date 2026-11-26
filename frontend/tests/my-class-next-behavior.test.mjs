@@ -400,9 +400,8 @@ describe('assignment start contract', () => {
   });
 
   test('active course navigation always carries the canonical class item', () => {
-    const source = readFileSync(new URL(
-      '../app/(authed-my-class)/my-class/my-class-workspace.tsx', import.meta.url,
-    ), 'utf8');
+    // The navigation lives in lib/class-assignment-open.ts (shared with Today).
+    const source = readFileSync(new URL('../lib/class-assignment-open.ts', import.meta.url), 'utf8');
     assert.match(source, /const item = `&class_item=\$\{encodeURIComponent\(target\.itemId\)\}`/);
     assert.doesNotMatch(source, /target\.reviewOnly \? `&class_item=/);
   });
@@ -622,7 +621,8 @@ describe('W-07 / A-S3 — a handed-in writing give says what happened to it', ()
       /\{writing && row\.isLate && <span className="mc-item-state" data-state="late">Nộp trễ<\/span>\}/);
     assert.match(workspace, /: writing \? writing\.label/,
       'the writing pill must come from the server review state, not submittedAt alone');
-    assert.match(workspace, /action\?\.kind === 'result' && row\.resultPath/);
+    const opener = readFileSync(new URL('../lib/class-assignment-open.ts', import.meta.url), 'utf8');
+    assert.match(opener, /action\?\.kind === 'result' && row\.resultPath/);
   });
 
   test('non-writing rows are unaffected', () => {
@@ -664,20 +664,23 @@ describe('native route ownership', () => {
   });
 
   test('player navigation is affinity-aware and the ledger names rollback explicitly', () => {
-    assert.match(workspace, /admitCorePlayer/);
-    assert.match(workspace,
+    // Navigation moved to lib/class-assignment-open.ts (shared with Today, 0063 FR-022).
+    const opener = readFileSync(new URL('../lib/class-assignment-open.ts', import.meta.url), 'utf8');
+    assert.match(workspace, /openClassAssignment\(row,/);
+    assert.match(opener, /admitCorePlayer/);
+    assert.match(opener,
       /target\.surface === 'speaking'[\s\S]*?await resolveCorePlayerAdmissionForNavigation/,
       'Next Speaking admission should resolve runtime policy without a document redirect');
-    assert.match(workspace, /router\.push\(destination\)/,
+    assert.match(opener, /router\.push\(destination\)/,
       'resolved Next Speaking destinations should stay inside the App Router shell');
-    assert.match(workspace,
+    assert.match(opener,
       /destination\.startsWith\('\/practice\/session\?\'\)\) router\.push\(destination\);[\s\S]*?else window\.location\.assign\(destination\)/,
       'a runtime rollback decision must still hard-navigate to the Legacy renderer');
-    assert.match(workspace, /target\.url\.startsWith\('\/practice\/session\?'\)\) router\.push/,
+    assert.match(opener, /target\.url\.startsWith\('\/practice\/session\?'\)\) router\.push/,
       'a stable Next Speaking session should navigate without a document reload');
-    assert.match(workspace, /else window\.location\.assign\(target\.url\)/,
+    assert.match(opener, /else window\.location\.assign\(target\.url\)/,
       'persisted Legacy affinity must keep the hard-navigation rollback path');
-    assert.match(workspace, /target\.kind === 'result'[\s\S]*?router\.push\(target\.url\)/,
+    assert.match(opener, /target\.kind === 'result'[\s\S]*?router\.push\(target\.url\)/,
       'completed class Speaking should reach the native result without a reload');
     assert.match(ledger, /\| `\/my-class` \| `\/pages\/my-class\.html` remains rollback\/parity target/);
   });

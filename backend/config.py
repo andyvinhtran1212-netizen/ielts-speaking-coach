@@ -1,5 +1,6 @@
 import logging
 from functools import lru_cache
+from typing import Optional
 import ipaddress
 
 from pydantic import Field, field_validator
@@ -344,6 +345,16 @@ class Settings(BaseSettings):
     # code change. Loaded once, cached (services.pron_calibration).
     PRON_CALIBRATION_PATH: str = ""
 
+    # COURSEACCESS-0055 FR-035 (G04-T13): used only while the runtime flag
+    # `pron_sample_window` is on (migration 502 must be applied first).
+    # Azure hears one PRON_SAMPLE_SECONDS window from the middle of a longer
+    # answer; in the Parts listed in PRON_ONE_PER_SESSION_PARTS (comma list)
+    # a session sends only one answer, the first one of at least
+    # PRON_ONE_PER_SESSION_MIN_SECONDS (Q6 defaults, Andy 2026-11-20).
+    PRON_SAMPLE_SECONDS: int = Field(default=30, ge=10, le=60)
+    PRON_ONE_PER_SESSION_PARTS: str = "1"
+    PRON_ONE_PER_SESSION_MIN_SECONDS: int = Field(default=12, ge=0, le=120)
+
     # Supabase Storage bucket holding Task 1 Academic writing-prompt
     # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
     # LISTENING_IMAGES_BUCKET — created out-of-band BEFORE the first
@@ -370,6 +381,8 @@ class Settings(BaseSettings):
     # MAX_SESSIONS_PER_USER_PER_DAY env var is set (e.g. on Railway) it WINS
     # over this default, so update/remove that var to roll the production value.
     MAX_SESSIONS_PER_USER_PER_DAY: int = 24
+    # COURSEACCESS-0055 FR-049 (Q18 default): days a learner_login_events row is kept.
+    LOGIN_EVENTS_KEEP_DAYS: int = 90
     # G02-T04 (FR-02-003) — the Home Reading/Listening card shows a band only
     # once the learner has at least this many submitted full (40-question)
     # tests with a band_estimate; below it the card shows no band number.
@@ -378,6 +391,9 @@ class Settings(BaseSettings):
     # an Overall only once this many of the four skills carry a final band.
     # Display-only: the stored final_bands.overall is never changed.
     MOCK_OVERALL_MIN_SKILLS: int = 4
+    # MOCKORG-0086 Q31 (b): seconds between two self-paced sections. 0 = the
+    # next section starts the moment the previous one ends.
+    MOCK_SELF_PACED_GAP_SECONDS: int = 0
     MAX_AUDIO_DURATION_SECONDS: int = 300
     # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
@@ -575,6 +591,9 @@ class Settings(BaseSettings):
     CREDIT_SPEAKING_CLUSTER_SIZE: int = 3
     CREDIT_CARRY_PERCENT: int = 100
     CREDIT_CARRY_VALID_DAYS: int = 60
+    # Plan 5.18 / Q4: credits pre-filled in the convert-class box; empty = the
+    # admin types the number (default). Only a suggestion, never applied alone.
+    LEGACY_CLASS_INITIAL_CREDITS: Optional[int] = None
     CREDIT_HOLD_TTL_SPEAKING_SECONDS: int = 600
     CREDIT_HOLD_TTL_WRITING_SECONDS: int = 86400
     # Enrollment orders (plan 5.10, G04-T04). No pay hours or bank account →
@@ -633,6 +652,13 @@ class Settings(BaseSettings):
     @classmethod
     def _strict_carry_percent(cls, value):
         return _bounded_int_or_default("CREDIT_CARRY_PERCENT", value, 0, 100, 100)
+
+    @field_validator("LEGACY_CLASS_INITIAL_CREDITS", mode="before")
+    @classmethod
+    def _legacy_class_initial_credits(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return _bounded_int_or_default("LEGACY_CLASS_INITIAL_CREDITS", value, 0, 100_000, None)
 
     @field_validator("CREDIT_CARRY_VALID_DAYS", mode="before")
     @classmethod

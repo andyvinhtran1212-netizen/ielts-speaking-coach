@@ -47,6 +47,7 @@ from services.writing_image_access import attach_signed_image_urls
 from services.band_rounding import overall_from_criteria
 from services import activation_gate
 from services import class_archive_service
+from services import credits
 from services import essay_service
 from services import core_admission
 from services import test_data_visibility
@@ -968,6 +969,37 @@ def _replay_committed_submission(
     return _submission_receipt(assignment, replayed=True)
 
 
+_WRITING_CREDIT_MESSAGES = {
+    "credits_unavailable": "Chưa kiểm tra được lượt chấm. Bài viết của bạn vẫn được giữ, vui lòng thử nộp lại sau ít phút.",
+    "insufficient_credits": "Bạn đã dùng hết lượt chấm AI. Bài viết của bạn vẫn được giữ.",
+    "no_entitlement": "Tài khoản chưa có khoá học dùng được cho phần Writing.",
+    "request_key_conflict": "Bài nộp này trùng với một lần nộp khác. Vui lòng tải lại trang.",
+    "not_owner": "Không tìm thấy bài nộp.",
+    "grading_in_progress": "Bài này đang được chấm. Vui lòng đợi kết quả.",
+    "already_graded": "Bài này đã được chấm.",
+}
+
+
+def _writing_credit_http_error(exc: Exception) -> HTTPException:
+    """credits.* → HTTP for the Writing submit (plan 5.6). 402 carries
+    ``credit_source`` (class → "liên hệ giáo viên", online → "đăng ký lại")
+    and ``error_code`` so the 5xx sanitizer keeps it."""
+    if isinstance(exc, credits.CreditRefused):
+        detail = {"error_code": exc.code, "credit_source": exc.credit_source,
+                  "message": _WRITING_CREDIT_MESSAGES.get(exc.code, exc.code)}
+        if exc.code == "insufficient_credits":
+            detail["balance"] = exc.balance
+        return HTTPException(exc.status_code, detail=detail)
+    if isinstance(exc, credits.CreditReplay):
+        return HTTPException(409, detail={"error_code": exc.code,
+                                          "message": _WRITING_CREDIT_MESSAGES.get(exc.code, exc.code)})
+    return HTTPException(503, detail={"error_code": "credits_unavailable",
+                                      "message": _WRITING_CREDIT_MESSAGES["credits_unavailable"]})
+
+
+_CREDIT_ERRORS = (credits.CreditUnavailable, credits.CreditRefused, credits.CreditReplay)
+
+
 def _rollback_orphan_essay(essay_id: str) -> None:
     """Sprint 2.7.1: best-effort cleanup of a writing_essays row whose
     SAGA never reached the assignment-link UPDATE.
@@ -1842,6 +1874,11 @@ async def submit_my_assignment(
         # by user_id = auth.uid().
         raise HTTPException(403, "Tài khoản chưa được link với học viên đầy đủ.")
 
+    # W-03 — tài khoản bị khoá không được nộp (báo cáo săn lỗi B2-16). Các
+    # route khác đi qua require_writing_permission; route này tự kiểm quyền
+    # bên dưới nên phải tự gọi chốt tài khoản.
+    await asyncio.to_thread(activation_gate.ensure_account_active, user_id)
+
     # Sprint 5.2 — Writing permission gate. Self-submit path: the student
     # is the essay owner, so we check their own access-code permissions.
     # Admin path is gated symmetrically in routers/admin_writing.py;
@@ -1979,6 +2016,14 @@ async def submit_my_assignment(
     # _grade_deep underneath; ignored when grading_tier != 'instructor'.
     instructor_ai_tier = (assignment.get("grading_tier") or "standard")
 
+    # COURSEACCESS-0055 plan 5.6 — is this grading metered? Decided before
+    # any write, so a flag/lookup error (503) leaves no essay row behind.
+    # Flag off → not metered, no credit RPC (FR-018).
+    try:
+        credit_plan = await credits.acharge_plan(user_id, "writing_grading", assignment=assignment)
+    except _CREDIT_ERRORS as exc:
+        raise _writing_credit_http_error(exc) from None
+
     # SAGA 1 — create the essay row with no grading job, no link.
     try:
         row_info = essay_service.create_essay_row_only(
@@ -2007,6 +2052,22 @@ async def submit_my_assignment(
         # happened yet, so there's nothing to roll back.
         raise
     essay_id = row_info["essay_id"]
+
+    # Plan 5.6 — hold the credit on the new row BEFORE the claim and the
+    # grading job. Refused → the row is removed, the assignment stays open and
+    # the draft is kept (nothing waits to be graded). Class work keeps its
+    # review flow: review_mode stays NULL.
+    credit_hold = None
+    if credit_plan.metered:
+        try:
+            credit_hold = await essay_service.reserve_writing_credit(
+                user_id, essay_id, f"writing_essay:{essay_id}",
+                course_ids=credit_plan.course_ids, kinds=credit_plan.kinds,
+                credit_source=credit_plan.credit_source,
+            )
+        except _CREDIT_ERRORS as exc:
+            await asyncio.to_thread(_rollback_orphan_essay, essay_id)
+            raise _writing_credit_http_error(exc) from None
 
     # SAGA 2 — atomic claim + link in a single UPDATE.  The `.in_()`
     # filter on the current status is the "did I win the race" gate;
@@ -2049,6 +2110,7 @@ async def submit_my_assignment(
             student_id=student_id,
             essay_id=essay_id,
         ):
+            await credits.release_if_open(credit_hold, "request_failed")
             _rollback_orphan_essay(essay_id)
             raise HTTPException(500, "Không nộp được bài. Vui lòng thử lại.")
         logger.warning(
@@ -2069,6 +2131,7 @@ async def submit_my_assignment(
             "essay=%s assignment=%s",
             essay_id, assignment_id,
         )
+        await credits.release_if_open(credit_hold, "request_failed")
         _rollback_orphan_essay(essay_id)
         try:
             fresh = (
@@ -2132,6 +2195,13 @@ async def submit_my_assignment(
             "essay=%s: %s — assignment is linked, manual regrade required",
             essay_id, exc,
         )
+        if credit_hold is not None:
+            # CR+SA nit 1 on 9d69881a: the credit stays held with no job. An
+            # admin re-queue within the TTL commits it; otherwise the expiry
+            # sweep refunds it and that later grade is free. Logged so the
+            # two can be reconciled.
+            logger.warning("[credits] decision=hold_without_job essay=%s reservation=%s",
+                           essay_id, credit_hold.reservation_id)
 
     # Delete the draft now that it's been promoted to an essay.
     # Best-effort — a stale draft after submit is recoverable, but

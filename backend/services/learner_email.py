@@ -16,6 +16,15 @@ Rules (plan 5.11):
   ``notification_email`` switch is not read.
 * ``order_pay_reminder`` re-reads the order and is skipped once it is no
   longer awaiting transfer or its ``pay_by`` has passed (FR-039).
+* ``course_open_alert`` (FR-050, G04-T17) goes to the row's ``to_email``
+  with "Chào bạn," and no ``users`` read. Before every attempt, retries
+  included, G05's ``fn_course_open_alert_send_check(alert_id, to_email)``
+  (migration 394, ENROLL-0060 FR-060) says ``send`` or why not
+  (unsubscribed, address changed, already has the course, course closed,
+  row gone); anything but ``send`` → ``skipped`` with that reason, never
+  retried. Without the function (394 rolled back) → ``skipped`` /
+  ``send_check_missing``; any other read error retries. A payload without
+  ``product_slug`` or ``alert_id`` → ``failed`` / ``payload_invalid``.
 * A template without a file → ``failed`` / ``template_missing``; the other
   rows still go.
 """
@@ -33,6 +42,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote
 
 from config import settings
 from database import supabase_admin
@@ -172,6 +182,22 @@ def _needs_info_fields(payload: dict) -> dict:
     }
 
 
+def _site_base() -> str:
+    return (settings.PUBLIC_SITE_URL or "").strip().rstrip("/")
+
+
+def _open_alert_fields(payload: dict) -> dict:
+    """Course link and unsubscribe link (GOI-05 5.7: the token rides in the
+    hash, so it never reaches a server log). No base URL → no link lines."""
+    base, slug = _site_base(), str(payload.get("product_slug") or "")
+    token = str(payload.get("unsubscribe_token") or "")
+    if not base or not slug:
+        return {"course_link_line": "", "unsubscribe_line": ""}
+    page = f"{base}/courses/{quote(slug, safe='')}"
+    unsubscribe = f"\nBỏ nhận: {page}#bo-nhan={quote(token, safe='')}" if token else ""
+    return {"course_link_line": f"\nTrang khoá: {page}\n", "unsubscribe_line": unsubscribe}
+
+
 def template_fields(template: str, payload: dict, user: dict) -> dict:
     name = (user.get("display_name") or "").strip()
     fields = {
@@ -191,6 +217,8 @@ def template_fields(template: str, payload: dict, user: dict) -> dict:
         credits = int(payload.get("ai_credits") or 0)
         fields["expires_on"] = vn_date(payload.get("expires_at")) or ""
         fields["credits_line"] = f"đã cộng {credits} lượt" if credits else "khoá này không kèm lượt chấm AI"
+    elif template == "course_open_alert":
+        fields.update(_open_alert_fields(payload))
     return fields
 
 
@@ -322,14 +350,39 @@ def fetch_order_state(order_id: str) -> Optional[dict]:
     return rows[0] if rows else None
 
 
-def fetch_product_open(slug: str) -> bool:
-    res = (
-        supabase_admin.table("course_products").select("status, is_public, archived_at")
-        .eq("slug", slug).limit(1).execute()
-    )
-    rows = list(res.data or [])
-    return bool(rows) and rows[0].get("status") == "open" and rows[0].get("is_public") is True \
-        and not rows[0].get("archived_at")
+OPEN_ALERT_SKIPS = frozenset({"skipped_unsubscribed", "skipped_email_changed", "skipped_has_course",
+                              "skipped_closed", "skipped_missing"})
+
+
+def open_alert_verdict(row: dict) -> str:
+    """``send`` or the reason not to, from ``fn_course_open_alert_send_check``.
+    A missing function is a skip (``send_check_missing``); any other error or
+    an unknown answer raises, so the claim's backoff retries the row."""
+    payload = row.get("payload") or {}
+    try:
+        verdict = supabase_admin.rpc("fn_course_open_alert_send_check", {
+            "p_alert_id": str(payload["alert_id"]), "p_to_email": row.get("to_email")}).execute().data
+    except Exception as exc:
+        if orders.is_missing_function(exc):
+            return "send_check_missing"
+        raise
+    if verdict == "send" or verdict in OPEN_ALERT_SKIPS:
+        return verdict
+    raise ValueError("unexpected fn_course_open_alert_send_check answer")
+
+
+def payload_invalid(row: dict) -> bool:
+    """G05 owns the ``course_open_alert`` payload; a row without the slug or
+    the alert id cannot be checked or linked, so it fails instead of being
+    guessed."""
+    if row.get("template") != "course_open_alert":
+        return False
+    payload = row.get("payload") or {}
+    try:
+        uuid.UUID(str(payload.get("alert_id") or ""))
+    except ValueError:
+        return True
+    return not str(payload.get("product_slug") or "").strip()
 
 
 def still_wanted(row: dict, now: datetime) -> bool:
@@ -338,8 +391,6 @@ def still_wanted(row: dict, now: datetime) -> bool:
         state = fetch_order_state(str(payload.get("order_id") or ""))
         pay_by = ent.parse_ts((state or {}).get("pay_by"))
         return bool(state) and state.get("status") == "awaiting_transfer" and pay_by is not None and pay_by > now
-    if row.get("template") == "course_open_alert":
-        return fetch_product_open(str(payload.get("product_slug") or ""))
     return True
 
 
@@ -368,7 +419,15 @@ async def _send_row(row: dict, config: TransportConfig, now: datetime, client: A
     if not await run(claim, row, now):
         return "lost"
     try:
-        if not await run(still_wanted, row, now):
+        if payload_invalid(row):
+            await run(finish, row, "failed", "payload_invalid")
+            return "failed"
+        if row.get("template") == "course_open_alert":
+            verdict = await run(open_alert_verdict, row)
+            if verdict != "send":
+                await run(finish, row, "skipped", verdict)
+                return "skipped"
+        elif not await run(still_wanted, row, now):
             await run(finish, row, "skipped", "no_longer_applies")
             return "skipped"
         if row.get("user_id"):

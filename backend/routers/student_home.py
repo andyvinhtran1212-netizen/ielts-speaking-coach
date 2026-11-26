@@ -16,13 +16,19 @@ auth.users → students join. Every query carries an explicit user_id /
 student_id filter as defense-in-depth.
 """
 
-from fastapi import APIRouter, Header
+import asyncio
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Header, HTTPException, Response
 
 from database import thread_supabase_admin
 from routers.auth import get_supabase_user
 from services.access_code_permissions import aget_account_permissions_summary
+from services.feature_flags import is_learner_v2_enabled
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
+from models.student_today import StudentTodayResponse, TodaySeenRequest
+from services import student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -65,3 +71,55 @@ async def my_permissions(authorization: str | None = Header(default=None)):
     return await aget_account_permissions_summary(
         auth_user["id"], account_display_name(auth_user),
     )
+
+
+async def _require_learner_v2(user_id: str) -> None:
+    """404 unless the new learner UI is on for this account (FR-072 rule).
+
+    Until the FR-078 exception (amendment 3, #2484) is merged, GET /today may
+    not run its class-ledger reconcile for anyone the new tree is not shown to,
+    and the API must not be callable directly while the flag is off. The flag
+    read denies on a lookup error, so an outage answers 404, never the payload.
+    """
+    if not await asyncio.to_thread(is_learner_v2_enabled, user_id):
+        raise HTTPException(404, {"code": "not_found", "message": "Không tìm thấy."},
+                            headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/today", response_model=StudentTodayResponse)
+async def today(response: Response, authorization: str | None = Header(default=None)):
+    """New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
+
+    Writes nothing of its own, not even the seen cursor (FR-078). The only write
+    is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
+    amendment 3, #2484). Each part runs in its own worker; a failing part lands
+    in `degraded`. 404 while `learner_v2` is off for the caller, before any
+    read or reconcile runs.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    await _require_learner_v2(auth_user["id"])
+    email = auth_user.get("email") or ""
+    account_name = account_display_name(auth_user)
+    name = account_name or (email.split("@", 1)[0] if email else "bạn")
+    return await student_today.get_today_concurrent(
+        thread_supabase_admin, auth_user["id"], name=name, account_name=account_name,
+    )
+
+
+@router.post("/today/seen", status_code=204)
+async def today_seen(body: TodaySeenRequest, authorization: str | None = Header(default=None)):
+    """Advance the caller's "Vừa có kết quả" cursor (FR-078). Forward-only in
+    tuple order, idempotent; a future time or a malformed key is 422. 404 while
+    `learner_v2` is off for the caller."""
+    auth_user = await get_supabase_user(authorization)
+    await _require_learner_v2(auth_user["id"])
+    problem = student_today.validate_seen(body.seen_until, body.seen_key,
+                                          datetime.now(timezone.utc))
+    if problem:
+        raise HTTPException(422, {"code": problem, "message": "Mốc đã xem không hợp lệ."})
+    await asyncio.to_thread(
+        lambda: student_today.advance_seen_cursor(
+            thread_supabase_admin(), auth_user["id"], body.seen_until, body.seen_key),
+    )
+    return Response(status_code=204)

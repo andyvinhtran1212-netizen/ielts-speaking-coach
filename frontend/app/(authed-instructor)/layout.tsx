@@ -6,6 +6,7 @@ export default function InstructorLayout({ children }: { children: ReactNode }) 
   return (
     <AuthedShell
       chrome="none"
+      quickSearch="instructor"
       utilityLayer={false}
       tailwindLayer={false}
       bodyClass="av-page"

@@ -15,7 +15,7 @@ const COMPONENT = read('app', '(authed-admin-writing-cohorts)', 'admin', 'writin
 const LAYOUT = read('app', '(authed-admin-writing-cohorts)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-cohorts-next.css'); const CONFIG = read('next.config.ts');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
-const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
+const HUB = read('app', '(authed-admin)/(writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 
 const listRow = { id: 'c1', name: '<img onerror=x>', description: 'Khoá 1', student_count: 2, active_assignments: 3, essays_pending: 1, essays_delivered: 2 };
 const detail = { cohort: { id: 'c1', name: 'Lớp A', description: null, student_count: 1 }, students: [{ id: 's1', full_name: 'Lan', student_code: 'S1' }], assignments: [

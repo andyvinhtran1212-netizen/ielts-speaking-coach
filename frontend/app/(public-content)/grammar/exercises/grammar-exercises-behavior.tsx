@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { PageState, Select, TextField } from '@/components/ui';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+
+import { categoryLabel, levelLabel, frameStyles as styles } from '../subpage-frame';
 
 interface GrammarExerciseBank {
   id: string; code?: string | null; title?: string | null; words_count?: number | null;
@@ -12,7 +15,19 @@ interface GrammarExerciseBank {
 interface GrammarExercisesPayload { banks?: GrammarExerciseBank[] }
 interface MasteryPayload { items?: Array<{ ref_slug?: string; status?: string }> }
 
-const prettify = (value: string) => value.replace(/-/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+const LEVEL_OPTIONS = [
+  { value: '', label: 'Tất cả' },
+  { value: 'beginner', label: 'Cơ bản' },
+  { value: 'intermediate', label: 'Trung cấp' },
+  { value: 'advanced', label: 'Nâng cao' },
+];
+
+/** Mastery word + tone of the tag (the word carries the meaning, not the colour). */
+const MASTERY: Record<string, { label: string; tone: string }> = {
+  weak: { label: 'Cần luyện', tone: 'danger' },
+  strong: { label: 'Đã vững', tone: 'ok' },
+  learning: { label: 'Đang học', tone: 'mark' },
+};
 
 export function GrammarExercisesBehavior() {
   const [banks, setBanks] = useState<GrammarExerciseBank[] | null>(null);
@@ -44,24 +59,33 @@ export function GrammarExercisesBehavior() {
     return (!query.trim() || haystack.includes(query.trim().toLowerCase())) && (!category || bank.category === category) && (!level || bank.level === level);
   }), [banks, query, category, level]);
 
-  if (error) return <div className="gw-state-card">{error}</div>;
-  if (banks == null) return <div className="skeleton h-64 rounded-2xl" aria-label="Đang tải bài tập">Đang tải bài tập…</div>;
-  if (!banks.length) return <div className="gw-state-card">Chưa có bài tập nào được mở. Vui lòng quay lại sau.</div>;
+  if (error) return <div role="alert"><PageState kind="error" title={error} /></div>;
+  if (banks == null) return <p role="status" className={styles.empty}>Đang tải bài tập…</p>;
+  if (!banks.length) return <PageState kind="empty" title="Chưa có bài tập nào được mở. Vui lòng quay lại sau." />;
 
-  return <div className="gw-exercise-workspace">
-    <div className="gw-exercise-filters">
-      <label className="gw-filter-search">Tìm bài luyện<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Articles, tenses, sentence…" /></label>
-      <label>Chủ đề<select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">Tất cả</option>{categories.map((item) => <option key={item} value={item}>{prettify(item)}</option>)}</select></label>
-      <label>Trình độ<select value={level} onChange={(event) => setLevel(event.target.value)}><option value="">Tất cả</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>
+  const categoryOptions = [{ value: '', label: 'Tất cả' }, ...categories.map((item) => ({ value: item, label: categoryLabel(item) }))];
+  return <div>
+    <div className={styles.filters} role="search" aria-label="Lọc bài tập">
+      <TextField label="Tìm bài luyện" value={query} onChange={(value) => setQuery(value)} placeholder="Articles, tenses, sentence…" className={styles.filterWide} />
+      <Select label="Chủ đề" value={category} onChange={(value) => setCategory(value)} options={categoryOptions} className={styles.filterField} />
+      <Select label="Trình độ" value={level} onChange={(value) => setLevel(value)} options={LEVEL_OPTIONS} className={styles.filterField} />
     </div>
-    <div className="gw-exercise-summary"><strong>{visible.length}</strong><span>bài luyện phù hợp</span><p>Mỗi bank vẫn là nguồn canonical cho câu hỏi và đáp án.</p></div>
-    {visible.length ? <div className="gw-exercise-grid">{visible.map((bank) => {
-      const status = bank.slug ? mastery[bank.slug] : '';
-      return <Link key={bank.id} href={`/quiz?bank=${encodeURIComponent(bank.id)}`} className="gw-exercise-card">
-        <div className="gw-exercise-card-top"><span>{prettify(bank.category || 'Grammar')}</span>{status && <small className={`is-${status}`}>{status === 'weak' ? 'Cần luyện' : status === 'strong' ? 'Đã vững' : 'Đang học'}</small>}</div>
-        <h2>{bank.title || bank.code}</h2><p>{bank.summary || 'Luyện đúng trọng tâm của bài Grammar Wiki này.'}</p>
-        <div><span>{bank.level || 'mixed level'}</span><strong>{bank.words_count ? `${bank.words_count} điểm` : 'Bắt đầu'} →</strong></div>
-      </Link>;
-    })}</div> : <div className="gw-state-card">Không có bài luyện khớp bộ lọc. Hãy thử phạm vi rộng hơn.</div>}
+    <p className={styles.count} aria-live="polite"><strong>{visible.length}</strong> bài luyện phù hợp. Mỗi bank vẫn là nguồn canonical cho câu hỏi và đáp án.</p>
+    {visible.length ? <ul className={styles.list}>{visible.map((bank) => {
+      const mastery = bank.slug ? MASTERY[statusOf(bank.slug)] : undefined;
+      return <li key={bank.id} className={styles.item}>
+        <h2 className={styles.itemTitle}>
+          <Link href={`/quiz?bank=${encodeURIComponent(bank.id)}`}>{bank.title || bank.code}</Link>
+          {mastery ? <span className={styles.tag} data-tone={mastery.tone}>{mastery.label}</span> : null}
+        </h2>
+        <p className={styles.itemMeta}>{[categoryLabel(bank.category || 'Grammar'), levelLabel(bank.level) || 'Nhiều trình độ', bank.words_count ? `${bank.words_count} điểm` : null].filter(Boolean).join(' · ')}</p>
+        <p className={styles.itemText}>{bank.summary || 'Luyện đúng trọng tâm của bài Grammar Wiki này.'}</p>
+      </li>;
+    })}</ul> : <PageState kind="empty" title="Không có bài luyện khớp bộ lọc. Hãy thử phạm vi rộng hơn." />}
   </div>;
+
+  function statusOf(slug: string) {
+    const status = mastery[slug];
+    return status ? (status === 'weak' || status === 'strong' ? status : 'learning') : '';
+  }
 }
