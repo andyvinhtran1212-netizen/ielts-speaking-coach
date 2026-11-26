@@ -306,9 +306,9 @@ describe('sharedAuthMe — single flight per access token', () => {
   });
 });
 
-describe('PC-J147 wiring — one /auth/me on /d1-exercise and /vocabulary/hub', () => {
+describe('PC-J147 wiring — one /auth/me on /vocabulary/fill-in and /vocabulary/hub', () => {
   const CHROME = read('public/js/components/aver-chrome.js');
-  const D1 = read('app/(authed-d1-exercise)/d1-exercise/d1-exercise-player.tsx');
+  const D1 = read('app/(authed-d1-exercise)/vocabulary/fill-in/d1-exercise-player.tsx');
   const HUB_PAGE = read('app/(authed-vocabulary-hub)/vocabulary/hub/page.tsx');
   const HUB = read('app/(authed-vocabulary-hub)/vocabulary/hub/vocabulary-hub-behavior.tsx');
 

@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'page.tsx');
-const STATS_PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'stats', 'page.tsx');
-const CLIENT = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'stats', 'admin-vocab-stats.tsx');
-const LAYOUT = read('app', '(authed-admin-vocab)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'page.tsx');
+const STATS_PAGE = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'stats', 'page.tsx');
+const CLIENT = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'stats', 'admin-vocab-stats.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(vocab)', 'layout.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const LEGACY_HUB = read('public', 'pages', 'admin', 'vocab', 'index.html');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
@@ -47,7 +47,7 @@ describe('Admin Vocabulary native ownership', () => {
 
   test('CI pins the route group, model, responsive CSS and browser flow', () => {
     assert.match(LAYOUT, /admin-vocab-next\.css/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-vocab\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(vocab\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-vocab-flow\.mjs/);
   });
 });

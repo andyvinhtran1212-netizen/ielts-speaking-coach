@@ -74,6 +74,8 @@ export function DialogFrame({
   );
 }
 
+const noop = () => {};
+
 export type DialogProps = Omit<FrameProps, 'titleId' | 'onClose'> & {
   open: boolean;
   /** Called on Esc, the close button and a click on the backdrop (not while `busy`). */
@@ -83,6 +85,11 @@ export type DialogProps = Omit<FrameProps, 'titleId' | 'onClose'> & {
   /** `alertdialog` for a question that interrupts work (ConfirmDialog). */
   role?: 'dialog' | 'alertdialog';
   describedBy?: string;
+  /**
+   * EXAMROOM-0066 FR-015: `false` for a blocking box with no way out but its own
+   * action (session expired). No close button; Esc and the backdrop do nothing.
+   */
+  dismissible?: boolean;
 };
 
 /**
@@ -90,9 +97,10 @@ export type DialogProps = Omit<FrameProps, 'titleId' | 'onClose'> & {
  * Native `<dialog>` + `showModal()`, so the rest of the page is inert; focus,
  * Tab trap, Esc, scroll lock and focus return come from `useDialogFocus`.
  */
-export function Dialog({ open, onClose, initialFocusRef, role = 'dialog', describedBy, busy = false, ...frame }: DialogProps) {
+export function Dialog({ open, onClose: requestClose, initialFocusRef, role = 'dialog', describedBy, busy = false, dismissible = true, ...frame }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const onClose = dismissible ? requestClose : noop;
 
   // Order matters: the hook records the opener before showModal() moves focus,
   // and the layout effect closes the dialog before the hook's cleanup returns
@@ -124,14 +132,14 @@ export function Dialog({ open, onClose, initialFocusRef, role = 'dialog', descri
       // element in sync with `open`: reopen while busy, otherwise report it.
       onClose={() => {
         if (!open) return;
-        if (busy) ref.current?.showModal();
+        if (busy || !dismissible) ref.current?.showModal();
         else onClose();
       }}
       onClick={(event) => {
         if (event.target === ref.current && !busy) onClose();
       }}
     >
-      {open ? <DialogFrame {...frame} titleId={titleId} busy={busy} onClose={onClose} /> : null}
+      {open ? <DialogFrame {...frame} titleId={titleId} busy={busy} onClose={dismissible ? onClose : undefined} /> : null}
     </dialog>
   );
 }

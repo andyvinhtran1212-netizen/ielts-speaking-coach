@@ -1,14 +1,14 @@
 ---
 id: COURSELESSON-0064
 title: Learners with access to an online course open its lessons in any order, watch the video and resume where they left off, while visitors can open marked preview lessons and admins load lessons by script
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Learners with access to an online course open its lessons in any order, watch the video and resume where they left off, while visitors can open marked preview lessons and admins load lessons by script
 
-Status: **draft**. Spec soạn ngày 23/11/2026 cho nhiệm vụ `G07-T03` (thương mại hoá 2026-11). Nguồn là `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` (bản 18/11), các mục: 4.5 (FR-07-040…044), 5.4, 5.5, nhiệm vụ G07-T18, T19, T28, T29, câu hỏi mở #5, #6, #10, #15. Chưa có dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt spec. Khi anh duyệt, câu trả lời được ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục, và `status` đổi sang `approved`. Số 0064 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; số này còn trống ở staging `31725a9b`.
+Status: **approved**: anh Andy duyệt toàn bộ spec ngày 26/11/2026 lúc 09:03 giờ VN (xem `approval-decision.md`). Spec soạn ngày 23/11/2026 cho nhiệm vụ `G07-T03` (thương mại hoá 2026-11). Nguồn là `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` (bản 18/11), các mục: 4.5 (FR-07-040…044), 5.4, 5.5, nhiệm vụ G07-T18, T19, T28, T29, câu hỏi mở #5, #6, #10, #15. Chưa có dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt spec. Khi anh duyệt, câu trả lời được ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục, và `status` đổi sang `approved`. Số 0064 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; số này còn trống ở staging `31725a9b`.
 
 ## Problem
 

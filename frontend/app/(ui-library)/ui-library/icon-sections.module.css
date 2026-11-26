@@ -1,0 +1,12 @@
+/* /ui-library icon grid (G11-T32, ThanhPhanNenTang §5). Only var(--av2-*), no hex. */
+.groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--av2-space-7) var(--av2-space-9); align-items: start; }
+.groupName { margin: 0 0 var(--av2-space-2); font-size: var(--av2-fs-12); font-weight: var(--av2-fw-strong); letter-spacing: 0.08em; text-transform: uppercase; color: var(--av2-muted); }
+.grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: var(--av2-rule-w) solid var(--av2-ink); border-left: var(--av2-rule-w) solid var(--av2-rule); }
+.cell { display: flex; flex-direction: column; align-items: center; gap: var(--av2-space-1); padding: var(--av2-space-2) var(--av2-space-1); border-right: var(--av2-rule-w) solid var(--av2-rule); border-bottom: var(--av2-rule-w) solid var(--av2-rule); background: var(--av2-surface); color: var(--av2-ink); }
+.name { font-size: var(--av2-fs-12); color: var(--av2-muted); }
+/* A whole-pixel line (14px, about the sheet's 12px × 1.15) keeps the section height whole, so the sections below keep their pixel grid and their baselines. */
+.label { font-size: var(--av2-fs-12); line-height: calc(var(--av2-fs-12) + var(--av2-space-1)); text-align: center; }
+.sizes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-6); margin-top: var(--av2-space-7); font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.sizes span { display: inline-flex; align-items: center; gap: var(--av2-space-2); color: var(--av2-ink); }
+@media (max-width: 1023px) { .groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .groups { grid-template-columns: minmax(0, 1fr); } }

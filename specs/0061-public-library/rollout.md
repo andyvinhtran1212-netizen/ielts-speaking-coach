@@ -11,7 +11,7 @@
 
 Thứ tự (gói mục 6 T01): migration staging → API → trang → nội dung → bật sitemap.
 
-1. Áp `400_public_library.sql` lên staging bằng runner có khoá advisory (AGENTS.md "Staging-first"), chạy postcondition và truy vấn ở `verification.md` "Data evidence" **trước** khi merge mã dùng bảng. Ghi DB staging chỉ khi anh Andy gõ duyệt trực tiếp trong thread chạy lệnh (quy trình máy anh).
+1. Áp `400_public_library.sql` lên staging bằng runner có khoá advisory (AGENTS.md "Staging-first"), chạy postcondition và truy vấn ở `verification.md` "Data evidence" **trước** khi merge mã dùng bảng. Sau đó áp `401_writing_sample_review_signoff.sql` (Amendment 2, feature riêng `public_library_signoff`) cùng cách, trước khi merge bản script nhập hay `/admin/library` ghi/đọc ba cột chữ ký. Ghi DB staging chỉ khi anh Andy gõ duyệt trực tiếp trong thread chạy lệnh (quy trình máy anh).
 2. Merge API (T006, T011, T013, T016), rồi trang (T008–T015). Trang hoạt động với bảng rỗng: danh sách hiện trạng thái rỗng, `/library` ẩn số.
 3. T018: `--check` sạch → dry-run → `--execute` với `publish:false` hết → dry-run lại "không còn khác biệt" → lô đầu `publish:true` cho **tối đa 50 bộ đủ điều kiện** (`review.status='approved'` + `review.by/at`; hiện có 19 — N1 còn mở thì lô đầu là 19, 530 bộ còn lại giữ `publish:false`) → kiểm 10 trang ngẫu nhiên 1280/390 → các lô còn lại. Speaking chỉ nhập khi có tệp theo hợp đồng từ repo VIDEO MAKING.
 4. T017 (sitemap, robots) merge sau khi có bộ đã xuất bản trên staging.
