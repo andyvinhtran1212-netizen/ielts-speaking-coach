@@ -22,7 +22,8 @@ and must not be "filled in" by tooling:
 Take the next number after the highest `present` or `reserved` row in
 [`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
 task ID) in the same PR as the file, and change it to `present` when the file
-lands. Do **not** assume the sequence is dense. As of 2026-11-26 the highest is `509`
+lands. Do **not** assume the sequence is dense. As of 2026-11-26 the highest is `510`
+(MOCKLRONLY-0104 mock sitting Writing-not-applicable hotfix); before it `509`
 (course-give idempotency hotfix, #2693/#2694); `503` is COURSEACCESS-0055 G04-T07
 per-attempt credit settlement (Andy 2026-11-23); before them `502`
 (COURSEACCESS-0055 G04-T13 pronunciation sample; before it `501`, GRAMMARAUDIT-0019
@@ -32,7 +33,7 @@ band 501+ of the commercialization register); 381 and 382 are reserved for FU-22
 (383, 384, 385, 388, 389 and 502 present; 387 reserved; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
 504 is reserved for #2600 and 505 for COURSEACCESS-0055 G04-T10b,
-so the next new migration is `510`. The free numbers below 501 (bands 401–499
+so the next new migration is `511`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
 the PR that takes one adds its row.
 `383` is `pending_feature course_commerce` (COURSEACCESS-0055 T001, spec label
@@ -108,6 +109,11 @@ one partial unique index `uq_course_give_request` on `class_assignments (cohort_
 content_config->>'give_request_id') WHERE skill='course'`, so two simultaneous course
 gives with the same request id create one assignment (the loser replays its receipt).
 No data or privilege change; the rollback drops the index. 503–507 are held by open PRs.
+`510` is `pending_feature mock_writing_na` (owner hotfix 2026-11-26, MOCKLRONLY-0104):
+three nullable `mock_exam_sittings` columns `writing_not_applicable_at/_by/_reason`,
+the audit stamp of the admin action that finalizes a sequential mock sitting that took
+no Writing. No default, no backfill, no privilege change. Apply before the code; the
+rollback drops the three columns (revert the code first).
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
