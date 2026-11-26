@@ -113,17 +113,32 @@ test('another owner: the legacy key is never read', () => {
   assert.deepEqual([plan.ask, plan.migrate, plan.dropLegacy], [[], [], []]);
 });
 
-test('a task with a new-key entry ignores its older legacy key; closed section clears everything', () => {
+test('a different legacy text next to a new-key entry is kept, never dropped or migrated (FR-010)', () => {
   const both = reconcileMockWritingCopy({
     copy: copy({ task1: { value: 'new', baseValue: '' } }), legacy: { task1: { text: 'older' } },
     server: { open: true, task1: '' }, ownerMatches: true,
   });
-  assert.deepEqual([both.resend, both.dropLegacy, both.migrate], [[{ task: 'task1', value: 'new' }], ['task1'], []]);
+  assert.deepEqual([both.resend, both.dropLegacy, both.migrate], [[{ task: 'task1', value: 'new' }], [], []]);
+  // The same text in both keys: the legacy key is a duplicate and may go.
+  const same = reconcileMockWritingCopy({
+    copy: copy({ task1: { value: 'new', baseValue: '' } }), legacy: { task1: { text: 'new' } },
+    server: { open: true, task1: '' }, ownerMatches: true,
+  });
+  assert.deepEqual([same.dropLegacy, same.migrate], [['task1'], []]);
+});
+
+test('a closed section clears the copy but keeps a legacy text the server does not hold (FR-010)', () => {
   const closed = reconcileMockWritingCopy({
     copy: copy({ task1: { value: 'a', baseValue: '' } }), legacy: { task2: { text: 'b' } },
     server: { open: false, task1: 'x', task2: 'y' }, ownerMatches: true,
   });
-  assert.deepEqual([closed.resend, closed.ask, closed.clearCopy, closed.dropLegacy], [[], [], true, ['task2']]);
+  assert.deepEqual([closed.resend, closed.ask, closed.clearCopy, closed.dropLegacy, closed.migrate], [[], [], true, [], []]);
+  // The server holds exactly the legacy text: then it may go.
+  const held = reconcileMockWritingCopy({
+    copy: null, legacy: { task2: { text: 'y' } },
+    server: { open: false, task1: 'x', task2: 'y' }, ownerMatches: true,
+  });
+  assert.deepEqual(held.dropLegacy, ['task2']);
 });
 
 test('an older copy entry without baseText asks instead of re-sending', () => {
