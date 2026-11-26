@@ -2,9 +2,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, expect, it, vi } from 'vitest';
 import { VocabularyHubBehavior } from '@/app/(authed-vocabulary-hub)/vocabulary/hub/vocabulary-hub-behavior';
 import { VocabularyStudy } from '@/app/(authed-vocabulary-hub)/vocabulary/study/[sessionId]/study';
-import { AdminVocabularySetEditor } from '@/app/(authed-admin-vocab)/admin/vocab/sets/sets-console';
+import { AdminVocabularySetEditor } from '@/app/(authed-admin)/(vocab)/admin/vocab/sets/sets-console';
 import { VocabularySetDetail } from '@/app/(authed-vocabulary-hub)/vocabulary/sets/[setId]/set-detail';
-import { FlashcardStudyPlayer } from '@/app/(flashcard-study)/flashcard-study/flashcard-study-player';
+import { FlashcardStudyPlayer } from '@/app/(flashcard-study)/vocabulary/flashcards/study/flashcard-study-player';
 
 vi.mock('client-only', () => ({}));
 const mocks = vi.hoisted(() => ({ view: 'today', push: vi.fn(), replace: vi.fn(), auth: { status: 'signed-in', user: { id: 'learner-a' } as { id: string } | null } }));
@@ -223,7 +223,7 @@ function publicFetch() {
   const fetcher = vi.fn(async () => new Response(JSON.stringify({ category: 'education', cards: [card] }), { status: 200 }));
   vi.stubGlobal('fetch', fetcher);
   Object.defineProperty(window, 'api', { configurable: true, value: { base: 'https://fixture.invalid' } });
-  history.replaceState(null, '', '/flashcard-study?stack=wiki:education');
+  history.replaceState(null, '', '/vocabulary/flashcards/study?stack=wiki:education');
   return fetcher;
 }
 
@@ -250,7 +250,7 @@ it('confirmed signed-out visitors can still study public flashcards', async () =
 });
 
 it('invalid legacy stack links show an error instead of a permanent loading state', async () => {
-  history.replaceState(null, '', '/flashcard-study?stack=invalid');
+  history.replaceState(null, '', '/vocabulary/flashcards/study?stack=invalid');
   render(<FlashcardStudyPlayer />);
   await screen.findByText('Liên kết học thiếu hoặc có stack không hợp lệ.');
   expect(screen.queryByText('Đang chuẩn bị bộ thẻ…')).toBeNull();

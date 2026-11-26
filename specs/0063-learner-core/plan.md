@@ -1,0 +1,147 @@
+# Implementation plan
+
+Nguồn: `GOI-07-loi-hoc-vien.md` mục 2, 5.3, 5.6, 5.8, 6 (T05, T13, T14), 7; bản sửa đổi 1 thêm mục 4.4, 5.2, 5.4 và 6 (T15, T16). Đối chiếu ở staging `e940c936` (23/11/2026); người thực thi đo lại số dòng trước khi sửa.
+
+## Architecture impact
+
+- **Cờ** — `backend/services/feature_flags.py`: thêm `is_learner_v2_enabled(user_id)` và `ais_learner_v2_enabled(...)` theo mẫu `is_vocab_curated_enabled` (L95). `backend/routers/auth.py` `/auth/me` (L254; nhánh `USE_ASYNC_DB` L331–340 và nhánh đồng bộ L246–251) thêm trường ở **cả hai** đường. `backend/models/auth.py` `AuthMeResponse` thêm `learner_v2_enabled: bool = False`. `backend/routers/admin.py`: `POST /admin/users/{user_id}/learner-v2-flag` chép mẫu `vocab-flag` (L5065). Frontend `frontend/lib/auth-wire-model.mjs`: hàm `learnerV2Enabled(me)` đọc mềm; `normalizeAuthMe` (danh sách 5 cờ bắt buộc) **không đổi**.
+- **API** — route trong `backend/routers/student_home.py` (prefix `/api/student` sẵn có); logic `backend/services/student_today.py` (mới); model `backend/models/student_today.py` (mới), khai `response_model`. Chạy các phần song song theo mẫu `get_home_summary_concurrent` (`backend/services/student_home_aggregator.py` L68: mỗi phần một client `database.thread_supabase_admin`, lọc tường minh theo người gọi), phần lỗi vào `degraded`. Bài giao gọi `_visible_assignments` của `routers/class_student.py` qua một hàm bọc trong service, import trong thân hàm (tránh vòng import, như `student_home.py` làm với `account_display_name`).
+- **Điểm ghép với gói khác** (mỗi điểm một hàm trong `student_today.py`, trả rỗng khi nguồn chưa có): `_access_for` / `_credits_for` / `_orders_open_for` (G04 `/api/me/courses`, `/api/me/credits`, `/api/enrollment-orders/me` — chưa có ở staging), `_overdue_ids_for` (`services/learner_overdue.py`, NOTIFY-0079 — chưa có; dùng `is_missing`), `_trial_today_left_for` (`services/trial_caps.py`, TRIALCAP-0080 — chưa có), `_repeat_error_for` (GOI-12 — chưa có; trả `None`), `_next_lesson_for` (COURSELESSON-0064 `course_lessons` — chưa có; trả `None`), `_open_surveys_for` (GOI-13 — `[]`), `_mock_exams_for` (G08-T22 — `[]`). Gói nguồn merge thì nối đúng hàm đó trong PR của gói nguồn hoặc một PR nhỏ của G07 ngay sau.
+- **Giao diện** — `frontend/app/(authed-home)/home/today-v2.tsx` (+ file con) vẽ khi `learnerV2Enabled(me)`; cây cũ giữ nguyên khi tắt. Component G03 (`frontend/components/ui/`), lớp/tiền tố `--av2-`.
+- **Cổng kích hoạt** — `backend/services/activation_gate.py` **không** đổi ở spec này: route mới tự bị chặn với `is_active=false` như mọi route học viên; `test_activation_gate_inventory.py` vẫn qua. Miễn trừ là G07-T26 (bản sửa đổi).
+
+- **(Bản sửa đổi 1) Lộ trình** — nhóm route mới `frontend/app/(authed-course)/` với `layout.tsx` (`AuthedShell`, `instant = false`, stylesheet v2 của G03) và `course/page.tsx` (client, đọc `learnerV2Enabled(me)`). Trang `/course/assigned` của Đợt 8 vẫn ở `(authed-my-class)` (LEARNERNAV-0062 T15u), không chuyển sang nhóm mới. API `GET /api/student/course` trong `backend/routers/student_home.py`, logic `backend/services/student_course.py` (mới), model `backend/models/student_course.py` (mới). Phần lớp gọi lại hàm đọc mà `GET /api/class/me?summary=true` (`routers/class_student.py` L1066) dùng, qua một hàm bọc import trong thân hàm như T13. Điểm ghép: `_courses_for` (G04 `/api/me/courses`), `_catalog_for` (danh mục khoá công khai của G04), `_lesson_progress_for(course_code)` (COURSELESSON-0064; chưa có trả `None`). Danh sách bài frontend gọi thẳng `GET /api/course/{course_code}/lessons` của 0064, không bọc lại.
+- **(Bản sửa đổi 1) Luyện tập** — nhóm route mới `frontend/app/(authed-practice-hub)/practice/page.tsx` (layout như trên). Cùng tiền tố với `(authed-practice)/practice/session` là hợp lệ trong App Router; chạy `route-ownership-check --manifest` sau build. Khối "Làm tiếp" gọi `GET /api/student/today` có sẵn của T13 và chỉ đọc `resume`, `degraded`.
+- **(Bản sửa đổi 1) Thi thử** — trang `/tests` mà LEARNERNAV-0062 T12a tạo (trang tạm từ `/full-test`) thêm nhánh: cờ bật vẽ `tests-hub-v2.tsx` (+ file con), cờ tắt vẽ trang tạm y nguyên. API `GET /api/student/tests` trong `student_home.py`, logic `backend/services/student_tests.py`, model `backend/models/student_tests.py`. Điểm ghép: `_assigned_exams_for` (trước G09-T31: `mock_exam_service.list_open_exams` cộng `list_my_sittings` của người gọi; sau G09-T31: danh sách người dự thi), `_credits_for` (G04; dùng chung hàm với T13), `_writing_full_tests_for` (G08; chưa có `[]`). Overall đọc `mock_exam_service.overall_readiness`, không tính lại.
+- **Route registry** — PR T15 đổi `/course`, PR T16 đổi `/practice` sang `live` trong `frontend/lib/route-registry.mjs` cùng commit với trang (guard test của `NAV_PLAN` chạy); `/tests` đã `live` từ T12a.
+
+## Data and contracts
+
+### Migration (chỉ một cột)
+
+Một file trong dải 420–439 của G07, lấy số trống đầu tiên lúc viết PR và thêm dòng `reserved`/`present` vào `backend/migrations/register.tsv` cùng PR:
+```sql
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS today_seen_at timestamptz;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS today_seen_key text;
+```
+Nullable, không default, không index (đọc theo khoá chính). Ghi chỉ từ backend (service role); không thêm vào danh sách cột học viên tự sửa ở mig 320 (`display_name, target_band, exam_date, self_level, …`). Rollback: `backend/migrations/rollback/<số>_users_today_seen_at.sql` `DROP COLUMN IF EXISTS today_seen_key`, `DROP COLUMN IF EXISTS today_seen_at`. Hai cột là một con trỏ ghép `(today_seen_at, today_seen_key)`; `key` = `<kind>:<id>` (`writing:<essay_id>`, `speaking:<session_id>`) để id của hai bảng không trùng nhau. Chạy qua runner có khoá advisory, staging trước; áp lên staging/production cần anh Andy gõ duyệt cho từng lần.
+
+### `GET /api/student/today` (gói 5.3, bản 18/11)
+
+```json
+{
+  "student": {"name": "Minh Anh"},
+  "next_lesson": null,
+  "assigned": [ { "...": "đúng dạng một phần tử assignments của /api/class/my-assignments" } ],
+  "assigned_total_open": 3,
+  "assigned_due_soon": 2,
+  "assigned_due_later": 1,
+  "resume": [ {"kind": "listening|reading|speaking|dictation", "title": "…", "progress": {"done": 1, "total": 4}, "href": "/listening/…", "expires_at": "2026-11-17T09:00:00Z"} ],
+  "state": "learning|first_day|order_pending|no_course",
+  "banner": null,
+  "access": [],
+  "credits": null,
+  "orders_open": [],
+  "goal": {"target_band": 6.5, "exam_date": "2027-03-14", "weeks_left": 17},
+  "new_results": [ {"kind": "writing|speaking", "title": "…", "returned_at": "…", "key": "writing:…", "href": "/writing/result?essay_id=…"} ],
+  "new_results_cursor": {"seen_until": "…", "seen_key": "writing:…"},
+  "repeat_error": null,
+  "trial_today_left": null,
+  "open_surveys": [],
+  "mock_exams": [],
+  "degraded": []
+}
+```
+Khi có dữ liệu: `next_lesson` = `{course_code, course_name, stage_no, lesson_code, lesson_no, lesson_count, title, video_seconds, practice_items, resume_seconds, href}`; `banner` ∈ `expiring|expired|out_of_credits`; `access[]` = nguyên dạng phần tử `items` của `GET /api/me/courses` (G04 mục 5.9: `kind, source, state, expires_at, days_left, can_renew, credits…`); `credits` = `{total, by_kind: {online, class}}`; `orders_open[]` = `{order_code, status: awaiting_transfer|transfer_reported|needs_info, product_title, supplement_by}`; `repeat_error` = `{label, count, of, review_href|null, total_errors}`; `mock_exams[]` = `{exam_id, title, mode: live|self_paced, state, closes_at, total_minutes, href}`; `open_surveys[]` = `{survey_id, course_name, closes_at}`.
+
+Quy tắc từng phần:
+- `assigned`: `_visible_assignments(student, now, cohort_ids)` qua hàm bọc; lọc chưa nộp; chỉ giữ bài quá hạn hoặc hạn tới hết ngày mai (giờ Việt Nam); quá hạn trước rồi hạn gần nhất, hoà thì theo `id`; cắt 5. Ba số đếm tính **trước khi cắt**: `assigned_due_soon` = số bài chưa nộp quá hạn hoặc hạn tới hết ngày mai (nguồn của N ở FR-020); `assigned_due_later` = số bài chưa nộp hạn sau ngày mai hoặc không có hạn (nguồn của "Còn n bài hạn sau ngày mai" ở FR-022); `assigned_total_open` = tổng hai số trên. Không lớp → `[]`, `0`, `0`, `0`.
+- `resume`: đọc 4 bảng có `resume_expires_at` (mig 224: `sessions`, `reading_test_attempts`, `listening_test_attempts`, `dictation_attempts`; `writing_assignments` ở mig 224 chỉ có cột `renderer_affinity_*`, không có hạn làm tiếp nên Writing không vào `resume`) với `resume_expires_at > now()` và trạng thái đang làm của người đó; cắt 4, mới nhất trước. Tên cột trạng thái và tiêu đề từng bảng: người thực thi đọc migration tạo bảng trước khi viết (gói ghi `CHƯA KIỂM`).
+- `state`: theo FR-019; `first_day` = có quyền online còn hạn và chưa có dòng `course_lesson_progress` nào (trước COURSELESSON-0064: không bao giờ `first_day`). Không có dữ liệu G04 → học viên có lớp đang hoạt động là `learning`, không lớp và không quyền là `no_course`.
+- `banner`: `expiring` khi có quyền online `can_renew` và chưa hết hạn, không có đơn đăng ký lại đang mở; `expired` khi mọi quyền online đã hết hạn; `out_of_credits` khi `credits.total = 0` và người đó có nguồn lượt.
+- `goal`: `users.target_band`, `users.exam_date` (mig 005; đồng bộ với mục tiêu admin qua mig 452). `target_band` null → `goal: null`. `weeks_left = ceil((exam_date − hôm nay VN)/7)`, null khi không có ngày thi hoặc ngày đã qua.
+- `new_results`: bài Writing `delivered` và phiên Speaking có kết quả, cặp `(returned_at, key)` > con trỏ `(today_seen_at, today_seen_key)` theo thứ tự bộ (con trỏ trống → 7 ngày gần nhất, câu hỏi mở 5); lấy hai bài **cũ nhất** theo `(returned_at, key)` trong số đó, trả về sắp mới nhất trước, kèm `returned_at` và `key` từng bài. Response có thêm `new_results_cursor: {seen_until, seen_key}` = cặp của bài mới hơn trong hai bài hiện ra; frontend gửi nguyên cặp này lên `POST seen`. Ba bài cùng `returned_at` vẫn ra lần lượt 2, rồi 1, rồi 0. Route GET không ghi gì (FR-078).
+- `POST /api/student/today/seen` body `{seen_until: timestamptz, seen_key: text}` → `204`. Máy chủ: `seen_until > now() + 1 phút` → 422; `seen_key` không khớp `^(writing|speaking):` → 422; còn lại `UPDATE users SET today_seen_at = :seen_until, today_seen_key = :seen_key WHERE id = <người gọi> AND (today_seen_at IS NULL OR (today_seen_at, coalesce(today_seen_key, '')) < (:seen_until, :seen_key))` (chỉ tiến lên theo thứ tự bộ, idempotent). Route ghi đúng hai cột con trỏ của chính người gọi; frontend gọi sau khi khối "Vừa có kết quả" đã vẽ.
+- `trial_today_left`: chỉ khi `state = 'no_course'`; nguồn chưa có, tạm dừng hoặc không đủ điều kiện → `null`.
+- `degraded`: tên phần (`assigned`, `resume`, `credits`, `access`, `orders_open`, `new_results`, `goal`, `mock_exams`) ném lỗi khi đọc. Nguồn chưa có không vào đây. `repeat_error` không bao giờ vào đây (FR-071).
+- Sau khi thêm model: sinh lại `frontend/types/api.d.ts` trong cùng PR (lệnh ở gói mục 7, dòng "Kiểu API lệch").
+
+### Cờ
+
+- `learner_v2_enabled` theo FR-072. Hai khoá `runtime_flags`: `learner_v2` (công tắc khẩn, mặc định tắt — phải bật trên staging thì cờ lẻ mới có tác dụng) và `learner_v2_all` (mặc định tắt, không bật trong spec này). Thêm hai dòng vào bảng `runtime_flags` bằng đường đã có (`PATCH /admin/runtime-flags/{key}`, `backend/routers/admin_flags.py`) nếu khoá cần tồn tại trước; người thực thi kiểm `runtime_flags.is_enabled(..., default=False)` với khoá chưa có trả false để khỏi cần migration dữ liệu.
+- Endpoint admin: body `{enabled: bool}`, ghi `users.feature_flags.learner_v2`, trả `{user_id, learner_v2: bool}` đọc lại sau ghi.
+
+### (Bản sửa đổi 1) `GET /api/student/course`
+
+```json
+{
+  "online": [ {"course_code": "…", "product_slug": "…", "title": "…", "state": "active|expired", "days_left": 12, "expires_at": "…", "can_renew": false, "progress": {"done": 3, "total": 24}, "credits_left": 18} ],
+  "other_products": [ {"slug": "…", "title": "…", "status": "open|coming_soon", "starts_at": null} ],
+  "class": {"name": "…", "teacher_name": "…", "course_title": "…", "repractice": [ {"course_code": "…", "title": "…"} ]},
+  "assigned_open": 3,
+  "has_online": true,
+  "has_class": true,
+  "selected": "…",
+  "degraded": []
+}
+```
+Quy tắc:
+- `online`: phần tử `items` của G04 có nguồn online, ghép theo `course_code`; còn hạn trước (`days_left` tăng dần), rồi hết hạn (mới hết hạn trước). `progress` từ `_lesson_progress_for`, `None` khi 0064 chưa có. `credits_left` = `items[i].credits.balance` của đúng quyền đó (G04 mục 5.9), `null` khi thiếu; không dùng tổng `by_kind.online`. G04 chưa có → `[]`, `has_online: false`.
+- `other_products`: sản phẩm `open`/`coming_soon` của danh mục G04 trừ những `product_slug` đã có trong `online`; G04 chưa có → `[]`.
+- `class`: lớp đang hoạt động, chưa lưu trữ; nhiều lớp thì lớp có bài giao gần nhất (cùng thứ tự `/api/class/me`). `repractice` = quyền nguồn `class` của G04, `[]` khi chưa có. Không lớp → `null`.
+- `assigned_open`: dùng lại hàm đếm của T13 (`assigned_total_open`), không đếm lần hai bằng truy vấn khác.
+- `selected`: khoá online còn hạn có `course_lesson_progress` mới nhất, không có thì phần tử đầu `online`, rồi `null`. Frontend có `?course=` hợp lệ thì dùng `?course=`.
+- `degraded` ∈ `online`, `other_products`, `class`, `assigned_open`.
+
+### (Bản sửa đổi 1) `GET /api/student/tests?cursor=`
+
+```json
+{
+  "assigned_exams": [ {"exam_id": "…", "title": "…", "mode": "live|self_paced|null", "state": "upcoming|open|submitted|released|closed_missed", "opens_at": null, "closes_at": null, "skills": ["listening","reading","writing"], "total_minutes": 160, "has_sitting_in_progress": false, "href": "/tests/mock/session?…"} ],
+  "results": [ {"kind": "listening_full|listening_mini|reading_full|reading_mini|speaking_full|writing_full|mock", "title": "…", "submitted_at": "…", "band": 6.5, "correct": null, "total": null, "pending_skills": [], "overall": null, "href": "…"} ],
+  "results_next_cursor": null,
+  "credits": {"total": 18},
+  "degraded": []
+}
+```
+Quy tắc:
+- `assigned_exams`: trước G09-T31 lấy kỳ từ `list_open_exams(user_id)` nhưng **chỉ giữ** kỳ mà người đó được giao thật: `cohort_id` khác null và `_user_in_cohort`, hoặc kỳ thi lại có trong `_retake_assigned_exam_ids(user_id)`, hoặc `my_sitting_id` khác null. `list_open_exams` bỏ `cohort_id` khỏi dòng trả về nên service đọc `cohort_id` của các kỳ đó bằng một truy vấn riêng theo `id` (chỉ cột `id, cohort_id`), không sửa `list_open_exams`. Kỳ `cohort_id` null không phải thi lại bị loại (pytest có ca này). Cộng kỳ từ `list_my_sittings` (`submitted` khi chưa phát hành, `released` khi đã phát hành); `state: open`, `has_sitting_in_progress` = `my_sitting_id` khác null; `mode: null`, không có `upcoming`, `closed_missed` (câu hỏi mở 8). `skills`, `total_minutes` đọc từ đề của kỳ; thiếu thì `null`. `href` dùng URL vào thi hiện hành của registry (`/mock-exam` hoặc `/tests/mock/session` sau T12b), không ghép tay.
+- `results`: hợp các lượt đã nộp của người gọi ở `listening_test_attempts`, `reading_test_attempts` (full hay mini đọc từ cột `test_type` của bảng đề `reading_tests`, mig 158, và `listening_tests`, mig 157, ghép theo id đề của lượt; bảng lượt không có cột này), phiên Speaking `mode = test_full` đã hoàn tất, Writing full test của G08 (`_writing_full_tests_for`, `[]` khi chưa có) và lượt mock test (`mock_exam_sittings` không `void`). Sắp `(submitted_at desc, kind, id)`, 20 dòng, con trỏ mờ mã hoá bộ ba đó. `band` chỉ theo 5.6 (Listening/Reading đủ 40 câu); mini test trả `correct`, `total` (`total > 0`). **Khoá công bố (HOLD FR-082):** lượt mock chỉ trả điểm khi `mock_exam_sittings.status = 'released'`, dùng đúng điều kiện của `list_my_sittings` (đọc `final_bands` của review chỉ cho id đã `released`). Lượt chưa `released` chỉ trả `kind`, `title`, `submitted_at`, `href` và `state` (`submitted|grading|reviewing`); `band`, `overall`, `correct`, `total`, `pending_skills` đều null, và JSON không chứa điểm từng kỹ năng hay nhận xét chờ công bố. Với lượt đã `released`: `overall` chỉ khác null khi kỳ có đủ bốn kỹ năng và `overall_readiness(final_bands)` cho phép; `pending_skills` liệt kê kỹ năng còn chờ chấm. Tên cột trạng thái và thời điểm nộp từng bảng: người thực thi đọc migration tạo bảng trước khi viết (gói ghi `CHƯA KIỂM`).
+- `credits`: `{total}` của G04, `null` khi chưa có hoặc lỗi. Số lượt cần cho từng loại đề (Writing full 2, Speaking full 3) là hằng của G04 đọc từ cùng chỗ máy chủ dùng khi trừ lượt, không gõ lại ở frontend.
+- `degraded` ∈ `assigned_exams`, `results`, `credits`.
+- Hai API sinh lại `frontend/types/api.d.ts` trong PR của chúng.
+
+## UI and interaction
+
+- Cây mới gọi `/api/student/today` đúng một lần khi vào trang; chọn bố cục theo `state` + `banner`; mỗi khối nhận đúng phần của nó và cờ `degraded` của phần đó.
+- Bản máy tính theo tờ `thiet-ke/Main.dc.html` mục 1 (có khoá, đang học) và `HomNayTrangThai.dc.html` mục 2–5; bản điện thoại theo `Mobile.dc.html` và Main mục 6; dải hết lượt theo `GiaHanThemLuot.dc.html`; khung theo `ThanhPhanKhungTrang.dc.html` mục 1, 3. Khác biệt với tờ ghi trong PR.
+- `home.css` có luật toàn cục (`* {box-sizing}`, `a { color: inherit; text-decoration: none }`) áp lên cả cây mới: component G03 tự đặt màu và gạch chân liên kết; không sửa `home.css`, không đổi `pageStylesheets` theo cờ (layout là server component, không đọc được cờ người dùng).
+- Trạng thái tải/rỗng/lỗi: `ui-states.md`.
+- (Bản sửa đổi 1) Lộ trình theo tờ `thiet-ke/LoTrinh.dc.html` (ba thẻ, `onlineCollapsed`/`classCollapsed`); hub theo `LuyenTap.dc.html`, `ThiThu.dc.html`, `MockTestDuocGiao.dc.html`. Tờ ThiThu còn vẽ đề bốn kỹ năng tự chọn: không dựng, PR ghi khác biệt. Đầu thẻ Lộ trình dùng component G03; trên `/course/assigned` (layout `utilityLayer={false}`, CSS lớp cũ) đầu thẻ do Đợt 8 gắn, ngoài phạm vi ở đây.
+- (Bản sửa đổi 1) Href bài giao, phiếu kết quả, trang chọn đề luôn qua `liveHref`/model sẵn có; không ghép URL tay trong component.
+
+## Work decomposition
+
+| Task | Nhiệm vụ gói | Nội dung | Phụ thuộc |
+|---|---|---|---|
+| T05 | G07-T05 | cờ `learner_v2`, `/auth/me`, endpoint admin, `learnerV2Enabled` | spec duyệt |
+| T13 | G07-T13 | migration `today_seen_at`, service, model, route GET + POST `seen`, pytest, `api.d.ts` | spec duyệt (song song T05) |
+| T14 | G07-T14 | cây Hôm nay mới, năm trạng thái, test React, ảnh | T05, T13, G03 (đã có) |
+| T15 | G07-T15 (PR 1) | `(authed-course)`, `/course`, `GET /api/student/course`, registry `/course` → `live`, test React, pytest, ảnh | T05, T13, G04 (đọc khi có), 0064 (đọc khi có) |
+| T16 | G07-T16 | `(authed-practice-hub)/practice`, nhánh cờ ở `/tests`, `GET /api/student/tests`, registry `/practice` → `live`, test React, pytest, ảnh | T05, T13, LEARNERNAV-0062 T12a; G09-T31 cho khối 2 đầy đủ |
+
+PR 2 của G07-T15 (Đợt 8, dời `/my-class`) là task T15u của LEARNERNAV-0062, không ở đây. T05 và T13 không chung file (trừ `api.d.ts` sinh lại — PR sau rebase và sinh lại). Mỗi task một PR vào `staging`, lớp `high-risk` (spec `risk: high`), `Spec: LEARNERCORE-0063`.
+
+Vướng mắc và cách gỡ: (a) `test_auth_response_models.py` so khoá trả về với model → thêm trường cả hai nơi cùng commit. (b) Nhánh `USE_ASYNC_DB` có hai đường → test cho mỗi nhánh. (c) 13 test nhắc `(authed-home)`: cây cũ giữ nguyên nên không được vỡ; vỡ là dấu hiệu đã sửa nhầm file cũ. (d) Trạng thái `no_course` và `order_pending` chỉ tới được trên thật sau G07-T26 và G04; trước đó test bằng dữ liệu giả.
+
+## Rollout and rollback
+
+Chi tiết ở `rollout.md`. Bản sửa đổi 1 không có migration; ba trang mới theo cùng cờ, lùi bằng tắt `runtime_flags('learner_v2')` hoặc revert PR T15/T16. Tóm tắt: migration lên staging trước (anh Andy gõ duyệt), rồi backend (T05, T13), rồi giao diện (T14). Cờ mặc định tắt cho mọi người; bật lẻ cho tài khoản QA trên staging. Lùi giao diện = tắt `runtime_flags('learner_v2')`. Lùi API = revert PR (route mới, không ai khác gọi). Cột thêm nullable, mã cũ không đọc.
+
+## Verification strategy
+
+- T05: `cd backend && python -m pytest tests/test_auth_response_models.py tests/test_activation_gate_inventory.py -q`; pytest mới cho 4 tổ hợp cờ (`learner_v2_all` × lẻ × công tắc) ở cả hai nhánh DB; pytest endpoint admin (admin 200, học viên 403, đọc lại đúng); `node --test frontend/tests/auth-wire-model.test.mjs` có ca "thiếu trường → false, không null".
+- T13: pytest với supabase giả theo mẫu `backend/tests/test_student_home_aggregator.py`: không lớp; lớp + 2 bài quá hạn + 1 bài đã nộp; 7 bài hạn hôm nay/ngày mai → `assigned` 5 dòng, `assigned_due_soon` = 7; 2 bài hạn hôm nay + 3 bài hạn tuần sau → `assigned_due_soon` = 2, `assigned_due_later` = 3, bài hạn tuần sau không nằm trong `assigned`; ba bài cùng `returned_at` → lần 1 hiện 2, lần 2 hiện 1, lần 3 hiện 0; bài Writing và Speaking cùng id số không lẫn nhau nhờ tiền tố `kind`; một phần ném lỗi → `degraded`; bài dở hết hạn bị bỏ; bốn `state` theo thứ tự FR-019; `credits` một con số chung; đơn `needs_info` có `supplement_by`; `_repeat_error_for` trả `None` → null; trả một lỗi → đúng khung; ném lỗi → null và `degraded` không đổi; `new_results` trước/sau mốc, ba bài mới → hai bài cũ nhất rồi bài thứ ba ở lần sau; GET không ghi (đếm lời gọi update = 0); `POST seen` chỉ tiến lên theo thứ tự bộ `(seen_until, seen_key)`, cặp nhỏ hơn không kéo lùi, giá trị tương lai 422, chỉ ghi dòng của người gọi. `test_activation_gate_inventory.py` qua (route chưa miễn). `git diff --exit-code frontend/types/api.d.ts` sau sinh lại. Migration: chạy hai lần không lỗi, rollback chạy được (test PG theo mẫu `test_*_postgres.py`).
+- T14: `frontend/tests/react/today-v2.test.tsx`: bốn `state`, ba `banner`, một khối hỏng, N = 0 → "Hôm nay không có bài đến hạn.", quá hạn lên đầu, học viên lớp mã cũ không có khối lượt, có mục tiêu không có ngày thi, mỗi nguồn null → khối ẩn; `npm --prefix frontend run test:react`. Staging: bật cờ cho QA → ảnh 1280px và 390px khớp tờ (ghi khác biệt); tắt cờ → giao diện cũ y nguyên (ảnh trước/sau).
+- (Bản sửa đổi 1) T15: pytest `student_course` với supabase giả: không lớp không khoá; chỉ lớp (`has_online: false`, `assigned_open` bằng số của T13); chỉ online một còn hạn một hết hạn (thứ tự còn hạn trước); `credits_left` lấy `items[i].credits.balance` của từng quyền (hai quyền khác số dư → hai số khác nhau); `other_products` bỏ sản phẩm đã có; lớp lưu trữ không vào `class`; một phần ném lỗi → `degraded`; nguồn G04/0064 chưa có → `[]`/`null` không vào `degraded`; chỉ dữ liệu người gọi. React `frontend/tests/react/course-hub.test.tsx`: chỉ lớp → `router.replace` tới đích thẻ "Bài được giao", không vẽ nhóm trước; chỉ online → nhóm lớp thu gọn, `aria-expanded`; n = 0 không ghi số; thẻ lớp ẩn khi không lớp; lessons 404 → "Bài học của khoá sẽ mở dần"; lessons lỗi 500 → chỉ khối bài báo lỗi; khoá hết hạn có "Đã hết hạn", nút chỉ khi `can_renew`; `AVER_PUBLIC_COMMERCE` tắt ẩn các lối mua; cờ tắt → thay URL, không gọi API. Guard test `NAV_PLAN` và `canonical-inbound-links.test.mjs` qua.
+- (Bản sửa đổi 1) T16: pytest `student_tests`: không được giao kỳ nào → `assigned_exams: []`; kỳ mở cho mọi người (`cohort_id` null, không thi lại) không vào `assigned_exams`; kỳ của nhóm người đó không thuộc không vào; kỳ đang mở có lượt dở; lượt đã nộp chưa phát hành → `submitted`; phân trang `results` ổn định khi hai lượt cùng `submitted_at`; mini test không có `band`; full test Listening 38 câu không có `band`; `overall` chỉ ở mock đủ bốn kỹ năng có band, kể cả khi `MOCK_OVERALL_MIN_SKILLS` đặt 3; kỳ thiếu Speaking `overall` null; chỉ dữ liệu người gọi. React `frontend/tests/react/tests-hub.test.tsx`: không khối 2 khi rỗng; `self_paced` thiếu Speaking ghi "Gồm: …" và câu một mạch, không Overall; không có chữ "4 kỹ năng"/"bốn kỹ năng" tự chọn ở mọi tổ hợp; 390px → cảnh báo PHONEGATE ở full test, mini test giữ nút; `credits.total` 1 → Writing full "Không đủ lượt", Listening full vẫn có nút; `credits` null → không đánh dấu; đích chưa `live` → dòng ẩn. `practice-hub.test.tsx`: 4 thẻ đúng thứ tự, `resume` lỗi chỉ khối "Làm tiếp" báo. Sau build: `route-ownership-check --manifest`, và test hiện có của `/practice/session` không đổi.

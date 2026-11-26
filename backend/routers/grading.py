@@ -49,7 +49,9 @@ from services import kp_evidence
 from services import feature_flags
 from services import runtime_flags
 from services import vocab_speaking_recommendations
-from services.pronunciation_sampling import _part2_segment, extract_audio_segment
+from services.pronunciation_sampling import (
+    PronSample, _part2_segment, extract_audio_segment, sample_window,
+)
 from services import speaking_progress
 from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
@@ -256,6 +258,12 @@ _PRON_UNAVAILABLE_FEEDBACK = (
     "tạm thời không khả dụng). Điểm phát âm sẽ được cập nhật khi hệ thống phân "
     "tích lại được bản ghi âm của bạn."
 )
+# COURSEACCESS-0055 FR-036 (G04-T13): an answer the session did not send to
+# Azure is not "unavailable" — its session's P band comes from another answer.
+_PRON_NOT_SAMPLED_FEEDBACK = (
+    "Phát âm của phần này được chấm trên một câu trả lời khác trong cùng phiên."
+)
+_PRON_SAMPLE_FLAG = "pron_sample_window"
 
 
 async def _assess_pronunciation_safe(
@@ -302,6 +310,26 @@ async def _assess_pronunciation_safe(
         except Exception as seg_exc:  # noqa: BLE001 — fall back to full audio
             logger.info("[grading] Part 2 segment extract failed, sending full clip: %s", seg_exc)
 
+    return await _azure_assess_bounded(
+        send_bytes, send_ct, assessment_duration,
+        user_id=user_id, session_id=session_id,
+        resource_type=resource_type, resource_id=resource_id,
+    )
+
+
+async def _azure_assess_bounded(
+    send_bytes: bytes,
+    send_ct: str,
+    assessment_duration: float,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+    resource_type: str | None,
+    resource_id: str | None,
+) -> dict | None:
+    """One Azure call under _PRON_TIMEOUT_SECONDS; None on any failure.
+    ``audio_seconds`` is the length actually sent, so the usage log prices the
+    sample, not the whole recording."""
     try:
         usage_kwargs = {}
         if user_id is not None or session_id is not None or resource_id is not None:
@@ -325,6 +353,111 @@ async def _assess_pronunciation_safe(
     except Exception as exc:   # noqa: BLE001 — best-effort, log + skip
         logger.info("[grading] pronunciation assessment skipped (non-fatal): %s", exc)
         return None
+
+
+async def _assess_pronunciation_sampled(
+    audio_bytes: bytes,
+    content_type: str | None,
+    *,
+    duration_sec: float,
+    sample_seconds: int,
+    user_id: str | None = None,
+    session_id: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+) -> tuple[dict | None, PronSample]:
+    """`pron_sample_window` path (COURSEACCESS-0055 FR-035, plan 5.16 step 1).
+
+    Every Part: a recording longer than ``sample_seconds + 5`` sends Azure one
+    ``sample_seconds`` window from its middle; a shorter one, or a failed cut,
+    sends the whole recording (``scope='full'``). Returns the Azure result
+    (None on failure, like _assess_pronunciation_safe) and what was sent.
+    The flag-off path stays _assess_pronunciation_safe, unchanged.
+    """
+    full = PronSample("full")
+    if not audio_bytes:
+        return None, full
+
+    send_bytes = audio_bytes
+    send_ct = content_type or "audio/webm; codecs=opus"
+    assessment_duration = duration_sec
+    sample = full
+    start_s, end_s = sample_window(duration_sec, sample_seconds)
+    if start_s is not None and end_s is not None:
+        try:
+            seg = await asyncio.to_thread(extract_audio_segment, audio_bytes, start_s, end_s)
+            # Same identity rule as _assess_pronunciation_safe: the same object
+            # back means ffmpeg failed, so keep the original bytes and label.
+            if seg is not None and seg is not audio_bytes:
+                send_bytes, send_ct = seg, "audio/wav"
+                assessment_duration = end_s - start_s
+                sample = PronSample("segment", start_s, end_s)
+        except Exception as seg_exc:  # noqa: BLE001 — fall back to full audio
+            logger.info("[grading] sample extract failed, sending full clip: %s", seg_exc)
+
+    result = await _azure_assess_bounded(
+        send_bytes, send_ct, assessment_duration,
+        user_id=user_id, session_id=session_id,
+        resource_type=resource_type, resource_id=resource_id,
+    )
+    return result, sample
+
+
+def _pron_one_per_session_parts() -> frozenset[int]:
+    """PRON_ONE_PER_SESSION_PARTS ("1", "1,3", "") as a set of Part numbers;
+    unparseable entries are ignored."""
+    raw = str(getattr(settings, "PRON_ONE_PER_SESSION_PARTS", "") or "")
+    parts: set[int] = set()
+    for item in raw.split(","):
+        item = item.strip()
+        if item.isdigit():
+            parts.add(int(item))
+    return frozenset(parts)
+
+
+async def _should_sample_pronunciation(
+    session_id: str,
+    question_id: str,
+    duration_sec: float,
+    *,
+    is_practice: bool = False,
+) -> bool:
+    """One Azure answer per session for the Parts in PRON_ONE_PER_SESSION_PARTS
+    (plan 5.16 step 2). False when another answer of the session already holds
+    a usable sample: ``pronunciation_status='completed'`` AND the answer was
+    graded AND, in test mode, it carries ``final_band_p`` (Codex P2 on #2514:
+    an Azure success whose text grade failed has its P band cleared, so it must
+    not use up the session's sample); True when the completed one is this
+    question (a re-record keeps its sample); False when this answer is shorter
+    than PRON_ONE_PER_SESSION_MIN_SECONDS (a later, longer one is waited for);
+    otherwise True. A read error returns True: one extra Azure call costs less
+    than a session with no P band. Two answers submitted at the same moment
+    may both be sampled (accepted, spec G04-T13: one extra call, no wrong
+    score). An unknown duration (0, see the F2 gate) is not "too short"."""
+    try:
+        res = await aexecute(
+            lambda db: db.table("responses")
+            .select("question_id, grading_status, final_band_p")
+            .eq("session_id", session_id)
+            .eq("pronunciation_status", "completed")
+        )
+        rows = [
+            r for r in (res.data or [])
+            if r.get("grading_status") == "completed"
+            and (is_practice or r.get("final_band_p") is not None)
+        ]
+    except Exception as exc:  # noqa: BLE001 — fail toward assessing
+        logger.warning("[grading] pronunciation sample lookup failed, assessing: %s", exc)
+        return True
+    sampled = {str(r.get("question_id")) for r in rows if r.get("question_id") is not None}
+    if str(question_id) in sampled:
+        return True
+    if sampled:
+        return False
+    min_seconds = int(getattr(settings, "PRON_ONE_PER_SESSION_MIN_SECONDS", 12) or 0)
+    if duration_sec and duration_sec > 0 and duration_sec < min_seconds:
+        return False
+    return True
 
 
 @lru_cache(maxsize=1)
@@ -362,6 +495,7 @@ def _merge_pronunciation_into_grading(
     grading: dict,
     pron_result: dict | None,
     is_practice: bool,
+    sample: PronSample | None = None,
 ) -> dict | None:
     """Make Azure the authoritative source of the P band, in-place.
 
@@ -373,7 +507,25 @@ def _merge_pronunciation_into_grading(
     left absent; the pronunciation card is surfaced via the signals block only.
 
     Returns the pronunciation-detail dict to persist/surface (or None).
+
+    ``sample`` is passed only while `pron_sample_window` is on (FR-036): the
+    detail then carries ``sample`` {scope, start_s, end_s}, and a
+    ``not_sampled`` answer gets its own honest text instead of "unavailable".
     """
+    if sample is not None and sample.scope == "not_sampled":
+        if not is_practice:
+            grading["band_p"] = None
+            grading["p_feedback"] = _PRON_NOT_SAMPLED_FEEDBACK
+            grading["pronunciation_source"] = "not_sampled"
+            crit_vals = [
+                float(grading[k])
+                for k in ("band_fc", "band_lr", "band_gra")
+                if grading.get(k) is not None
+            ]
+            if crit_vals:
+                grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
+        return {"status": "not_sampled", "provider": "azure", "sample": sample.as_dict()}
+
     pron_score = (pron_result or {}).get("pronunciation_score")
     fluency    = (pron_result or {}).get("fluency_score")
     band_p = _pron_band_from_scores(pron_score, fluency)
@@ -413,6 +565,7 @@ def _merge_pronunciation_into_grading(
         "words":                pron_result.get("words", []),
         "provider":             "azure",
         "locale":               "en-US",
+        **({"sample": sample.as_dict()} if sample is not None else {}),
     }
 
 
@@ -847,13 +1000,39 @@ async def grade_response_endpoint(
         # audio). Runs on the in-memory bytes so it needs no storage round-trip;
         # _assess_pronunciation_safe bounds it at _PRON_TIMEOUT_SECONDS and never
         # raises, so a slow/absent Azure just yields None → honest "chưa đánh giá".
-        pron_task = asyncio.create_task(
-            _assess_pronunciation_safe(
-                audio_bytes, audio_file.content_type, part=part, duration_sec=duration_sec,
-                user_id=user_id, session_id=session_id,
-                resource_type="question", resource_id=question_id,
-            )
+        #
+        # COURSEACCESS-0055 FR-035 (G04-T13): with the runtime flag
+        # `pron_sample_window` on, Azure hears one middle window of every
+        # Part and, in PRON_ONE_PER_SESSION_PARTS, one answer per session. The
+        # flag fails closed (lookup error → today's path). Off → unchanged.
+        # Sync read in a worker thread: only /auth/me may hand runtime_flags
+        # the async facade (PC-J05, test_async_db_scaffold).
+        pron_sample_on = await asyncio.to_thread(
+            runtime_flags.is_enabled, _PRON_SAMPLE_FLAG, False, on_error=False,
         )
+        pron_sample: PronSample | None = None
+        pron_task = None
+        if not pron_sample_on:
+            pron_task = asyncio.create_task(
+                _assess_pronunciation_safe(
+                    audio_bytes, audio_file.content_type, part=part, duration_sec=duration_sec,
+                    user_id=user_id, session_id=session_id,
+                    resource_type="question", resource_id=question_id,
+                )
+            )
+        elif part in _pron_one_per_session_parts() and not await _should_sample_pronunciation(
+            session_id, question_id, duration_sec, is_practice=(session_mode == "practice"),
+        ):
+            pron_sample = PronSample("not_sampled")   # no Azure call at all
+        else:
+            pron_task = asyncio.create_task(
+                _assess_pronunciation_sampled(
+                    audio_bytes, audio_file.content_type, duration_sec=duration_sec,
+                    sample_seconds=int(settings.PRON_SAMPLE_SECONDS),
+                    user_id=user_id, session_id=session_id,
+                    resource_type="question", resource_id=question_id,
+                )
+            )
 
         try:
             grading = await grading_task
@@ -898,10 +1077,17 @@ async def grade_response_endpoint(
         # Audit 2026-07-02 — await the Azure pronunciation task (never raises).
         pron_result: dict | None = None
         try:
-            pron_result = await pron_task
+            if pron_task is not None:
+                pron_out = await pron_task
+                if pron_sample_on:
+                    pron_result, pron_sample = pron_out
+                else:
+                    pron_result = pron_out
         except Exception as pron_exc:  # defensive — _assess_pronunciation_safe swallows
             logger.warning("[grading] pronunciation task unexpected error (silent skip): %s", pron_exc)
             pron_result = None
+        if pron_sample_on and pron_sample is None:
+            pron_sample = PronSample("full")   # the task itself failed: the whole clip was meant
 
         # Make Azure the authoritative P band (test mode) BEFORE the feedback blob
         # is serialized, so the persisted grade + the reload path agree. Returns
@@ -916,6 +1102,7 @@ async def grade_response_endpoint(
             try:
                 pron_detail = _merge_pronunciation_into_grading(
                     grading, pron_result, is_practice=(session_mode == "practice"),
+                    sample=pron_sample,
                 )
             except Exception as merge_exc:  # noqa: BLE001 — never block grading
                 logger.warning("[grading] pronunciation merge failed (non-fatal): %s", merge_exc)
@@ -989,8 +1176,13 @@ async def grade_response_endpoint(
             # single grade call (no fragile second round-trip). `status` is
             # "unavailable" (with band_p null upstream) when Azure didn't run.
             "pronunciation": pron_detail if pron_detail is not None else {
-                "status": "unavailable",
+                "status": (
+                    "not_sampled"
+                    if pron_sample is not None and pron_sample.scope == "not_sampled"
+                    else "unavailable"
+                ),
                 "provider": "azure",
+                **({"sample": pron_sample.as_dict()} if pron_sample is not None else {}),
             },
         }
 
@@ -1079,9 +1271,35 @@ async def grade_response_endpoint(
             if grading and session_mode != "practice" and grading.get("band_p") is not None:
                 db_row["final_band_p"]       = grading["band_p"]
                 db_row["final_overall_band"] = grading["overall_band"]
+        else:
+            # Ghi âm lại mà lần này Azure không chạy: `_upsert_response` chỉ ghi
+            # khoá có mặt, nên điểm phát âm và `pronunciation_status='completed'`
+            # của bản ghi CŨ ở lại; Full Test summary đọc các dòng `completed`
+            # nên học viên thấy chỉ số phát âm của lần trước cạnh band mới (CR
+            # #2696 trên B2-01). Bản ghi mới chỉ mang dữ liệu phát âm của chính nó.
+            for col in _PRONUNCIATION_CLEAR_COLUMNS:
+                db_row[col] = None
+
+        # FR-036 (G04-T13): with `pron_sample_window` on, always record what
+        # Azure heard — not_sampled included (migration 502). Outside
+        # _CORE_COLUMNS on purpose: the core-row fallback drops them when the
+        # schema lacks them. Flag off → not written (old behaviour).
+        if pron_sample is not None:
+            db_row["pronunciation_sample_scope"]   = pron_sample.scope
+            db_row["pronunciation_sample_start_s"] = pron_sample.start_s
+            db_row["pronunciation_sample_end_s"]   = pron_sample.end_s
 
         if grading:
             db_row["overall_band"] = grading["overall_band"]
+            # Ghi âm lại một câu từng có Azure, lần này Azure không chạy (không
+            # có khoá, lỗi, hoặc không lấy mẫu): `_upsert_response` chỉ ghi
+            # khoá CÓ MẶT, nên `final_*` của bản ghi CŨ ở lại, và
+            # `_compute_session_bands` ưu tiên `final_*` hơn `overall_band` ⇒
+            # học viên thấy điểm của lần ghi âm trước (báo cáo săn lỗi B2-01).
+            # Bản ghi âm mới chỉ được mang `final_*` do chính nó sinh ra.
+            if "final_overall_band" not in db_row:
+                db_row["final_overall_band"] = None
+                db_row["final_band_p"] = None
             # Pre-mint a stable rec_id (client UUID) on every grammar
             # recommendation BEFORE serializing the feedback blob, so the
             # persisted blob carries the SAME id later written to the
@@ -1155,7 +1373,7 @@ async def grade_response_endpoint(
         # Không nhét hai cột này vào `_CORE_COLUMNS`: chúng đến từ migration và
         # có thể vắng mặt, mà cả điểm của đường lùi là KHÔNG được hỏng thêm.
         # Xoá riêng ở đây, hỏng thì thôi — bản ghi của học viên đã an toàn.
-        if partial and response_id and not grading:
+        if partial and response_id and db_row.get("final_overall_band", 0) is None:
             try:
                 query = supabase_admin.table("responses").update(
                     {"final_overall_band": None, "final_band_p": None}
@@ -1167,6 +1385,27 @@ async def grade_response_endpoint(
                 logger.warning(
                     "[grading] không xoá được final_* của dòng chấm hỏng %s: %s",
                     response_id, exc)
+
+        # CR #2696: đường lùi cũng nuốt các lệnh xoá `pronunciation_*` của một
+        # lần ghi lại không có Azure ⇒ dòng còn `pronunciation_status='completed'`
+        # của bản trước và Full Test summary lấy lại điểm phát âm cũ. Xoá riêng,
+        # cùng chốt phiên bản (id + audio_storage_path vừa lưu). Cột có thể vắng
+        # (migration) ⇒ thử cả nhóm, hỏng thì ít nhất bỏ `pronunciation_status`
+        # (cột summary dùng để lọc); hỏng nữa thì thôi, bản ghi đã an toàn.
+        if partial and response_id and "pronunciation_status" in db_row \
+                and db_row["pronunciation_status"] is None:
+            path = db_row["audio_storage_path"]
+            stale = {k: None for k in _PRONUNCIATION_CLEAR_COLUMNS if k in db_row and db_row[k] is None}
+            for payload in (stale, {"pronunciation_status": None}):
+                try:
+                    query = supabase_admin.table("responses").update(payload).eq("id", response_id)
+                    query = query.eq("audio_storage_path", path) if path else query.is_("audio_storage_path", "null")
+                    await asyncio.to_thread(query.execute)
+                    break
+                except Exception as exc:
+                    logger.warning(
+                        "[grading] không xoá được %s của dòng ghi lại %s: %s",
+                        sorted(payload), response_id, exc)
 
         # ── Sprint 14.3 — orchestrator audit trail ───────────────────────────
         # Best-effort. Captures every provider attempt (success, retry,
@@ -1304,6 +1543,16 @@ async def grade_response_endpoint(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+# Cột phát âm của MỘT bản ghi: ghi âm lại không có Azure phải xoá cả nhóm
+# (CR #2696), ở bản ghi đủ cột lẫn ở bước dọn sau đường lùi core-row.
+_PRONUNCIATION_CLEAR_COLUMNS = (
+    "pronunciation_score", "pronunciation_fluency",
+    "pronunciation_accuracy", "pronunciation_completeness",
+    "pronunciation_status", "pronunciation_provider",
+    "pronunciation_locale", "pronunciation_payload",
+)
+
 
 def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
                                     session_id, question_id):

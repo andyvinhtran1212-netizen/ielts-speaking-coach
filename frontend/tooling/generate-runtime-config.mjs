@@ -21,8 +21,24 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { PRODUCTION_ORIGIN_MARKERS, resolveRuntimeOrigins } from './runtime-origins.mjs';
+import { EXAM_ROOM_SURFACES } from '../lib/exam-room/flags.mjs';
 
 const vercelEnv = process.env.VERCEL_ENV || '';
+
+// EXAMROOM-0066 FR-022 (option A): surfaces that render the shared exam room.
+// Comma-separated AVER_EXAM_ROOM_SURFACES; unknown names are dropped with a
+// warning so a typo never enables something else. Default: none.
+// The one list of surface names lives in lib/exam-room/flags.mjs (0066 amendment 1 (b)).
+const examRoomSurfaces = [];
+for (const raw of (process.env.AVER_EXAM_ROOM_SURFACES || '').split(',')) {
+  const name = raw.trim().toLowerCase();
+  if (!name) continue;
+  if (!EXAM_ROOM_SURFACES.includes(name)) {
+    console.warn(`runtime-config: ignoring unknown exam room surface "${name}"`);
+  } else if (!examRoomSurfaces.includes(name)) {
+    examRoomSurfaces.push(name);
+  }
+}
 
 const config = {
   ...resolveRuntimeOrigins(process.env),
@@ -33,6 +49,7 @@ const config = {
   // Separate strict admission protocol; requires 247–250, capture enrollment
   // and backend flag. Never infer activation from optional observation flags.
   writingAdmissionEnabled: process.env.AVER_WRITING_ADMISSION_ENABLED === 'true',
+  examRoomSurfaces,
 };
 
 if (vercelEnv && vercelEnv !== 'production') {
