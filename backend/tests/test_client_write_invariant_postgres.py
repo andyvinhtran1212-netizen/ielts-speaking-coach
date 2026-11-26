@@ -138,6 +138,11 @@ def _pre_320() -> str:
         rf"CREATE TABLE IF NOT EXISTS {table} \(.*?^\);",
         (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
         for filename, table in admin_tables)
+    # 445 (MOCKORG-0086) widens 154's exam_mode CHECK and refuses any other
+    # definition, so the mock_exams shape carries 154's column and CHECK verbatim.
+    exam_mode = re.search(
+        r"^ALTER TABLE mock_exams\s+ADD COLUMN IF NOT EXISTS exam_mode.*?END \$\$;",
+        (MIGRATIONS / "154_mock_exam_retake_mode.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
     admin_helpers = "\n".join(re.search(
         rf"CREATE OR REPLACE FUNCTION public.{helper}\(\).*?"
         r"\$\$ LANGUAGE plpgsql SECURITY DEFINER STABLE;",
@@ -417,6 +422,7 @@ def _pre_320() -> str:
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
         {admin_schema}
+        {exam_mode}
         -- 388's timed-start triggers read these (087, 146, 151/154, 280 columns).
         ALTER TABLE class_assignment_items ADD COLUMN timed_expires_at timestamptz;
         ALTER TABLE mock_exams ADD COLUMN listening_started_at timestamptz,
