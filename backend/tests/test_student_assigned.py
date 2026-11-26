@@ -1,11 +1,10 @@
 """LEARNERCORE-0063 amendment 3, T30a: GET /api/student/assigned.
 
-The list comes from the T13 wrapper over `_visible_assignments` (unchanged);
+The list comes from the T13 wrapper over `_visible_assignments`;
 these tests pin the four fields the service adds (`group`, `action`,
 `accepting`, `self_practice_available`), the pass-through of the base element
 and of `homework_stale`, the degraded path, the route, and the FR-103 write
-rule: the only writes are the two ledger reconcilers `_visible_assignments`
-calls itself.
+rule: the two ledger reconcilers can write only the caller's ledger items.
 """
 
 from __future__ import annotations
@@ -62,7 +61,7 @@ def _writing(item_id, *, due=None, submitted=None, status="pending", review_stat
 
 def _get(monkeypatch, rows, *, has_class=True, stale=False):
     monkeypatch.setattr(st, "_visible_assignments_for",
-                        lambda *_a: (has_class, rows, stale))
+                        lambda *_a, **_k: (has_class, rows, stale))
     return sa.get_assigned("u-1", "A", NOW)
 
 
@@ -248,7 +247,7 @@ def test_no_class(monkeypatch):
 
 
 def test_a_failed_list_read_is_degraded_not_empty(monkeypatch):
-    def boom(*_a):
+    def boom(*_a, **_k):
         raise RuntimeError("db down")
     monkeypatch.setattr(st, "_visible_assignments_for", boom)
     out = sa.get_assigned("u-1", "A", NOW)
@@ -259,9 +258,10 @@ def test_a_failed_list_read_is_degraded_not_empty(monkeypatch):
 def test_reads_only_the_callers_rows(monkeypatch):
     calls = []
     monkeypatch.setattr(st, "_visible_assignments_for",
-                        lambda uid, name, now: calls.append((uid, name, now)) or (True, [], False))
+                        lambda uid, name, now, *, reconcile_student_only:
+                        calls.append((uid, name, now, reconcile_student_only)) or (True, [], False))
     sa.get_assigned("u-1", "A", NOW)
-    assert calls == [("u-1", "A", NOW)]
+    assert calls == [("u-1", "A", NOW, True)]
 
 
 # ── FR-103: unreconciled data, and nothing but the reconcilers writes ─────────
@@ -270,11 +270,13 @@ def test_reads_only_the_callers_rows(monkeypatch):
 class _Res:
     def __init__(self, data):
         self.data = data
+        self.count = len(data)
 
 
 class _Q:
     def __init__(self, db, table):
         self.db, self.table, self.filters = db, table, []
+        self.update_values = None
 
     def select(self, *_a, **_k):
         return self
@@ -286,6 +288,12 @@ class _Q:
     def in_(self, f, vs):
         vs = {str(v) for v in vs}
         self.filters.append(lambda r: str(r.get(f)) in vs)
+        return self
+
+    def or_(self, expression):
+        # The fixture has no Black Eye papers.
+        assert self.table == "listening_tests" and not self.db.tables.get(self.table)
+        assert "metadata->blackeye.not.is.null" in expression
         return self
 
     def is_(self, f, _v):
@@ -315,11 +323,19 @@ class _Q:
         self.db.writes.append(self.table)
         return self
 
-    update = insert = upsert = delete = _write
+    insert = upsert = delete = _write
+
+    def update(self, values):
+        self.update_values = values
+        return self
 
     def execute(self):
-        rows = self.db.tables.get(self.table, [])
-        return _Res([r for r in rows if all(f(r) for f in self.filters)])
+        rows = [r for r in self.db.tables.get(self.table, []) if all(f(r) for f in self.filters)]
+        if self.update_values is not None:
+            self.db.writes.extend((self.table, row["id"]) for row in rows)
+            for row in rows:
+                row.update(self.update_values)
+        return _Res([dict(row) for row in rows])
 
 
 class _DB:
@@ -330,50 +346,70 @@ class _DB:
         return _Q(self, name)
 
 
-def test_unreconciled_reading_hand_in_lands_in_a_submitted_group():
-    """The Reading attempt is submitted but the ledger has not recorded it.
-    `_visible_assignments` reconciles first (one of its two allowed writes), so
-    the row is in a submitted group, not owed; no other table is written."""
+def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
+    import database
     from routers import class_student
+    from services import quiz_service
 
+    students = ["s1", "s2"]
+    finished = _iso(NOW - timedelta(hours=1))
     db = _DB({
-        "class_assignment_items": [{
-            "id": "item-r", "assignment_id": "a-r", "student_id": "s1",
-            "submitted_at": None, "state": "assigned", "score": None,
-        }],
-        "class_assignments": [{
-            "id": "a-r", "cohort_id": "c1", "skill": "reading", "status": "published",
-            "publish_at": None, "due_at": _iso(NOW + timedelta(days=1)),
-            "title": "Reading 1", "content_id": "t1", "content_config": {},
-        }],
-        "writing_assignments": [],
+        "students": [
+            {"id": student, "user_id": f"u-{number}", "cohort_id": "c1"}
+            for number, student in enumerate(students, start=1)
+        ],
+        "student_cohort_memberships": [
+            {"id": student, "student_id": student, "cohort_id": "c1", "is_active": True}
+            for student in students
+        ],
+        "class_assignment_items": [
+            {"id": f"{skill}-{student}", "assignment_id": skill, "student_id": student,
+             "submitted_at": None, "state": "assigned", "score": None}
+            for skill in ("reading", "course") for student in students
+        ],
+        "class_assignments": [
+            {"id": skill, "cohort_id": "c1", "skill": skill, "status": "published",
+             "publish_at": None, "due_at": _iso(NOW + timedelta(days=1)),
+             "title": skill, "content_id": bank, "content_config": {}}
+            for skill, bank in (("reading", "paper"), ("course", "bank"))
+        ],
+        "reading_test_attempts": [
+            {"id": f"attempt-{student}", "class_assignment_item_id": f"reading-{student}",
+             "status": "submitted", "submitted_at": finished, "band_estimate": 6}
+            for student in students
+        ],
+        "course_writing_submissions": [
+            {"id": f"essay-{student}", "class_assignment_item_id": f"course-{student}",
+             "graded_at": finished, "total": 8, "clean": True}
+            for student in students
+        ],
+        "quiz_questions": [{"id": "prompt", "bank_id": "bank", "qid": "prompt", "type": "writing"}],
     })
-    reconciled = []
-
-    def reconcile_tests(_sb, assignments):
-        reconciled.append("tests")
-        for row in db.tables["class_assignment_items"]:
-            row.update({"submitted_at": _iso(NOW - timedelta(hours=1)), "state": "submitted"})
-        return 1
-
-    def reconcile_course(_sb, ids):
-        reconciled.append("course")
-        return 0
-
     with patch.object(class_student, "supabase_admin", db), \
-         patch.object(class_student, "_student_for_user", return_value={"id": "s1", "cohort_id": "c1"}), \
-         patch("services.class_membership_service.active_cohort_ids_for_student", return_value=["c1"]), \
-         patch.object(class_student, "reconcile_test_attempts", reconcile_tests), \
-         patch.object(class_student, "reconcile_course_items", reconcile_course):
+         patch.object(quiz_service, "supabase_admin", db), \
+         patch.object(database, "supabase_admin", db):
         out = sa.get_assigned("u-1", "A", NOW)
+        replay = sa.get_assigned("u-1", "A", NOW)
 
-    assert reconciled == ["tests", "course"]
-    assert db.writes == [], "only the two reconcilers may write"
-    item = out["items"][0]
-    assert item["item_id"] == "item-r"
-    assert item["group"] == "returned"
-    assert item["action"] == "result"
+    items = _by_id(out)
+    assert set(items) == {"reading-s1", "course-s1"}
+    assert items["reading-s1"]["group"] == "returned"
+    assert items["reading-s1"]["action"] == "result"
+    assert all(item["submitted_at"] == finished for item in items.values())
     assert out["homework_stale"] is False
+    assert replay == out
+    assert db.writes == [
+        ("class_assignment_items", "reading-s1"),
+        ("class_assignment_items", "course-s1"),
+    ]
+
+    # Teacher-style batch calls still repair the other learner's pending items.
+    assert class_student.reconcile_test_attempts(db, db.tables["class_assignments"]) == 1
+    assert class_student.reconcile_course_items(db, ["course"]) == 1
+    assert db.writes[-2:] == [
+        ("class_assignment_items", "reading-s2"),
+        ("class_assignment_items", "course-s2"),
+    ]
 
 
 # ── route ─────────────────────────────────────────────────────────────────────
@@ -400,7 +436,7 @@ def api(monkeypatch):
 
 
 def test_route_matches_response_model(monkeypatch, api):
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (
+    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a, **_k: (
         True, [_row("x", "listening", due=NOW + timedelta(days=365))], False))
     res = api.get("/api/student/assigned", headers={"Authorization": "Bearer x"})
     assert res.status_code == 200, res.text

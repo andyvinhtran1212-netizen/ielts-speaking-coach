@@ -2,7 +2,7 @@
 
 The new "Bài được giao" page reads the same list as /api/class/my-assignments,
 through the T13 wrapper over ``routers.class_student._visible_assignments``
-(that function, ``_decorate`` and the hand-in rules are not changed here), and
+(using the same list selection, decoration and hand-in rules), and
 adds four fields per row so the page never derives them in the browser:
 
 - ``accepting``: does the server still take a hand-in for this row, by the rule
@@ -19,7 +19,7 @@ adds four fields per row so the page never derives them in the browser:
   "Tự luyện bài này"; until then the button stays hidden (tasks.md T30a).
 
 Read-only except for the ledger reconcile ``_visible_assignments`` performs
-itself (FR-103 exception, HOLD patch approved 23/11).
+for the caller's own items (FR-103 exception, HOLD patch approved 23/11).
 """
 
 from __future__ import annotations
@@ -167,7 +167,9 @@ def get_assigned(user_id: str, account_name: str, now: datetime) -> Dict[str, An
     degraded: List[str] = []
     has_class, items, stale = False, [], False
     try:
-        has_class, rows, stale = student_today._visible_assignments_for(user_id, account_name, now)
+        has_class, rows, stale = student_today._visible_assignments_for(
+            user_id, account_name, now, reconcile_student_only=True,
+        )
         items = decorate(rows, now)
     except Exception as exc:
         logger.warning("[student-assigned] list read failed user=%s: %s", user_id, exc)
