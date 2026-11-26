@@ -32,7 +32,7 @@ _PRODUCT_COLUMNS = (
 )
 _ENTITLEMENT_COLUMNS = (
     "id, user_id, product_id, course_id, source, status, starts_at, expires_at, credits_expire_at, "
-    "credits_closed_at, review_mode, created_at"
+    "credits_closed_at, review_mode, revoked_at, created_at"
 )
 # Same filter as the request-time gates, plus product_id: a code that carries a
 # product grants through its entitlements row, never as a legacy code.
@@ -53,6 +53,7 @@ class AccessItem:
     credits_usable_until: Optional[datetime] = None
     entitlement_id: Optional[str] = None
     product: Optional[dict] = field(default=None, compare=False)
+    revoked_at: Optional[datetime] = None   # retention (plan 5.14): a revoked row ends here
 
     @property
     def is_entitlement(self) -> bool:
@@ -176,6 +177,7 @@ def build_access(entitlement_rows: list[dict], products: dict[str, dict], member
             features=tuple(product.get("features") or ()),
             credits_usable_until=_credits_usable_until(row),
             entitlement_id=str(row.get("id")), product=product or None,
+            revoked_at=parse_ts(row.get("revoked_at")),
         ))
     # Plan 5.18: a course the user already holds an entitlements row for is not
     # listed again as a derived class membership.
