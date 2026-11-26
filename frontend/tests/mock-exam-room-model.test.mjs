@@ -4,6 +4,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  clearLocalCopy, localCopyKey, planLocalCopyReplay, readLocalCopy, removeAckedFromCopy,
+} from '../lib/exam-room/local-copy.mjs';
+import { MemoryStorage } from './fixtures/exam-room-fakes.mjs';
+import {
   legacyMockWritingKey, legacyRemovable, MOCK_SUBMIT_AUTO_RETRIES, mockSubmitOutcome, reconcileMockWritingCopy,
 } from '../lib/mock-exam-model.mjs';
 
@@ -149,18 +153,53 @@ test('a closed section keeps the legacy text when only the new key, which is bei
     server: { open: false, task1: 'x' }, ownerMatches: true,
   });
   assert.deepEqual([closed.clearCopy, closed.dropLegacy, closed.migrate, closed.ask], [true, [], [], []]);
-  // Still open, the same two device texts: the legacy key is a duplicate and goes.
+  // Still open, but replay chooses keepServer: neither device copy may go.
   const open = reconcileMockWritingCopy({
     copy: copy({ task1: { value: 'y', baseValue: '' } }), legacy: { task1: { text: 'y' } },
     server: { open: true, task1: 'x' }, ownerMatches: true,
   });
-  assert.deepEqual([open.clearCopy, open.dropLegacy], [false, ['task1']]);
-  // Closed, and the server holds exactly `y`: both may go.
-  const held = reconcileMockWritingCopy({
-    copy: copy({ task1: { value: 'y', baseValue: '' } }), legacy: { task1: { text: 'y' } },
-    server: { open: false, task1: 'y' }, ownerMatches: true,
-  });
-  assert.deepEqual([held.clearCopy, held.dropLegacy], [true, ['task1']]);
+  assert.deepEqual([open.clearCopy, open.dropLegacy, open.dropFromCopy], [false, [], []]);
+  // Open or closed, if the server holds exactly `y`, both may go.
+  for (const serverOpen of [true, false]) {
+    const held = reconcileMockWritingCopy({
+      copy: copy({ task1: { value: 'y', baseValue: '' } }), legacy: { task1: { text: 'y' } },
+      server: { open: serverOpen, task1: 'y' }, ownerMatches: true,
+    });
+    assert.deepEqual([held.clearCopy, held.dropLegacy, held.dropFromCopy], [!serverOpen, ['task1'], [{ q: 'task1', value: 'y' }]]);
+  }
+});
+
+test('keepServer replay keeps both Writing storage keys when their text matches but the server differs (FR-010)', () => {
+  for (const task of ['task1', 'task2']) {
+    for (const baseValue of ['', 'b']) {
+      const storage = new MemoryStorage();
+      const local = copy({ [task]: { value: 'y', baseValue } });
+      const scope = { surface: local.surface, ownerKey: local.ownerKey, attemptKey: local.attemptKey };
+      const newKey = localCopyKey(scope);
+      const oldKey = legacyMockWritingKey(scope.attemptKey, task);
+      storage.setItem(newKey, JSON.stringify(local));
+      storage.setItem(oldKey, 'y');
+      const before = readLocalCopy(storage, scope);
+      const replay = planLocalCopyReplay(before, { open: true, answers: { [task]: { value: 'x' } } });
+      assert.deepEqual(replay.keepServer, [task]);
+      assert.deepEqual(replay.drop, [{ q: task, value: 'y' }]);
+
+      const plan = reconcileMockWritingCopy({
+        copy: before, legacy: { [task]: { text: storage.getItem(oldKey) } },
+        server: { open: true, [task]: 'x' }, ownerMatches: true,
+      });
+      assert.deepEqual([plan.keepServer, plan.resend, plan.migrate, plan.dropLegacy, plan.dropFromCopy], [[task], [], [], [], []]);
+      // Apply the combined plan exactly as a storage consumer would.
+      if (plan.clearCopy) clearLocalCopy(storage, scope);
+      else removeAckedFromCopy(storage, { ...scope, entries: plan.dropFromCopy });
+      for (const droppedTask of plan.dropLegacy) storage.removeItem(legacyMockWritingKey(scope.attemptKey, droppedTask));
+
+      assert.notEqual(storage.getItem(newKey), null, 'the new copy key remains');
+      assert.notEqual(storage.getItem(oldKey), null, 'the legacy key remains');
+      assert.equal(storage.getItem(oldKey), 'y');
+      assert.deepEqual(readLocalCopy(storage, scope).answers[task], { value: 'y', baseValue });
+    }
+  }
 });
 
 test('an older copy entry without baseText asks instead of re-sending', () => {
