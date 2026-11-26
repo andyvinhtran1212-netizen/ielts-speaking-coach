@@ -30,7 +30,7 @@ per-attempt credit settlement (Andy 2026-11-23); 504, 506 and 507 are reserved; 
 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`, both from the reserve
 band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
-(383, 384, 385, 388, 389 and 502 present; 387 reserved; 386 abandoned; Andy,
+(383, 384, 385, 387, 388, 389 and 502 present; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
 504 is reserved for #2600 and 505 for COURSEACCESS-0055 G04-T10b,
 so the next new migration is `510`. The free numbers below 501 (bands 401–499
@@ -70,6 +70,13 @@ renewal (`carry_over`, `CREDIT_CARRY_PERCENT`) and lapses a carry after its hold
 entitlement with an open reservation and, in the sweep, a learner whose credit lock
 is busy. `fn_credit_grant_extra` writes one `grant_extra` row per request key and
 learner (the same key with other credits or reason is `request_key_conflict`). The rollback drops the two RPCs and keeps every row.
+`387` is `pending_feature class_credit_conversion` (COURSEACCESS-0055 T013 / G04-T15,
+spec label "388"), a group of its own, applied only after 383 and 384. One
+service_role-only RPC of plan 5.18, `fn_credit_convert_class`: it gives each active
+member of a legacy-code class one `class_conversion` entitlement (expiring with the
+live legacy code of that class the member holds) plus the credits the admin typed;
+no table or column, and access codes, assignments and memberships are only read.
+The rollback drops the RPC and keeps every row. `386` is left empty on purpose.
 `388` is `pending_feature single_session` (COURSEACCESS-0055 T009, spec label
 "384"): backend-only `learner_active_sessions` (one row per learner account: the
 Supabase Auth `session_id` in use, the session the last claim displaced, and a

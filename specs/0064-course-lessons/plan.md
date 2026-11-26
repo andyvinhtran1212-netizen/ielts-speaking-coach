@@ -23,9 +23,9 @@ Hợp đồng dưới đây lấy từ gói mục 5.4, 5.5 và đối chiếu v�
 
 ## Data and contracts
 
-### 5.1 Migration (T18, một file trong dải 420–439)
+### 5.1 Migration (T18, số 506 đã giữ chỗ trong `register.tsv`)
 
-Lấy số trống đầu tiên của dải lúc viết PR. Số 420 có thể đã thuộc `users.today_seen_at` của LEARNERCORE-0063. Thêm dòng `register.tsv` cùng PR. Có file rollback `backend/migrations/rollback/<số>_course_lessons.sql`. Rollback từ chối khi `course_lesson_progress` có dòng, trừ khi `aver.allow_course_lessons_rollback = 'on'`, theo mẫu rollback của mig 383.
+File là `506_course_lessons.sql`. Số 506 được giữ chỗ trong `register.tsv` ngày 23/11 (PR giữ số riêng); PR T18 đổi dòng đó từ `reserved` sang `present`. Dải 420–439 không dùng: 420 đã thuộc LEARNERCORE-0063 và 421 thuộc `review_notes_flag_once`. File tự bọc `BEGIN; SET LOCAL lock_timeout = '5s'; … COMMIT;` như mig 384, vì runner không bọc giao dịch (`apply_migrations.sh`). Có file rollback `backend/migrations/rollback/506_course_lessons.sql`. Rollback từ chối khi `course_lesson_progress` có dòng, trừ khi `aver.allow_course_lessons_rollback = 'on'`, theo mẫu rollback của mig 383.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.course_lessons (
@@ -89,7 +89,7 @@ Ràng buộc `course_lessons_preview_published` thực thi FR-048 ở DB.
 
 Quy tắc:
 - **Thứ tự kiểm:** tra `courses.code` (404) → `has_course_access` (lỗi → 503, sai → 403) → tra bài (404). Mã khoá hoặc bài lạ cho 404 trước 403 chỉ ở mức khoá. Với bài, kiểm quyền trước rồi mới tra bài, nên người không có quyền không dò được bài nào tồn tại.
-- **Phân biệt hết hạn:** `course_access_expired` khi `list_access` có quyền cho khoá đó nhưng đã quá `expires_at`. Khi đó trả kèm `can_renew`.
+- **Phân biệt hết hạn:** `course_access_expired` khi `list_access` có quyền cho khoá đó nhưng đã quá `expires_at`. Khi đó trả kèm `can_renew`, tính bằng `entitlements.can_renew(...)` từ `status`/`expires_at` của `list_access` và sản phẩm của khoá, như `me_access.py` đang làm. `AccessItem` không có trường `can_renew`.
 - **`practice`:** luôn `null` cho tới khi có spec đường tự học (câu hỏi mở 2). `has_practice` chỉ để Lộ trình hiện biểu tượng.
 - **Ghi tiến độ:**
   - `GET` chỉ đọc, không ghi gì (pytest đếm lời gọi ghi = 0). Mốc "đã mở" (`opened_at`) do frontend gửi sau khi trang bài đã vẽ: `PATCH` với `{video_position_seconds: <vị trí hiện tại>, opened: true}` đặt `opened_at = now()` (upsert dòng). Request bị huỷ trước khi vẽ thì không đổi `current`;
