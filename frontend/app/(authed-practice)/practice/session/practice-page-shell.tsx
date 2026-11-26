@@ -489,6 +489,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
             <p id="prep-cue-reflection" className="practice-cue-card__reflection text-sm italic">{view.prep.cueReflection}</p>
           </div>
           <p id="prep-instruction" className="practice-prep-instruction text-xs text-center mb-6">{view.prep.instruction}</p>
+          {room?.prepMic}
           <button id="prep-start-btn" type="button" className="btn-primary practice-icon-btn w-full py-4 text-base" style={{ display: view.prep.startButtonVisible ? '' : 'none' }} onClick={() => callPractice('goToRecording')}><Icon name="mic" />Bắt đầu ghi âm</button>
           <div id="inline-rec-section" style={{ display: view.prep.inlineRecordingVisible ? '' : 'none', marginTop: 16 }}>
             {room?.recorder}

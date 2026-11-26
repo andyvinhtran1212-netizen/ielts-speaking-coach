@@ -55,6 +55,9 @@ function TooShortReason({ value, mode }: { value: TooShort; mode: SpeakingRoomMo
 
 /** What the room adds inside the existing page; null slots draw nothing. */
 export type SpeakingRoomSlots = {
+  /** P1/P3 microphone box, above "Bắt đầu ghi âm" and outside the inline
+   *  recording section, so "Cho phép micro" shows before the recorder opens. */
+  prepMic: ReactNode;
   /** Above the P1/P3 recorder (inline recording section). */
   recorder: ReactNode;
   /** Above the Part 2 cue card start button. */
@@ -87,9 +90,16 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
   return {
     mode,
     slots: {
+      // P1/P3: `_showPrep()` hides the inline recording section until
+      // "Bắt đầu ghi âm" opens it and starts the recorder, so the microphone
+      // box sits outside that section (FR-003) and stays there while recording.
+      prepMic: activeState === 'prep' ? (
+        <div className="av2-root" data-room-slot="prep-mic" style={SLOT_STYLE}>
+          {micBox}
+        </div>
+      ) : null,
       recorder: activeState === 'prep' ? (
         <div className="av2-root" data-room-slot="recorder" style={SLOT_STYLE}>
-          {micBox}
           <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
           <TooShortReason value={tooShortOf(rec.tooShort)} mode={mode} />
         </div>
