@@ -515,6 +515,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
         </div>
 
         <div id="state-sheet" className={stateClass('sheet', 'state block-state flex-1 av-w-read py-8')}>
+          {room?.answerSheet}
           <div className="av-sheet__meter" id="sheet-meter" hidden={!view.sheet.meterVisible}>
             <div className="av-sheet__ticks" id="sheet-ticks" aria-hidden="true">
               {view.sheet.slots.map((slot: any) => <i data-state={slot.state} key={`meter:${slot.key}`} />)}

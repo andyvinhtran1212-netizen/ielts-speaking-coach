@@ -117,6 +117,47 @@ describe('flag on', () => {
     expect((screen.getByRole('button', { name: VI.micPendingButton }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('a multi-question assignment shows pending permission, silence and mic loss on the active sheet', () => {
+    const p = roomPlayer('sheet');
+    p.updateView('sheet', { slots: [0, 1].map((index) => ({
+      key: `question-${index}`, index, state: 'idle', cueBullets: [], band: null,
+      recordLabel: 'Ghi âm',
+    })), total: 2 });
+    p.updateView('mic', { state: 'pending' });
+    const { container } = shell(p);
+    const sheet = container.querySelector('#state-sheet.active') as HTMLElement;
+    const slot = within(sheet.querySelector('[data-room-slot="answer-sheet"]') as HTMLElement);
+    expect(slot.getByText(VI.micPending)).toBeTruthy();
+    expect((slot.getByRole('button', { name: VI.micPendingButton }) as HTMLButtonElement).disabled).toBe(true);
+    expect(container.querySelectorAll('[data-room-slot]')).toHaveLength(1);
+
+    vi.useFakeTimers();
+    act(() => {
+      p.updateView('mic', { state: 'granted' });
+      p.updateView('recording', { substate: 'recording', timer: '0:04', level: 0 });
+    });
+    expect(slot.getByRole('status').textContent).toContain('0:04');
+    act(() => { vi.advanceTimersByTime(SILENCE_MS + 100); });
+    expect(slot.getByRole('status').textContent).toContain(VI.recSilent);
+    act(() => {
+      p.updateView('mic', { state: 'not_found', lost: true });
+      p.updateView('recording', { substate: 'idle', level: null });
+    });
+    expect(slot.getByText(VI.micLost)).toBeTruthy();
+    expect(slot.getByText(VI.micNotFound)).toBeTruthy();
+    expect(slot.getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(slot.getByRole('status').textContent).toBe(VI.recReady);
+  });
+
+  it('the flag-off answer sheet adds no microphone or recording-status slot', () => {
+    const p = player('sheet');
+    p.updateView('mic', { state: 'not_found', lost: true });
+    const { container } = shell(p);
+    expect(container.querySelector('#state-sheet.active')).not.toBeNull();
+    expect(container.querySelector('[data-room-slot]')).toBeNull();
+    expect(screen.queryByText(VI.micLost)).toBeNull();
+  });
+
   it('Part 1 too short: the reason with the numbers practice.js sent, never an alert', () => {
     const p = roomPlayer();
     p.updateView('recording', { substate: 'recorded', tooShort: { part: 1, durationSeconds: 12, minSeconds: 15 } });
