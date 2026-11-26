@@ -2561,7 +2561,8 @@ export interface paths {
          * List Course Banks
          * @description Kho bài tập theo buổi của khoá mà lớp này thuộc về.
          *
-         *     Trả CẢ bộ không giao được kèm lý do — `already_given` là việc đã xong, còn
+         *     Trả CẢ bộ không giao được kèm lý do. `already_given` + `last_given_at` chỉ
+         *     là ghi chú (lớp đã từng nhận bộ này, vẫn giao lại được — `can_regive`), còn
          *     `question_count = 0` là việc CHƯA làm (nạp tệp JSONL của buổi ấy).
          */
         get: operations["list_course_banks_admin_cohorts__cohort_id__course_banks_get"];
@@ -3875,6 +3876,23 @@ export interface paths {
         };
         /** Get Instructor Learner */
         get: operations["get_instructor_learner_instructor_learners__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/speaking/mock-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mock Queue */
+        get: operations["mock_queue_admin_speaking_mock_queue_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8804,7 +8822,8 @@ export interface paths {
          *         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
          *         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
          *       - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
-         *       - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+         *       - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...};
+         *         lượt đã bỏ (`abandoned`) không vào lịch sử (EXAMLISTENT-0070 FR-012)
          *       - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
          *
          *     Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
@@ -9459,6 +9478,32 @@ export interface paths {
          *     payload back to the attempt row, and return the result.
          */
         post: operations["submit_listening_test_attempt_api_listening_tests_attempts__attempt_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abandon Listening Test Attempt
+         * @description EXAMLISTENT-0070 FR-012: abandon a self-selected Listening test.
+         *
+         *     200 ``{attempt_id, status: "abandoned"}``, also when repeated. 404 when the
+         *     attempt is not the caller's. 409 ``{"reason": ...}`` with
+         *     ``already_submitted``, ``not_self_selected`` (class item, mock sitting,
+         *     Black Eye unit) or ``resume_expired``. An abandoned attempt has no result;
+         *     "Start test" creates a new attempt.
+         */
+        post: operations["abandon_listening_test_attempt_api_listening_tests_attempts__attempt_id__abandon_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10665,25 +10710,22 @@ export interface paths {
         post?: never;
         /**
          * Admin Delete Reading Test
-         * @description Sprint 20.15 D2 — attempt-safe delete.
+         * @description Sprint 20.15 D2 — attempt-safe delete (archive only since HOLD #2702).
          *
-         *     Semantics (Code-authoritative per Lesson 9 "no workaround that
-         *     loses student data"):
-         *       • 0 attempts → HARD delete. Cascades through reading_passages →
-         *         reading_questions via the mig 086 FK chains. The reading_test_
-         *         attempts FK also cascades (mig 087) but there are no rows to
-         *         cascade through. Returns ``{"action": "deleted"}``.
-         *       • >0 attempts → SOFT delete. Sets `status='archived'` on the test
-         *         row. Passages + questions + attempts stay intact so any
-         *         in-flight student attempt can still resolve + so the admin's
-         *         historic-attempt views (Sprint 20.7 diagnostic, etc) keep
-         *         working. Student-facing endpoints already filter
-         *         `status='published'`, so archived = invisible to new starters.
-         *         Returns ``{"action": "archived", "attempts_preserved": N}``.
+         *     The route NEVER hard-deletes. It sets `status='archived'`; passages,
+         *     questions and attempts stay intact. Student-facing endpoints filter
+         *     `status='published'`, so archived = invisible to new starters.
          *
-         *     The student-facing GET (`reading_student.get_reading_test`) and the
-         *     list endpoint both filter `status='published'`, so a soft-delete is
-         *     effectively the same as removal from the student's POV.
+         *     Why no hard delete even at 0 attempts: starting an attempt
+         *     (`reading_student._start_reading_test_attempt_sync`) reads `published`
+         *     and INSERTs in two separate statements, and the count + cascade delete
+         *     here are separate statements too. Without one atomic lock shared by both
+         *     paths, a start that already passed its read could be cascade-deleted.
+         *     Archiving loses nothing.
+         *
+         *     Response shape is unchanged: ``{"action": "archived",
+         *     "attempts_preserved": N}`` (N may be 0). The admin UI already renders
+         *     `archived`.
          */
         delete: operations["admin_delete_reading_test_admin_reading_content_tests__test_id__delete"];
         options?: never;
@@ -13017,6 +13059,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library/writing-guides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Writing Guides
+         * @description Published guides in the four fixed groups (FR-020). A guide in two groups
+         *     appears in both with the same slug; a group with no guide is still listed
+         *     with ``items: []`` and the page hides it.
+         */
+        get: operations["list_writing_guides_api_library_writing_guides_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-guides/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Writing Guides Index
+         * @description ``[{slug, updated_at}]`` of every published guide, for the sitemap.
+         */
+        get: operations["writing_guides_index_api_library_writing_guides_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-guides/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Writing Guide
+         * @description One published guide: server-rendered HTML (raw HTML in the body is shown
+         *     as text), its table of contents, its groups, and prev/next within its first
+         *     group. ``updated_at`` is the last content edit (FR-023).
+         */
+        get: operations["get_writing_guide_api_library_writing_guides__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library/speaking": {
         parameters: {
             query?: never;
@@ -13474,6 +13580,50 @@ export interface paths {
         get: operations["section_progress_admin_mock_exams__exam_id__section_progress_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Audience
+         * @description MOCKORG-0086 FR-142: who sits this exam (flag mock_exam_audiences).
+         */
+        get: operations["get_audience_admin_mock_exams__exam_id__audience_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Audience
+         * @description Add classes / learners, refresh classes, edit rows, set the window.
+         */
+        patch: operations["update_audience_admin_mock_exams__exam_id__audience_patch"];
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule Exam
+         * @description MOCKORG-0086 FR-144: check what is missing, then publish.
+         */
+        post: operations["schedule_exam_admin_mock_exams__exam_id__schedule_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14430,7 +14580,8 @@ export interface paths {
          *     Writes nothing of its own, not even the seen cursor (FR-078). The only write
          *     is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
          *     amendment 3, #2484). Each part runs in its own worker; a failing part lands
-         *     in `degraded`.
+         *     in `degraded`. 404 while `learner_v2` is off for the caller, before any
+         *     read or reconcile runs.
          */
         get: operations["today_api_student_today_get"];
         put?: never;
@@ -14453,7 +14604,8 @@ export interface paths {
         /**
          * Today Seen
          * @description Advance the caller's "Vừa có kết quả" cursor (FR-078). Forward-only in
-         *     tuple order, idempotent; a future time or a malformed key is 422.
+         *     tuple order, idempotent; a future time or a malformed key is 422. 404 while
+         *     `learner_v2` is off for the caller.
          */
         post: operations["today_seen_api_student_today_seen_post"];
         delete?: never;
@@ -15236,6 +15388,11 @@ export interface components {
              * @enum {string}
              */
             exam_mode: "sequential" | "retake";
+            /**
+             * Exam Mode V2
+             * @enum {string}
+             */
+            exam_mode_v2: "live" | "self_paced";
             /** Is Open */
             is_open: boolean;
             /**
@@ -16342,6 +16499,41 @@ export interface components {
             name: string;
             /** Course Id */
             course_id?: string | null;
+        };
+        /** AudiencePatch */
+        AudiencePatch: {
+            /** Add Cohort Ids */
+            add_cohort_ids?: string[];
+            /** Add Student Ids */
+            add_student_ids?: string[];
+            /** Add Group Ids */
+            add_group_ids?: string[];
+            /**
+             * Refresh Cohorts
+             * @default false
+             */
+            refresh_cohorts: boolean;
+            /** Set */
+            set?: components["schemas"]["AudienceSetRow"][];
+            window?: components["schemas"]["AudienceWindow"] | null;
+        };
+        /** AudienceSetRow */
+        AudienceSetRow: {
+            /** User Id */
+            user_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Selected */
+            selected?: boolean | null;
+            /** Skills */
+            skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+        };
+        /** AudienceWindow */
+        AudienceWindow: {
+            /** Open From */
+            open_from?: string | null;
+            /** Open Until */
+            open_until?: string | null;
         };
         /**
          * AuditRunRequest
@@ -19115,7 +19307,7 @@ export interface components {
             private_content_copy: true;
             /**
              * Exam Mode
-             * @default sequential
+             * @default live
              */
             exam_mode: string;
             /** Listening Test Id */
@@ -19160,6 +19352,16 @@ export interface components {
              * @default true
              */
             post_test_capture_required: boolean;
+            /** Skills */
+            skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+            /** Allow Early Advance */
+            allow_early_advance?: boolean | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Draft State */
+            draft_state?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ExamPatch */
         ExamPatch: {
@@ -19201,6 +19403,16 @@ export interface components {
             web_explanation_content_version?: string | null;
             /** Post Test Capture Required */
             post_test_capture_required?: boolean | null;
+            /** Skills */
+            skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+            /** Allow Early Advance */
+            allow_early_advance?: boolean | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Draft State */
+            draft_state?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -21129,6 +21341,19 @@ export interface components {
             marks: components["schemas"]["LibraryMark"][];
         };
         /**
+         * ListeningAttemptAbandonResponse
+         * @description EXAMLISTENT-0070 FR-012: the attempt is closed with no result.
+         */
+        ListeningAttemptAbandonResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "abandoned";
+        };
+        /**
          * ListeningAttemptRequest
          * @description User POST /api/listening/attempts body.
          *
@@ -22271,6 +22496,45 @@ export interface components {
              * @default false
              */
             release_now: boolean;
+        };
+        /** MockQueue */
+        MockQueue: {
+            /** Items */
+            items: components["schemas"]["MockQueueItem"][];
+            /** Overdue Hours */
+            overdue_hours: number | null;
+        };
+        /** MockQueueExam */
+        MockQueueExam: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** MockQueueItem */
+        MockQueueItem: {
+            /** Sitting Id */
+            sitting_id: string;
+            exam: components["schemas"]["MockQueueExam"];
+            /** Name */
+            name: string;
+            cohort: components["schemas"]["MockQueueRef"] | null;
+            /** Submitted At */
+            submitted_at: string;
+            /** Waited Hours */
+            waited_hours: number;
+            /** Overdue */
+            overdue: boolean | null;
+            /** Flags */
+            flags: string[];
+            claimed_by: components["schemas"]["MockQueueRef"] | null;
+        };
+        /** MockQueueRef */
+        MockQueueRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** MyEssayDetailOut */
         MyEssayDetailOut: {
@@ -33937,6 +34201,39 @@ export interface operations {
             };
         };
     };
+    mock_queue_admin_speaking_mock_queue_get: {
+        parameters: {
+            query?: {
+                exam_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockQueue"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_admin_admin_search_post: {
         parameters: {
             query?: never;
@@ -43673,6 +43970,39 @@ export interface operations {
             };
         };
     };
+    abandon_listening_test_attempt_api_listening_tests_attempts__attempt_id__abandon_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningAttemptAbandonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_listening_test_attempt_api_listening_tests_attempts__attempt_id__get: {
         parameters: {
             query?: never;
@@ -49936,6 +50266,77 @@ export interface operations {
             };
         };
     };
+    list_writing_guides_api_library_writing_guides_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    writing_guides_index_api_library_writing_guides_index_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_writing_guide_api_library_writing_guides__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_speaking_api_library_speaking_get: {
         parameters: {
             query?: {
@@ -50743,6 +51144,109 @@ export interface operations {
         };
     };
     section_progress_admin_mock_exams__exam_id__section_progress_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_audience_admin_mock_exams__exam_id__audience_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_audience_admin_mock_exams__exam_id__audience_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AudiencePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schedule_exam_admin_mock_exams__exam_id__schedule_post: {
         parameters: {
             query?: never;
             header?: {

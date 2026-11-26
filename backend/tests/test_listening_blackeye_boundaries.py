@@ -29,6 +29,7 @@ SIDES = [
     ("patch", "review-flags", {"q_num": 1, "flagged": True, "expected_revision": 0, "operation_id": "00000000-0000-0000-0000-000000000003"}, 422),
     ("post", "renderer-affinity", {"renderer_affinity": "next"}, 503),
     ("post", "playback-started", {"playback_claim_id": "00000000-0000-0000-0000-000000000001"}, 503),
+    ("post", "abandon", None, 409),
     ("post", "post-test-capture", {"items": []}, 422),
     ("post", "items/1/events", {"event_id": "00000000-0000-0000-0000-000000000002", "event_name": "correction_result_seen"}, 422),
 ]
@@ -325,6 +326,7 @@ POST /admin/listening/tests/{test_id}/audio/assemble
 POST /admin/listening/tests/{test_id}/audio/full
 POST /admin/listening/tests/{test_id}/audio/section/{section_num}
 POST /admin/listening/tests/{test_id}/audit/run
+POST /api/listening/tests/attempts/{attempt_id}/abandon
 POST /api/listening/tests/attempts/{attempt_id}/check
 POST /api/listening/tests/attempts/{attempt_id}/playback-started
 POST /api/listening/tests/attempts/{attempt_id}/questions/{q_num}/reveal

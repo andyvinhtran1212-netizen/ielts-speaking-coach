@@ -554,7 +554,7 @@ def step_up_db(live_activation_gate, monkeypatch):
     TOKENS.clear()
     db = _DB()
     # services.credits: the grant-extra handler's own DB reads (G04-T12).
-    for module in (admin_module, activation_gate, credits_module, commerce_module):
+    for module in (admin_module, activation_gate, commerce_module, credits_module):
         monkeypatch.setattr(module, "supabase_admin", db)
     monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient([]))
     monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)

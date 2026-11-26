@@ -317,6 +317,23 @@ def test_code_page_holders_unknown_when_assignment_lookup_fails(monkeypatch):
     assert detail["association_lookup_failed"] is True and detail["access_holders"] is None
 
 
+def test_code_page_flags_a_failed_user_profile_lookup(monkeypatch):
+    # Báo cáo săn lỗi B1-18: lỗi tra bảng users từng bị nuốt, người dùng thật
+    # hiện với tên/email trống.
+    db = _DB(CODE, ASSIGNMENTS, fail={"users.select"})
+    _wire(monkeypatch, db)
+    detail = _run(admin_module.get_access_code_detail("c1", authorization="Bearer t"))
+    assert detail["user_lookup_failed"] is True
+    assert detail["association_lookup_failed"] is False
+
+
+def test_code_page_user_lookup_ok_is_false(monkeypatch):
+    db = _DB(CODE, ASSIGNMENTS)
+    _wire(monkeypatch, db)
+    detail = _run(admin_module.get_access_code_detail("c1", authorization="Bearer t"))
+    assert detail["user_lookup_failed"] is False
+
+
 @pytest.mark.parametrize("used", [{"is_used": True, "used_by": None}, {"is_used": False, "used_by": "legacy"}])
 def test_plain_delete_refuses_a_used_code(monkeypatch, used):
     # FR-055: a used code is revoked only through the danger zone.

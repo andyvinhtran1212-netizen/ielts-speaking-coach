@@ -5,7 +5,8 @@ with its events, and the three admin actions (confirm, request-info,
 cancel). Each action is one 384 RPC, which writes the event row and the
 learner letter in the same transaction. ``POST /admin/credits/grant-extra``
 (G04-T12, plan 5.15) grants extra credits through 385's RPC. Products,
-entitlements and the other credit routes (G04-T05) join this router later.
+entitlements, a learner's access and credits, and credit adjustments
+(G04-T05) are further down.
 
 Every handler awaits ``require_admin`` as its first statement
 (``tests/test_staff_guard_inventory.py``). The actions are not step-up
@@ -398,7 +399,7 @@ async def cancel(body: AdminCancel, order_id: str = Path(pattern=_UUID),
 # comes from the normalized body only, before any database call.
 # ═════════════════════════════════════════════════════════════════════════════
 
-CREDIT_STEP_UP_THRESHOLD = 50
+CREDIT_STEP_UP_THRESHOLD = credits.CREDIT_STEP_UP_THRESHOLD  # Q13: one constant (services.credits)
 
 _ADMIN_UNAVAILABLE = "Chưa xử lý được yêu cầu. Vui lòng thử lại."
 _PRODUCT_COLUMNS = (
