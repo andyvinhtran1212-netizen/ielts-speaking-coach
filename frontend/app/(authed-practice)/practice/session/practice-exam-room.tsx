@@ -19,10 +19,10 @@ import {
 import { MicStatus, micState } from './mic-status';
 import { RecordingStatus, type RecordingSubstate } from './recording-status';
 
-export function callApp(method: string) {
+export function callApp(method: string, ...args: unknown[]) {
   const app = (window as any).PracticeApp;
   if (!app || typeof app[method] !== 'function') return undefined;
-  return app[method]();
+  return app[method](...args);
 }
 
 /** "m:ss" counting up; "h:mm:ss" past an hour. */

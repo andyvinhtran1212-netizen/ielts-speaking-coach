@@ -219,13 +219,14 @@ test('actual Next bridge completes with durable retry hints while shared practic
     ts.forEachChild(node, find);
   };
   find(practiceAst); assert.ok(adapter);
+  // EXAMSPEAK-0072 FR-010: the adapter reads the exam-room flag; off here, so the calls are as before.
   const legacy = { patch: (...args) => { calls.push(args); return Promise.resolve('legacy'); } };
-  const complete = new Function('window', '_getNativeSubmission', `${adapter}; return _completeSpeakingSession;`)({ api: legacy }, () => null);
+  const complete = new Function('window', '_getNativeSubmission', `var _examRoomMode = false; ${adapter}; return _completeSpeakingSession;`)({ api: legacy }, () => null);
   assert.equal(await complete(sessionId), 'legacy');
   assert.deepEqual(calls.at(-1), [`/sessions/${sessionId}/complete`, {}]);
 
   const attempted = [], failures = [];
-  const failing = new Function('_getNativeSubmission', `${adapter}; return _completeSpeakingSession;`)(
+  const failing = new Function('_getNativeSubmission', `var _examRoomMode = false; ${adapter}; return _completeSpeakingSession;`)(
     () => ({ complete: id => { attempted.push(id); throw Error(`sync failure ${id}`); } }),
   );
   await Promise.all(['part-1', 'part-2', 'part-3'].map(id => failing(id).catch(error => failures.push(error.message))));

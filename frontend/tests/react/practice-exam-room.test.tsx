@@ -1,7 +1,7 @@
 // EXAMSPEAK-0072 T001 (G08-T18) FR-001, FR-003, FR-004, FR-005, FR-011: the
 // Speaking page with the exam room flag off (unchanged) and on (focus bar,
 // microphone cases, recording state in words, too-short reason in the page).
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MicStatus, type MicState } from '@/app/(authed-practice)/practice/session/mic-status';
@@ -187,6 +187,144 @@ describe('flag on', () => {
     shell(p);
     expect(screen.getByText(EN.micNotFound)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Leave test/ })).toBeTruthy();
+  });
+});
+
+describe('flag on: boxes in the page (FR-006–FR-008, FR-010, FR-012)', () => {
+  beforeAll(() => {
+    const proto = HTMLDialogElement.prototype as HTMLDialogElement & { showModal: () => void; close: () => void };
+    proto.showModal = vi.fn(function (this: HTMLDialogElement) { this.setAttribute('open', ''); });
+    proto.close = vi.fn(function (this: HTMLDialogElement) { this.removeAttribute('open'); });
+  });
+  beforeEach(() => { vi.spyOn(window, 'confirm').mockImplementation(() => true); });
+
+  function app(extra: Record<string, unknown> = {}) {
+    const calls: unknown[][] = [];
+    const record = (name: string) => (...args: unknown[]) => { calls.push([name, ...args]); return false; };
+    (window as any).PracticeApp = {
+      hasUnsavedWork: () => true,
+      requestLeave: record('requestLeave'),
+      confirmLeave: record('confirmLeave'),
+      confirmRerecord: record('confirmRerecord'),
+      confirmSubmitWithUnsent: record('confirmSubmitWithUnsent'),
+      ...extra,
+    };
+    return calls;
+  }
+
+  function roomWith(dialog: Record<string, unknown> | null, sessionMode = 'practice') {
+    const p = player('prep');
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: sessionMode });
+    if (dialog) p.updateView('dialog', dialog);
+    return { p, ...shell(p) };
+  }
+
+  it('re-record: "Giữ bản ghi" is the primary, focused way; each answer goes to practice.js', async () => {
+    const calls = app();
+    roomWith({ kind: 'rerecord', unsent: 1 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.rerecordTitle)).toBeTruthy();
+    const keep = within(box).getByRole('button', { name: VI.rerecordKeep });
+    await waitFor(() => expect(document.activeElement).toBe(keep));
+    fireEvent.click(keep);
+    fireEvent.click(within(box).getByRole('button', { name: VI.rerecordDiscard }));
+    expect(calls).toEqual([['confirmRerecord', false], ['confirmRerecord', true]]);
+  });
+
+  it('leave box from a link: "Ở lại" first, "Bỏ bản ghi và thoát" leaves', async () => {
+    const calls = app();
+    roomWith({ kind: 'leave', unsent: 2 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.leaveTitle)).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(within(box).getByRole('button', { name: VI.leaveStay })));
+    fireEvent.click(within(box).getByRole('button', { name: VI.leaveGo }));
+    expect(calls).toEqual([['confirmLeave', true]]);
+  });
+
+  it('a link in the page with unsent work asks practice.js first, and Next never sees the click', () => {
+    const calls = app();
+    const { container } = roomWith(null);
+    const link = container.querySelector('#state-error a') as HTMLAnchorElement;
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    link.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(calls).toEqual([['requestLeave', '/speaking']]);
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+
+  it('a link with nothing unsent goes through untouched', () => {
+    const calls = app({ hasUnsavedWork: () => false });
+    const { container } = roomWith(null);
+    const link = container.querySelector('#state-error a') as HTMLAnchorElement;
+    link.addEventListener('click', (e) => e.preventDefault()); // keep jsdom on the page
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    link.dispatchEvent(event);
+    expect(calls).toEqual([]);
+  });
+
+  it('"‹ Thoát" with unsent work: the bar\'s box says so in the room\'s words', () => {
+    app();
+    roomWith(null);
+    fireEvent.click(screen.getByRole('button', { name: /Thoát/ }));
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.leaveTitle)).toBeTruthy();
+    expect(within(box).getByRole('button', { name: VI.leaveStay })).toBeTruthy();
+    expect(within(box).getByRole('button', { name: VI.leaveGo })).toBeTruthy();
+  });
+
+  it('submit with failed re-records: the count, "Gửi lại bản ghi" first, "Vẫn nộp" second', async () => {
+    const calls = app();
+    roomWith({ kind: 'submit', unsent: 1 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText('Còn 1 bản ghi mới chưa gửi được')).toBeTruthy();
+    expect(within(box).getByText(VI.submitBody)).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(within(box).getByRole('button', { name: VI.submitRetry })));
+    fireEvent.click(within(box).getByRole('button', { name: VI.submitAnyway }));
+    expect(calls).toEqual([['confirmSubmitWithUnsent', 'submit']]);
+  });
+
+  it('401 with an unsent take: only "Ở lại làm tiếp", no sign-in and no way to drop the take (FR-010)', () => {
+    const calls = app();
+    const href = window.location.href;
+    roomWith({ kind: 'expired', unsent: 1 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.expiredUnsent)).toBeTruthy();
+    const buttons = within(box).getAllByRole('button').filter((b) => b.textContent !== VI.close && b.getAttribute('aria-label') !== VI.close);
+    expect(buttons.map((b) => b.textContent)).toEqual([VI.expiredStay]);
+    expect(within(box).queryByRole('button', { name: VI.expiredSignIn })).toBeNull();
+    expect(within(box).queryByRole('link')).toBeNull();
+    fireEvent.click(within(box).getByRole('button', { name: VI.expiredStay }));
+    expect(calls).toEqual([['confirmLeave', false]]);
+    expect(window.location.href).toBe(href);
+  });
+
+  it('401 with an unsent take in a full test: only "Stay"', () => {
+    app();
+    roomWith({ kind: 'expired', unsent: 2 }, 'test_full');
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByRole('button', { name: EN.expiredStay })).toBeTruthy();
+    expect(within(box).queryByRole('button', { name: EN.expiredSignIn })).toBeNull();
+  });
+
+  it('401 with nothing unsent: only "Đăng nhập lại"', () => {
+    app();
+    roomWith({ kind: 'expired', unsent: 0 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getAllByRole('button').filter((b) => b.textContent === VI.expiredSignIn)).toHaveLength(1);
+    expect(within(box).queryByText(VI.expiredUnsent)).toBeNull();
+  });
+
+  it('a full test asks in English', () => {
+    app();
+    roomWith({ kind: 'rerecord', unsent: 1 }, 'test_full');
+    expect(screen.getByText(EN.rerecordTitle)).toBeTruthy();
+  });
+
+  it('no box, no dialog; and the old confirm/alert are never used', () => {
+    app();
+    roomWith(null);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(window.confirm).not.toHaveBeenCalled();
   });
 });
 

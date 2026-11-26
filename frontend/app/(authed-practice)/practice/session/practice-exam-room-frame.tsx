@@ -20,6 +20,7 @@ import { speakingRoomStrings, type SpeakingRoomMode } from '@/lib/exam-room/stri
 import { av2FontClass } from '@/styles/av2/fonts';
 
 import { callApp, elapsedClock } from './practice-exam-room';
+import { SpeakingRoomDialogs, dialogKind, useSpeakingLinkGuard } from './speaking-room-dialogs';
 
 function useElapsed(running: boolean): number {
   const [seconds, setSeconds] = useState(0);
@@ -80,12 +81,22 @@ export function PracticeExamRoom({
   const info = view.header?.visible && view.header.info ? String(view.header.info).replace(/\s*·\s*$/, '').trim() : '';
   const detail = info || undefined;
   const progress = view.header?.visible && view.header.progress ? String(view.header.progress) : '';
+  // FR-007: "‹ Thoát" with unsent recordings says so; the exam bar always asks,
+  // so its words depend on what was unsent when the box opened.
+  const [unsentAtOpen, setUnsentAtOpen] = useState(mode !== 'test');
+  const unsentCopy = { title: strings.leaveTitle, body: strings.leaveBody, stayLabel: strings.leaveStay, leaveLabel: strings.leaveGo };
+  useSpeakingLinkGuard(true);
   return (
     <div className={av2FontClass} style={FONT_STACKS} data-speaking-room-root="">
       <FocusShell
         mode={mode === 'test' ? 'exam' : 'practice'}
         // Speaking has no server timer (open question 3): never say it keeps running.
-        leaveCopy={mode === 'test' ? { lead: undefined } : undefined}
+        leaveCopy={mode === 'test'
+          ? (unsentAtOpen ? { ...unsentCopy, lead: undefined } : { lead: undefined })
+          : unsentCopy}
+        onLeaveOpen={() => setUnsentAtOpen(callApp('hasUnsavedWork') === true)}
+        // The learner chose to drop the unsent takes; the bar navigates itself.
+        onLeave={() => { callApp('confirmLeave', true); }}
         title={title}
         detail={detail}
         exitHref={returnHref}
@@ -99,6 +110,10 @@ export function PracticeExamRoom({
       >
         <div className="flex-1 flex flex-col" data-exam-room-speaking>{children}</div>
       </FocusShell>
+      {/* The boxes are dialogs on the top layer; they sit outside the body, inside the room's fonts. */}
+      <div className="av2-root">
+        <SpeakingRoomDialogs kind={dialogKind(view.dialog?.kind)} unsent={Number(view.dialog?.unsent) || 0} mode={mode} />
+      </div>
     </div>
   );
 }
