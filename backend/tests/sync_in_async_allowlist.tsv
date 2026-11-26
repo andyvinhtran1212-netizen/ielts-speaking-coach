@@ -152,7 +152,7 @@ routers/admin_class_assignments.py::delete_assignment::db.execute	1	G6	Existing 
 routers/admin_class_assignments.py::list_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_class_assignments.py::list_assignments::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::list_assignments::services.class_assignment_service.progress_for_assignments	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
-routers/admin_class_assignments.py::list_course_banks::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_course_banks::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_class_assignments.py::list_course_banks::routers.admin_class_assignments._cohort_course_id	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::list_course_banks::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::list_course_banks::services.class_assignment_service._paged	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
@@ -160,10 +160,10 @@ routers/admin_class_assignments.py::list_lesson_set_questions::db.execute	1	G6	E
 routers/admin_class_assignments.py::list_lesson_set_questions::routers.admin_class_assignments._cohort_course_id	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::list_lesson_set_questions::routers.admin_class_assignments._lesson_set_questions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::list_lesson_set_questions::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
-routers/admin_class_assignments.py::list_speaking_lesson_sets::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_speaking_lesson_sets::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_class_assignments.py::list_speaking_lesson_sets::routers.admin_class_assignments._cohort_course_id	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::list_speaking_lesson_sets::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
-routers/admin_class_assignments.py::list_speaking_topics::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_speaking_topics::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_class_assignments.py::list_speaking_topics::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_class_assignments.py::list_topic_questions::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_class_assignments.py::list_topic_questions::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.

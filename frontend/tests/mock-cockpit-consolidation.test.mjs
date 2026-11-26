@@ -21,12 +21,22 @@ const pub = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8'
 
 const HUB = pub('pages', 'admin', 'index.html');
 const app = (...p) => readFileSync(join(__dirname, '..', 'app', ...p), 'utf8');
-const COCKPIT = app('(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
+const COCKPIT = app('(authed-admin)', '(mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
 const COCKPIT_MODEL = readFileSync(join(__dirname, '..', 'lib', 'admin-mock-tests-model.mjs'), 'utf8');
 const LIBRARY = app('(authed-admin)', '(mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
 const LIVE = app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
 const COCKPIT_HTML = pub('pages', 'admin', 'mock-tests', 'index.html');
-const EMBED = pub('js', 'admin-embed.js');
+// LEGACYJS-0075 W4a: admin-embed.js is deleted. The Next owners of the three
+// embedded pages read ?embed=1 themselves and drop their own hero/heading.
+const EMBEDDED_OWNERS = {
+  'mock-exams': app('(authed-admin)', '(mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx'),
+  'mock-live': app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx'),
+  'mock-reviews': app('(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'),
+};
+const EMBED_PAGES = {
+  'mock-live': app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'page.tsx'),
+  'mock-reviews': app('(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'page.tsx'),
+};
 
 const MOCK_PAGES = ['mock-exams', 'mock-live', 'mock-reviews'];
 
@@ -61,7 +71,7 @@ describe('một lối vào duy nhất', () => {
 
 describe('chrome nhúng — không lộ tiêu đề lần hai', () => {
   test('helper dùng chung, không ba bản sao', () => {
-    assert.match(EMBED, /classList\.add\('is-embedded'\)/);
+    // Retired fixtures still load the shared helper (ADR-005).
     for (const p of MOCK_PAGES) {
       assert.match(pub('pages', 'admin', p, 'index.html'), /\/js\/admin-embed\.js/, p);
     }
@@ -91,9 +101,15 @@ describe('chrome nhúng — không lộ tiêu đề lần hai', () => {
   });
 
   test('mở trực tiếp thì KHÔNG ẩn gì', () => {
-    // Every page must still work standalone — the class is only added when the
+    // Every page must still work standalone — the hero is only dropped when the
     // query param says so.
-    assert.match(EMBED, /get\('embed'\) !== '1'\) return;/);
+    assert.match(EMBEDDED_OWNERS['mock-exams'], /const embedded = searchParams\?\.get\('embed'\) === '1'/);
+    for (const [p, page] of Object.entries(EMBED_PAGES)) {
+      assert.match(page, /params\.embed === '1'/, p);
+    }
+    for (const [p, src] of Object.entries(EMBEDDED_OWNERS)) {
+      assert.match(src, /\{!embedded && <>/, p);
+    }
   });
 });
 

@@ -35,6 +35,9 @@ test('isV2Path agrees with isV2Route on every registry route and its variants', 
   assert.equal(isV2Path('/library/speaking/a-city-part-2'), true);
   assert.equal(isV2Path('/library/speaking/a-city-part-2/'), true);
   assert.equal(isV2Path('/library/speaking/a/b'), false);
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai'), true);
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai/'), true);
+  assert.equal(isV2Path('/library/writing-guides/a/b'), false);
 });
 
 test('the navigation bridge reads the slim list, not the registry', async () => {
