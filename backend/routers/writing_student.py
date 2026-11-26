@@ -1874,6 +1874,11 @@ async def submit_my_assignment(
         # by user_id = auth.uid().
         raise HTTPException(403, "Tài khoản chưa được link với học viên đầy đủ.")
 
+    # W-03 — tài khoản bị khoá không được nộp (báo cáo săn lỗi B2-16). Các
+    # route khác đi qua require_writing_permission; route này tự kiểm quyền
+    # bên dưới nên phải tự gọi chốt tài khoản.
+    await asyncio.to_thread(activation_gate.ensure_account_active, user_id)
+
     # Sprint 5.2 — Writing permission gate. Self-submit path: the student
     # is the essay owner, so we check their own access-code permissions.
     # Admin path is gated symmetrically in routers/admin_writing.py;

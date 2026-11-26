@@ -317,6 +317,8 @@ export function normalizeCodeDetail(value) {
     assigned_users: assignedUsers,
     assigned_user_count: assignedUsers.filter((user) => user.is_active || user.is_fallback_used_by).length,
     access_holders: holders,
+    // Tra tên/email lỗi: người dùng vẫn thật, chỉ chưa đọc được hồ sơ.
+    user_lookup_failed: row.user_lookup_failed === true,
   };
 }
 

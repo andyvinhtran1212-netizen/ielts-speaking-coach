@@ -286,7 +286,7 @@ function TrueFalseExercise({ bundle, answers, result, disabled, onAnswer }: any)
     return <li className={detail ? (detail.isCorrect ? 'is-correct' : 'is-incorrect') : ''} key={statement.idx}>
       <div className="lse-item-title"><span>{index + 1}</span><p>{statement.text}</p></div>
       <fieldset disabled={disabled}><legend className="sr-only">Đáp án câu {index + 1}</legend>{Object.entries(TF_LABELS).map(([value, label]) => <label className={answers[index] === value ? 'is-selected' : ''} key={value}><input type="radio" name={`tf-${statement.idx}`} value={value} checked={answers[index] === value} onChange={() => onAnswer(index, value)} /><span>{label}</span></label>)}</fieldset>
-      {detail ? <p className="lse-result-note">{detail.isCorrect ? `✓ Đúng — đáp án ${detail.expected}` : `✗ Sai — bạn chọn ${detail.actual || '(trống)'} · đáp án ${detail.expected}`}</p> : null}
+      {detail ? <p className="lse-result-note">{detail.isCorrect ? '✓ Đúng' : `✗ Sai — bạn chọn ${detail.actual || '(trống)'}`}</p> : null}
     </li>;
   })}</ol>;
 }

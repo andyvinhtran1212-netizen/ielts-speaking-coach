@@ -125,6 +125,46 @@ async def _emit_abandoned_exams(current: _Observation) -> None:
             group.create_task(worker())
 
 
+async def record_explicit_exam_abandonment(
+    rows, *, surface: str, attempt_id: str, test_id: str, user_id: str,
+) -> None:
+    """Receipt for an explicit abandon route (EXAMLISTENT-0070 FR-012).
+
+    Writes the same receipt that start-over writes through
+    ``note_abandoned_exam_attempts``: an ``outcome_observed``/``abandoned``
+    event on the old attempt. It takes its evidence only from the one row that
+    the owned conditional UPDATE acknowledged. A repeated abandon has no row
+    and writes no receipt. Like the start-over receipt, it runs after the
+    learner write has committed, under its own 0.5 s budget. A gap is logged
+    and never fails the request.
+    """
+    if not settings.CORE_ATTEMPT_EVIDENCE_ENABLED or surface not in {"reading_exam", "listening_test"}:
+        return
+    current = _Observation(surface, "start")
+    try:
+        expected_id, expected_test, expected_user = UUID(attempt_id), UUID(test_id), UUID(user_id)
+        if not isinstance(rows, list) or len(rows) != 1:
+            raise ValueError("unavailable return set")
+        row = rows[0]
+        if (not isinstance(row, dict) or row.get("status") != "abandoned"
+                or UUID(row["id"]) != expected_id or UUID(row["test_id"]) != expected_test
+                or UUID(row["user_id"]) != expected_user):
+            raise ValueError("unverified abandoned row")
+        renderer = row.get("renderer_affinity")
+        if renderer not in {None, "legacy", "next"}:
+            raise ValueError("invalid renderer")
+    except Exception:
+        logger.warning("core_exam_abandonment_unverified surface=%s operation_id=%s", surface, current.operation_id)
+        return
+    current.abandoned_exams[expected_id] = renderer
+    try:
+        async with asyncio.timeout(0.5):
+            await _emit_abandoned_exams(current)
+    except Exception:
+        logger.error("core_attempt_observation_unavailable surface=%s operation=%s component=abandonment",
+                     surface, current.operation)
+
+
 def note_abandoned_dictation_attempt(result, *, attempt_id: str, test_id: str, user_id: str, section_num: int) -> None:
     """Observe only the acknowledged retirement of one owned section parent.
 
