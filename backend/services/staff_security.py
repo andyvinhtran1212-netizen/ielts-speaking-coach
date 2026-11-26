@@ -302,15 +302,32 @@ def set_auth_ban(auth_admin: Any, user_id: str, *, banned: bool) -> None:
     )
 
 
-async def delete_auth_sessions(engine: Any, user_id: str) -> int:
+async def delete_auth_sessions(engine: Any, user_id: str, *, conn: Any = None) -> int:
     """Delete every GoTrue session of ``user_id``; refresh tokens cascade.
     Runs on the direct ``postgres`` connection (``service_role`` has no
-    privilege on ``auth.sessions``)."""
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            text("DELETE FROM auth.sessions WHERE user_id = CAST(:uid AS uuid)"),
-            {"uid": user_id},
-        )
+    privilege on ``auth.sessions``); pass ``conn`` to run inside the caller's
+    transaction."""
+    sql = text("DELETE FROM auth.sessions WHERE user_id = CAST(:uid AS uuid)")
+    if conn is not None:
+        result = await conn.execute(sql, {"uid": user_id})
+    else:
+        async with engine.begin() as own:
+            result = await own.execute(sql, {"uid": user_id})
+    return int(result.rowcount or 0)
+
+
+async def delete_other_auth_sessions(engine: Any, user_id: str, keep_session_id: str, *, conn: Any = None) -> int:
+    """Delete every GoTrue session of ``user_id`` except ``keep_session_id``
+    (COURSEACCESS-0055 single-session claim). Same direct connection as
+    :func:`delete_auth_sessions`; pass ``conn`` to run inside the caller's
+    transaction."""
+    sql = text("DELETE FROM auth.sessions WHERE user_id = CAST(:uid AS uuid) AND id <> CAST(:sid AS uuid)")
+    params = {"uid": user_id, "sid": keep_session_id}
+    if conn is not None:
+        result = await conn.execute(sql, params)
+    else:
+        async with engine.begin() as own:
+            result = await own.execute(sql, params)
     return int(result.rowcount or 0)
 
 

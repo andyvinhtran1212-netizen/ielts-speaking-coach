@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { AdminClassHomework } from '@/app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-homework';
+import { AdminClassHomework } from '@/app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-homework';
 
 afterEach(cleanup);
 

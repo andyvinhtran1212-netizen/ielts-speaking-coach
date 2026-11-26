@@ -157,7 +157,7 @@ export function VocabExamBehavior() {
             {family.lists.map((list) => (
               <a
                 className="mode-card"
-                href={`/flashcard-study?stack=examlist:${encodeURIComponent(list.slug)}`}
+                href={`/vocabulary/flashcards/study?stack=examlist:${encodeURIComponent(list.slug)}`}
                 key={list.slug}
               >
                 <div className="head">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { Dialog } from '@/components/admin-directory-ui';
+import { QuickSearchButton } from '@/components/staff-quick-search';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { postBrowserJsonAt } from '@/lib/browser-api';
@@ -482,6 +483,8 @@ export function InstructorDashboard() {
       <header className="ins-top">
         <a href="/home" className="ins-brand">Aver<span>.</span>Learning</a>
         <span className="ins-role">Giảng viên</span>
+        {/* Beside the brand, not in the actions row: at 360px that row holds four items (PC-J580). */}
+        <QuickSearchButton className="ins-top__search" />
         <div className="ins-top__actions">
           <a href="/home">← Về trang học</a>
           <button type="button" onClick={() => void refresh()} disabled={!!pending}>{pending === 'refresh' ? 'Đang tải…' : 'Làm mới'}</button>

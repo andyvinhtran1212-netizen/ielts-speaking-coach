@@ -39,3 +39,22 @@ export {
   ANNOTATION_KINDS, AnnotatedText, type AnnotatedSegment, type AnnotatedTextProps, type AnnotationMark, type AnnotationNote,
 } from './annotated-text';
 export { Figure, type FigureProps } from './figure';
+export {
+  DataTable, DataTableEmpty, givenName, nextSort, sortRows,
+  type DataTableAlign, type DataTableColumn, type DataTableFilter, type DataTableProps, type DataTableSort, type DataTableSortDirection,
+} from './data-table';
+export { StatCard, StatCardGrid, type StatCardProps, type StatTrend } from './stat-card';
+export { Chart, chartDomain, type ChartPoint, type ChartProps } from './chart';
+export {
+  DateField, DateRangeField, TimeField,
+  type DateFieldProps, type DateRange, type DateRangeFieldProps, type TimeFieldProps,
+} from './date-fields';
+export {
+  FileUpload, checkUploadFile, formatFileSize,
+  type FileUploadProps, type UploadFile, type UploadFileError, type UploadFileStatus,
+} from './file-upload';
+export {
+  AudioPlayer, type AudioLoop, type AudioPlayerLang, type AudioPlayerMode, type AudioPlayerProps, type AudioPlayerState, type AudioPlayerVariant,
+} from './audio-player';
+export { formatMediaTime, formatSpeed } from './media-time';
+export { safeYoutubeEmbed, safeYoutubeWatch, VideoFrame, type VideoFrameProps, type VideoFrameState, type VideoSource } from './video-frame';
