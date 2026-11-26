@@ -26,6 +26,7 @@ import {
   chooseWritingDraft,
   configuredMockSections,
   formatMockTime,
+  holdBlockedMockSubmit,
   isMockSubmitSettled,
   mockExamParams,
   mockExamView,
@@ -38,6 +39,7 @@ import {
   normalizeIntegrity,
   normalizeMockExamState,
   parseLocalWritingDraft,
+  replayBlockedMockSubmit,
   submittedAtFor,
 } from '@/lib/mock-exam-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -724,8 +726,8 @@ export function MockExamRunner() {
   const finalWritingBodyRef = useRef<{ task1_text: string; task2_text: string } | null>(null);
   const timerAnchorRef = useRef({ section: null as Section | null, seconds: 0, at: 0 });
   const timerSubmitTriggeredRef = useRef<Section | null>(null);
-  /** FR-013: a submit refused for lack of the write right, run once it is granted. */
-  const blockedSubmitRef = useRef<Section | null>(null);
+  /** FR-013: a submit refused for lack of the write right, with its retry turn, run once it is granted. */
+  const blockedSubmitRef = useRef<{ readonly section: string; readonly attempt: number } | null>(null);
   const submitRef = useRef<(section: Section, attempt?: number) => Promise<void>>(async () => {});
   const integrityRef = useRef<Record<string, number> | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
@@ -1173,9 +1175,12 @@ export function MockExamRunner() {
     if (submittingRef.current && attempt === 0) return;
     // FR-013: only the tab holding the write right submits; the writer submits as usual.
     if (examRoomRef.current && !canWriteRef.current) {
-      // Keep it (Codex P1 on #2715): the timer latch will not fire again, so
-      // the submit runs when this tab gains the write right.
-      if (attempt === 0) blockedSubmitRef.current = section;
+      // Keep it (Codex P1 and HOLD FR-007/FR-013 on #2715): the timer latch
+      // will not fire again, so the submit runs when this tab gains the write
+      // right. A retry keeps its turn, so the retry limit is not reset, and
+      // leaves the in-flight state so the replay and "Try again" are not stuck.
+      blockedSubmitRef.current = holdBlockedMockSubmit(blockedSubmitRef.current, section, attempt);
+      if (attempt > 0) submittingRef.current = false;
       return;
     }
     if (attempt > 0 && isMockSubmitSettled(stateRef.current, section)) {
@@ -1321,11 +1326,10 @@ export function MockExamRunner() {
   // layout effect has already reconciled the boxes with the server by now.
   useEffect(() => {
     if (!examRoom || !canWrite) return;
-    const pending = blockedSubmitRef.current;
-    if (!pending) return;
+    if (!blockedSubmitRef.current) return;
+    const pending = replayBlockedMockSubmit({ held: blockedSubmitRef.current, submitting: submittingRef.current, state: stateRef.current });
     blockedSubmitRef.current = null;
-    if (submittingRef.current || isMockSubmitSettled(stateRef.current, pending)) return;
-    void submitRef.current(pending);
+    if (pending) void submitRef.current(pending.section as Section, pending.attempt);
   }, [canWrite, examRoom]);
   const writingLosesWork = useCallback(
     () => activeSectionRef.current === 'writing' && Boolean(writingBridgeRef.current?.hasUnsavedText?.()),
