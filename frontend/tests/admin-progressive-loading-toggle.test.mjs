@@ -41,8 +41,6 @@ const WRAPS = [
   ['admin-reading.js', 'ar-list-table'],
   ['admin-usage.js', 'usage-table-wrap'],
   ['admin-usage.js', 'code-usage-table-wrap'],
-  ['admin-classes.js', 'list-table-wrap'],
-  ['admin-classes.js', 'roster-table-wrap'],
 ];
 
 for (const [file, wrap] of WRAPS) {
@@ -75,3 +73,7 @@ for (const [file, wrap] of WRAPS) {
 // LEGACYJS-0075 W3a: admin-access-codes.js (#codes-table-wrap) and
 // admin-users.js (#usr-table-wrap) are deleted; the Next /admin/users panels
 // render their tables from React state, with no hidden-toggle wrapper.
+// LEGACYJS-0075 W3b: admin-classes.js (#list-table-wrap, #roster-table-wrap)
+// is deleted; the Next class directory and class detail render their tables
+// from React state, with no hidden-toggle wrapper (admin-classes-next-behavior,
+// admin-class-detail-next-behavior).

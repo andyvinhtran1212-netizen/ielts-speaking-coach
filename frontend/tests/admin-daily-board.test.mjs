@@ -4,6 +4,12 @@
  * Hai thứ giáo viên trước đây KHÔNG làm được: nhìn một phát ra "em nào đứt
  * quãng", và nghe bài của một em mà không phải mò trong danh sách phiên toàn
  * hệ thống.
+ *
+ * LEGACYJS-0075 W3b: admin-classes.js đã xoá. Lưới ngày (`renderDailyBoard`)
+ * CHƯA có bản Next — ghi là gap trong docs/TEST_INVARIANT_LEDGER.md, không dựng
+ * lại ở đây. Đường mở thẳng bài làm và màn đọc bài tự luận nay ở
+ * admin-class-submissions.tsx và được ghim bên dưới; trang phiên Speaking giữ
+ * nguyên các ghim của nó.
  */
 
 import { test, describe } from 'node:test';
@@ -13,238 +19,32 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
-const HTML = readFileSync(
-  join(HERE, '..', 'public', 'pages', 'admin', 'classes', 'index.html'), 'utf8');
-const CSS = readFileSync(
-  join(HERE, '..', 'public', 'css', 'speaking-assignment.css'), 'utf8');
-const SESS = readFileSync(
-  join(HERE, '..', 'public', 'js', 'admin-speaking-sessions.js'), 'utf8');
-
-/** Chạy THẬT renderDailyBoard + tallyRow với DOM giả. */
-function load() {
-  const s0 = SRC.indexOf('const BOARD_MARK = {');
-  const s1 = SRC.indexOf('async function loadSpeakingPerf() {');
-  const t0 = SRC.indexOf('function tallyRow(');
-  // Lấy KÈM `hhmm` — tallyRow gọi nó. Cắt ngay trước nó thì hàm chạy là hàm
-  // thiếu chân, và phép kiểm đo một thứ không tồn tại trên trang thật.
-  const t1 = SRC.indexOf('function renderTally(');
-  assert.ok(s0 !== -1 && s1 > s0 && t0 !== -1 && t1 > t0, 'không tìm thấy vùng mã');
-
-  const nodes = {};
-  const mk = () => ({ innerHTML: '', textContent: '', hidden: false });
-  for (const id of ['daily-board', 'board-scope', 'board-head', 'board-body',
-                    'board-foot', 'board-key'])
-    nodes[id] = mk();
-  const esc = (x) => String(x == null ? '' : x)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-  const TALLY_WHEN = { missing: 'chưa nộp', pending: 'chưa tới hạn', 'no-account': '—' };
-  const fn = new Function('$', 'esc', 'TALLY_WHEN', `
-    ${SRC.slice(s0, s1)}
-    ${SRC.slice(t0, t1)}
-    return { renderDailyBoard, boardDay, tallyRow, BOARD_MARK };
-  `)((id) => nodes[id], esc, TALLY_WHEN);
-  return { ...fn, nodes };
-}
-
-const { renderDailyBoard, boardDay, tallyRow, nodes } = load();
-
-const cell = (state, over = {}) => ({ state, score: null, session_id: null, ...over });
-const task = (day, title, id) => ({ id, day, title, due_at: day + 'T12:00:00Z' });
-const board = (over = {}) => ({
-  tasks: [task('2026-08-01', 'Sở thích', 't1'), task('2026-08-02', 'Quê nhà', 't2')],
-  assignment_count: 2,
-  students: [{ student_id: 's1', name: 'An', student_code: 'A1', activated: true,
-               cells: [cell('done'), cell('missing')], done: 1, missing: 1,
-               streak: 1, avg_band: 6.5 }],
-  ...over,
-});
-
-describe('lưới ngày', () => {
-  test('một cột một BÀI GIAO, kèm cột tên và cột làm/thiếu', () => {
-    // Trục cũ là NGÀY, nên một ngày giao hai bài chỉ hiện được một — và một em
-    // nộp bài A mà bỏ bài B đọc thành "ngày ấy có làm".
-    renderDailyBoard(board());
-    const head = nodes['board-head'].innerHTML;
-    assert.match(head, /Học viên/);
-    assert.match(head, /01\/08/);
-    assert.match(head, /02\/08/);
-    assert.match(head, /làm \/ thiếu/);
-    assert.match(head, /Sở thích/, 'tên bài phải có ở đầu cột');
-  });
-
-  test('hai bài CÙNG NGÀY thành hai cột dưới một dải ngày', () => {
-    renderDailyBoard(board({
-      tasks: [task('2026-08-01', 'Sáng', 't1'), task('2026-08-01', 'Chiều', 't2'),
-              task('2026-08-02', 'Hôm sau', 't3')],
-      students: [{ ...board().students[0],
-                   cells: [cell('done'), cell('missing'), cell('done')] }],
-    }));
-    const head = nodes['board-head'].innerHTML;
-    assert.match(head, /colspan="2"/, 'hai bài cùng ngày gộp dưới MỘT ô ngày');
-    assert.match(head, /Sáng/);
-    assert.match(head, /Chiều/, 'bài thứ hai trong ngày KHÔNG được biến mất');
-  });
-
-  test('mỗi trạng thái phân biệt được KHÔNG cần màu', () => {
-    // Lưới phân biệt bằng xanh/đỏ là lưới người mù màu không đọc được. Ở đây
-    // dấu hiệu là hình dạng: band/○ cho đã nộp, gạch chân chấm cho nộp trễ,
-    // nền kín cho không nộp, gạch chéo cho không được giao, chấm cho chưa hạn.
-    renderDailyBoard(board({
-      students: [{ ...board().students[0],
-                   cells: [cell('done'), cell('late'), cell('missing'),
-                           cell('pending'), cell('none')] }],
-      tasks: [task('2026-08-01', 'Bài 1', 't1'), task('2026-08-02', 'Bài 2', 't2'), task('2026-08-03', 'Bài 3', 't3'), task('2026-08-04', 'Bài 4', 't4'), task('2026-08-05', 'Bài 5', 't5')],
-    }));
-    const body = nodes['board-body'].innerHTML;
-    const marks = [...body.matchAll(/data-state="(\w+)"[^>]*>([^<]*)</g)]
-      .map((m) => [m[1], m[2].trim()]);
-    const seen = new Map(marks);
-    assert.equal(seen.get('pending'), '·');
-    assert.equal(seen.get('missing'), '', 'không nộp nói bằng NỀN, không bằng chữ');
-    assert.equal(seen.get('none'), '', 'không được giao thì để trống');
-    // "đã nộp" và "nộp trễ" cùng hiện band, nên chỗ phân biệt phải nằm ở CSS và
-    // phải là thứ không phải màu.
-    const late = CSS.slice(CSS.indexOf("[data-state='late']"),
-                           CSS.indexOf("[data-state='late']") + 260);
-    assert.match(late, /text-decoration:\s*underline dotted/,
-      'nộp trễ chỉ khác đã-nộp bằng màu là người mù màu không đọc được');
-    // Hai trạng thái nói bằng nền phải là HAI nền khác nhau.
-    assert.match(CSS, /\[data-state='missing'\][\s\S]{0,120}background:\s*var\(--av-error-soft\)/);
-    assert.match(CSS, /\[data-state='none'\][\s\S]{0,160}repeating-linear-gradient/);
-  });
-
-  test('ô có bài thì bấm được để nghe', () => {
-    renderDailyBoard(board({
-      students: [{ ...board().students[0],
-                   cells: [cell('done', { session_id: 'sess-9', score: 6.5 }),
-                           cell('missing')] }],
-    }));
-    const body = nodes['board-body'].innerHTML;
-    assert.match(body, /admin\/speaking\/sessions\?session=sess-9/);
-    // Ô không có bài thì KHÔNG có liên kết dẫn tới trang trống.
-    assert.equal((body.match(/<a /g) || []).length, 1);
-  });
-
-  test('ô mang nhãn đọc được cho chuột và trình đọc màn hình', () => {
-    renderDailyBoard(board({
-      students: [{ ...board().students[0],
-                   cells: [cell('late', { score: 5.5 }), cell('missing')] }],
-    }));
-    assert.match(nodes['board-body'].innerHTML,
-      /title="An · 01\/08 · [^"]* — nộp trễ · band 5\.5"/);
-  });
-
-  test('học viên chưa kích hoạt được ĐÁNH DẤU, không đọc thành lười', () => {
-    renderDailyBoard(board({
-      students: [{ ...board().students[0], activated: false }],
-    }));
-    assert.match(nodes['board-body'].innerHTML, /chưa kích hoạt/);
-  });
-
-  test('cờ báo động theo QUÃNG ĐỨT, không theo tổng số bài bỏ', () => {
-    // Bỏ 3 bài rải rác là quên; bỏ 3 bài liên tiếp là em ấy đã rời đi. Gắn cờ
-    // theo tổng thì hai em ấy trông y hệt nhau.
-    renderDailyBoard(board({
-      students: [{ ...board().students[0],
-                   cells: [cell('missing'), cell('done'), cell('missing')],
-                   missing: 2, streak: 1 }],
-      tasks: [task('2026-08-01', 'A', 't1'), task('2026-08-02', 'B', 't2'),
-              task('2026-08-03', 'C', 't3')],
-    }));
-    assert.doesNotMatch(nodes['board-body'].innerHTML, /data-alarm/,
-      'bỏ rải rác chưa phải đứt quãng');
-    renderDailyBoard(board({
-      students: [{ ...board().students[0],
-                   cells: [cell('missing'), cell('missing'), cell('done')],
-                   missing: 2, streak: 2 }],
-      tasks: [task('2026-08-01', 'A', 't1'), task('2026-08-02', 'B', 't2'),
-              task('2026-08-03', 'C', 't3')],
-    }));
-    assert.match(nodes['board-body'].innerHTML, /data-alarm="true"/);
-  });
-
-  test('cột tổng: số THIẾU được tô nhấn, số 0 thì không', () => {
-    // Một số 0 màu cảnh báo là báo động giả, và sau vài lần thì màu ấy hết nghĩa.
-    renderDailyBoard(board());
-    assert.match(nodes['board-body'].innerHTML, /av-board__miss" data-any="true"/);
-    renderDailyBoard(board({
-      students: [{ ...board().students[0],
-                   cells: [cell('done'), cell('done')], done: 2, missing: 0, streak: 0 }],
-    }));
-    assert.match(nodes['board-body'].innerHTML, /av-board__miss" data-any="false"/);
-  });
-
-  test('không có ngày nào thì ẨN hẳn, không hiện lưới rỗng', () => {
-    // Lưới rỗng đọc như "lớp chưa có bài hằng ngày", mà sự thật có thể là chưa
-    // đọc được.
-    renderDailyBoard({ tasks: [], students: [], assignment_count: 0 });
-    assert.equal(nodes['daily-board'].hidden, true);
-  });
-
-  test('chú giải nói đủ năm trạng thái', () => {
-    // Bảng nói bằng HÌNH DẠNG, nên phải có chỗ nói hình dạng nghĩa là gì —
-    // không thì mỗi giáo viên tự đoán một kiểu.
-    renderDailyBoard(board());
-    const key = nodes['board-key'].innerHTML;
-    for (const w of ['đã nộp', 'nộp trễ', 'không nộp', 'chưa tới hạn', 'không được giao']) {
-      assert.ok(key.includes(w), w);
-    }
-    assert.match(key, /quãng đứt/, 'phải nói ra ý nghĩa của các ô liền nhau');
-  });
-
-  test('ngày rút gọn còn ngày/tháng — cột hẹp, năm dùng chung', () => {
-    assert.equal(boardDay('2026-08-05'), '05/08');
-    assert.equal(boardDay('rác'), 'rác');
-  });
-});
+const SUB = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'), 'utf8');
+const SESS = readFileSync(join(HERE, '..', 'public', 'js', 'admin-speaking-sessions.js'), 'utf8');
+const ARTIFACT = SUB.slice(SUB.indexOf('function openArtifact'), SUB.indexOf('function InlineMd'));
+const WRITING = SUB.slice(SUB.indexOf('function WritingReport'), SUB.indexOf('function evidenceText'));
 
 describe('mở thẳng bài làm từ bảng tổng kết', () => {
-  const row = (over) => ({ name: 'An', status: 'submitted', score: 6.5,
-                           submitted_at: '2026-08-03T11:00:00+00:00', ...over });
-
-  test('có phiên thì có nút Nghe & xem', () => {
-    const html = tallyRow(row({ artifact_kind: 'session', artifact_id: 'sess-9' }), 'speaking');
-    assert.match(html, /admin\/speaking\/sessions\?session=sess-9/);
-    assert.match(html, /Nghe/);
+  test('có phiên thì mở trang phiên Speaking theo ?session=', () => {
+    assert.match(ARTIFACT, /if \(row\.artifact_kind === 'session' && row\.artifact_id\) return `\/admin\/speaking\/sessions\?session=\$\{encodeURIComponent\(row\.artifact_id\)\}`;/);
+    assert.match(SUB, /grammarLesson \? 'Xem từng câu' : 'Nghe & xem'/);
   });
-
   test('chưa có bài thì KHÔNG có liên kết dẫn tới trang trống', () => {
-    assert.doesNotMatch(tallyRow(row({ status: 'missing', score: null }), 'speaking'),
-      /admin\/speaking\/sessions/);
+    assert.match(ARTIFACT, /return null;\s*\}\s*$/);
+    assert.match(SUB, /\{href && <a className="adm-btn-secondary adm-btn-sm" href=\{href\}/);
   });
-
-  test('bài KHÔNG phải Speaking không mở bằng trang phiên Speaking', () => {
-    // Mỗi kỹ năng mở ở một trang khác; đoán từ id là đoán sai.
-    assert.doesNotMatch(
-      tallyRow(row({ artifact_kind: 'quiz_session', artifact_id: 'q1' }), 'course'),
-      /sessions\.html/);
+  test('mỗi kỹ năng mở ở trang của nó, không đoán từ id', () => {
+    for (const kind of ['session', 'reading_attempt', 'listening_attempt', 'grammar_diagnostic', 'grammar_lesson_attempt']) {
+      assert.match(ARTIFACT, new RegExp(`row\\.artifact_kind === '${kind}' && row\\.artifact_id`), kind);
+    }
   });
 });
 
-describe('DÂY NỐI', () => {
-  test('trang lớp có khung lưới và JS được gọi khi mở thẻ Tiến độ', () => {
-    assert.match(HTML, /id="daily-board"/);
-    assert.match(HTML, /id="board-body"/);
-    assert.ok((SRC.match(/loadDailyBoard\(\)/g) || []).length >= 3,
-      'phải gọi ở CẢ hai đường mở thẻ, không chỉ một');
-  });
-
-  test('cột tên DÍNH khi cuộn ngang — mất tên thì cả hàng vô nghĩa', () => {
-    const m = /\.av-board__name,\s*\.av-board__name-h \{([^}]*)\}/.exec(CSS);
-    assert.ok(m && /position:\s*sticky/.test(m[1]));
-  });
-
-  test('lưới cuộn NGANG trong khung của nó, không đẩy cả trang', () => {
-    assert.match(CSS, /\.av-board__scroll \{[^}]*overflow-x:\s*auto/);
-  });
-
-  test('trang phiên Speaking nhận deep-link ?session=', () => {
+describe('trang phiên Speaking', () => {
+  test('nhận deep-link ?session=', () => {
     assert.match(SESS, /URLSearchParams\(location\.search\)\.get\('session'\)/);
     assert.match(SESS, /if \(wanted\) loadDetail\(wanted\)/);
   });
-
   test('modal phiên có BÁO CÁO NHẬN XÉT, không chỉ band + audio', () => {
     assert.match(SESS, /function feedbackReport/);
     assert.match(SESS, /html \+= feedbackReport\(r\);/);
@@ -255,188 +55,18 @@ describe('DÂY NỐI', () => {
   });
 });
 
-describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 vòng 3)', () => {
-  test('đọc hỏng thì HIỆN cảnh báo, không nuốt im lặng', () => {
-    // Đây là mặt đọc dùng để tìm em bỏ bài — im lặng ở đây là giấu đúng thứ nó
-    // sinh ra để hiện.
-    const i = SRC.indexOf('async function loadDailyBoard');
-    const body = SRC.slice(i, SRC.indexOf('const BOARD_MARK', i));
-    // Ghi vào trạng thái chung rồi vẽ, chứ KHÔNG ghi thẳng DOM — xem phép kiểm
-    // "MỘT băng cảnh báo" bên dưới.
-    assert.ok(/_boardNote = 'Không đọc được bảng bài hằng ngày/.test(body),
-      'phải ghi lời cảnh báo vào trạng thái chung');
-    assert.ok(/renderProgressBanner\(\)/.test(body), 'và vẽ lại băng');
-    assert.ok(/_dailyBoardLoaded = false/.test(body), 'và cho lần mở sau thử lại');
-  });
-
-  test('đổi bài tập làm bảng ngày CŨ — mọi đường mutate đều báo', () => {
-    // Bảng dựng TỪ danh sách bài giao; giao/lưu trữ/xoá mà không báo thì admin
-    // quay lại thẻ Tiến độ vẫn thấy bảng của trước đó.
-    const inv = SRC.indexOf('function invalidateProgress');
-    assert.ok(/_dailyBoardLoaded = false/.test(SRC.slice(inv, inv + 700)),
-      'invalidateProgress phải làm cũ cả bảng ngày');
-    // Deep-link từ directory Next chỉ ĐỌC danh sách để tìm assignment rồi mở
-    // workspace chấm; nó không đổi dữ liệu nên không được tính như mutation.
-    const seamStart = SRC.indexOf('async function openAssignmentDeepLink');
-    const seamEnd = seamStart < 0 ? seamStart : SRC.indexOf('\n}', seamStart) + 2;
-    const mutationSource = seamStart < 0 ? SRC : SRC.slice(0, seamStart) + SRC.slice(seamEnd);
-    // Mỗi lần nạp lại bảng bài tập SAU MUTATION là một lần dữ liệu vừa đổi.
-    const loads = (mutationSource.match(/await loadHomework\(\);/g) || []).length;
-    const paired = (mutationSource.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
-    assert.equal(paired, loads,
-      `${loads} đường đổi bài tập nhưng chỉ ${paired} đường báo bảng ngày cũ`);
-  });
-
-  test('chốt nằm TRONG hàm, không phải ở chỗ gọi', () => {
-    // Đặt lời gọi trong chốt `_progressLoaded` thì việc mở chốt riêng của bảng
-    // (lúc hỏng) trở thành vô nghĩa: rời thẻ rồi quay lại vẫn treo cảnh báo cũ
-    // tới khi tải lại cả trang (codex #931 vòng 5).
-    const i = SRC.indexOf('async function loadDailyBoard');
-    assert.match(SRC.slice(i, i + 220), /_dailyBoardLoaded\) return;/);
-
-    const sp = SRC.indexOf('function showPanel');
-    const body = SRC.slice(sp, SRC.indexOf('\n}', sp));
-    const call = body.indexOf('loadDailyBoard();');
-    const latch = body.indexOf('if (!_progressLoaded) {');
-    const latchEnd = body.indexOf('    }', latch);
-    assert.ok(call !== -1 && latch !== -1);
-    assert.ok(call > latchEnd,
-      'lời gọi phải nằm NGOÀI chốt _progressLoaded, không thì lần hỏng không bao giờ thử lại');
-  });
-});
-
-describe('MỘT băng cảnh báo, hai nguồn ghi vào (codex #931 vòng 4)', () => {
-  test('không bên nào ghi thẳng vào DOM — hai lượt gọi song song sẽ xoá lời nhau', () => {
-    // /speaking-daily hỏng trước, /progress xong sau → cảnh báo bị xoá sạch.
-    const writes = [...SRC.matchAll(/\$\('progress-degraded'\)/g)].length;
-    const inBanner = SRC.indexOf('function renderProgressBanner');
-    assert.ok(inBanner !== -1, 'phải có một chỗ vẽ chung');
-    const bannerBody = SRC.slice(inBanner, inBanner + 400);
-    assert.ok(/_progressNotes/.test(bannerBody) && /_boardNote/.test(bannerBody),
-      'chỗ vẽ chung phải gộp CẢ HAI nguồn');
-    // CHỈ chỗ vẽ chung được chạm DOM. Mọi đường khác phải đi qua trạng thái —
-    // kể cả đường lỗi cứng của loadProgress (tự soát bắt được, cùng họ lỗi ở
-    // chiều ngược lại: /progress hỏng thì xoá lời của bảng ngày).
-    assert.equal(writes, 1,
-      `còn ${writes} chỗ chạm DOM — mỗi chỗ ngoài renderProgressBanner là một lần xoá lời bên kia`);
-  });
-
-  test('bảng nạp lại THÀNH CÔNG thì gỡ cảnh báo cũ của chính nó', () => {
-    const i = SRC.indexOf('async function loadDailyBoard');
-    const body = SRC.slice(i, i + 700);
-    assert.ok(/_boardNote = '';/.test(body), 'không gỡ thì cảnh báo cũ dính mãi');
-  });
-});
-
 describe('màn đọc bài tự luận của admin', () => {
-  const ADMIN_HTML = readFileSync(
-    join(HERE, '..', 'public', 'pages', 'admin', 'classes', 'index.html'), 'utf8');
-  const CX = readFileSync(
-    join(HERE, '..', 'public', 'css', 'course-exercises.css'), 'utf8');
-
-  test('trang NẠP tệp CSS định nghĩa những lớp nó vẽ', () => {
-    // Bài học PR #925: trang không nạp tệp định nghĩa lớp mình vẽ thì ra màn
-    // hình trần trụi, và không phép kiểm nào bắt được vì test đọc CSS từ đĩa.
-    const linked = [...ADMIN_HTML.matchAll(/<link[^>]+href="(\/css\/[^"]+\.css)"/g)]
-      .map((m) => m[1]);
-    const css = linked
-      .map((h) => readFileSync(join(HERE, '..', 'public', h.replace(/^\//, '')), 'utf8'))
-      .join('\n');
-    const src = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
-    const i = src.indexOf('function renderStudentWriting');
-    const emitted = new Set();
-    for (const m of src.slice(i, src.indexOf('async function openStudentWriting'))
-      .matchAll(/class="([^"$]+)"/g)) {
-      for (const c of m[1].split(/\s+/)) if (c.startsWith('cw-')) emitted.add(c);
-    }
-    assert.ok(emitted.size >= 5, `phải gom được lớp cw-*, đang có ${emitted.size}`);
-    const missing = [...emitted].filter(
-      (c) => !new RegExp(`\\.${c.replace(/[^\w-]/g, '\\$&')}(?![\\w-])`).test(css));
-    assert.deepEqual(missing, [],
-      `trang admin không nạp CSS định nghĩa: ${missing.join(', ')}`);
-  });
-
-  test('vẽ CÙNG một cách học viên đang thấy — không phải bộ vẽ rút gọn thứ hai', () => {
-    // Giáo viên và học viên phải nhìn cùng một bản chấm, kẻo hai bên nói về hai
-    // thứ khác nhau khi ngồi lại.
-    const src = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
-    for (const cls of ['cw-diff', 'cw-issues', 'cw-issue__kind', 'cw-model', 'cw-done']) {
-      assert.ok(src.includes(cls), `thiếu ${cls}`);
-      assert.ok(CX.includes('.' + cls), `${cls} phải do course-exercises.css định nghĩa`);
-    }
-  });
-
   test('chưa nộp thì NÓI RÕ, không hiện một khung rỗng', () => {
-    const src = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
-    const i = src.indexOf('function renderStudentWriting');
-    assert.match(src.slice(i, i + 300), /chưa nộp phần tự luận/);
+    assert.match(WRITING, /if \(!submission\) return <p className="acd-muted">Học viên này chưa nộp phần tự luận\.<\/p>;/);
   });
-
   test('nút chỉ hiện khi THẬT SỰ có bài để đọc', () => {
-    const html = tallyRow({ name: 'An', status: 'submitted', score: 80,
-      submitted_at: '2026-08-05T11:00:00+00:00', student_id: 's1',
-      has_writing: true }, 'course');
-    assert.match(html, /data-writing="s1"/);
-    assert.doesNotMatch(
-      tallyRow({ name: 'An', status: 'submitted', score: 80,
-                 submitted_at: '2026-08-05T11:00:00+00:00', student_id: 's1' }, 'course'),
-      /data-writing/);
+    assert.match(SUB, /row\.has_writing \? 'Xem bài' : 'Xem từng câu'/);
+    assert.match(SUB, /\{row\.has_writing && canReturnWork && <button/);
   });
-});
-
-describe('admin và học viên nhìn CÙNG một bản chấm (codex #940)', () => {
-  const SRC2 = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
-  const STU = readFileSync(join(HERE, '..', 'public', 'js', 'course-writing.js'), 'utf8');
-
-  test('đề và đáp án mẫu được DỰNG, không hiện ** thô', () => {
-    // Nguồn đề cố ý mang `**Đáp án mẫu:**`; escape trơn làm giáo viên đọc ra
-    // dấu sao còn học viên đọc ra chữ đậm.
-    const i = SRC2.indexOf('function renderStudentWriting');
-    const body = SRC2.slice(i, SRC2.indexOf('async function openStudentWriting'));
-    assert.match(body, /cwMd\(g\.prompt/);
-    assert.match(body, /formatCourseExplanation\(g\.explain/);
-    // Bài HỌC VIÊN VIẾT thì không dựng markdown — nó là câu tiếng Anh thô.
-    assert.match(body, /esc\(g\.answer\)/);
+  test('đề được dựng (không hiện ** thô); bài HỌC VIÊN VIẾT để nguyên chữ', () => {
+    assert.match(WRITING, /<p><InlineMd text=\{prompt\} \/><\/p><blockquote>\{answer\}<\/blockquote>/);
   });
-
-  test('đáp án mẫu dùng CÙNG formatter với phía học viên', () => {
-    assert.match(SRC2, /import \{ formatCourseExplanation \} from '\.\/course-explanation-format\.js'/);
-    assert.match(STU, /import \{ formatCourseExplanation \} from '\.\/course-explanation-format\.js'/);
-    assert.match(SRC2, /formatCourseExplanation\(g\.explain/);
-    assert.match(STU, /formatCourseExplanation\(modelText/);
-  });
-
-  test('thoát HTML TRƯỚC khi dựng thẻ', () => {
-    // Đây là bài do NGƯỜI KHÁC viết, đang vẽ trong trình duyệt của admin.
-    const i = SRC2.indexOf('function cwMd');
-    assert.match(SRC2.slice(i, i + 200), /esc\(x\)\.replace/);
-  });
-});
-
-describe('cuộn ngang không làm mất chỗ đứng', () => {
-  test('cột tên VÀ cột tổng đều dính, và không chồng lên nhau', () => {
-    // Cột tổng là câu trả lời; đọc nó mà phải cuộn ngược về là hỏng mất việc.
-    // Nhưng dính mà không biết bề ngang cột tên thì hai cột chồng lên nhau ở
-    // một sĩ số có tên dài.
-    assert.match(CSS, /--board-name-w:\s*\d+px/, 'phải KHAI bề ngang cột tên');
-    const name = CSS.slice(CSS.indexOf('.av-board__name,'),
-                           CSS.indexOf('.av-board__name,') + 420);
-    assert.match(name, /position: sticky/);
-    assert.match(name, /width: var\(--board-name-w\)/,
-      'cột tên phải ĐÚNG bề ngang đã khai, không co giãn theo tên');
-    const sum = CSS.slice(CSS.indexOf('.av-board__sum,'),
-                          CSS.indexOf('.av-board__sum,') + 420);
-    assert.match(sum, /position: sticky/);
-    assert.match(sum, /left: var\(--board-name-w/,
-      'cột tổng phải dính SAU cột tên, không dính chồng lên');
-  });
-
-  test('ô không nộp KHÔNG có đệm ngang — hai ô liền nhau phải nối liền', () => {
-    // Độ dài vệt chính là độ dài quãng đứt. Có đệm là vệt đứt đoạn, và cái
-    // bảng này mất đúng thứ nó sinh ra để nói.
-    const cell = CSS.slice(CSS.indexOf('.av-board__cell {'),
-                           CSS.indexOf('.av-board__cell {') + 220);
-    assert.match(cell, /padding:\s*0;/,
-      'đệm ngang dù chỉ 1px cũng làm vệt đứt đoạn — phải là 0 tuyệt đối');
+  test('không dựng HTML thô từ bài người khác viết', () => {
+    assert.doesNotMatch(SUB, /dangerouslySetInnerHTML/);
   });
 });
