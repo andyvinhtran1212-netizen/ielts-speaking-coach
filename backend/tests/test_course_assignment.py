@@ -30,6 +30,10 @@ class _Table:
     def in_(self, f, vals):
         self._rows = [r for r in self._rows if r.get(f) in vals]
         return self
+    def contains(self, f, sub):
+        self._rows = [r for r in self._rows
+                      if all((r.get(f) or {}).get(k) == v for k, v in sub.items())]
+        return self
     def order(self, *_a, **_k): return self
     def limit(self, *_a): return self
     def range(self, s, e): self._rows = self._rows[s:e + 1]; return self
@@ -480,13 +484,119 @@ def test_an_unknown_bank_is_404():
     assert exc.value.status_code == 404
 
 
-def test_giving_the_same_lesson_twice_is_refused():
+def test_giving_the_same_lesson_twice_is_allowed_with_a_request_id():
+    """Andy 25/11/2026: giao lại bộ đã giao cho lớp là được — chỉ ghi chú."""
+    db = _full(class_assignments=[{"id": "a1", "cohort_id": "co-1", "skill": "course",
+                                   "content_id": "bank-1", "title": "Bài cũ"}])
+    content_id, _cfg = _resolve(
+        db, _body(give_request_id="33333333-3333-4333-8333-333333333333"))
+    assert content_id == "bank-1"
+
+
+def test_an_old_client_without_a_request_id_is_still_refused_a_second_give():
+    """REGIVE-0103 FR-005: không có mã thì không phân biệt được giao lại có chủ
+    ý với gửi lại sau khi mất phản hồi, nên giữ chặn theo bộ/lớp như cũ."""
     db = _full(class_assignments=[{"id": "a1", "cohort_id": "co-1", "skill": "course",
                                    "content_id": "bank-1", "title": "Bài cũ"}])
     with pytest.raises(HTTPException) as exc:
         _resolve(db)
     assert exc.value.status_code == 409
-    assert "Bài cũ" in exc.value.detail
+    assert "tải lại trang" in exc.value.detail
+
+
+def test_an_old_client_first_give_without_a_request_id_still_works():
+    content_id, _cfg = _resolve(_full())
+    assert content_id == "bank-1"
+
+
+# ── Giao lại có chủ ý ≠ bấm lại cùng thao tác ────────────────────────────────
+
+_RID = "11111111-1111-4111-8111-111111111111"
+
+
+async def _give(monkeypatch, db, body):
+    """create_assignment với kho giả; trả (kết quả, các lần gọi fan-out)."""
+    calls = []
+
+    async def admin(_h): return {"id": "ad"}
+    monkeypatch.setattr(adm, "require_admin", admin)
+    monkeypatch.setattr(adm, "_require_cohort", lambda _c: _COHORT)
+    monkeypatch.setattr(adm, "_require_active_cohort", lambda _c: None)
+    monkeypatch.setattr(adm, "supabase_admin", db)
+    monkeypatch.setattr(adm, "_resolve_course_bank",
+                        lambda _c, _b: ("bank-1", {"test_title": "Buổi 1"}))
+
+    def create(_db, **kw):
+        calls.append(kw)
+        return {"id": "a-new", "student_count": 3, "unactivated_count": 0}
+    monkeypatch.setattr(adm, "create_class_assignment", create)
+    return await adm.create_assignment("co-1", body, authorization="Bearer x"), calls
+
+
+@pytest.mark.asyncio
+async def test_a_deliberate_regive_with_a_new_request_id_creates_a_new_assignment(monkeypatch):
+    body = _body(give_request_id=_RID)
+    old = {"id": "a1", "cohort_id": "co-1", "skill": "course", "content_id": "bank-1",
+           "content_config": {"give_request_id": "22222222-2222-4222-8222-222222222222",
+                              "give_fingerprint": "x"}}
+    out, calls = await _give(monkeypatch, _db(class_assignments=[old]), body)
+    assert len(calls) == 1 and out["id"] == "a-new"
+    cfg = calls[0]["content_config"]
+    assert cfg["give_request_id"] == _RID
+    assert cfg["give_fingerprint"] == adm._course_give_fingerprint(body)
+
+
+@pytest.mark.asyncio
+async def test_retrying_the_SAME_give_replays_the_receipt_instead_of_a_second_assignment(monkeypatch):
+    body = _body(give_request_id=_RID)
+    saved = {"id": "a-saved", "cohort_id": "co-1", "skill": "course", "content_id": "bank-1",
+             "content_config": {"give_request_id": _RID,
+                                "give_fingerprint": adm._course_give_fingerprint(body)}}
+    db = _db(class_assignments=[saved],
+             class_assignment_items=[{"id": "i1", "assignment_id": "a-saved", "student_id": "s1"}],
+             students=[{"id": "s1", "user_id": "u1"}])
+    out, calls = await _give(monkeypatch, db, body)
+    assert calls == []
+    assert out["id"] == "a-saved" and out["replayed"] is True and out["student_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_reused_request_id_with_a_changed_intent_is_refused(monkeypatch):
+    first = _body(give_request_id=_RID)
+    saved = {"id": "a-saved", "cohort_id": "co-1", "skill": "course",
+             "content_config": {"give_request_id": _RID,
+                                "give_fingerprint": adm._course_give_fingerprint(first)}}
+    changed = _body(give_request_id=_RID, title="Tên khác")
+    with pytest.raises(HTTPException) as exc:
+        await _give(monkeypatch, _db(class_assignments=[saved]), changed)
+    assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_losing_the_509_race_replays_the_winners_receipt(monkeypatch):
+    """Two in-flight gives with one id: the second insert hits uq_course_give_request
+    (mig 509) after the first committed, and answers with the first's receipt."""
+    body = _body(give_request_id=_RID)
+    winner = {"id": "a-win", "cohort_id": "co-1", "skill": "course", "content_id": "bank-1",
+              "content_config": {"give_request_id": _RID,
+                                 "give_fingerprint": adm._course_give_fingerprint(body)}}
+    rows: list[dict] = []
+    db = type("DB", (), {})()
+    db.table = lambda n: _Table(rows if n == "class_assignments" else [])
+
+    async def admin(_h): return {"id": "ad"}
+    monkeypatch.setattr(adm, "require_admin", admin)
+    monkeypatch.setattr(adm, "_require_cohort", lambda _c: _COHORT)
+    monkeypatch.setattr(adm, "_require_active_cohort", lambda _c: None)
+    monkeypatch.setattr(adm, "supabase_admin", db)
+    monkeypatch.setattr(adm, "_resolve_course_bank", lambda _c, _b: ("bank-1", {}))
+
+    def create(_db, **_kw):
+        rows.append(winner)  # the other request committed meanwhile
+        raise RuntimeError('duplicate key value violates unique constraint "uq_course_give_request"')
+    monkeypatch.setattr(adm, "create_class_assignment", create)
+    out = await adm.create_assignment("co-1", body, authorization="Bearer x")
+    assert out["id"] == "a-win" and out["replayed"] is True
 
 
 def test_a_cohort_with_no_course_says_SO():
@@ -523,15 +633,24 @@ async def test_the_library_separates_ALREADY_GIVEN_from_NOT_YET_LOADED():
                     {**_BANK, "id": "bank-3", "lesson_no": 3, "title": "Buổi 3"}],
         quiz_questions=[{"id": "q1", "bank_id": "bank-1"},
                         {"id": "q2", "bank_id": "bank-2"}],
-        class_assignments=[{"cohort_id": "co-1", "skill": "course", "content_id": "bank-2"}],
+        class_assignments=[
+            {"cohort_id": "co-1", "skill": "course", "content_id": "bank-2",
+             "created_at": "2026-11-01T02:00:00+00:00"},
+            {"cohort_id": "co-1", "skill": "course", "content_id": "bank-2",
+             "created_at": "2026-11-20T02:00:00+00:00"},
+        ],
     )
     with patch.object(adm, "supabase_admin", db), \
          patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
         out = await adm.list_course_banks("co-1", authorization="Bearer x")
     by = {b["lesson_no"]: b for b in out["items"]}
     assert by[1]["ready"] is True and by[1]["already_given"] is False
+    assert by[1]["last_given_at"] is None
     assert by[1]["single_attempt_ready"] is True
     assert by[2]["already_given"] is True
+    # Chỉ ghi chú, không chặn: ngày giao GẦN NHẤT + giao lại được.
+    assert by[2]["last_given_at"] == "2026-11-20T02:00:00+00:00"
+    assert by[2]["can_regive"] is True
     assert by[3]["ready"] is False and by[3]["question_count"] == 0
 
 
