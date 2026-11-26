@@ -142,6 +142,28 @@ test('a closed section clears the copy but keeps a legacy text the server does n
   assert.deepEqual(held.dropLegacy, ['task2']);
 });
 
+test('a closed section keeps the legacy text when only the new key, which is being cleared, holds it (FR-010, HOLD on #2713)', () => {
+  // Both device versions hold `y`, the server holds `x`: clearing the new key
+  // must not also drop the legacy key, or nothing would hold `y` any more.
+  const closed = reconcileMockWritingCopy({
+    copy: copy({ task1: { value: 'y', baseValue: '' } }), legacy: { task1: { text: 'y' } },
+    server: { open: false, task1: 'x' }, ownerMatches: true,
+  });
+  assert.deepEqual([closed.clearCopy, closed.dropLegacy, closed.migrate, closed.ask], [true, [], [], []]);
+  // Still open, the same two device texts: the legacy key is a duplicate and goes.
+  const open = reconcileMockWritingCopy({
+    copy: copy({ task1: { value: 'y', baseValue: '' } }), legacy: { task1: { text: 'y' } },
+    server: { open: true, task1: 'x' }, ownerMatches: true,
+  });
+  assert.deepEqual([open.clearCopy, open.dropLegacy], [false, ['task1']]);
+  // Closed, and the server holds exactly `y`: both may go.
+  const held = reconcileMockWritingCopy({
+    copy: copy({ task1: { value: 'y', baseValue: '' } }), legacy: { task1: { text: 'y' } },
+    server: { open: false, task1: 'y' }, ownerMatches: true,
+  });
+  assert.deepEqual([held.clearCopy, held.dropLegacy], [true, ['task1']]);
+});
+
 test('an older copy entry without baseText asks instead of re-sending', () => {
   const plan = reconcileMockWritingCopy({
     copy: copy({ task2: { value: 'mine' } }), legacy: {}, server: { open: true, task2: 'saved' }, ownerMatches: true,
