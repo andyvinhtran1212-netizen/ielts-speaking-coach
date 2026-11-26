@@ -613,6 +613,14 @@
   // the box only stays (no same-tab sign-in) and Nộp waits until a send proves
   // the session is back; with nothing unsent it offers "Đăng nhập lại".
   var _roomSignedOut = false;
+  // The React auth effects ask before redirecting or disposing the Full Test
+  // queue. A null Supabase session must not drop the only copy of a take.
+  function retainExpiredSession() {
+    if (!_examRoomMode || !_hasUnsentWork()) return false;
+    _roomExpired({ status: 401 });
+    return true;
+  }
+
   function _roomExpired(err) {
     if (!_examRoomMode || !err) return false;
     // Only a send that succeeds proves the session is back (_roomSessionBack);
@@ -6388,6 +6396,7 @@
     init:                 init,
     destroy:              destroy,
     hasUnsavedWork:       _hasUnsentWork,
+    retainExpiredSession: retainExpiredSession,
     canLeave:             _canLeave,
     requestMicrophone:    requestMicrophone,
     requestLeave:         requestLeave,
