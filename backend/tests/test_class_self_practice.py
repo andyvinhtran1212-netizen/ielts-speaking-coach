@@ -244,7 +244,7 @@ def test_paper_open_flags_only_open_papers_in_one_read_per_skill():
 def test_read_api_marks_self_practice_and_matches_the_route(monkeypatch):
     db = _db("listening")
     rows = [_row("item-1", "listening")]
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (True, rows, False))
+    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a, reconcile_student_only: (True, rows, False))
     monkeypatch.setattr("database.supabase_admin", db)
     item = sa.get_assigned("u-1", "A", NOW)["items"][0]
     assert item["self_practice_available"] is True
@@ -255,7 +255,7 @@ def test_read_api_marks_self_practice_and_matches_the_route(monkeypatch):
 def test_read_api_hides_self_practice_when_the_route_would_refuse(monkeypatch):
     db = _db("listening", papers=[_listening(exam_only=True, is_public=False)])
     rows = [_row("item-1", "listening")]
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (True, rows, False))
+    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a, reconcile_student_only: (True, rows, False))
     monkeypatch.setattr("database.supabase_admin", db)
     item = sa.get_assigned("u-1", "A", NOW)["items"][0]
     assert item["self_practice_available"] is False
@@ -266,7 +266,7 @@ def test_read_api_hides_self_practice_when_the_route_would_refuse(monkeypatch):
 def test_read_api_course_and_writing_never_self_practice(monkeypatch):
     rows = [_row("c", "course"), _row("w", "writing")]
     rows[1]["state"] = "submitted"  # a closed writing give that no longer accepts
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (True, rows, False))
+    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a, reconcile_student_only: (True, rows, False))
     monkeypatch.setattr("database.supabase_admin", _DB({"class_assignments": []}))
     for item in sa.get_assigned("u-1", "A", NOW)["items"]:
         assert item["self_practice_available"] is False
@@ -277,7 +277,7 @@ def test_read_api_paper_read_failure_hides_the_button(monkeypatch):
         def table(self, _name):
             raise RuntimeError("db down")
     rows = [_row("item-1", "listening")]
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (True, rows, False))
+    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a, reconcile_student_only: (True, rows, False))
     monkeypatch.setattr("database.supabase_admin", _Boom())
     out = sa.get_assigned("u-1", "A", NOW)
     assert out["items"][0]["self_practice_available"] is False
@@ -299,6 +299,12 @@ def api(monkeypatch):
     async def _true(*_a, **_k):
         return True
 
+    class FixedClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW.astimezone(tz) if tz else NOW.replace(tzinfo=None)
+
+    monkeypatch.setattr(class_student, "datetime", FixedClock)
     monkeypatch.setattr(class_student, "get_supabase_user", _user)
     monkeypatch.setattr(class_student, "_student_for_user", lambda *_a: STUDENT)
     from services import activation_gate
@@ -405,7 +411,7 @@ def test_non_resumable_or_unlinked_attempts_do_not_block(over):
 def test_read_api_hides_the_button_while_a_homework_attempt_is_resumable(monkeypatch):
     db = _db("listening", attempts=[_attempt("L1")])
     monkeypatch.setattr(st, "_visible_assignments_for",
-                        lambda *_a: (True, [_row("item-1", "listening")], False))
+                        lambda *_a, reconcile_student_only: (True, [_row("item-1", "listening")], False))
     monkeypatch.setattr("database.supabase_admin", db)
     item = sa.get_assigned("u-1", "A", NOW)["items"][0]
     assert item["self_practice_available"] is False
