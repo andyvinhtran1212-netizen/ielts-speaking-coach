@@ -40,11 +40,22 @@ def _fresh_now():
     NOW = datetime.now(timezone.utc)
 
 
-def _learner_flag(monkeypatch, on: bool):
-    # The runtime flag mock_exam_audiences_learner, through the helper the
-    # admin schedule() reads too (one source for both sides).
-    from services import mock_exam_audience_service
-    monkeypatch.setattr(mock_exam_audience_service, "learner_gate_enabled", lambda: on)
+def _learner_flag(monkeypatch, on):
+    """The runtime flag mock_exam_audiences_learner as both sides read it: the
+    admin helper ``learner_gate_enabled`` and the learner side's strict read.
+    ``on=None`` makes the flag lookup itself fail (state unknown)."""
+    from services import mock_exam_audience_service, runtime_flags
+    real_strict = runtime_flags.is_enabled_strict
+
+    def strict(key, default=False):
+        if key != mock_exam_audience_service.LEARNER_GATE_FLAG:
+            return real_strict(key, default)
+        if on is None:
+            raise runtime_flags.FlagLookupError(key)
+        return on
+
+    monkeypatch.setattr(runtime_flags, "is_enabled_strict", strict)
+    monkeypatch.setattr(mock_exam_audience_service, "learner_gate_enabled", lambda: bool(on))
 
 
 @pytest.fixture
@@ -415,5 +426,72 @@ def test_reaper_skips_the_sweep_when_the_audience_rows_cannot_be_read(
     svc.reap_expired_retake_sittings(grace_seconds=0)
 
     # Nothing is reaped by the old per-section rule while the chain is unknown.
+    row = svc.get_sitting(sitting["id"])
+    assert not row.get("reading_submitted_at") and not row.get("writing_started_at")
+
+
+# ── flag lookup failure is "unknown", never "off" (HOLD on #2581) ──
+
+
+def test_unreadable_flag_is_a_503_on_list_and_create_never_the_old_gate(
+        fake_db, svc, monkeypatch):
+    import asyncio
+    from fastapi import HTTPException
+
+    learner = uuid4()
+    _self_paced_exam(fake_db, learner)  # the old gate would seat this learner
+    _learner_flag(monkeypatch, None)
+    with pytest.raises(svc.AudienceUnavailableError):
+        svc.list_open_exams(str(learner))
+    with pytest.raises(svc.AudienceUnavailableError):
+        svc.create_sitting(learner, "MOCK-TEST-A")
+    assert fake_db.rows("mock_exam_sittings") == []
+
+    async def user(_authorization):
+        return {"id": str(learner)}
+
+    monkeypatch.setattr(mock_router, "get_supabase_user", user)
+    for call in (mock_router.list_open(authorization="Bearer x"),
+                 mock_router.open_sitting("MOCK-TEST-A", authorization="Bearer x")):
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(call)
+        assert error.value.status_code == 503
+    assert fake_db.rows("mock_exam_sittings") == []
+
+
+def test_flag_confirmed_off_keeps_the_old_gate(fake_db, svc, monkeypatch):
+    learner = uuid4()
+    _self_paced_exam(fake_db, learner)
+    _learner_flag(monkeypatch, False)
+    assert any(e["code"] == "MOCK-TEST-A" for e in svc.list_open_exams(str(learner)))
+    assert svc.create_sitting(learner, "MOCK-TEST-A")["assigned_skills"] == ["writing"]
+
+
+def test_unreadable_flag_state_read_is_a_503(fake_db, svc, flag_on, monkeypatch):
+    import asyncio
+    from fastapi import HTTPException
+
+    learner = uuid4()
+    _exam, sitting = _chain_sitting(fake_db, svc, learner)
+    _learner_flag(monkeypatch, None)
+
+    async def user(_authorization):
+        return {"id": str(learner)}
+
+    monkeypatch.setattr(mock_router, "get_supabase_user", user)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(mock_router.get_sitting_state(sitting["id"], authorization="Bearer x"))
+    assert error.value.status_code == 503
+
+
+def test_reaper_skips_the_sweep_when_the_flag_cannot_be_read(fake_db, svc, flag_on, monkeypatch):
+    learner = uuid4()
+    _exam, sitting = _chain_sitting(fake_db, svc, learner)
+    _set(fake_db, sitting["id"], status="lrw_in_progress",
+         reading_started_at=_iso(NOW - timedelta(minutes=70)))
+    _learner_flag(monkeypatch, None)
+
+    svc.reap_expired_retake_sittings(grace_seconds=0)
+
     row = svc.get_sitting(sitting["id"])
     assert not row.get("reading_submitted_at") and not row.get("writing_started_at")

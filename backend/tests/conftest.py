@@ -144,6 +144,20 @@ def _credit_metering_defaults_off(monkeypatch):
     monkeypatch.setitem(runtime_flags._cache, "credit_metering", (None, float("inf")))
 
 
+# EXAMMOCK-0071 FR-014 (HOLD on #2581): the learner audience gate reads
+# `mock_exam_audiences_learner` strictly (a lookup error is 503, never "off").
+# Same reason as above: tests start with the flag cached as "no row" (= off).
+@pytest.fixture(autouse=True)
+def _mock_exam_audiences_learner_defaults_off(monkeypatch):
+    try:
+        from services import runtime_flags
+    except Exception:
+        return
+    monkeypatch.setitem(
+        runtime_flags._cache, "mock_exam_audiences_learner", (None, float("inf"))
+    )
+
+
 @pytest.fixture
 def live_activation_gate(monkeypatch):
     """Run the REAL activation gate (and is_active lookup) in this test."""

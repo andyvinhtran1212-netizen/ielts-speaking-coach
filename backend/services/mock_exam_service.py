@@ -785,12 +785,20 @@ _AUDIENCE_COLS = "exam_id, user_id, skills, selected, open_from, open_until, pur
 
 
 def audiences_learner_enabled() -> bool:
-    """The runtime flag ``mock_exam_audiences_learner``, read through the same
-    helper the admin ``schedule`` uses, so the learner gate and the admin side
-    never disagree (CR #2581). Off on a lookup error (fail closed to the old
-    gate). Imported here: mock_exam_audience_service imports this module."""
-    from services.mock_exam_audience_service import learner_gate_enabled
-    return learner_gate_enabled()
+    """The runtime flag ``mock_exam_audiences_learner`` (the same key and
+    cache the admin ``schedule`` reads through ``learner_gate_enabled``).
+
+    True or False only when the flag was read. When it cannot be read the
+    state is unknown, and the old gate does not enforce FR-014 (only selected
+    learners on the list may enter), so this raises AudienceUnavailableError:
+    the learner routes answer 503 and no sitting is created (HOLD on #2581).
+    Imported here: mock_exam_audience_service imports this module."""
+    from services import runtime_flags
+    from services.mock_exam_audience_service import LEARNER_GATE_FLAG
+    try:
+        return runtime_flags.is_enabled_strict(LEARNER_GATE_FLAG, default=False)
+    except runtime_flags.FlagLookupError as exc:
+        raise AudienceUnavailableError(_AUDIENCE_UNAVAILABLE_MESSAGE) from exc
 
 
 def _self_paced_gap_seconds() -> int:
@@ -897,7 +905,8 @@ def is_self_paced_chain(sitting: dict, exam: dict, added_index: Optional[dict] =
     exam that already had its audience row switches to the chain when the flag
     turns on. Before turning the flag on, check that no such sitting is in
     progress (rollout check)."""
-    if not audiences_learner_enabled() or not is_retake(exam):
+    # ``added_index`` given: the reaper already read the flag as on for this sweep.
+    if not is_retake(exam) or (added_index is None and not audiences_learner_enabled()):
         return False
     if not sitting.get("assigned_skills") or not _sitting_sections(sitting, exam):
         return False
@@ -3956,13 +3965,14 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     # FR-014: which sittings run back to back, from one read of the audience
     # rows for the whole sweep. Unreadable: skip this sweep rather than reap a
     # chain sitting by the old per-section rule.
+    # A flag that cannot be read is unknown, not off: skip the sweep too.
     added_index: Optional[dict] = None
-    if audiences_learner_enabled():
-        try:
+    try:
+        if audiences_learner_enabled():
             added_index = _audience_added_index({str(r["mock_exam_id"]) for r in rows})
-        except AudienceUnavailableError:
-            logger.exception("[retake-reaper] audience lookup failed")
-            return _done(0, 0)
+    except AudienceUnavailableError:
+        logger.exception("[retake-reaper] audience flag or lookup failed")
+        return _done(0, 0)
 
     now = _now()
     # Retake has a clock per sitting, but all due papers for one exam/section
