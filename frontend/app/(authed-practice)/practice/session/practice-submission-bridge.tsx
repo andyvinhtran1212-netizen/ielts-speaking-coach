@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreSpeakingUpload } from '@/lib/core-speaking-operation.mjs';
@@ -10,9 +10,22 @@ import { SpeakingSubmissionController } from '../../../../public/js/speaking-sub
 export function PracticeSubmissionBridge() {
   const { status, user } = useAuth();
 
+  const installation = useRef<{ ownerId: string; dispose: () => void } | null>(null);
+
+  useEffect(() => () => {
+    installation.current?.dispose();
+    installation.current = null;
+  }, []);
+
   useEffect(() => {
-    if (status !== 'signed-in' || !user?.id) return undefined;
     const win = window as any;
+    // The retained blob must retry with its original submission ID and revision.
+    if (status === 'signed-out' && installation.current
+        && win.PracticeApp?.retainExpiredSession?.() === true) return;
+    if (status === 'signed-in' && installation.current?.ownerId === user?.id) return;
+    installation.current?.dispose();
+    installation.current = null;
+    if (status !== 'signed-in' || !user?.id) return;
     const submission = Object.assign(new SpeakingSubmissionController({
       // A redirect here would destroy the only in-memory copy of an
       // unconfirmed recording. Preserve 401 and let the player keep the blob.
@@ -37,10 +50,10 @@ export function PracticeSubmissionBridge() {
     });
     win.PracticeSubmission = submission;
 
-    return () => {
+    installation.current = { ownerId: user.id, dispose: () => {
       submission.destroy();
       if (win.PracticeSubmission === submission) delete win.PracticeSubmission;
-    };
+    } };
   }, [status, user?.id]);
 
   return null;

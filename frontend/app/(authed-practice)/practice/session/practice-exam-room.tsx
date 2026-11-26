@@ -57,6 +57,8 @@ function TooShortReason({ value, mode }: { value: TooShort; mode: SpeakingRoomMo
 export type SpeakingRoomSlots = {
   /** Above the P1/P3 recorder (inline recording section). */
   recorder: ReactNode;
+  /** Above the multi-question class-assignment answer sheet. */
+  answerSheet: ReactNode;
   /** Above the Part 2 cue card start button. */
   part2Cue: ReactNode;
   /** Above the Part 2 speaking timer. */
@@ -90,6 +92,12 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
           {micBox}
           <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
           <TooShortReason value={tooShortOf(rec.tooShort)} mode={mode} />
+        </div>
+      ) : null,
+      answerSheet: activeState === 'sheet' ? (
+        <div className="av2-root" data-room-slot="answer-sheet" style={SLOT_STYLE}>
+          {micBox}
+          <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
         </div>
       ) : null,
       part2Cue: activeState === 'p2a' ? (

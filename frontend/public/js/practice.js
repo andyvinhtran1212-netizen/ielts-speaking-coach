@@ -398,6 +398,7 @@
       _updateNativeView('recording', { level: _roomLevel(analyser, buf), paused: _roomRecorderPaused() });
     };
     _roomMicLostDone = false;
+    _roomP2Held = false;
     if (_roomLevelTimer) _clearManagedEffect('recording-level', _roomLevelTimer, 'interval');
     tick();
     _roomLevelTimer = _startManagedInterval('recording-level', tick, _ROOM_LEVEL_MS);
@@ -474,6 +475,35 @@
     } else {
       _stopWaveform();
     }
+    return true;
+  }
+
+  // Part 2 sends its take as soon as it ends (Full Test moves on, practice goes
+  // to grading). A take cut by a lost microphone is held on the cue card
+  // instead, under the "Mất kết nối micro" box, so the learner sees the warning
+  // and chooses to send it or record again; the leave box counts it meanwhile.
+  var _roomP2Held = false;
+
+  function _roomHoldLostP2Take() {
+    if (!_examRoomMode || !_roomMicLostDone) return false;
+    _roomP2Held = true;
+    _recordingDirty = true;
+    _showP2SubmissionRetry('Mất kết nối micro giữa lúc nói. Phần đã ghi được giữ lại: nghe lại, rồi gửi bản ghi này hoặc ghi lại.');
+    return true;
+  }
+
+  // "Gửi lại bản ghi" on a held take. Practice sends it the usual way; a Full
+  // Test sends it the way an uncut take would have gone, and moves on.
+  function _roomSendHeldP2Take() {
+    if (!_examRoomMode || !_roomP2Held) return false;
+    _roomP2Held = false;
+    if (_testMode !== 'test_full') return false;
+    var questionId = _p2RetryQuestionId;
+    var blob = _recordedBlob;
+    _clearP2SubmissionRetry();
+    _recordingDirty = false;
+    _submitGradingEager(_sessionId, questionId, blob);
+    _advanceTestMode();
     return true;
   }
 
@@ -586,6 +616,14 @@
   // the box only stays (no same-tab sign-in) and Nộp waits until a send proves
   // the session is back; with nothing unsent it offers "Đăng nhập lại".
   var _roomSignedOut = false;
+  // The React auth effects ask before redirecting or disposing the Full Test
+  // queue. A null Supabase session must not drop the only copy of a take.
+  function retainExpiredSession() {
+    if (!_examRoomMode || !_hasUnsentWork()) return false;
+    _roomExpired({ status: 401 });
+    return true;
+  }
+
   function _roomExpired(err) {
     if (!_examRoomMode || !err) return false;
     // Only a send that succeeds proves the session is back (_roomSessionBack);
@@ -3688,6 +3726,7 @@
       showError('Không còn bản ghi để gửi lại. Hãy ghi âm lại câu trả lời.');
       return;
     }
+    if (_roomSendHeldP2Take()) return;
     _startProcessing(_recordedBlob, _p2RetryQuestionId);
   }
 
@@ -3778,6 +3817,7 @@
     var questionId = _currentQ && (_currentQ.id || _currentQ.question_id);
 
     if (_checkRecordedLength()) return;
+    if (_roomHoldLostP2Take()) return;
 
     // Test modes: advance immediately (no grading spinner)
     if (_testMode === 'test_full') {
@@ -6469,6 +6509,7 @@
     init:                 init,
     destroy:              destroy,
     hasUnsavedWork:       _hasUnsentWork,
+    retainExpiredSession: retainExpiredSession,
     canLeave:             _canLeave,
     requestMicrophone:    requestMicrophone,
     setWriteRight:        setWriteRight,
