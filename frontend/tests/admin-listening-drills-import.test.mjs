@@ -24,16 +24,11 @@ const REPO = path.join(__dirname, '..', '..');
 const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 
 const html      = read('frontend/pages/admin/listening/import-drills.html');
-const js        = read('frontend/js/admin-listening-drills-import.js');
 const testsHtml = read('frontend/pages/admin/listening/tests.html');
 const router = readListeningRouterSource();
 
 
 describe('import-drills page shell', () => {
-  test('loads api.js + the batch controller', () => {
-    assert.match(html, /src="\/js\/api\.js"/);
-    assert.match(html, /src="\/js\/admin-listening-drills-import\.js"/);
-  });
   test('offers a directory picker + scan + import buttons', () => {
     assert.match(html, /id="di-dir"[^>]*webkitdirectory/);
     assert.match(html, /id="di-scan"/);
@@ -45,28 +40,6 @@ describe('import-drills page shell', () => {
   });
 });
 
-
-describe('import-drills controller contract', () => {
-  test('dry-run posts to /admin/listening/drills/import via api.upload', () => {
-    assert.match(js, /window\.api\.upload\(\s*['"]\/admin\/listening\/drills\/import['"]/);
-  });
-  test('commit posts to /admin/listening/drills/import/commit', () => {
-    assert.match(js, /\/admin\/listening\/drills\/import\/commit/);
-  });
-  test('matches bundles by test_id (json name ↔ audio_output/<TEST_ID>/)', () => {
-    assert.match(js, /audio_output/);
-    assert.match(js, /testIdFromJsonName/);
-    assert.match(js, /full_test\.mp3/);
-    assert.match(js, /timings\.json/);
-  });
-  test('audio is sent only WITH timings (audio-without-timings → replay windows missing)', () => {
-    assert.match(js, /if\s*\(b\.audioFile\s*&&\s*b\.timingsFile\)\s*fd\.append\(\s*['"]audio['"]/);
-  });
-  test('a valid dry-run row is checkbox-selectable; errors block it', () => {
-    assert.match(js, /p\.ok/);
-    assert.match(js, /di-check/);
-  });
-});
 
 
 describe('backend endpoints + admin entry point', () => {

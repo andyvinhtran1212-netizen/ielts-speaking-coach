@@ -127,7 +127,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   const contentId = text(draft?.contentId);
   const selected = (Array.isArray(catalog) ? catalog : []).find((item) => item.id === contentId);
   if (!contentId || !selected) return { ok: false, error: 'Chọn nội dung bài tập để tiếp tục.' };
-  if (!selected.ready || selected.already_given) return { ok: false, error: selected.reason || 'Nội dung này chưa giao được.' };
+  if (!selected.ready || (selected.already_given && selected.can_regive !== true)) return { ok: false, error: selected.reason || 'Nội dung này chưa giao được.' };
   if (selected.exam_only && draft.deliveryMode !== 'assigned_practice') {
     return { ok: false, error: 'Đề trong kho admin cần chọn “Giao luyện tập có kiểm soát”.' };
   }
@@ -233,6 +233,15 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   return { ok: true, body };
 }
 
+// Ngày theo giờ Việt Nam (DD/MM/YYYY) cho ghi chú "đã giao ngày …"; '' khi không đọc được.
+export function vietnamDateLabel(value) {
+  const date = new Date(text(value));
+  if (!text(value) || Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+  }).format(date);
+}
+
 export function normalizeCatalog(value, kind, requestedSkill = '', requestedCohortId = '') {
   const payload = object(value);
   if (!Array.isArray(payload.items)) return null;
@@ -249,12 +258,20 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     // The class-assignment screen already names the target class. Keep the
     // backend scope gate, but let the submit flow establish that scope through
     // the canonical /cohorts endpoint instead of forcing a second screen first.
-    const ready = kind === 'exam' ? row.status === 'published' : row.ready === true;
     const already = row.already_given === true;
+    // Backend nói nội dung nào giao lại được (bộ bài tập khoá) — khi đó "đã giao"
+    // chỉ là ghi chú kèm ngày, không chặn chọn.
+    const canRegive = already && row.can_regive === true;
+    const lastGivenAt = nullableText(row.last_given_at);
+    const givenDate = vietnamDateLabel(lastGivenAt);
     const runtime = nullableText(row.runtime);
     const published = row.is_published !== false;
+    // Báo cáo săn lỗi #134: bộ từ vựng nâng cao chưa xuất bản vẫn `ready`, nên
+    // validateHomeworkDraft cho giao dù đã hiện lý do "Chưa xuất bản để giao".
+    const ready = (kind === 'exam' ? row.status === 'published' : row.ready === true)
+      && !(runtime === 'advanced_vocab' && !published);
     let reason = null;
-    if (already) reason = 'Đã giao cho lớp này';
+    if (already && !canRegive) reason = givenDate ? `Đã giao cho lớp này ngày ${givenDate}` : 'Đã giao cho lớp này';
     else if (runtime === 'advanced_vocab' && !published) reason = 'Chưa xuất bản để giao';
     else if (!ready) reason = kind === 'speaking' && row.voice_conflict === true
       ? 'Cần đồng bộ giọng đọc của chủ đề'
@@ -263,10 +280,12 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
         : row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Đề đang draft hoặc chưa sẵn sàng';
     else if (scopeBlocked) reason = 'Sẽ gán phạm vi lớp khi giao';
     else if (kind === 'exam' && privatePaper) reason = 'Kho đề admin';
+    else if (canRegive) reason = givenDate ? `Đã giao ngày ${givenDate} · giao lại được` : 'Đã từng giao · giao lại được';
     return {
       id, title: text(row.title) || 'Nội dung chưa đặt tên', code: nullableText(row.code),
       category: kind === 'speaking' ? nullableText(row.category) : null,
       part: finite(row.part), lesson_no: finite(row.lesson_no), ready, already_given: already,
+      can_regive: canRegive, last_given_at: lastGivenAt,
       reason, exam_only: privatePaper, is_public: !privatePaper, cohort_ids: cohortIds,
       explanation_ready: row.web_explanation_ready === true,
       explanation_state: text(row.web_explanation_state) || 'unknown',

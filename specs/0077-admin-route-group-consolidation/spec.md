@@ -73,7 +73,7 @@ Hệ quả:
 
 - **Given** đang ở `/admin/classes`
 - **When** bấm sidebar sang `/admin/feedback`
-- **Then** ảnh chụp `/admin/feedback` sau điều hướng client giống ảnh cùng cảnh trên SHA trước PR; trong `document.querySelectorAll('link[rel=stylesheet]')` mỗi href của 4 sheet nền xuất hiện đúng một lần (sheet trang của route trước còn lại do `cacheComponents` được ghi vào PR, không làm hỏng scenario); mục sidebar đang chọn là "feedback" (không còn "classes"), `document.body.className` bằng tải trực tiếp, và cổng kích hoạt cho cùng kết quả (tài khoản chưa kích hoạt vẫn bị chặn như khi tải trực tiếp) (FR-005)
+- **Then** ảnh chụp `/admin/feedback` sau điều hướng client giống ảnh cùng cảnh trên SHA trước PR; trong `document.querySelectorAll('link[rel=stylesheet]')` mỗi href của 4 sheet nền xuất hiện đúng một lần (sheet trang của route trước còn lại do `cacheComponents` được ghi vào PR và không nhiều hơn cùng cảnh trên SHA trước PR, như Scenario 3); mục sidebar đang chọn là "feedback" (không còn "classes"), `document.body.className` bằng tải trực tiếp, và cổng kích hoạt cho cùng kết quả (tài khoản chưa kích hoạt vẫn bị chặn như khi tải trực tiếp) (FR-005)
 
 ### Scenario 3 — rời trang có nhiều sheet
 

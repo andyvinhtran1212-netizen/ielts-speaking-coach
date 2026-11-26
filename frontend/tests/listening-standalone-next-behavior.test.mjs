@@ -71,7 +71,15 @@ describe('Listening standalone native model', () => {
       score: 1, correct: 1, total: 1, is_correct: true,
       details: [{ idx: 0, actual: 'T', expected: 'T', is_correct: true }],
     });
-    assert.equal(tf.details[0].expected, 'T');
+    // Săn lỗi B2-13: đáp án đúng không bao giờ tới màn hình, kể cả khi một
+    // backend cũ còn gửi `expected`.
+    assert.equal('expected' in tf.details[0], false);
+    const tfNoKey = normalizeListeningStandaloneResult('true_false', 'exercise-tf', 1, {
+      attempt_id: 'attempt-4', exercise_id: 'exercise-tf', mode: 'true_false', is_first_attempt: true,
+      score: 0, correct: 0, total: 1, is_correct: false,
+      details: [{ idx: 0, actual: 'F', is_correct: false }],
+    });
+    assert.deepEqual(tfNoKey.details[0], { idx: 0, isCorrect: false, actual: 'F' });
     assert.throws(() => normalizeListeningStandaloneResult('mcq', 'exercise-mcq', 1, {
       attempt_id: 'attempt-3', exercise_id: 'wrong', mode: 'mcq', is_first_attempt: true,
       score: 1, correct: 1, total: 1, is_correct: true, details: [{ idx: 0, actual_idx: 0, is_correct: true }],

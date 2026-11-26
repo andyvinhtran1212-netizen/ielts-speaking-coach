@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { blocksManualSubmit, connectionReducer, initialConnectionState } from '@/lib/exam-room/connection-state.mjs';
-import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
+import { clearForeignLocalCopies, clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
+import { clearSplitRatio, pruneSplitRatios } from '@/lib/exam-room/split-ratio.mjs';
 import { clockTime, submitButtonState, submitOutcomeModel } from '@/lib/exam-room/submit-guard.mjs';
 import { createTabGuard } from '@/lib/exam-room/tab-guard.mjs';
 import { registerNavigationGuard } from '@/lib/navigation-guard';
@@ -224,17 +225,31 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
   const [submitError, setSubmitError] = useState(false);
   const outcome = submit?.outcome ?? 'idle';
   const offline = blocksManualSubmit(connection);
-  // FR-035: an attempt that can no longer be sent (closed by the server, or
-  // refused after the grace period) drops its on-device copy.
-  const clearCopy = submitOutcomeModel({ outcome, strings }).clearCopy;
+  // FR-035/FR-032 (R150-3): on entry, copies another account left on this
+  // device are removed by key alone (never read), and stale split ratios go.
   useEffect(() => {
-    if (!clearCopy || typeof window === 'undefined') return;
-    let storage: Storage | null = null;
-    try { storage = window.localStorage; } catch { storage = null; }
+    const storage = safeLocalStorage();
+    clearForeignLocalCopies(storage, ownerKey);
+    pruneSplitRatios(storage);
+  }, [ownerKey]);
+  // FR-035: an attempt that is finished drops its on-device copy and its split
+  // ratio: submitted and `confirmed`, closed by the server, refused after the
+  // grace period, or abandoned (see confirmAbandon).
+  const dropAttemptStorage = useCallback(() => {
+    const storage = safeLocalStorage();
     clearLocalCopy(storage, { surface, ownerKey, attemptKey });
-  }, [clearCopy, surface, ownerKey, attemptKey]);
+    clearSplitRatio(storage, attemptKey);
+  }, [surface, ownerKey, attemptKey]);
+  const attemptFinished = outcome === 'confirmed' || submitOutcomeModel({ outcome, strings }).clearCopy;
+  useEffect(() => {
+    if (attemptFinished) dropAttemptStorage();
+  }, [attemptFinished, dropAttemptStorage]);
   // A save in flight counts as unsaved even when the surface tracks no per-question state.
   const pendingSaves = Math.max(unsaved, saveStatus.state === 'saving' ? 1 : 0);
+  // Amendment 2 / R150-2: with no device copy, any work the server lacks makes
+  // "Sign in again" lose answers, including a typed answer still in the
+  // surface's debounce (not yet in saveStatus), which only exit.losesWork() sees.
+  const stayOnly = copySaved === false && (pendingSaves > 0 || exit.losesWork());
   const button = submit ? submitButtonState({
     online: !offline,
     submitting: submitting || outcome === 'submitting',
@@ -282,7 +297,7 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
     if (!abandon || abandoning) return;
     setAbandoning(true);
     abandon.onAbandon().then(
-      () => { setAbandoning(false); setAbandonOpen(false); },
+      () => { dropAttemptStorage(); setAbandoning(false); setAbandonOpen(false); },
       () => { setAbandoning(false); },
     );
   };
@@ -478,9 +493,9 @@ export function ExamRoomShell(props: ExamRoomShellProps) {
         <AbandonDialog open={abandonOpen} busy={abandoning} strings={strings} onConfirm={confirmAbandon} onCancel={() => setAbandonOpen(false)} />
       ) : null}
       <SessionExpiredDialog
-        open={sessionBlocked && copySaved != null && !(stayed && copySaved === false && pendingSaves > 0)}
+        open={sessionBlocked && copySaved != null && !(stayed && stayOnly)}
         copySaved={copySaved === true}
-        stayOnly={copySaved === false && pendingSaves > 0}
+        stayOnly={stayOnly}
         onStay={() => setStayed(true)}
         savedUpTo={savedUpTo}
         returnUrl={returnUrl}

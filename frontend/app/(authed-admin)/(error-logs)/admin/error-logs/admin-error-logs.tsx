@@ -155,7 +155,6 @@ export function AdminErrorLogs() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [migrationLoading, setMigrationLoading] = useState(true);
   const [rollbackLoading, setRollbackLoading] = useState(false);
-  const [testLoading, setTestLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [migrationError, setMigrationError] = useState<string | null>(null);
@@ -165,7 +164,6 @@ export function AdminErrorLogs() {
   const statsSequence = useRef(0);
   const migrationSequence = useRef(0);
   const rollbackSequence = useRef(0);
-  const testTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestQuery = useRef({ filters, offset });
   latestQuery.current = { filters, offset };
 
@@ -229,11 +227,6 @@ export function AdminErrorLogs() {
   }, []);
 
   useEffect(() => {
-    if (testTimer.current) {
-      clearTimeout(testTimer.current);
-      testTimer.current = null;
-    }
-    setTestLoading(false);
     setStats(EMPTY_STATS);
     setMigration(null);
     setRollback(null);
@@ -251,10 +244,6 @@ export function AdminErrorLogs() {
     void loadLogs(filters, offset);
     return () => { logsSequence.current += 1; };
   }, [profile.id, filters, offset, loadLogs]);
-
-  useEffect(() => () => {
-    if (testTimer.current) clearTimeout(testTimer.current);
-  }, []);
 
   const updateFilter = (key: keyof Filters, value: string) => {
     setOffset(0);
@@ -282,24 +271,6 @@ export function AdminErrorLogs() {
         next.delete(id);
         return next;
       });
-    }
-  };
-
-  const generateTestError = async () => {
-    if (testLoading) return;
-    setTestLoading(true);
-    setHideNoise(false);
-    setBanner({ kind: 'success', text: 'Đang tạo lỗi test… một dòng “Thử nghiệm” sẽ xuất hiện trong giây lát.' });
-    try {
-      await window.api.post('/admin/error-logs/test?error_type=exception', {});
-    } catch {
-      // Expected: the backend raises deliberately so the global exception path records the row.
-    } finally {
-      if (testTimer.current) clearTimeout(testTimer.current);
-      testTimer.current = setTimeout(() => {
-        const latest = latestQuery.current;
-        void Promise.all([loadLogs(latest.filters, latest.offset), loadStats(), loadMigration()]).finally(() => setTestLoading(false));
-      }, 800);
     }
   };
 
@@ -334,9 +305,6 @@ export function AdminErrorLogs() {
           <p className="subtitle">Frontend + backend exception log. Đánh dấu xử lý sau khi triage.</p>
         </div>
         <div className="el-header__actions">
-          <button className="btn-secondary" type="button" disabled={testLoading} onClick={generateTestError}>
-            {testLoading ? 'Đang tạo…' : 'Tạo lỗi test'}
-          </button>
           <button className="btn-primary" type="button" disabled={anyLoading} onClick={() => void refreshAll()}>
             {anyLoading ? 'Đang tải…' : 'Tải lại'}
           </button>

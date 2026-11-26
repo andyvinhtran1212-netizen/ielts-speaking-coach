@@ -100,26 +100,23 @@ describe('parity với trang legacy', () => {
     assert.match(PAGE, /title: 'Grammar Wiki — Aver Learning'/);
   });
 
-  test('H1 giữ dấu cách quanh <br> — dưới 640px br bị ẩn', () => {
-    // Bộ so parity tìm ra trên production 03/08: JSX nuốt khoảng trắng chứa
-    // xuống dòng giữa thẻ và chữ, HTML thì giữ. Dưới 640px `<br>` là
-    // `display:none` ⇒ thiếu dấu cách thì thành "như mộthệ thống liên kết".
-    // Đo thật: legacy 375px "một hệ thống" · Next 375px (trước vá) "mộthệ thống".
-    // Desktop trông vẫn đúng, nên đọc mắt ở 1280px KHÔNG bắt được.
-    assert.match(LEGACY, /như một<br class="hidden sm:block"\/>\s/,
-      'chốt chặn: legacy có khoảng trắng ngay sau <br>');
-    assert.match(PAGE, /như một<br className="hidden sm:block" \/>\{' '\}/,
-      "thiếu {' '} sau <br> ⇒ hai chữ dính liền trên mọi màn hình < 640px");
+  test('đầu trang theo tờ GrammarWiki (G06-T14 b): Thư viện › Grammar Wiki', () => {
+    // The legacy hero (H1 "Học ngữ pháp như một … hệ thống liên kết" and its
+    // <br> spacing fix) is replaced by the "Bản in" header; the article title
+    // and <title> parity stay.
+    assert.match(PAGE, /<a href="\/library">Thư viện<\/a> › <span aria-current="page">Grammar Wiki<\/span>/);
+    assert.match(PAGE, /<h1>Grammar Wiki<\/h1>/);
+    assert.doesNotMatch(PAGE, /hệ thống liên kết/);
   });
 
   test('giữ đúng các id mà grammar-wiki.css nhắm tới', () => {
-    for (const id of [
-      'home-content', 'groups-section', 'groups-list',
-      'featured-list', 'categories', 'category-cards',
-      'category-view', 'category-view-title', 'category-view-list',
-    ]) {
+    // G06-T14 (b): the home index is on CSS modules; only the ids other code
+    // still targets stay (`groups-section` is the mode switcher's hash target).
+    const INDEX = readFileSync(path.join(DIR, 'grammar-index.tsx'), 'utf8');
+    for (const id of ['home-content', 'category-view', 'category-view-title', 'category-view-list']) {
       assert.ok(PAGE.includes(`id="${id}"`), `thiếu id="${id}" — CSS legacy bám vào nó`);
     }
+    assert.ok(INDEX.includes('id="groups-section"'), 'thiếu id="groups-section" (đích #groups-section của bộ chuyển chế độ)');
     for (const id of ['search-input', 'search-btn']) {
       assert.ok(SEARCH.includes(`id="${id}"`), `thiếu id="${id}"`);
     }
