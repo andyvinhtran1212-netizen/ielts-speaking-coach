@@ -10,7 +10,7 @@ import type { ExamRoomSaveStatus, ExamRoomSubmitOutcome } from '@/components/exa
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
-import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
+import { removeAckedFromCopy } from '@/lib/exam-room/local-copy.mjs';
 import { clockTime } from '@/lib/exam-room/submit-guard.mjs';
 import { configuredMockSections, mockWordCount, submittedAtFor } from '@/lib/mock-exam-model.mjs';
 
@@ -69,6 +69,8 @@ export interface MockExamRoomProps {
   outcome: MockRoomOutcome | null;
   onRetrySubmit(): void;
   flushForExit(): Promise<{ unsaved: number }>;
+  /** Writing text typed but not yet acked, debounce included (FR-012 loss guard). */
+  losesWork?(): boolean;
 }
 
 /** Section names on the strip and in the subtitle: words only, no emoji (FR-005). */
@@ -211,15 +213,23 @@ export function MockExamRoom(props: MockExamRoomProps) {
   const { state, view, outcome } = props;
   const [writingSave, setWritingSave] = useState<ExamRoomSaveStatus>({ state: 'idle' });
   const onWritingSave = useCallback((status: ExamRoomSaveStatus) => setWritingSave(status), []);
-  // FR-010: the Writing copy goes once the server holds the Writing submit.
+  // FR-010: once the server holds the Writing submit, a copy entry goes only
+  // when the server holds exactly that text. A closed section whose last save
+  // was not confirmed (closed_unconfirmed) keeps a different device text
+  // (HOLD on #2715); expiry and sign-out still clear it.
   const sittingId = state?.sitting.id;
   const writingSubmittedAt = state?.sitting.writingSubmittedAt;
+  const serverTask1 = state?.sitting.writingSubmission?.task1?.text ?? '';
+  const serverTask2 = state?.sitting.writingSubmission?.task2?.text ?? '';
   useEffect(() => {
     if (!sittingId || !writingSubmittedAt || !props.ownerKey) return;
     let storage: Storage | null = null;
     try { storage = window.localStorage; } catch { storage = null; }
-    clearLocalCopy(storage, { surface: 'mock', ownerKey: props.ownerKey, attemptKey: sittingId });
-  }, [props.ownerKey, sittingId, writingSubmittedAt]);
+    removeAckedFromCopy(storage, {
+      surface: 'mock', ownerKey: props.ownerKey, attemptKey: sittingId,
+      entries: [{ q: 'task1', value: serverTask1 }, { q: 'task2', value: serverTask2 }],
+    });
+  }, [props.ownerKey, sittingId, writingSubmittedAt, serverTask1, serverTask2]);
 
   if (props.loading) return <Screen><PageState kind="loading" title="Loading the test" /></Screen>;
   if (props.fatal) {
@@ -357,7 +367,7 @@ export function MockExamRoom(props: MockExamRoomProps) {
         onRetry: props.onRetrySubmit,
       } : undefined}
       // FR-009: no leaving while the invigilator collects; the shell closes an open box.
-      exit={{ href: MOCK_ROOM_COPY.exitHref, flush: props.flushForExit, losesWork: () => false, locked: props.collecting }}
+      exit={{ href: MOCK_ROOM_COPY.exitHref, flush: props.flushForExit, losesWork: () => Boolean(props.losesWork?.()), locked: props.collecting }}
       ownerKey={props.ownerKey}
       session={props.session}
       onSessionExpired={{ saveLocalCopy: props.saveLocalCopy, returnUrl: returnHere() }}

@@ -96,6 +96,8 @@ interface Prompt {
 interface WritingBridge {
   flush(): Promise<void>;
   finalize(): Promise<{ task1_text: string; task2_text: string }>;
+  /** Exam-room Writing only (FR-012 loss guard). */
+  hasUnsavedText?(): boolean;
 }
 
 const POLL_MS = 8_000;
@@ -722,6 +724,8 @@ export function MockExamRunner() {
   const finalWritingBodyRef = useRef<{ task1_text: string; task2_text: string } | null>(null);
   const timerAnchorRef = useRef({ section: null as Section | null, seconds: 0, at: 0 });
   const timerSubmitTriggeredRef = useRef<Section | null>(null);
+  /** FR-013: a submit refused for lack of the write right, run once it is granted. */
+  const blockedSubmitRef = useRef<Section | null>(null);
   const submitRef = useRef<(section: Section, attempt?: number) => Promise<void>>(async () => {});
   const integrityRef = useRef<Record<string, number> | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
@@ -1168,7 +1172,12 @@ export function MockExamRunner() {
   const submitSection = useCallback(async (section: Section, attempt = 0) => {
     if (submittingRef.current && attempt === 0) return;
     // FR-013: only the tab holding the write right submits; the writer submits as usual.
-    if (examRoomRef.current && !canWriteRef.current) return;
+    if (examRoomRef.current && !canWriteRef.current) {
+      // Keep it (Codex P1 on #2715): the timer latch will not fire again, so
+      // the submit runs when this tab gains the write right.
+      if (attempt === 0) blockedSubmitRef.current = section;
+      return;
+    }
     if (attempt > 0 && isMockSubmitSettled(stateRef.current, section)) {
       submittingRef.current = false;
       owedSubmitRef.current = null;
@@ -1308,6 +1317,21 @@ export function MockExamRunner() {
     }
   }, [noteAuthError, openingSpeaking]);
 
+  // FR-013: run a submit that waited for the write right. The Writing room's
+  // layout effect has already reconciled the boxes with the server by now.
+  useEffect(() => {
+    if (!examRoom || !canWrite) return;
+    const pending = blockedSubmitRef.current;
+    if (!pending) return;
+    blockedSubmitRef.current = null;
+    if (submittingRef.current || isMockSubmitSettled(stateRef.current, pending)) return;
+    void submitRef.current(pending);
+  }, [canWrite, examRoom]);
+  const writingLosesWork = useCallback(
+    () => activeSectionRef.current === 'writing' && Boolean(writingBridgeRef.current?.hasUnsavedText?.()),
+    [],
+  );
+
   const registerWriting = useCallback((bridge: WritingBridge | null) => {
     writingBridgeRef.current = bridge;
   }, []);
@@ -1421,6 +1445,7 @@ export function MockExamRunner() {
         outcome={submitOutcome}
         onRetrySubmit={retrySubmit}
         flushForExit={flushForExit}
+        losesWork={writingLosesWork}
       />
     );
   }
