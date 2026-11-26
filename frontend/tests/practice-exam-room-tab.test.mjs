@@ -4,6 +4,8 @@
 // hand-over flush is "secured" only with nothing recording, unsent or
 // uploading, because takes live only in page memory (FR-009). The room helpers
 // of practice.js run for real in a sandbox.
+import { createTabGuard } from '../lib/exam-room/tab-guard.mjs';
+import { fakeBrowser, fakeTimers, flushMicrotasks } from './fixtures/exam-room-fakes.mjs';
 import { JSDOM } from 'jsdom';
 import { installPracticePlayerController } from '../lib/practice-player-lifecycle.mjs';
 import { describe, test } from 'node:test';
@@ -60,7 +62,11 @@ test('fully answered test_part resumes once the tab can write', async (t) => {
   const browser = dom.window;
   const calls = [];
   browser.fetch = async () => ({ ok: false });
-  browser.api = { patch: async (url) => { calls.push(url); } };
+  const uploads = [];
+  browser.api = { patch: url => {
+    calls.push(url);
+    return new Promise((resolve, reject) => uploads.push({ resolve, reject }));
+  } };
   const player = installPracticePlayerController(browser);
   t.after(() => {
     player.cleanup();
@@ -73,11 +79,49 @@ test('fully answered test_part resumes once the tab can write', async (t) => {
     sessionId, sessionData: { mode: 'test_part', part: 1, responses: [{ question_id: 'q1' }] },
     questions: [{ id: 'q1' }], navigate: (url) => calls.push(url),
   });
-  browser.PracticeApp.setWriteRight(false);
+  const api = browser.PracticeApp;
+  const shared = fakeBrowser();
+  const timers = fakeTimers();
+  const options = { surface: 'speaking', attemptKey: sessionId, locks: shared.locks,
+    channelFactory: shared.channelFactory, timers, now: timers.now, reloadFromServer: async () => {} };
+  const a = createTabGuard({ ...options, tabId: 'a', flush: api.roomFlush,
+    onChange: state => api.setWriteRight(state === 'writer') });
+  const b = createTabGuard({ ...options, tabId: 'b', flush: async () => ({ secured: true }) });
+  t.after(() => { a.stop(); b.stop(); });
+
   assert.deepEqual(calls, []);
-  browser.PracticeApp.setWriteRight(true);
-  browser.PracticeApp.setWriteRight(true);
-  assert.deepEqual(calls, ['/sessions/answered-session/complete', '/result?id=answered-session']);
+  a.start();
+  await flushMicrotasks();
+  b.start();
+  await flushMicrotasks();
+  b.requestTakeover();
+  await flushMicrotasks();
+  assert.equal(a.state, 'writer');
+  assert.equal(b.state, 'stuck');
+  const patch = '/sessions/answered-session/complete';
+  assert.deepEqual(calls, [patch], 'delayed completion blocks navigation and handover');
+
+  uploads[0].reject(new Error('offline'));
+  await flushMicrotasks();
+  assert.equal(player.controller.getStateSnapshot(), 'error');
+  assert.equal(player.controller.getViewSnapshot().frame.retryResumeCompletionVisible, true);
+  assert.equal((await api.roomFlush()).secured, true);
+  api.setWriteRight(false);
+  await api.retryResumeCompletion();
+  assert.deepEqual(calls, [patch], 'a read-only tab cannot retry');
+  api.setWriteRight(true);
+  uploads[1].resolve({ status: 'completed', session_id: 'other-session' });
+  await flushMicrotasks();
+  assert.equal(player.controller.getStateSnapshot(), 'error');
+  assert.deepEqual(calls, [patch, patch], 'an unrelated receipt cannot open results');
+
+  const retry = api.retryResumeCompletion();
+  api.retryResumeCompletion();
+  assert.equal((await api.roomFlush()).secured, false);
+  uploads[2].resolve({ status: 'completed', session_id: sessionId });
+  await retry;
+  assert.deepEqual(calls, [patch, patch, patch, '/result?id=answered-session']);
+  assert.equal((await api.roomFlush()).secured, true);
 });
 
 describe('flag on: the hand-over flush', () => {
