@@ -81,6 +81,11 @@ export const MOCK_ROOM_COPY = {
   closed: (closedAt: string | null, savedUpTo: string | null) =>
     (closedAt ? `This section was closed by our server at ${closedAt}.` : 'This section was closed by our server.')
     + (savedUpTo ? ` Your answers were saved up to ${savedUpTo}.` : ''),
+  // FR-007: the outcome of a section that has already given way to the next one.
+  closedPrevious: (name: string, closedAt: string | null, savedUpTo: string | null) =>
+    (closedAt ? `${name} was closed by our server at ${closedAt}.` : `${name} was closed by our server.`)
+    + ' We could not confirm that its last answers were saved.'
+    + (savedUpTo ? ` They were saved up to ${savedUpTo}.` : ''),
   connection: {
     offline: 'Connection lost. Keep this tab open without reloading; saving and submitting will retry automatically.',
     submitting: 'Submitting your answers. The connection is unstable; retrying…',
@@ -144,6 +149,17 @@ function ClosedNotice({ outcome }: { outcome: MockRoomOutcome | null }) {
   return (
     <Notice kind="warning" lang="en">
       {MOCK_ROOM_COPY.closed(serverClock(outcome.closedAt), outcome.savedUpTo)}
+    </Notice>
+  );
+}
+
+/** FR-007: a closed, unconfirmed earlier section stays named on the next one, without locking it. */
+function PreviousClosedNotice({ outcome, section }: { outcome: MockRoomOutcome | null; section: Section | null }) {
+  if (!outcome || outcome.outcome !== 'closed_unconfirmed' || outcome.section === section) return null;
+  const name = MOCK_ROOM_SECTION_NAMES[outcome.section as Section] ?? 'The previous section';
+  return (
+    <Notice kind="warning" lang="en">
+      {MOCK_ROOM_COPY.closedPrevious(name, serverClock(outcome.closedAt), outcome.savedUpTo)}
     </Notice>
   );
 }
@@ -246,6 +262,7 @@ export function MockExamRoom(props: MockExamRoomProps) {
   const body = (
     <div data-mock-section={section || ''}>
       <MockSectionStrip state={state} current={section} />
+      <PreviousClosedNotice outcome={outcome} section={section} />
       {props.collecting ? <Notice kind="info" lang="en" live="status">{MOCK_ROOM_COPY.collecting}</Notice> : null}
       {props.connection ? <Notice kind="warning" lang="en">{MOCK_ROOM_COPY.connection[props.connection]}</Notice> : null}
       {props.timerLive && props.remaining > 0 && props.remaining <= 5 * 60
@@ -284,7 +301,8 @@ export function MockExamRoom(props: MockExamRoomProps) {
         savedUpTo: outcome?.savedUpTo ?? undefined,
         onRetry: props.onRetrySubmit,
       } : undefined}
-      exit={{ href: MOCK_ROOM_COPY.exitHref, flush: props.flushForExit, losesWork: () => false }}
+      // FR-009: no leaving while the invigilator collects; the shell closes an open box.
+      exit={{ href: MOCK_ROOM_COPY.exitHref, flush: props.flushForExit, losesWork: () => false, locked: props.collecting }}
       ownerKey={props.ownerKey}
     />
   );

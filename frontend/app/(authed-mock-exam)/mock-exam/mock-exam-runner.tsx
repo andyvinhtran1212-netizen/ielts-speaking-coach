@@ -687,6 +687,9 @@ export function MockExamRunner() {
   const pollFailuresRef = useRef(0);
   const submittingRef = useRef(false);
   const owedSubmitRef = useRef<Section | null>(null);
+  // FR-007: the exam-room branch stops after its 3 automatic retries and waits
+  // for "Try again"; a poll or an `online` event must not restart the ladder.
+  const manualRetryRef = useRef<Section | null>(null);
   const submitTimersRef = useRef<Set<number>>(new Set());
   const activeSectionRef = useRef<Section | null>(null);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
@@ -888,7 +891,10 @@ export function MockExamRunner() {
         if (owed && !submittingRef.current) {
           if (isMockSubmitSettled(stateRef.current, owed)) {
             owedSubmitRef.current = null;
+            manualRetryRef.current = null;
             setConnection(null);
+          } else if (examRoomRef.current && manualRetryRef.current === owed) {
+            // Exhausted in the exam room: only "Try again" submits again.
           } else {
             owedSubmitRef.current = null;
             void submitRef.current(owed);
@@ -937,7 +943,10 @@ export function MockExamRunner() {
         if (owed && !submittingRef.current) {
           if (isMockSubmitSettled(stateRef.current, owed)) {
             owedSubmitRef.current = null;
+            manualRetryRef.current = null;
             setConnection(null);
+          } else if (examRoomRef.current && manualRetryRef.current === owed) {
+            // Exhausted in the exam room: only "Try again" submits again.
           } else {
             owedSubmitRef.current = null;
             void submitRef.current(owed);
@@ -1125,6 +1134,7 @@ export function MockExamRunner() {
       return;
     }
     submittingRef.current = true;
+    if (attempt === 0) manualRetryRef.current = null;
     const track = examRoomRef.current;
     if (track) {
       observedSubmitRef.current.add(section);
@@ -1173,6 +1183,7 @@ export function MockExamRunner() {
       }
       submittingRef.current = false;
       owedSubmitRef.current = section;
+      if (track) manualRetryRef.current = section;
       setConnection('submit_failed');
     }
   }, [doSubmit, loadState]);
@@ -1268,12 +1279,18 @@ export function MockExamRunner() {
     if (awaitingCollectionRef.current) throw new Error('mock-collection-in-progress');
     const section = activeSectionRef.current;
     if (!section) return { unsaved: 0 };
+    let result: { unsaved: number };
     if (section === 'writing') {
       const bridge = writingBridgeRef.current;
       if (!bridge) return { unsaved: 1 };
-      try { await bridge.flush(); return { unsaved: 0 }; } catch { return { unsaved: 1 }; }
+      try { await bridge.flush(); result = { unsaved: 0 }; } catch { result = { unsaved: 1 }; }
+    } else {
+      result = { unsaved: await requestEmbedFlush(section) };
     }
-    return { unsaved: await requestEmbedFlush(section) };
+    // FR-009 (HOLD on #2714): a collection that began while this flush was
+    // waiting still refuses the exit, even when the flush itself succeeded.
+    if (awaitingCollectionRef.current) throw new Error('mock-collection-in-progress');
+    return result;
   }, [requestEmbedFlush]);
   const submitOutcome = useMemo(() => (submitTrack ? {
     section: submitTrack.section,
