@@ -499,3 +499,67 @@ def test_row_from_a_deleted_class_is_labelled_not_hidden(monkeypatch):
     out = aud._shape([{"student_id": "s1", "user_id": "u1", "source_kind": "cohort",
                        "source_cohort_id": None, "skills": ["reading"], "selected": True}])
     assert out["items"][0]["source"] == {"kind": "cohort", "label": "Lớp đã xoá"}
+
+
+def test_account_linked_after_adding_is_read_before_selecting(db, monkeypatch):
+    """Codex P2 (e0186cf3): S4 is added without an account (user_id NULL,
+    no_account). Once students links an account, selecting the existing row
+    stores the link and works; the row keeps its class source."""
+    aud.update_audience(EXAM, {"add_cohort_ids": [COH_A]}, A1)
+    with pytest.raises(aud.AudienceError) as e:
+        aud.update_audience(EXAM, {"set": [{"student_id": S4, "selected": True}]}, A1)
+    assert e.value.code == "no_account"
+    next(s for s in db.tables["students"] if s["id"] == S4)["user_id"] = U(204)
+    out = aud.update_audience(EXAM, {"set": [{"student_id": S4, "selected": True}]}, A1)
+    row = _by_student(out)[S4]
+    assert row["selected"] is True and row["user_id"] == U(204) and row["excluded_reason"] is None
+    assert row["source"]["kind"] == "cohort"
+    stored = next(r for r in db.tables["mock_exam_audiences"] if r["student_id"] == S4)
+    assert stored["user_id"] == U(204) and stored["source_cohort_id"] == COH_A
+    # The new account can also be named by user_id now.
+    out = aud.update_audience(EXAM, {"set": [{"user_id": U(204), "selected": False}]}, A1)
+    assert _by_student(out)[S4]["selected"] is False
+
+
+def test_locked_and_failed_sitting_refreshes_are_reported(db, monkeypatch):
+    """Codex P2 (e0186cf3): assign() updates the assignment but cannot carry the
+    edit onto a sitting whose clock started (locked) or whose refresh errored
+    (refresh_failed). The PATCH says so instead of a silent success."""
+    calls, window = _published_self_paced(db, monkeypatch)
+    aud.update_audience(EXAM, {"add_cohort_ids": [COH_A], "window": window}, A1)
+    monkeypatch.setattr(aud.assign_svc, "assign",
+                        lambda eid, rows, created_by: {"locked": [A1], "refresh_failed": []})
+    out = aud.update_audience(EXAM, {"set": [{"user_id": A1, "skills": ["reading"]}]}, A1)
+    assert out["mirror_locked"] == [A1] and out["mirror_refresh_failed"] == []
+    assert out["mirror_failed"] is False                       # a deliberate refusal, not an error
+    monkeypatch.setattr(aud.assign_svc, "assign",
+                        lambda eid, rows, created_by: {"locked": [], "refresh_failed": [A2]})
+    out = aud.update_audience(EXAM, {"set": [{"user_id": A2, "skills": ["reading"]}]}, A1)
+    assert out["mirror_refresh_failed"] == [A2] and out["mirror_failed"] is True
+    monkeypatch.setattr(aud.assign_svc, "assign", lambda eid, rows, created_by: {})
+    out = aud.update_audience(EXAM, {"set": [{"user_id": A2, "skills": ["reading"]}]}, A1)
+    assert out["mirror_failed"] is False and out["mirror_locked"] == []
+
+
+def test_published_live_exam_refuses_a_new_outside_learner(db, monkeypatch):
+    """Codex P2 (e0186cf3): with the learner gate off, a published live exam
+    cannot gain a learner outside its class through PATCH (schedule() already
+    refuses one); the audience stays unchanged. Learners already selected and
+    class members are still editable."""
+    monkeypatch.setattr(exam_svc, "admin_update_exam",
+                        lambda eid, patch, actor: _exam(db).update(patch) or {"id": eid})
+    _exam(db)["starts_at"] = "2026-12-01T01:00:00Z"
+    aud.update_audience(EXAM, {"add_cohort_ids": [COH_A]}, A1)
+    assert aud.schedule(EXAM, A1)["status"] == "published"
+    before = copy.deepcopy(db.tables["mock_exam_audiences"])
+    for body in ({"add_student_ids": [S3]}, {"add_cohort_ids": [COH_B]}):
+        with pytest.raises(aud.AudienceError) as e:
+            aud.update_audience(EXAM, body, A1)
+        assert e.value.code == "learner_gate_not_ready"
+        assert db.tables["mock_exam_audiences"] == before
+    out = aud.update_audience(EXAM, {"set": [{"user_id": A1, "skills": ["reading"]}]}, A1)
+    assert _by_student(out)[S1]["skills"] == ["reading"]
+    # Once the room door reads audiences (learner gate on), the same add works.
+    db.flags["mock_exam_audiences_learner"] = True
+    out = aud.update_audience(EXAM, {"add_student_ids": [S3]}, A1)
+    assert _by_student(out)[S3]["selected"] is True            # gate on: allowed
