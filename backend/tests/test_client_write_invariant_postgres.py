@@ -138,6 +138,11 @@ def _pre_320() -> str:
         rf"CREATE TABLE IF NOT EXISTS {table} \(.*?^\);",
         (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
         for filename, table in admin_tables)
+    # 445 (MOCKORG-0086) widens 154's exam_mode CHECK and refuses any other
+    # definition, so the mock_exams shape carries 154's column and CHECK verbatim.
+    exam_mode = re.search(
+        r"^ALTER TABLE mock_exams\s+ADD COLUMN IF NOT EXISTS exam_mode.*?END \$\$;",
+        (MIGRATIONS / "154_mock_exam_retake_mode.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
     admin_helpers = "\n".join(re.search(
         rf"CREATE OR REPLACE FUNCTION public.{helper}\(\).*?"
         r"\$\$ LANGUAGE plpgsql SECURITY DEFINER STABLE;",
@@ -417,12 +422,26 @@ def _pre_320() -> str:
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
         {admin_schema}
+        {exam_mode}
+        -- 388's timed-start triggers read these (087, 146, 151/154, 280 columns).
+        ALTER TABLE class_assignment_items ADD COLUMN timed_expires_at timestamptz;
+        ALTER TABLE mock_exams ADD COLUMN listening_started_at timestamptz,
+            ADD COLUMN reading_started_at timestamptz, ADD COLUMN writing_started_at timestamptz;
+        CREATE TABLE reading_test_attempts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status text NOT NULL DEFAULT 'in_progress');
+        CREATE TABLE mock_exam_sittings (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            mock_exam_id uuid NOT NULL REFERENCES mock_exams(id) ON DELETE CASCADE,
+            user_id uuid NOT NULL, status text NOT NULL DEFAULT 'registered',
+            listening_started_at timestamptz, reading_started_at timestamptz,
+            writing_started_at timestamptz);
         {admin_helpers}
         {helper_revokes}
         {"".join(f'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;'
                  for table in ("access_codes", "cohorts", "students", "writing_assignments",
                                "writing_drafts", "writing_essays", "writing_feedback",
                                "class_assignments", "class_assignment_items",
+                               "reading_test_attempts", "mock_exam_sittings",
                                *(table for _, table in drill_tables),
                                *(table for _, table in admin_tables)))}
     """

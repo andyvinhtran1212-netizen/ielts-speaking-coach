@@ -30,6 +30,7 @@ import { usePathname } from 'next/navigation';
 import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
 import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
+import { clearForeignLocalCopies, clearOwnerLocalCopies } from '@/lib/exam-room/local-copy.mjs';
 import { getCurrentActiveStatus } from '@/lib/auth-api';
 import { setAuthMeAccount } from '@/lib/auth/auth-me-single-flight.mjs';
 import {
@@ -120,6 +121,10 @@ export function AuthProvider({
   const [user, setUser] = useState<AuthUser | null>(null);
   const sbRef = useRef<any>(null);
   const confirmedAccountRef = useRef<string | null>(null);
+  // EXAMROOM-0066 FR-035: the last account seen signed in. Unlike
+  // confirmedAccountRef it survives a null session (an expired session is not
+  // a sign-out), so an explicit sign-out can still drop that account's copies.
+  const lastSignedInAccountRef = useRef<string | null>(null);
   const sessionReadRef = useRef(0);
   // Set while the user-initiated <aver-chrome> logout owns the navigation.
   const chromeSignOutRef = useRef(false);
@@ -150,6 +155,14 @@ export function AuthProvider({
       setInactiveOpenAccount(null);
     }
     try { clearCoreOperationIntents(window.sessionStorage, session?.user?.id || null); } catch { /* auth must proceed */ }
+    // EXAMROOM-0066 FR-035 (Scenario 6a): an account signing in drops every
+    // exam-room local copy of another owner, decided from the key alone,
+    // without reading it. A null session (expired, refresh failed) clears
+    // nothing: the copy is what FR-015 restores after signing in again.
+    if (nextAccount) {
+      lastSignedInAccountRef.current = nextAccount;
+      try { clearForeignLocalCopies(window.localStorage, nextAccount); } catch { /* auth must proceed */ }
+    }
     if (session && session.user) {
       const signedIn = { id: session.user.id, email: session.user.email ?? null };
       const accountId: string = session.user.id;
@@ -245,6 +258,13 @@ export function AuthProvider({
     };
     const onChromeSignedOut = () => {
       if (disposed) return;
+      // EXAMROOM-0066 FR-035: an explicit sign-out (chrome, shell or
+      // signOut() below, all announce this event) drops that account's copies.
+      const signedOutAccount = lastSignedInAccountRef.current;
+      lastSignedInAccountRef.current = null;
+      if (signedOutAccount) {
+        try { clearOwnerLocalCopies(window.localStorage, signedOutAccount); } catch { /* sign-out must proceed */ }
+      }
       applySession(null);
       if (chromeSignOutRef.current && chromeSignOutFallback === null) {
         chromeSignOutFallback = setTimeout(() => {

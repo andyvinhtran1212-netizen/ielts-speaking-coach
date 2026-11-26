@@ -215,6 +215,12 @@ async def get_supabase_user(authorization: str | None):
         record_stage("auth", (perf_counter() - auth_start) * 1000)
 
     if response.status_code != 200:
+        # COURSEACCESS-0055 T009: a session displaced by a claim on another
+        # device gets its own code (screen 8c); anything else stays generic.
+        from services import session_gate  # local — session_gate imports routers.admin lazily
+        displaced = await session_gate.displaced_detail(authorization)
+        if displaced is not None:
+            raise HTTPException(status_code=401, detail=displaced)
         raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
 
     user = response.json()

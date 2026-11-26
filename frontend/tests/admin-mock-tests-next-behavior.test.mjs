@@ -20,12 +20,12 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-mock-tests)', 'admin', 'mock-tests', 'page.tsx');
-const COMPONENT = read('app', '(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
-const LAYOUT = read('app', '(authed-admin-mock-tests)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(mock-tests)', 'admin', 'mock-tests', 'page.tsx');
+const COMPONENT = read('app', '(authed-admin)/(mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(mock-tests)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-mock-tests-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const OPENAPI = read('types', 'api.d.ts');
@@ -157,7 +157,7 @@ describe('/admin/mock-tests native ownership and UX', () => {
     assert.match(CHROME, /section: 'mock-tests'[^\n]+href: '\/admin\/mock-tests'/);
     assert.doesNotMatch(CHROME, /section: 'mock-tests'[^\n]+href: '\/pages\/admin\/mock-tests/);
     assert.match(OVERVIEW, /href="\/admin\/mock-tests"/);
-    assert.match(LEDGER, /`\/admin\/mock-tests`[^\n]+authed-admin-mock-tests[^\n]+native React ownership/);
+    assert.match(LEDGER, /`\/admin\/mock-tests`[^\n]+\(authed-admin\)\/\(mock-tests\)[^\n]+native React ownership/);
   });
 
   test('keeps canonical selection truth, live safety and account-scoped refresh', () => {
@@ -169,6 +169,6 @@ describe('/admin/mock-tests native ownership and UX', () => {
   test('uses governed accessible responsive layout and CI browser evidence', () => {
     for (const name of ['admin-components.css', 'admin-buttons.css', 'admin-status.css', 'admin-mock-tests-next.css']) assert.ok(LAYOUT.includes(name), name);
     for (const rule of ['min-height:44px', '@media(max-width:900px)', '@media(max-width:560px)', ':focus-visible', '@media(prefers-reduced-motion:reduce)']) assert.ok(CSS.includes(rule), rule);
-    for (const token of ['frontend/app/(authed-admin-mock-tests)/**', 'frontend/lib/admin-mock-tests-model.mjs', 'frontend/public/css/admin-mock-tests-next.css', 'verify-admin-mock-tests-flow.mjs', 'node tooling/verify-admin-mock-tests-flow.mjs']) assert.ok(WORKFLOW.includes(token), token);
+    for (const token of ['frontend/app/(authed-admin)/(mock-tests)/**', 'frontend/lib/admin-mock-tests-model.mjs', 'frontend/public/css/admin-mock-tests-next.css', 'verify-admin-mock-tests-flow.mjs', 'node tooling/verify-admin-mock-tests-flow.mjs']) assert.ok(WORKFLOW.includes(token), token);
   });
 });

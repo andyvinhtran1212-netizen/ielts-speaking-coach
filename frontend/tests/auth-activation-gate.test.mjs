@@ -83,7 +83,8 @@ test('per-tab confirmation is keyed by account and survives storage errors', () 
 
 test('AuthedShell gates fully signed-in layouts and leaves hybrid layouts public', () => {
   const shell = read('components/authed-shell.tsx');
-  assert.match(shell, /<AuthProvider activationGate=\{authGated\}>\s*\{children\}\s*(?:\{\/\*[^*]*\*\/\}\s*)?<RedirectNotice \/>\s*<\/AuthProvider>/);
+  // G09-T19: the staff quick-search dialog may sit beside the page, inside the gate.
+  assert.match(shell, /<AuthProvider activationGate=\{authGated\}>\s*\{children\}\s*(?:\{quickSearch && <StaffQuickSearch door=\{quickSearch\} \/>\}\s*)?(?:\{\/\*[^*]*\*\/\}\s*)?<RedirectNotice \/>\s*<\/AuthProvider>/);
   const provider = read('lib/auth/auth-provider.tsx');
   assert.match(provider, /getCurrentActiveStatus\(\)/);
   assert.match(provider, /window\.location\.replace\('\/login'\)/);

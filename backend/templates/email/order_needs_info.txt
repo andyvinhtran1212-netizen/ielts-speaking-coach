@@ -1,0 +1,18 @@
+Subject: Đơn {order_code} cần bạn bổ sung · {product_title}
+
+{greeting}
+
+{info_sentence}
+
+{amount_lines}
+Hạn bổ sung: {supplement_by}
+
+{todo_sentence}
+{admin_message_block}
+{order_link_line}
+Cần hỏi: trả lời thư này.
+
+Aver Learning
+
+Bạn nhận thư này vì đơn đăng ký của tài khoản {email} cần bạn bổ sung trước khi mở khoá.
+Thư về đơn đăng ký và thanh toán là thư bắt buộc, không tắt được.

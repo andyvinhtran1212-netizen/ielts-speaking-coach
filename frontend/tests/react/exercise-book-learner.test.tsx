@@ -430,6 +430,15 @@ describe('pre-submit payloads never reach the DOM, SSR or RSC (FR-013)', () => {
 });
 
 describe('learner list and progress', () => {
+  // The fixture deadlines (25/11/2026 21:00 VN and the past-due one) are judged
+  // against Date.now() in the component. Pin the wall clock to the mock API's NOW
+  // so "Hạn nộp" vs "đã quá hạn" never flips with the real date. Only Date is
+  // faked; timers stay real so findBy/waitFor keep working.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-12T09:00:00+07:00'));
+  });
+
   it('shows own status per activity, excludes locked from completion and explains locks', async () => {
     const { api } = spyApi();
     renderWith(api, <ExerciseBookAssignments />);

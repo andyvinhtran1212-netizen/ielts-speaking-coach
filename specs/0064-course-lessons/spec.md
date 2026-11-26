@@ -1,14 +1,14 @@
 ---
 id: COURSELESSON-0064
 title: Learners with access to an online course open its lessons in any order, watch the video and resume where they left off, while visitors can open marked preview lessons and admins load lessons by script
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Learners with access to an online course open its lessons in any order, watch the video and resume where they left off, while visitors can open marked preview lessons and admins load lessons by script
 
-Status: **draft**. Spec soạn ngày 23/11/2026 cho nhiệm vụ `G07-T03` (thương mại hoá 2026-11). Nguồn là `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` (bản 18/11), các mục: 4.5 (FR-07-040…044), 5.4, 5.5, nhiệm vụ G07-T18, T19, T28, T29, câu hỏi mở #5, #6, #10, #15. Chưa có dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt spec. Khi anh duyệt, câu trả lời được ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục, và `status` đổi sang `approved`. Số 0064 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; số này còn trống ở staging `31725a9b`.
+Status: **approved**: anh Andy duyệt toàn bộ spec ngày 26/11/2026 lúc 09:03 giờ VN (xem `approval-decision.md`). Spec soạn ngày 23/11/2026 cho nhiệm vụ `G07-T03` (thương mại hoá 2026-11). Nguồn là `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` (bản 18/11), các mục: 4.5 (FR-07-040…044), 5.4, 5.5, nhiệm vụ G07-T18, T19, T28, T29, câu hỏi mở #5, #6, #10, #15. Chưa có dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt spec. Khi anh duyệt, câu trả lời được ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục, và `status` đổi sang `approved`. Số 0064 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6; số này còn trống ở staging `31725a9b`.
 
 ## Problem
 
@@ -34,7 +34,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 
 ## Scope
 
-- Hai bảng `course_lessons` và `course_lesson_progress`, kèm RLS (một migration trong dải 420–439 của G07).
+- Hai bảng `course_lessons` và `course_lesson_progress`, kèm RLS (một migration, số 506 đã giữ chỗ).
 - API học viên `/api/course/...`: danh sách bài theo chặng, một bài, ghi tiến độ.
 - Trang bài giảng `/course/learn/[courseCode]/[lessonCode]`, trình phát hai nguồn và đổi CSP `frame-src`.
 - `services/course_outline.py`, gồm hai phần:
@@ -173,7 +173,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 - `video_position_seconds` lớn hơn `video_seconds` (thông tin độ dài sai): kẹp về `video_seconds`.
 - Bài có `video_source = 'private_host'` (tắt ở bản này): API trả `available: false`, không có `ref`; trang hiện "Video chưa sẵn sàng". Bài đọc vẫn hiện, ngưỡng xong theo video không áp (FR-046), và nút "Đánh dấu đã đọc" hiện.
 - Học viên lớp offline có `course_id` trùng khoá online: quyền theo `has_course_access` (gồm quyền suy ra từ thành viên lớp, câu hỏi mở 1).
-- `lesson_code` có ký tự lạ trong URL: so khớp chính xác, không phân biệt hoa thường thì không trả, và 404.
+- `lesson_code` có ký tự lạ trong URL: so khớp chính xác và phân biệt hoa thường (CHECK `^[A-Z0-9][A-Z0-9-]{0,15}$`). Mã viết thường hoặc có ký tự ngoài mẫu trả 404, không tự đổi sang chữ hoa.
 
 ## Success criteria
 
@@ -186,7 +186,7 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 ## Dependencies
 
 - COURSEACCESS-0055 (G04):
-  - `services/entitlements.py::has_course_access`, `list_access` (lấy hạn, `can_renew`) (G04-T03);
+  - `services/entitlements.py::has_course_access`, `list_access` (lấy `status` và `expires_at`) (G04-T03), `entitlements.can_renew(*, product, state, expires_at, has_open_order, window_days=settings.ENROLL_RENEW_WINDOW_DAYS, now)` (tính riêng, không có trong `AccessItem`);
   - `routers/courses_public.py::_outline_for` (G04-T03).
 
   Chưa merge thì không merge T19; T18 (bảng) làm trước được.
@@ -209,11 +209,13 @@ Khoá online (G04, `course_products.kind = 'online'`) bán được nhưng chưa
 
 ## Open questions
 
+Cả 6 câu đã chốt theo đề xuất: anh Andy gõ "duyệt 0064 Q1–Q6 … theo đề xuất" lúc 23/11 13:21Z. Cột cuối giữ đúng giá trị người thực thi dùng.
+
 | # | Câu hỏi | Đề xuất | Mặc định tạm |
 |---|---|---|---|
-| 1 | Học viên lớp offline có cùng `course_id` với một khoá online có xem được bài giảng online không? `has_course_access` của G04 gồm quyền suy ra từ thành viên lớp | Có: dùng đúng `has_course_access` như G04 định ("dùng để mở nội dung"), một quy tắc quyền cho cả nền tảng | Dùng `has_course_access` |
-| 2 | (gói câu 6) Khối luyện tập trong bài: đi đường tự học mới có kiểm quyền G04 hay tạo "bài giao cá nhân"? | Đường tự học mới, spec riêng (đụng chấm bài) | Ẩn nút "Bắt đầu luyện" |
-| 3 | (gói câu 10) Máy chủ video riêng là dịch vụ nào (origin, cách ký URL)? | Bản này tắt `private_host` ở backend, không trả `ref`; spec riêng khi chọn dịch vụ (quyền tại nguồn, URL ngắn hạn do server cấp, chính sách video bài thử) | Chỉ YouTube chạy |
-| 4 | (gói câu 15) Bài kiểm tra giữa chặng có giữ điều kiện "học xong chặng" không? | Không giữ ở đợt đầu | Không giữ |
-| 5 | Trang bài học thử có cho máy tìm kiếm lập chỉ mục không? | `noindex` tới khi nội dung thật ổn định | `noindex` |
-| 6 | Ngưỡng "xem đủ" để bài có video là "Đã xong" | 90% độ dài video | `COURSE_LESSON_DONE_RATIO = 0.9` |
+| 1 | Học viên lớp offline có cùng `course_id` với một khoá online có xem được bài giảng online không? `has_course_access` của G04 gồm quyền suy ra từ thành viên lớp | Có: dùng đúng `has_course_access` như G04 định ("dùng để mở nội dung"), một quy tắc quyền cho cả nền tảng | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Dùng `has_course_access` |
+| 2 | (gói câu 6) Khối luyện tập trong bài: đi đường tự học mới có kiểm quyền G04 hay tạo "bài giao cá nhân"? | Đường tự học mới, spec riêng (đụng chấm bài) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Ẩn nút "Bắt đầu luyện" |
+| 3 | (gói câu 10) Máy chủ video riêng là dịch vụ nào (origin, cách ký URL)? | Bản này tắt `private_host` ở backend, không trả `ref`; spec riêng khi chọn dịch vụ (quyền tại nguồn, URL ngắn hạn do server cấp, chính sách video bài thử) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Chỉ YouTube chạy |
+| 4 | (gói câu 15) Bài kiểm tra giữa chặng có giữ điều kiện "học xong chặng" không? | Không giữ ở đợt đầu | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Không giữ |
+| 5 | Trang bài học thử có cho máy tìm kiếm lập chỉ mục không? | `noindex` tới khi nội dung thật ổn định | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): `noindex` |
+| 6 | Ngưỡng "xem đủ" để bài có video là "Đã xong" | 90% độ dài video | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): `COURSE_LESSON_DONE_RATIO = 0.9` |

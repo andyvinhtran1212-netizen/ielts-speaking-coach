@@ -55,3 +55,11 @@ Mig 441 (ADMINIA-0074 G09-T24) is applied on staging. It adds `cohorts.instructo
 > duyệt bản vá OQ17 0063
 
 The coordinator session relayed it to this thread, with the message copied verbatim by the server. Approved text: `specs/0063-learner-core/spec.md` at `2cb16bdc`, sha256 `f4ae18d3f251e8eec75d95916e49e0d09a3f34c82dfda5787a83074c7f034488` (taken before this commit changed only the status sentence). As with the amendments, the approval covers spec text only: it does not authorize applying a migration, writing to a database or merging.
+
+## OQ17 decided at its default (APPROVED by Andy 2026-11-23 17:00 UTC)
+
+Open question 17 (after the OQ17 patch above) asked whether to add the three columns mig 441 does not have: end time of a session, room, and planned number of sessions. Andy decided it at the default written in the spec. He typed it himself in the project chat on 2026-11-23 at 17:00:27 UTC (00:00 Vietnam time, 24/11). His message reads:
+
+> duyệt OQ17 0063 theo mặc định
+
+The takeover thread relayed it to this thread; the message was read back by its id from the project chat. Decision: **none of the three columns is added in this wave**. The `/course/class` card shows the teacher, the weekly start times and "Đã học n buổi" (FR-120, unchanged); the three columns come with the class edit screen of G09. Decided text: `specs/0063-learner-core/spec.md` at PR #2491 head `08123316`, sha256 `d1069b1590668cf9031ac346546d0a5aeaa7a0a20e5d9214eaa93779f5c02279`; this commit only marks question 17 as decided and adds the line under "Quyết định đã có", with no other change to the spec. As before, the approval covers spec text only: it does not authorize applying a migration, writing to a database or merging.
