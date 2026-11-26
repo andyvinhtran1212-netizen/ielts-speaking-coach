@@ -10505,25 +10505,22 @@ export interface paths {
         post?: never;
         /**
          * Admin Delete Reading Test
-         * @description Sprint 20.15 D2 — attempt-safe delete.
+         * @description Sprint 20.15 D2 — attempt-safe delete (archive only since HOLD #2702).
          *
-         *     Semantics (Code-authoritative per Lesson 9 "no workaround that
-         *     loses student data"):
-         *       • 0 attempts → HARD delete. Cascades through reading_passages →
-         *         reading_questions via the mig 086 FK chains. The reading_test_
-         *         attempts FK also cascades (mig 087) but there are no rows to
-         *         cascade through. Returns ``{"action": "deleted"}``.
-         *       • >0 attempts → SOFT delete. Sets `status='archived'` on the test
-         *         row. Passages + questions + attempts stay intact so any
-         *         in-flight student attempt can still resolve + so the admin's
-         *         historic-attempt views (Sprint 20.7 diagnostic, etc) keep
-         *         working. Student-facing endpoints already filter
-         *         `status='published'`, so archived = invisible to new starters.
-         *         Returns ``{"action": "archived", "attempts_preserved": N}``.
+         *     The route NEVER hard-deletes. It sets `status='archived'`; passages,
+         *     questions and attempts stay intact. Student-facing endpoints filter
+         *     `status='published'`, so archived = invisible to new starters.
          *
-         *     The student-facing GET (`reading_student.get_reading_test`) and the
-         *     list endpoint both filter `status='published'`, so a soft-delete is
-         *     effectively the same as removal from the student's POV.
+         *     Why no hard delete even at 0 attempts: starting an attempt
+         *     (`reading_student._start_reading_test_attempt_sync`) reads `published`
+         *     and INSERTs in two separate statements, and the count + cascade delete
+         *     here are separate statements too. Without one atomic lock shared by both
+         *     paths, a start that already passed its read could be cascade-deleted.
+         *     Archiving loses nothing.
+         *
+         *     Response shape is unchanged: ``{"action": "archived",
+         *     "attempts_preserved": N}`` (N may be 0). The admin UI already renders
+         *     `archived`.
          */
         delete: operations["admin_delete_reading_test_admin_reading_content_tests__test_id__delete"];
         options?: never;
