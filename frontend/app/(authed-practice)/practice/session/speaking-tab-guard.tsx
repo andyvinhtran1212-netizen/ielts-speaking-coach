@@ -88,7 +88,7 @@ export function useSpeakingTabGuard(attemptKey: string) {
   // is being checked, so the only tab does not look like a broken mic.
   const canWrite = state === 'writer' || state === 'unsupported';
   useEffect(() => { callApp('setWriteRight', canWrite); }, [canWrite]);
-  useEffect(() => () => { callApp('setWriteRight', true); }, []);
+  useEffect(() => () => { callApp('setWriteRight', false); }, []);
 
   return {
     state,
