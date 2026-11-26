@@ -3833,6 +3833,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/speaking/mock-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mock Queue */
+        get: operations["mock_queue_admin_speaking_mock_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/search": {
         parameters: {
             query?: never;
@@ -12959,6 +12976,70 @@ export interface paths {
          *     redirects with 308 to the current slug; anything else is 404.
          */
         get: operations["get_writing_sample_api_library_writing_samples__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-guides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Writing Guides
+         * @description Published guides in the four fixed groups (FR-020). A guide in two groups
+         *     appears in both with the same slug; a group with no guide is still listed
+         *     with ``items: []`` and the page hides it.
+         */
+        get: operations["list_writing_guides_api_library_writing_guides_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-guides/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Writing Guides Index
+         * @description ``[{slug, updated_at}]`` of every published guide, for the sitemap.
+         */
+        get: operations["writing_guides_index_api_library_writing_guides_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/writing-guides/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Writing Guide
+         * @description One published guide: server-rendered HTML (raw HTML in the body is shown
+         *     as text), its table of contents, its groups, and prev/next within its first
+         *     group. ``updated_at`` is the last content edit (FR-023).
+         */
+        get: operations["get_writing_guide_api_library_writing_guides__slug__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -22209,6 +22290,45 @@ export interface components {
              * @default false
              */
             release_now: boolean;
+        };
+        /** MockQueue */
+        MockQueue: {
+            /** Items */
+            items: components["schemas"]["MockQueueItem"][];
+            /** Overdue Hours */
+            overdue_hours: number | null;
+        };
+        /** MockQueueExam */
+        MockQueueExam: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /** MockQueueItem */
+        MockQueueItem: {
+            /** Sitting Id */
+            sitting_id: string;
+            exam: components["schemas"]["MockQueueExam"];
+            /** Name */
+            name: string;
+            cohort: components["schemas"]["MockQueueRef"] | null;
+            /** Submitted At */
+            submitted_at: string;
+            /** Waited Hours */
+            waited_hours: number;
+            /** Overdue */
+            overdue: boolean | null;
+            /** Flags */
+            flags: string[];
+            claimed_by: components["schemas"]["MockQueueRef"] | null;
+        };
+        /** MockQueueRef */
+        MockQueueRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** MyEssayDetailOut */
         MyEssayDetailOut: {
@@ -33754,6 +33874,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LearnerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mock_queue_admin_speaking_mock_queue_get: {
+        parameters: {
+            query?: {
+                exam_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockQueue"];
                 };
             };
             /** @description Validation Error */
@@ -49736,6 +49889,77 @@ export interface operations {
         };
     };
     get_writing_sample_api_library_writing_samples__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_writing_guides_api_library_writing_guides_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    writing_guides_index_api_library_writing_guides_index_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_writing_guide_api_library_writing_guides__slug__get: {
         parameters: {
             query?: never;
             header?: never;
