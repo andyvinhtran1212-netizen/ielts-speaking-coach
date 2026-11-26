@@ -38,6 +38,7 @@ class _Query:
     def __init__(self, db, table):
         self._db, self._table = db, table
         self._filters, self._order, self._limit = [], [], None
+        self._offset = 0
         self._update = None
         self._count = None
 
@@ -104,11 +105,17 @@ class _Query:
         self._limit = n
         return self
 
+    def range(self, start, end):
+        self._offset, self._limit = start, end - start + 1
+        return self
+
     def execute(self):
         self._db.calls.append((self._table, "update" if self._update is not None else "select"))
         if self._table in self._db.broken:
             raise RuntimeError(f"{self._table} down")
         rows = [r for r in self._db.tables.setdefault(self._table, []) if all(f(r) for f in self._filters)]
+        if self._db.max_rows is not None and self._update is None:
+            self._limit = min(self._limit if self._limit is not None else self._db.max_rows, self._db.max_rows)
         if self._update is not None:
             for r in rows:
                 r.update(self._update)
@@ -118,7 +125,7 @@ class _Query:
                       reverse=desc)
         count = len(rows) if self._count else None
         if self._limit is not None:
-            rows = rows[: self._limit]
+            rows = rows[self._offset: self._offset + self._limit]
         return _Result(copy.deepcopy(rows), count)
 
 
@@ -142,6 +149,7 @@ class FakeDB:
         self.tables = tables or {}
         self.handlers = handlers or {}
         self.broken: set[str] = set()
+        self.max_rows = None   # PostgREST's response cap (1000 on Supabase) when set
         self.calls: list = []
         self.rpcs: list = []
 
