@@ -1,21 +1,23 @@
-// PUBLICSITE-0059 FR-026 (G05-T23): the server read of GET /api/public/site-info.
-//
-// One read per page through the shared public layer (`getPublicJson`: its
-// abort budget and cache life), so a page with several contact blocks costs
-// one request. Any failure (backend down, 404 before the route ships, bad
-// JSON, timeout) gives every field null/false: the contact block then links
-// to /contact and the paused features stay off. A thrown read is not cached.
+// PUBLICSITE-0059 FR-026 (G05-T23): operational flags and contact info share
+// the backend's 60-second cache. Deduplicate reads within a render without
+// retaining a previous flag state in the public content cache.
 import 'server-only';
 
-import { getPublicJson } from '@/lib/backend';
+import { cache } from 'react';
+import { ABORT_MS, API_BASE } from '@/lib/backend';
 import { emptySiteInfo, normalizeSiteInfo, type SiteInfo } from '@/lib/site-info-model.mjs';
 
 export type { ContactRow, SiteContact, SiteEnroll, SiteInfo } from '@/lib/site-info-model.mjs';
 
-export async function getSiteInfo(): Promise<SiteInfo> {
+export const getSiteInfo = cache(async (): Promise<SiteInfo> => {
   try {
-    return normalizeSiteInfo(await getPublicJson('/api/public/site-info'));
+    const response = await fetch(`${API_BASE}/api/public/site-info`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(ABORT_MS),
+    });
+    if (response.ok) return normalizeSiteInfo(await response.json());
   } catch {
-    return emptySiteInfo();
+    // A failed or malformed response keeps the public feature flags off.
   }
-}
+  return emptySiteInfo();
+});
