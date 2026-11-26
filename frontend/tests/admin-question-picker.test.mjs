@@ -5,7 +5,14 @@
  * không bị đánh lừa — không phải về vẻ ngoài.
  *
  * Ý chính: THỨ TỰ CHỌN LÀ THÔNG TIN. Part 1 là một mạch hội thoại và backend
- * giữ đúng thứ tự bấm, nên ô chọn chính là số thứ tự. Checkbox sẽ xoá mất nó.
+ * giữ đúng thứ tự bấm, nên số thứ tự phải hiện cạnh câu và payload phải mang
+ * đúng thứ tự ấy.
+ *
+ * LEGACYJS-0075 W3b: admin-classes.js đã xoá. Bộ chọn giờ ở
+ * admin-class-homework.tsx; `homeworkDraft` / `validateHomeworkDraft` /
+ * `normalizeQuestions` (lib/admin-class-homework-model.mjs) được CHẠY THẬT.
+ * Ca "đúng số câu sẵn sàng" và trình phát dùng chung còn được ghim ở
+ * admin-class-homework-next-behavior.test.mjs.
  */
 
 import { test, describe } from 'node:test';
@@ -14,219 +21,89 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { homeworkDraft, normalizeQuestions, validateHomeworkDraft } from '../lib/admin-class-homework-model.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
-const HTML = readFileSync(join(HERE, '..', 'public', 'pages', 'admin', 'classes', 'index.html'), 'utf8');
-const CSS = readFileSync(join(HERE, '..', 'public', 'css', 'speaking-assignment.css'), 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'), 'utf8');
 
-/** Chạy THẬT toggleQpick + renderQpick với DOM giả. */
-function load(items, want) {
-  const start = SRC.indexOf('let _qpick = {');
-  const end = SRC.indexOf('async function loadQpick(');
-  assert.ok(start !== -1 && end > start, 'qpick block not found');
+const catalog = [{ id: 'topic-1', title: 'Hometown', ready: true, already_given: false }];
+const questions = [
+  { id: 'q1', ready: true }, { id: 'q2', ready: true }, { id: 'q3', ready: false },
+];
+const give = (extra) => validateHomeworkDraft({
+  ...homeworkDraft(new Date('2026-08-01T00:00:00Z')),
+  kind: 'daily', skill: 'speaking', title: 'Bài 1', contentId: 'topic-1', ...extra,
+}, catalog, questions, 2);
 
-  const esc = (s) => String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const nodes = {
-    // `dataset` có ở CẢ HAI node: bộ hiển thị đánh dấu chế độ chọn lên chính
-    // danh sách (data-pick), và một node giả thiếu thuộc tính ấy sẽ đổ ở nơi mã
-    // thật chạy bình thường.
-    'hf-qpick-list': { innerHTML: '', dataset: {} },
-    'hf-qpick-foot': { innerHTML: '', textContent: '', dataset: {} },
-  };
-  const $ = (id) => nodes[id];
-  const document = { querySelector: () => ({ value: 'manual' }) };
-
-  const api = new Function('esc', '$', 'document', `${SRC.slice(start, end)}
-    return { toggleQpick, renderQpick, get state() { return _qpick; },
-             set state(v) { _qpick = v; } };`)(esc, $, document);
-  api.state = { items, picked: [], want, topicId: 't', part: '1' };
-  api.renderQpick();
-  return { ...api, nodes };
-}
-
-const Q = (id, giveable = true, level = 'easy') =>
-  ({ id, question_text: `Câu ${id}`, level, giveable });
-
-describe('ô chọn LÀ số thứ tự', () => {
-  test('chưa chọn thì không mang số', () => {
-    const p = load([Q('a'), Q('b'), Q('c')], 2);
-    assert.doesNotMatch(p.nodes['hf-qpick-list'].innerHTML, /av-qpick__num" aria-hidden="true">[12]</);
+describe('thứ tự chọn là thứ tự học viên nghe', () => {
+  test('payload mang question_ids ĐÚNG thứ tự bấm', () => {
+    assert.deepEqual(give({ questionMode: 'manual', questionIds: ['q2', 'q1'] }).body.question_ids, ['q2', 'q1']);
   });
-
-  test('bấm lần lượt thì ra 1 rồi 2 — đó là mạch hội thoại', () => {
-    const p = load([Q('a'), Q('b'), Q('c')], 2);
-    p.toggleQpick('c');
-    p.toggleQpick('a');
-    assert.deepEqual(p.state.picked, ['c', 'a'], 'thứ tự BẤM, không phải thứ tự danh sách');
-    const html = p.nodes['hf-qpick-list'].innerHTML;
-    assert.match(html, /data-id="c"[\s\S]{0,160}?__num" aria-hidden="true">1</);
-    assert.match(html, /data-id="a"[\s\S]{0,160}?__num" aria-hidden="true">2</);
+  test('số thứ tự hiện cạnh câu đã chọn, kèm nhãn cho trình đọc màn hình', () => {
+    assert.match(SRC, /const selectedOrder = editor\.questionIds\.indexOf\(question\.id\);/);
+    assert.match(SRC, /<strong className="ach-question-order"><span className="sr-only">Thứ tự chọn <\/span>\{selectedOrder \+ 1\}<\/strong>/);
   });
-
-  test('bỏ chọn câu số 1 thì câu số 2 dồn lên thành 1', () => {
-    // Để nguyên số cũ sẽ hiện "2" mà không có "1" — người đọc tưởng mất một câu.
-    const p = load([Q('a'), Q('b')], 2);
-    p.toggleQpick('a');
-    p.toggleQpick('b');
-    p.toggleQpick('a');
-    assert.deepEqual(p.state.picked, ['b']);
-    assert.match(p.nodes['hf-qpick-list'].innerHTML,
-      /data-id="b"[\s\S]{0,160}?__num" aria-hidden="true">1</);
+  test('bỏ chọn một câu thì các câu sau dồn lên', () => {
+    assert.match(SRC, /questionIds: current\.questionIds\.includes\(id\) \? current\.questionIds\.filter\(\(item\) => item !== id\) : \[\.\.\.current\.questionIds, id\]/);
   });
 });
 
 describe('ràng buộc số câu', () => {
-  test('chọn quá số thì THAY câu đầu, không im lặng bỏ qua', () => {
-    // Im lặng khiến giáo viên tưởng nút hỏng và bấm lại mấy lần.
-    const p = load([Q('a'), Q('b'), Q('c')], 2);
-    p.toggleQpick('a');
-    p.toggleQpick('b');
-    p.toggleQpick('c');
-    assert.deepEqual(p.state.picked, ['b', 'c']);
+  test('sai số câu hoặc câu chưa sẵn sàng bị chặn ở client', () => {
+    assert.deepEqual(give({ questionMode: 'manual', questionIds: ['q1'] }), { ok: false, error: 'Chọn đúng 2 câu đã sẵn sàng.' });
+    assert.equal(give({ questionMode: 'manual', questionIds: ['q1', 'q3'] }).ok, false);
   });
-
-  test('chân trang đếm và nói còn thiếu mấy câu', () => {
-    const p = load([Q('a'), Q('b'), Q('c')], 2);
-    assert.match(p.nodes['hf-qpick-foot'].innerHTML, /0\/2/);
-    assert.match(p.nodes['hf-qpick-foot'].innerHTML, /Chọn thêm 2 câu/);
-    p.toggleQpick('a');
-    assert.match(p.nodes['hf-qpick-foot'].innerHTML, /Chọn thêm 1 câu/);
-  });
-
-  test('đủ số thì nói rõ thứ tự trên là thứ tự học viên sẽ nghe', () => {
-    const p = load([Q('a'), Q('b')], 2);
-    p.toggleQpick('a');
-    p.toggleQpick('b');
-    assert.equal(p.nodes['hf-qpick-foot'].dataset.ready, 'true');
-    assert.match(p.nodes['hf-qpick-foot'].innerHTML, /thứ tự học viên sẽ nghe/);
+  test('đủ số rồi thì câu chưa chọn bị khoá (bài hằng ngày)', () => {
+    assert.match(SRC, /disabled=\{!question\.ready \|\| \(editor\.kind === 'daily' && selectedOrder < 0 && editor\.questionIds\.length >= questionsPerGive\)\}/);
   });
 });
 
-describe('câu chưa giao được', () => {
-  test('vẫn HIỆN, kèm lý do — không im lặng ẩn đi', () => {
-    // Ẩn đi thì giáo viên thấy danh sách ngắn không rõ vì sao, và không biết
-    // rằng chạy mẻ tạo audio là mở khoá được.
-    const p = load([Q('a'), Q('b', false)], 2);
-    const html = p.nodes['hf-qpick-list'].innerHTML;
-    assert.match(html, /data-id="b"/, 'câu chưa giao được vẫn phải hiện');
-    assert.match(html, /chưa có bản đọc/);
-    assert.match(html, /data-id="b"[^>]*disabled/);
-  });
-
-  test('không chọn được kể cả khi gọi thẳng', () => {
-    const p = load([Q('a'), Q('b', false)], 2);
-    assert.match(p.nodes['hf-qpick-list'].innerHTML, /data-id="b"[^>]*disabled/);
-  });
-
-  test('nhãn độ khó hiện cạnh câu', () => {
-    const p = load([Q('a', true, 'hard')], 1);
-    assert.match(p.nodes['hf-qpick-list'].innerHTML, /data-level="hard"/);
-  });
-
-  test('câu chưa gắn nhãn không hiện chip rỗng', () => {
-    const p = load([{ id: 'a', question_text: 'x', level: null, giveable: true }], 1);
-    assert.doesNotMatch(p.nodes['hf-qpick-list'].innerHTML, /av-qpick__level/);
+describe('câu chưa sẵn sàng vẫn HIỆN, kèm lý do', () => {
+  test('giveable=false thành ready=false, lý do giọng đọc tách khỏi thiếu audio', () => {
+    const n = normalizeQuestions({ questions_per_give: 3, items: [
+      { id: 'a', question_text: 'A', giveable: false, blocked_by: 'voice' },
+      { id: 'b', question_text: 'B', giveable: true, audio_url: 'https://x/b.mp3' },
+    ] });
+    assert.equal(n.questions_per_give, 3);
+    assert.deepEqual(n.items.map((q) => [q.id, q.ready, q.blocked_by]), [['a', false, 'voice'], ['b', true, null]]);
+    assert.match(SRC, /question\.blocked_by === 'voice' \? 'Cần đồng bộ giọng đọc của chủ đề' : 'Chưa có audio sẵn sàng'/);
   });
 });
 
-describe('markup và style', () => {
+describe('chế độ chọn', () => {
   test('hai lựa chọn, mặc định là web bốc', () => {
-    assert.match(HTML, /name="hf-qmode" value="random" checked/);
-    assert.match(HTML, /name="hf-qmode" value="manual"/);
+    assert.equal(homeworkDraft().questionMode, 'random');
+    assert.match(SRC, /role="radiogroup" aria-label="Cách chọn câu"/);
+    assert.match(SRC, /'Web bốc ngẫu nhiên'/);
+    assert.match(SRC, /Tôi tự chọn/);
   });
-
-  test('đổi chủ đề hoặc Part thì bỏ lựa chọn cũ', () => {
-    // Giữ lại nghĩa là gửi id của câu thuộc chủ đề khác, và backend từ chối
-    // đúng lúc giáo viên bấm Giao.
-    assert.match(SRC, /_qpick\.topicId !== topicId \|\| _qpick\.part !== part[\s\S]{0,60}?picked = \[\]/);
-  });
-
-  test('phản hồi đến muộn không vẽ đè chủ đề đang chọn', () => {
-    assert.match(SRC, /if \(\$\('hf-topic'\)\.value !== topicId \|\| \$\('hf-part'\)\.value !== part\) return;/);
-  });
-
   test('chỉ gửi question_ids khi giáo viên THẬT SỰ đã chọn', () => {
-    // Mảng rỗng cũng là "bỏ trống"; gửi nó chỉ làm hợp đồng mơ hồ.
-    assert.match(SRC, /qmode\(\) === 'manual' && _qpick\.picked\.length\)\s*\n?\s*\? _qpick\.picked : null/);
+    assert.equal(give({ questionMode: 'random', questionIds: ['q1', 'q2'] }).body.question_ids, null);
   });
-
-  test('chặn số câu sai ở client để khỏi mất một vòng gọi mạng', () => {
-    assert.match(SRC, /_qpick\.picked\.length !== _qpick\.want/);
+  test('đổi cách chọn thì bỏ lựa chọn cũ', () => {
+    assert.match(SRC, /questionMode: 'random', questionIds: \[\], error: ''/);
+    assert.match(SRC, /questionMode: 'manual', questionIds: \[\], error: ''/);
   });
-
-  test('danh sách cuộn trong khung, không đẩy nút Giao ra khỏi màn', () => {
-    assert.match(CSS, /\.av-qpick__list\s*\{[^}]*overflow-y:\s*auto/);
-    assert.match(CSS, /\.av-qpick__list\s*\{[^}]*max-height/);
+  test('phản hồi đến muộn không vẽ đè chủ đề đang chọn', () => {
+    assert.match(SRC, /const requestId = \+\+questionSequence\.current;/);
+    assert.match(SRC, /if \(requestId !== questionSequence\.current\) return;/);
   });
-
-  test('có ô focus nhìn thấy được bằng bàn phím', () => {
-    assert.match(CSS, /\.av-qpick__row:focus-visible\s*\{[^}]*outline/);
+  test('đổi chủ đề hoặc Part thì tải lại câu', () => {
+    assert.match(SRC, /speaking-topics\/\$\{encodeURIComponent\(draft\.contentId\)\}\/questions\?part=\$\{draft\.part\}/);
+    assert.match(SRC, /\}, \[editor\?\.questionMode, editor\?\.contentId, editor\?\.kind, editor\?\.skill, editor\?\.part, loadQuestions\]\);/);
   });
 });
 
-describe('DÂY NỐI — hàm có test không đủ', () => {
-  // Nếp đã dính bốn lần ở nhánh trước: ghim hàm mà quên ghim chỗ gọi, rồi phép
-  // phá không đỏ và tưởng chốt là thừa. Ở đây bộ chọn ban đầu KHÔNG được nối
-  // sự kiện nào — nghĩa là nó không bao giờ chạy, dù 17 test kia đều xanh.
-  const wiring = SRC.slice(SRC.indexOf("$('hf-part').addEventListener"),
-                           SRC.indexOf("$('btn-add-lesson')"));
-
-  test('đổi chủ đề thì tải lại câu', () => {
-    assert.match(wiring, /\$\('hf-topic'\)\.addEventListener\('change', loadQpick\)/);
+describe('nghe thử', () => {
+  test('nút nghe nằm NGOÀI ô chọn và có nhãn riêng', () => {
+    assert.match(SRC, /<\/label>\s*\{question\.audio_url && <button className="adm-btn-secondary adm-btn-sm" type="button" aria-label=\{`\$\{previewingQuestion === question\.id \? 'Dừng nghe' : 'Nghe thử'\}: \$\{question\.text\}`\}/);
   });
-
-  test('đổi Part thì tải lại CẢ chủ đề lẫn câu', () => {
-    // Câu thuộc về một Part cụ thể; giữ danh sách cũ là mời giáo viên chọn câu
-    // Part 2 dưới nhãn Part 1.
-    assert.match(wiring, /\$\('hf-part'\)\.addEventListener\('change', loadSpeakingTopics\)/);
-    assert.match(wiring, /\$\('hf-part'\)\.addEventListener\('change', loadQpick\)/);
+  test('một trình phát dùng chung; bấm lại thì dừng; hỏng thì nhả trạng thái', () => {
+    assert.match(SRC, /if \(previewingQuestion === question\.id && previewAudio\.current\) \{\s*stopQuestionPreview\(\); return;/);
+    assert.match(SRC, /previewAudio\.current\?\.pause\(\);\s*const audio = new Audio\(question\.audio_url\);/);
+    assert.match(SRC, /audio\.addEventListener\('error', clear, \{ once: true \}\);\s*void audio\.play\(\)\.catch\(clear\);/);
   });
-
-  test('đổi cách chọn (bốc / tự chọn) thì đổi màn', () => {
-    assert.match(wiring, /\$\('hf-qmode'\)\.addEventListener\('change', loadQpick\)/);
-  });
-
-  test('bấm vào câu dùng uỷ quyền, không gắn tay từng nút', () => {
-    // Danh sách vẽ lại sau mỗi lần bấm — nút gắn tay sẽ mất ở lần vẽ kế tiếp.
-    assert.match(wiring, /hf-qpick-list'\)\.addEventListener\('click'[\s\S]{0,400}?toggleQpick\(row\.dataset\.id\)/);
-  });
-
-  test('không cho bấm vào câu đã khoá', () => {
-    assert.match(wiring, /if \(row && !row\.disabled\)/);
-  });
-});
-
-describe('nghe thử khi giao đề', () => {
-  test('nút nghe nằm NGOÀI nút chọn', () => {
-    // Nút-trong-nút là HTML không hợp lệ, và bấm nghe sẽ chọn nhầm câu.
-    assert.match(SRC, /<\/button>\$\{play\}/);
-    assert.doesNotMatch(SRC, /av-qpick__row[\s\S]{0,300}?av-qpick__play[\s\S]{0,80}?<\/button>\s*<\/button>/);
-  });
-
-  test('bấm nghe KHÔNG chọn câu đó', () => {
-    // Nếu không return sớm, một cú bấm vừa nghe vừa chọn — giáo viên nghe thử
-    // xong thấy câu tự nhảy vào danh sách.
-    assert.match(SRC, /data-play\]'\);\s*\n\s*if \(play\) \{ previewQuestionAudio[\s\S]{0,40}?return; \}/);
-  });
-
-  test('một trình phát dùng chung', () => {
-    // Hai câu phát chồng nhau thì không nghe được câu nào, và giáo viên tưởng
-    // audio hỏng.
-    assert.match(SRC, /_preview = _preview \|\| new Audio\(\)/);
-    assert.match(SRC, /if \(_preview\) \{ _preview\.pause\(\)/);
-  });
-
-  test('bấm lại nút đang phát thì dừng', () => {
-    assert.match(SRC, /if \(wasPlaying\) return;/);
-  });
-
-  test('phát hỏng thì nói ra, không im lặng', () => {
-    assert.match(SRC, /onerror[\s\S]{0,120}?toast\(/);
-    assert.match(SRC, /catch\(\(\) => \{[\s\S]{0,160}?toast\(/);
-  });
-
   test('câu chưa có bản đọc thì không có nút nghe', () => {
-    assert.match(SRC, /const play = q\.audio_url\s*\n?\s*\?/);
+    assert.match(SRC, /if \(!question\.audio_url\) return;/);
   });
 });

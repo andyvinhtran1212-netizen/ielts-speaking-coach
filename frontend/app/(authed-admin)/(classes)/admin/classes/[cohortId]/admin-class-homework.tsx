@@ -17,6 +17,7 @@ import {
   normalizeQuestions,
   selectAssignments,
   validateHomeworkDraft,
+  vietnamDateLabel,
 } from '@/lib/admin-class-homework-model.mjs';
 
 import type { Banner, Member } from './admin-class-detail-types';
@@ -348,7 +349,9 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     if (!editor || busy) return;
     const validation = validateHomeworkDraft(editor, catalog, questions, questionsPerGive) as { ok: boolean; error?: string; body?: Record<string, unknown> };
     if (!validation.ok || !validation.body) { setEditor({ ...editor, error: validation.error || 'Bài giao không hợp lệ.' }); return; }
-    if (editor.skill === 'grammar_lesson') {
+    // Same request id for a retry of the SAME give (lost response); a new id for a
+    // changed or deliberate re-give. Course banks can be re-given, so they need it too.
+    if (editor.skill === 'grammar_lesson' || editor.skill === 'course') {
       const intent = JSON.stringify(validation.body);
       if (grammarGiveRetry.current?.body !== intent) {
         grammarGiveRetry.current = { body: intent, id: crypto.randomUUID() };
@@ -547,7 +550,8 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
               ...editor, drillGroup: event.target.value, contentId: '', dictationRequired: false, dictationMode: 'none', error: '',
             })}><option value="">Tất cả dạng</option>{drillGroups.map((group) => <option key={group}>{group}</option>)}</select>
           </Field>}
-          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : editor?.skill === 'grammar_lesson' ? 'Bài Grammar' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, dictationRequired: false, dictationMode: 'none', questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', timeLimitMinutes: '', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{visibleCatalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{editor?.skill === 'grammar_lesson' ? '' : item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.category ? ` · ${item.category}` : ''}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : editor?.skill === 'grammar_lesson' ? 'Bài Grammar' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, dictationRequired: false, dictationMode: 'none', questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', timeLimitMinutes: '', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{visibleCatalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || (item.already_given && !item.can_regive)}>{editor?.skill === 'grammar_lesson' ? '' : item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.category ? ` · ${item.category}` : ''}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          {selectedCatalogItem?.already_given && selectedCatalogItem.can_regive && <div className="acd-warning" role="status"><strong>{(() => { const day = vietnamDateLabel(selectedCatalogItem.last_given_at); return day ? `Lớp này đã được giao bài này ngày ${day}.` : 'Lớp này đã từng được giao bài này.'; })()}</strong> Giao lại sẽ tạo một bài giao mới; học viên làm lại từ đầu, kết quả lần trước vẫn giữ nguyên.</div>}
           {editingDrill && editor && <div className="ach-correction-policy">
             <label><input type="checkbox" checked={editor.dictationRequired === true} disabled={!selectedCatalogItem?.dictation_ready}
               onChange={(event) => setEditor({ ...editor, dictationRequired: event.target.checked, error: '' })} /> Bắt buộc chép chính tả</label>

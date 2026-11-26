@@ -97,9 +97,30 @@ def _fetch_by_ids(db, table: str, columns: str, key: str, ids: List[str],
     return out
 
 
+def _ts(value: Any):
+    """Dấu thời gian → thời điểm UTC để SO SÁNH (báo cáo săn lỗi #60).
+
+    So chuỗi là so mặt đồng hồ: "08:00+07:00" (01:00 UTC) đứng sau
+    "02:00+00:00" dù xảy ra sớm hơn một tiếng. Thiếu múi giờ coi là UTC;
+    thiếu hoặc không đọc được thì xuống cuối, không ném.
+    """
+    from datetime import datetime, timezone
+
+    floor = datetime.min.replace(tzinfo=timezone.utc)
+    if not value:
+        return floor
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return floor
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _latest(rows: List[Dict[str, Any]], when: str) -> Optional[Dict[str, Any]]:
     dated = [r for r in rows if r.get(when)]
-    return max(dated, key=lambda r: r[when]) if dated else None
+    return max(dated, key=lambda r: _ts(r[when])) if dated else None
 
 
 def _fold(rows: List[Dict[str, Any]], key: str, when: str,
@@ -136,7 +157,7 @@ def _fold(rows: List[Dict[str, Any]], key: str, when: str,
 
 def _newest_first(rows: List[Dict[str, Any]], when: str) -> List[Dict[str, Any]]:
     """Mới nhất trước. Dòng thiếu dấu thời gian xuống cuối, không ném."""
-    return sorted(rows, key=lambda r: (r.get(when) or ""), reverse=True)
+    return sorted(rows, key=lambda r: _ts(r.get(when)), reverse=True)
 
 
 def _writing_bands(db, essay_ids: List[str]) -> Dict[str, Optional[float]]:
@@ -191,10 +212,13 @@ def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
         if not value:
             return None
         try:
-            return datetime.fromisoformat(value)
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             logger.warning("[cohort-progress] unparseable timestamp %r", value)
             return None
+        # Báo cáo săn lỗi #59: hạn lưu thiếu múi giờ làm phép so với now (có
+        # múi giờ) ném TypeError ⇒ cột bài tập của CẢ LỚP hỏng. Coi là UTC.
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
     now_dt = _at(now) or datetime.now(timezone.utc)
 
@@ -204,7 +228,10 @@ def _homework_punctuality(db, cohort_id: str, student_ids: List[str],
     )
     due_by_id = {a["id"]: _at(a.get("due_at")) for a in assignments}
     if not due_by_id:
-        return {}
+        # Báo cáo săn lỗi #66: lớp chưa có bài tập là "0 bài", không phải
+        # "không đọc được" ({} khiến mọi học viên hiện như lượt đọc hỏng).
+        return {sid: {"assigned": 0, "submitted": 0, "late": 0, "missing": 0,
+                      "on_time_pct": None} for sid in student_ids}
 
     # Ba đường ghi sổ, ba đường vá — và mặt đọc nào giáo viên MỞ TRƯỚC cũng phải
     # chạy đủ cả ba, nếu không tab Tiến độ báo "chưa nộp" cho việc đã làm xong,
@@ -366,7 +393,7 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
             cur["attempts"] += extra_rows["attempts"]
             cur["last_activity"] = max(
                 [x for x in (cur["last_activity"], extra_rows["last_activity"]) if x],
-                default=None,
+                key=_ts, default=None,
             )
         folded["listening"] = listening
     except Exception as exc:

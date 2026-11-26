@@ -53,12 +53,22 @@ class _Q:
         self.eqs[col] = val
         return self
 
+    def order(self, col, desc=False):
+        self._calls.append({"type": "order", "table": self.name, "col": col})
+        return self
+
+    def range(self, start, end):
+        self._range = (start, end)
+        return self
+
     def execute(self):
         if self.kind == "update":
             self._calls.append({"type": "update", "table": self.name, "payload": self.payload, "eq": dict(self.eqs)})
             return _Exec([])
         self._calls.append({"type": "select", "table": self.name, "eq": dict(self.eqs)})
-        return _Exec(self._data_for(self.name, self.eqs))
+        rows = self._data_for(self.name, self.eqs)
+        start, end = getattr(self, "_range", (0, None))
+        return _Exec(rows[start:None if end is None else end + 1])
 
 
 class _Storage:
@@ -292,3 +302,17 @@ def test_failed_take_listing_never_stamps_retention_complete(monkeypatch):
     result = sweep.sweep_audio()
     assert result['purged'] == 0 and len(result['errors']) == 1
     assert not [c for c in calls if c['type'] in ('update', 'storage_remove')]
+
+
+def test_railway_cron_file():
+    """Daily cron for the sweep (Andy, 23/11: the cron must exist before
+    learner_v2 is turned on). 20:00 UTC = 03:00 Vietnam. The file sets no env:
+    RETENTION_SWEEP_DRY_RUN stays at its default (true) until Andy sets it."""
+    import json
+    from pathlib import Path
+
+    config = json.loads((Path(__file__).resolve().parent.parent / "railway.retention-sweep.json").read_text())
+    assert config["deploy"]["startCommand"] == "python -m jobs.retention_sweep"
+    assert config["deploy"]["cronSchedule"] == "0 20 * * *"
+    assert config["deploy"]["restartPolicyType"] == "NEVER"
+    assert "variables" not in config and "env" not in json.dumps(config).lower()

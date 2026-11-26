@@ -132,6 +132,8 @@ async def release_review(
         raise HTTPException(403, str(e))
     except NotFoundError as e:
         raise HTTPException(404, str(e))
+    except ConflictError:
+        raise HTTPException(409, "Chỉ trả lại được bài đang nhận hoặc đang sửa; bài đã giao thì không.")
 
 
 @router.post("/reviews/{review_id}/deliver", response_model=InstructorReview)

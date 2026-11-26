@@ -499,6 +499,8 @@ def api(monkeypatch):
     # Route-level gate is out of scope here (inventory test covers it).
     from services import activation_gate
     monkeypatch.setattr(activation_gate, "aaccount_is_active", lambda *_a, **_k: _true())
+    # The routes answer only while learner_v2 is on for the caller (gate tests below).
+    monkeypatch.setattr(student_home, "is_learner_v2_enabled", lambda _uid: True)
     return TestClient(main.app, raise_server_exceptions=False), student_home
 
 
@@ -531,6 +533,49 @@ def test_seen_route_rejects_future_and_naive(monkeypatch, api):
                       json={"seen_until": "2026-11-23T03:00:00", "seen_key": "writing:e1"})
     assert res.status_code == 422
     assert db.updates == []
+
+
+class _NoDB:
+    """Any table access fails the test: the gate must answer before a read."""
+
+    def table(self, name):
+        raise AssertionError(f"DB touched behind a closed learner_v2 gate: {name}")
+
+
+def test_today_routes_404_while_learner_v2_is_off(monkeypatch, api):
+    client, student_home = api
+    asked = []
+    monkeypatch.setattr(student_home, "is_learner_v2_enabled", lambda uid: asked.append(uid) or False)
+    monkeypatch.setattr(student_home, "thread_supabase_admin", lambda: _NoDB())
+
+    def _never(*_a):
+        raise AssertionError("class-ledger reconcile ran behind a closed learner_v2 gate")
+
+    monkeypatch.setattr(st, "_visible_assignments_for", _never)
+    res = client.get("/api/student/today", headers={"Authorization": "Bearer x"})
+    assert res.status_code == 404, res.text
+    assert res.json()["detail"]["code"] == "not_found"
+    assert res.headers["cache-control"] == "private, no-store"
+    seen = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    res = client.post("/api/student/today/seen", headers={"Authorization": "Bearer x"},
+                      json={"seen_until": seen, "seen_key": "writing:e1"})
+    assert res.status_code == 404, res.text
+    assert asked == ["u-1", "u-1"]
+
+
+def test_today_gate_uses_the_learner_v2_rule_and_denies_on_lookup_error(monkeypatch, api):
+    client, student_home = api
+    from services import feature_flags, runtime_flags
+
+    monkeypatch.setattr(student_home, "is_learner_v2_enabled", feature_flags.is_learner_v2_enabled)
+
+    monkeypatch.setattr(feature_flags, "_per_user_flag", lambda *_a: True)
+    # Opted in, but the runtime-flag read fails: is_enabled answers its on_error.
+    monkeypatch.setattr(runtime_flags, "is_enabled",
+                        lambda key, default=False, on_error=False: on_error)
+    monkeypatch.setattr(student_home, "thread_supabase_admin", lambda: _NoDB())
+    res = client.get("/api/student/today", headers={"Authorization": "Bearer x"})
+    assert res.status_code == 404, res.text
 
 
 # ── migration 420 (static; the hosted apply needs Andy's typed approval) ──────

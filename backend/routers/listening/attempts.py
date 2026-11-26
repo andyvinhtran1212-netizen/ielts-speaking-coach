@@ -33,6 +33,7 @@ from starlette.concurrency import run_in_threadpool
 from database import supabase_admin
 from services.core_attempt_observation import (
     admit_start, bind_owned_attempt, note_abandoned_dictation_attempt, note_abandoned_exam_attempts, note_persisted_exam_result, observe_operation,
+    record_explicit_exam_abandonment,
 )
 from services.class_assignment_service import (
     active_exam_assignment_references,
@@ -255,7 +256,7 @@ async def admin_get_listening_attempt(
 
 @user_router.get("/tests/{test_id}/attempts/in-progress", response_model=BlackEyeInProgress | dict[str, Any])
 async def get_in_progress_listening_attempt(
-    test_id: str,
+    test_id: uuid.UUID,
     sitting_id: str | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
@@ -282,6 +283,7 @@ async def get_in_progress_listening_attempt(
     bundle: that bundle is served to several callers and is cacheable, while
     this is per-user and must never be cached.
     """
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     if standalone and (class_item or sitting_id):
         raise HTTPException(422, "standalone cannot be combined with class_item or sitting_id")
@@ -373,7 +375,7 @@ async def get_in_progress_listening_attempt(
 @user_router.post("/tests/{test_id}/attempts", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "start", correlate_by=("test_id", "body", "class_item"))
 async def start_listening_test_attempt(
-    test_id: str,
+    test_id: uuid.UUID,
     body: _ListeningAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
@@ -390,6 +392,7 @@ async def start_listening_test_attempt(
     design. A caller that wants to CONTINUE must first check GET
     /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     if standalone and class_item:
         raise HTTPException(422, "standalone cannot be combined with class_item")
@@ -799,7 +802,7 @@ def _mock_sealed(attempt: dict) -> bool:
 # retain an answer-derived digest. The client operation ID scopes each intent.
 @observe_operation("listening_test", "save", correlate_by=("attempt_id",))
 async def patch_listening_test_attempt_answer(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     body: TestAttemptAnswerPatchRequest,
     authorization: str | None = Header(default=None),
 ):
@@ -814,6 +817,7 @@ async def patch_listening_test_attempt_answer(
     one — the client debounces per question, so concurrent saves of different
     q_nums are exactly what a fast typist produces.
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     bind_owned_attempt(attempt)
@@ -1059,7 +1063,7 @@ async def reveal_listening_programme_question(
 
 @user_router.get("/tests/{test_id}/practice-windows")
 async def get_practice_audio_windows(
-    test_id: str,
+    test_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """Per-question audio windows for a Luyện nhanh drill — PRACTICE ONLY.
@@ -1079,6 +1083,7 @@ async def get_practice_audio_windows(
     solutions, no transcript. Refused outright for full / mini / drill, so the
     exam guarantee is unchanged and this exception stays visible in one place.
     """
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     _user = await _require_auth(authorization)
     target = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
     if blackeye.is_blackeye(target):
@@ -1117,7 +1122,7 @@ async def get_practice_audio_windows(
 @user_router.post("/tests/attempts/{attempt_id}/check")
 @observe_operation("listening_test", "grade", correlate_by=("attempt_id", "body"))
 async def check_listening_practice_answer(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     body: PracticeCheckRequest,
     authorization: str | None = Header(default=None),
 ):
@@ -1147,6 +1152,7 @@ async def check_listening_practice_answer(
     Returns ``{q_num, correct, canonical_correct, recorded, audio_window, …}``;
     ``expected`` / ``solution`` appear only on a granted reveal.
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     from services import listening_test_grader as grader
 
     user = await _require_auth(authorization)
@@ -1300,13 +1306,14 @@ async def check_listening_practice_answer(
 @user_router.post("/tests/attempts/{attempt_id}/submit", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "submit", correlate_by=("attempt_id",))
 async def submit_listening_test_attempt(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """Finalize a student attempt: load the test's answer key, grade
     each user answer, roll up trap analytics, write the grading
     payload back to the attempt row, and return the result.
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     from datetime import datetime, timezone
 
     from services import listening_test_grader as grader
@@ -1513,15 +1520,106 @@ async def submit_listening_test_attempt(
     }
 
 
+class ListeningAttemptAbandonResponse(BaseModel):
+    """EXAMLISTENT-0070 FR-012: the attempt is closed with no result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    attempt_id: str
+    status: Literal["abandoned"]
+
+
+_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+def _abandon_conflict(reason: str) -> HTTPException:
+    return HTTPException(409, {"reason": reason}, headers=_NO_STORE)
+
+
+def _abandon_listening_attempt(attempt_id: str, user_id: str) -> tuple[dict, list, str]:
+    """One conditional UPDATE (CAS on status), then a re-read to explain a miss.
+
+    Only the learner's own self-selected attempt closes: no class item, no
+    mock sitting, still ``in_progress`` and inside its resume window. The
+    UPDATE is not bound to ``answers`` (abandoning drops the whole attempt),
+    while both finalize UPDATEs of ``submit`` require ``status='in_progress'``,
+    so exactly one of a racing submit and abandon writes. ``updated_at`` moves
+    with the status, in the same UPDATE.
+
+    Returns the body, the rows the UPDATE acknowledged (empty on a repeat) and
+    the attempt's ``test_id``, for the evidence receipt.
+    """
+    attempt = _fetch_attempt_or_404(attempt_id, user_id)
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        # The Black Eye unit has its own two-state lifecycle (in_progress,
+        # submitted); it is not a self-selected exam-room test.
+        raise _abandon_conflict("not_self_selected")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    closed = (
+        supabase_admin.table("listening_test_attempts")
+        .update({"status": "abandoned", "updated_at": now_iso})
+        .eq("id", attempt_id)
+        .eq("user_id", user_id)
+        .eq("status", "in_progress")
+        .is_("sitting_id", "null")
+        .is_("class_assignment_item_id", "null")
+        .gt("resume_expires_at", now_iso)
+        .execute().data or []
+    )
+    body = {"attempt_id": attempt_id, "status": "abandoned"}
+    if closed:
+        return body, closed, str(attempt.get("test_id"))
+    fresh = _fetch_attempt_or_404(attempt_id, user_id)
+    status = fresh.get("status")
+    if status == "abandoned":
+        return body, [], str(attempt.get("test_id"))
+    if status == "submitted":
+        raise _abandon_conflict("already_submitted")
+    if fresh.get("sitting_id") or fresh.get("class_assignment_item_id"):
+        raise _abandon_conflict("not_self_selected")
+    if status == "in_progress" and not is_resume_active(fresh):
+        raise _abandon_conflict("resume_expired")
+    raise _abandon_conflict("attempt_changed")
+
+
+@user_router.post(
+    "/tests/attempts/{attempt_id}/abandon",
+    response_model=ListeningAttemptAbandonResponse,
+)
+async def abandon_listening_test_attempt(
+    attempt_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    """EXAMLISTENT-0070 FR-012: abandon a self-selected Listening test.
+
+    200 ``{attempt_id, status: "abandoned"}``, also when repeated. 404 when the
+    attempt is not the caller's. 409 ``{"reason": ...}`` with
+    ``already_submitted``, ``not_self_selected`` (class item, mock sitting,
+    Black Eye unit) or ``resume_expired``. An abandoned attempt has no result;
+    "Start test" creates a new attempt.
+    """
+    user = await _require_auth(authorization)
+    result, closed, test_id = await asyncio.to_thread(_abandon_listening_attempt, str(attempt_id), user["id"])
+    if closed:
+        # The same core-evidence receipt as the start-over path
+        # (note_abandoned_exam_attempts), written after the committed write.
+        await record_explicit_exam_abandonment(
+            closed, surface="listening_test", attempt_id=str(attempt_id), test_id=test_id, user_id=user["id"],
+        )
+    from starlette.responses import JSONResponse
+    return JSONResponse(result, headers=_NO_STORE)
+
+
 @user_router.get("/tests/attempts/{attempt_id}", response_model=BlackEyeAttemptState | dict[str, Any])
 async def get_listening_test_attempt(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a past attempt's grading. Owner-only (admin bypass not
     wired here — admins use ``/admin/listening/tests/{id}`` for the
     bundle view; per-attempt admin surfaces land in a future sprint).
     """
+    attempt_id = str(attempt_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
