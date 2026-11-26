@@ -192,10 +192,17 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
         # each due start first, so the sitting's own clocks below already
         # hold the next section and there is no "between sections" answer.
         sitting, timeline = svc.advance_self_paced(sitting, exam)
-        active, time_left = svc.retake_active_section(sitting, exam)
-        if active == "not_started" and timeline.current_section:
-            # Only with a gap > 0: the next section has a future start.
+        if timeline.current_section:
+            # The shared timeline decides, never the per-section stamps: a
+            # section past its deadline that the reaper has not collected yet
+            # is still started and unsubmitted, but the chain has moved on
+            # (CR #2581, Codex P1). With a gap > 0 this is the next section,
+            # with its future start.
             active, time_left = timeline.current_section, timeline.section_time_left_seconds
+        else:
+            # Every section has ended: "done", or the last one with 0 s while
+            # the reaper collects it.
+            active, time_left = svc.retake_active_section(sitting, exam)
         assigned = sitting.get("assigned_skills") or []
         self_paced = svc.self_paced_state(sitting, exam, timeline)
     elif svc.is_retake(exam):

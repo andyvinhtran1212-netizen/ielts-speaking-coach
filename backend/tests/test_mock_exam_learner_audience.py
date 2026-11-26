@@ -276,6 +276,28 @@ def test_unsubmitted_section_ends_at_its_deadline_and_the_reaper_walks_the_chain
     assert active == "writing" and 60 * 49 <= left <= 60 * 50
 
 
+def test_state_follows_the_chain_before_the_reaper_collects_an_overdue_section(
+        fake_db, svc, flag_on):
+    # Codex P1 on #2581: Reading (60 min) started 70 min ago and never
+    # submitted. Before any sweep, a poll must name Writing in both
+    # active_section and self_paced, with Writing's clock, never Reading at 0 s.
+    learner = uuid4()
+    exam, sitting = _chain_sitting(
+        fake_db, svc, learner, open_until=_iso(NOW + timedelta(days=1)))
+    start = NOW - timedelta(minutes=70)
+    _set(fake_db, sitting["id"], status="lrw_in_progress", reading_started_at=_iso(start))
+
+    state = mock_router._sitting_state_sync(sitting["id"], str(learner))
+
+    row = svc.get_sitting(sitting["id"])
+    assert not row.get("reading_submitted_at")  # only the reaper collects it
+    assert datetime.fromisoformat(row["writing_started_at"]) == start + timedelta(minutes=60)
+    assert state["active_section"] == "writing"
+    assert state["self_paced"]["current_section"] == "writing"
+    assert 60 * 49 <= state["section_time_left_seconds"] <= 60 * 50
+    assert state["section_time_left_seconds"] == state["self_paced"]["section_time_left_seconds"]
+
+
 def test_started_chain_runs_past_the_window(fake_db, svc, flag_on):
     learner = uuid4()
     _exam, sitting = _chain_sitting(

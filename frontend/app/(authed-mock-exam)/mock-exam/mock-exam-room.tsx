@@ -10,7 +10,7 @@ import type { ExamRoomSaveStatus, ExamRoomSubmitOutcome } from '@/components/exa
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
-import { clearLocalCopy } from '@/lib/exam-room/local-copy.mjs';
+import { removeAckedFromCopy } from '@/lib/exam-room/local-copy.mjs';
 import { clockTime } from '@/lib/exam-room/submit-guard.mjs';
 import {
   configuredMockSections, formatMockTime, mockWordCount, selfPacedEntry, selfPacedPrevious, selfPacedView, submittedAtFor,
@@ -77,6 +77,8 @@ export interface MockExamRoomProps {
   gapRemaining?: number | null;
   /** FR-014: the embedded Reading/Listening page's questions, for the submit box. */
   frameQuestions?: ReadonlyArray<{ q: number; answered: boolean }> | null;
+  /** Writing text typed but not yet acked, debounce included (FR-012 loss guard). */
+  losesWork?(): boolean;
 }
 
 /** Section names on the strip and in the subtitle: words only, no emoji (FR-005). */
@@ -99,6 +101,11 @@ export const MOCK_ROOM_COPY = {
   closed: (closedAt: string | null, savedUpTo: string | null) =>
     (closedAt ? `This section was closed by our server at ${closedAt}.` : 'This section was closed by our server.')
     + (savedUpTo ? ` Your answers were saved up to ${savedUpTo}.` : ''),
+  // FR-007: the outcome of a section that has already given way to the next one.
+  closedPrevious: (name: string, closedAt: string | null, savedUpTo: string | null) =>
+    (closedAt ? `${name} was closed by our server at ${closedAt}.` : `${name} was closed by our server.`)
+    + ' We could not confirm that its last answers were saved.'
+    + (savedUpTo ? ` They were saved up to ${savedUpTo}.` : ''),
   connection: {
     offline: 'Connection lost. Keep this tab open without reloading; saving and submitting will retry automatically.',
     submitting: 'Submitting your answers. The connection is unstable; retrying…',
@@ -192,6 +199,17 @@ function ClosedNotice({ outcome }: { outcome: MockRoomOutcome | null }) {
   );
 }
 
+/** FR-007: a closed, unconfirmed earlier section stays named on the next one, without locking it. */
+function PreviousClosedNotice({ outcome, section }: { outcome: MockRoomOutcome | null; section: Section | null }) {
+  if (!outcome || outcome.outcome !== 'closed_unconfirmed' || outcome.section === section) return null;
+  const name = MOCK_ROOM_SECTION_NAMES[outcome.section as Section] ?? 'The previous section';
+  return (
+    <Notice kind="warning" lang="en">
+      {MOCK_ROOM_COPY.closedPrevious(name, serverClock(outcome.closedAt), outcome.savedUpTo)}
+    </Notice>
+  );
+}
+
 function shellOutcome(outcome: MockRoomOutcome | null, section: Section | null): ExamRoomSubmitOutcome {
   if (!outcome || outcome.section !== section) return 'idle';
   if (outcome.outcome === 'denied') return 'idle'; // the runner shows its error screen (403/404)
@@ -236,15 +254,23 @@ export function MockExamRoom(props: MockExamRoomProps) {
     const timer = window.setTimeout(() => setNextBanner(null), 10_000);
     return () => window.clearTimeout(timer);
   }, [bannerSection]);
-  // FR-010: the Writing copy goes once the server holds the Writing submit.
+  // FR-010: once the server holds the Writing submit, a copy entry goes only
+  // when the server holds exactly that text. A closed section whose last save
+  // was not confirmed (closed_unconfirmed) keeps a different device text
+  // (HOLD on #2715); expiry and sign-out still clear it.
   const sittingId = state?.sitting.id;
   const writingSubmittedAt = state?.sitting.writingSubmittedAt;
+  const serverTask1 = state?.sitting.writingSubmission?.task1?.text ?? '';
+  const serverTask2 = state?.sitting.writingSubmission?.task2?.text ?? '';
   useEffect(() => {
     if (!sittingId || !writingSubmittedAt || !props.ownerKey) return;
     let storage: Storage | null = null;
     try { storage = window.localStorage; } catch { storage = null; }
-    clearLocalCopy(storage, { surface: 'mock', ownerKey: props.ownerKey, attemptKey: sittingId });
-  }, [props.ownerKey, sittingId, writingSubmittedAt]);
+    removeAckedFromCopy(storage, {
+      surface: 'mock', ownerKey: props.ownerKey, attemptKey: sittingId,
+      entries: [{ q: 'task1', value: serverTask1 }, { q: 'task2', value: serverTask2 }],
+    });
+  }, [props.ownerKey, sittingId, writingSubmittedAt, serverTask1, serverTask2]);
 
   if (props.loading) return <Screen><PageState kind="loading" title="Loading the test" /></Screen>;
   if (props.fatal) {
@@ -392,6 +418,7 @@ export function MockExamRoom(props: MockExamRoomProps) {
       {nextBanner && nextBanner === section
         ? <Notice kind="success" lang="en" live="status">{MOCK_ROOM_COPY.selfPaced.next(MOCK_ROOM_SECTION_NAMES[nextBanner])}</Notice>
         : null}
+      <PreviousClosedNotice outcome={outcome} section={section} />
       {props.collecting ? <Notice kind="info" lang="en" live="status">{MOCK_ROOM_COPY.collecting}</Notice> : null}
       {props.connection ? <Notice kind="warning" lang="en">{MOCK_ROOM_COPY.connection[props.connection]}</Notice> : null}
       {props.timerLive && props.remaining > 0 && props.remaining <= 5 * 60
@@ -446,7 +473,8 @@ export function MockExamRoom(props: MockExamRoomProps) {
         savedUpTo: outcome?.savedUpTo ?? undefined,
         onRetry: props.onRetrySubmit,
       } : undefined}
-      exit={{ href: MOCK_ROOM_COPY.exitHref, flush: props.flushForExit, losesWork: () => false }}
+      // FR-009: no leaving while the invigilator collects; the shell closes an open box.
+      exit={{ href: MOCK_ROOM_COPY.exitHref, flush: props.flushForExit, losesWork: () => Boolean(props.losesWork?.()), locked: props.collecting }}
       ownerKey={props.ownerKey}
       session={props.session}
       onSessionExpired={{ saveLocalCopy: props.saveLocalCopy, returnUrl: returnHere() }}
