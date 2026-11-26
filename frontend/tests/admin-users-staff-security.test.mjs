@@ -142,3 +142,11 @@ describe('panel wiring', () => {
     assert.match(HISTORY, /⚠ không tải được lịch sử/);
   });
 });
+
+test('a failed suspension is never reported as suspended (bug-hunt #112)', () => {
+  for (const ack of [{ ok: false, is_active: true }, { ok: true, is_active: true }, { ok: false, is_active: false }]) {
+    const banner = activeChangeBanner(false, ack);
+    assert.equal(banner.kind, 'error');
+    assert.doesNotMatch(banner.text, /^Đã tạm khóa/);
+  }
+});
