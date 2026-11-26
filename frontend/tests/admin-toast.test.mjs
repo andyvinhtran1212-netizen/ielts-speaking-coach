@@ -67,15 +67,22 @@ describe('migration — mechanical, timing preserved', () => {
     ]) delegates(f);
   });
 
-  // admin-classes.js (GĐ 1) replaced admin-cohorts.js and never carried the
-  // showBanner wrapper — it calls the shared primitive directly, so the legacy
-  // regex above does not describe it. Its real contract is pinned here instead
-  // of loosening that regex for the 12 files it does describe.
-  test('admin-classes.js routes messages through showToast, never native dialogs', () => {
-    const src = read('js', 'admin-classes.js');
-    assert.match(src, /window\.showToast\(/);
-    assert.doesNotMatch(src, /(?<!\.)\balert\(/);
-    assert.doesNotMatch(src, /(?<![.\w])confirm\((?!Danger)/);
+  // LEGACYJS-0075 W3b: admin-classes.js is deleted. The Next class directory
+  // and class detail panels report through the shared inline StatusBanner
+  // (role="alert" for errors, "status" otherwise) and never native dialogs.
+  test('Next class surfaces use StatusBanner, never native dialogs', () => {
+    assert.match(read('components', 'admin-directory-ui.tsx'), /role=\{banner\.kind === 'error' \? 'alert' : 'status'\}/);
+    for (const f of [
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', 'admin-classes-directory.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx'],
+      ['app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx'],
+    ]) {
+      const src = read(...f);
+      assert.match(src, /<StatusBanner banner=\{/, f.at(-1));
+      assert.doesNotMatch(src, /(?<![.\w])alert\(/, f.at(-1));
+      assert.doesNotMatch(src, /(?<![.\w])confirm\(/, f.at(-1));
+    }
   });
   test('auto-dismiss timing preserved: 5s (speaking-sessions)', () => {
     assert.match(read('js', 'admin-speaking-sessions.js'), /timeout: 5000/);
@@ -101,11 +108,13 @@ describe('migration — setAlert (4 pages), error-persist not swallowed', () => 
     assert.match(g, /kind === 'error'\)\s*\{?\s*showToast\(msg, 'error', \{ persist: true \}\)/);
     assert.match(g, /timeout: 4000/);
   });
-  test('students setAlert delegates; error persists', () => {
-    const s = read('pages', 'admin', 'classes', 'index.html')
-  + read('js', 'admin-students-panel.js');
-    assert.match(s, /function setAlert\(kind, msg\)[\s\S]*?showToast\(/);
-    assert.match(s, /kind === 'error'\) showToast\(msg, 'error', \{ persist: true \}\)/);
+  // LEGACYJS-0075 W3b: admin-students-panel.js is deleted. The students
+  // directory keeps an error banner until the next action (no auto-dismiss).
+  test('students directory error banner persists (no timer clears it)', () => {
+    const s = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
+    assert.match(s, /<StatusBanner banner=\{banner\} \/>/);
+    assert.match(s, /setBanner\(\{ kind: 'error', text: messageOf\(/);
+    assert.doesNotMatch(s, /setTimeout\([^)]*setBanner/);
   });
 });
 
