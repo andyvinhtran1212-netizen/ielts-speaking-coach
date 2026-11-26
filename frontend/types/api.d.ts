@@ -14556,7 +14556,9 @@ export interface paths {
          *
          *     Writes nothing of its own; the only write is the class-ledger reconcile
          *     inside `_visible_assignments` (FR-103 exception). A failed list read is
-         *     `degraded: ["items"]`, never an empty "no work" answer.
+         *     `degraded: ["items"]`, never an empty "no work" answer. 404 while
+         *     `learner_v2` is off for the caller, before any read or reconcile runs
+         *     (same gate as GET /today).
          */
         get: operations["assigned_api_student_assigned_get"];
         put?: never;
