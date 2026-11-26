@@ -5,6 +5,7 @@ import { StrictMode } from 'react';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+import { PracticeSubmissionBridge } from '@/app/(authed-practice)/practice/session/practice-submission-bridge';
 import { PracticeFullTestBridge } from '@/app/(authed-practice)/practice/session/practice-full-test-bridge';
 import { PracticePageShell } from '@/app/(authed-practice)/practice/session/practice-page-shell';
 import { PracticeSessionBoot } from '@/app/(authed-practice)/practice/session/practice-session-boot';
@@ -74,9 +75,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function mount() {
+async function mount(withSubmission = false) {
   const view = render(<StrictMode><AuthProvider>
     <PracticePageShell player={player.controller} />
+    {withSubmission && <PracticeSubmissionBridge />}
     <PracticeFullTestBridge />
     <PracticeSessionBoot />
   </AuthProvider></StrictMode>);
@@ -160,4 +162,43 @@ it('flag off: SIGNED_OUT redirects and disposes even with a failed take', async 
   expect(replace).toHaveBeenCalledWith('/login');
   expect(controller.disposed).toBe(true);
   expect(screen.queryByRole('alertdialog')).toBeNull();
+});
+
+
+it.each(['owner-A', 'owner-B'])('lost upload response then reauthentication as %s', async (owner) => {
+  const view = await mount(true);
+  const submission = win().PracticeSubmission;
+  const queue = win().PracticeFullTest;
+  let receipt: Record<string, unknown> | undefined;
+  let readbackFails = true;
+  win().api.getWith.mockImplementation(async () => {
+    if (receipt && readbackFails) throw new Error('session expired');
+    return { submission_retry_safe: true, response_receipts: receipt ? [receipt] : [] };
+  });
+  win().api.uploadWith.mockImplementation(async (_path: string, form: FormData) => {
+    receipt = { id: 'saved-response', question_id: 'question-0', submission_id: form.get('submission_id') };
+    throw new Error('connection lost');
+  });
+  await act(async () => {
+    await expect(queue.submitAnswer({
+      sessionId: 'session-one', questionId: 'question-0', blob: new Blob(['audio'], { type: 'audio/webm' }),
+    })).rejects.toMatchObject({ code: 'ambiguous_commit' });
+  });
+  expect(receipt?.submission_id).toEqual(expect.any(String));
+  act(() => notify('SIGNED_OUT', null));
+  readbackFails = false;
+  act(() => notify('SIGNED_IN', session(owner)));
+  if (owner === 'owner-A') {
+    expect(win().PracticeSubmission).toBe(submission);
+    await act(async () => { await queue.retryFailed(); });
+    expect(queue.getSnapshot().retryCount).toBe(0);
+  } else {
+    expect(win().PracticeSubmission).not.toBe(submission);
+    expect(submission.disposed).toBe(true);
+    expect(queue.disposed).toBe(true);
+  }
+  expect(win().api.uploadWith).toHaveBeenCalledTimes(1);
+  view.unmount();
+  expect(submission.disposed).toBe(true);
+  expect(win().PracticeSubmission).toBeUndefined();
 });
