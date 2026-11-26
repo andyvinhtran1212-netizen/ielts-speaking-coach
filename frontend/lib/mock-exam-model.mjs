@@ -427,8 +427,11 @@ export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches })
       const serverText = typeof server[task] === 'string' ? server[task] : '';
       const copyText = inCopy ? copy.answers[task]?.value : undefined;
       // FR-010: the legacy key goes only once its exact text is held elsewhere:
-      // the server has it, or the new key already carries the same text.
-      if (draft.text === serverText || (typeof copyText === 'string' && draft.text === copyText)) {
+      // the server has it, or the new key carries the same text and survives
+      // this plan. A closed section clears the new key (`clearCopy`), so there
+      // only the server's exact text lets the legacy key go (HOLD on #2713).
+      const copyKeepsIt = server.open && typeof copyText === 'string' && draft.text === copyText;
+      if (draft.text === serverText || copyKeepsIt) {
         dropLegacy.push(task);
         continue;
       }
