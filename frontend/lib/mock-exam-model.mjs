@@ -410,6 +410,30 @@ export function isMockSubmitSettled(state, section) {
   return state.collectedSection === section;
 }
 
+/**
+ * FR-013 (Codex P1 and HOLD FR-007/FR-013 on #2715): a submit refused because
+ * this tab has no write right is kept with its retry turn. A later attempt-0
+ * call for the same section (timer, poll, online) never resets a retry that
+ * was already further along, so the 3-retry limit holds.
+ * @param {{ section: string, attempt: number } | null} held
+ * @param {string} section
+ * @param {number} attempt
+ */
+export function holdBlockedMockSubmit(held, section, attempt) {
+  if (held && held.section === section && held.attempt > attempt) return held;
+  return Object.freeze({ section, attempt });
+}
+
+/**
+ * What to run once the write right comes back: the held submit at its own
+ * turn, unless another submit is in flight or the server already settled it.
+ * @param {{ held: { section: string, attempt: number } | null, submitting: boolean, state: any }} input
+ */
+export function replayBlockedMockSubmit({ held, submitting, state }) {
+  if (!held || submitting || isMockSubmitSettled(state, held.section)) return null;
+  return held;
+}
+
 /** @returns {Record<string, number>} */
 export function normalizeIntegrity(raw) {
   const out = {};
@@ -531,8 +555,11 @@ export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches })
       const serverText = typeof server[task] === 'string' ? server[task] : '';
       const copyText = inCopy ? copy.answers[task]?.value : undefined;
       // FR-010: the legacy key goes only once its exact text is held elsewhere:
-      // the server has it, or the new key already carries the same text.
-      if (draft.text === serverText || (typeof copyText === 'string' && draft.text === copyText)) {
+      // the server has it, or the new key carries the same text and survives
+      // this plan. A closed section clears the new key (`clearCopy`), so there
+      // only the server's exact text lets the legacy key go (HOLD on #2713).
+      const copyKeepsIt = server.open && typeof copyText === 'string' && draft.text === copyText;
+      if (draft.text === serverText || copyKeepsIt) {
         dropLegacy.push(task);
         continue;
       }
