@@ -1,0 +1,229 @@
+/* LIBRARY-0061 T011 Kiến thức Writing (tờ KienThucWriting §1–3). Only var(--av2-*).
+   PublicShell / LearnerShell's <main> owns the width and side padding. */
+.page { padding-top: var(--av2-space-6); }
+.crumbs { margin-bottom: var(--av2-space-4); }
+
+.title {
+  margin: var(--av2-space-2) 0 var(--av2-space-2);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-40);
+  line-height: var(--av2-lh-tight);
+}
+
+.lead {
+  max-width: 62ch;
+  margin: 0 0 var(--av2-space-5);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  line-height: var(--av2-lh-body);
+}
+
+.num {
+  margin-right: var(--av2-space-2);
+  color: var(--av2-muted);
+  font-weight: var(--av2-fw-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+.groupNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--av2-space-8);
+  border-top: var(--av2-rule-strong-w) solid var(--av2-ink);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+.groupNav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+  text-decoration: none;
+}
+.groupNav a:hover { text-decoration: underline; }
+
+.group {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  column-gap: var(--av2-space-11);
+  margin-top: var(--av2-space-9);
+  padding-top: var(--av2-space-3);
+  border-top: var(--av2-rule-strong-w) solid var(--av2-ink);
+  scroll-margin-top: calc(var(--av2-topbar-h) + var(--av2-space-4));
+}
+
+.groupTitle {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  font-weight: var(--av2-fw-strong);
+  line-height: var(--av2-lh-tight);
+}
+
+.groupNote { margin: var(--av2-space-2) 0 0; color: var(--av2-muted); font-size: var(--av2-fs-15); }
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 0 var(--av2-space-6);
+  align-items: baseline;
+  padding: var(--av2-space-3) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.rowMain { min-width: 0; }
+
+.rowTitle {
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  line-height: var(--av2-lh-tight);
+  color: var(--av2-ink);
+  text-decoration-color: var(--av2-rule);
+  text-underline-offset: 4px;
+}
+
+.rowSummary { display: block; margin-top: var(--av2-space-1); color: var(--av2-muted); font-size: var(--av2-fs-15); }
+
+.rowMeta { color: var(--av2-muted); font-size: var(--av2-fs-14); text-align: right; white-space: nowrap; }
+
+.placeholder {
+  display: block;
+  height: var(--av2-space-6);
+  background: var(--av2-tint);
+  border-radius: var(--av2-radius);
+}
+
+.notice {
+  margin: var(--av2-space-8) 0 0;
+  padding: var(--av2-space-6) 0;
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+.notice p { margin: 0 0 var(--av2-space-3); }
+
+.reload {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-sm);
+  padding: 0 var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  border-radius: var(--av2-radius);
+  color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+  text-decoration: none;
+}
+
+/* ── one guide (§2–3) ─────────────────────────────────────────────────── */
+
+.eyebrow {
+  margin: 0 0 var(--av2-space-2);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.articleTitle {
+  margin: 0 0 var(--av2-space-2);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-40);
+  line-height: var(--av2-lh-tight);
+}
+
+.meta { margin: 0; color: var(--av2-muted); font-family: var(--av2-font-sans); font-size: var(--av2-fs-14); }
+
+.memberOf { margin: 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.memberOf a { color: var(--av2-ink); }
+
+/* Server-rendered Markdown: headings carry the ids listed in the contents. */
+.prose :global(h2) {
+  margin: var(--av2-space-8) 0 var(--av2-space-3);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  line-height: var(--av2-lh-tight);
+  scroll-margin-top: calc(var(--av2-topbar-h) + var(--av2-space-4));
+}
+.prose :global(h3) {
+  margin: var(--av2-space-6) 0 var(--av2-space-2);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  line-height: var(--av2-lh-tight);
+  scroll-margin-top: calc(var(--av2-topbar-h) + var(--av2-space-4));
+}
+.prose :global(h2:first-child) { margin-top: 0; }
+.prose :global(p),
+.prose :global(ul),
+.prose :global(ol) { margin: 0 0 var(--av2-space-4); }
+.prose :global(table) {
+  width: 100%;
+  margin: 0 0 var(--av2-space-5);
+  border-collapse: collapse;
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-15);
+}
+.prose :global(th),
+.prose :global(td) {
+  padding: var(--av2-space-2) var(--av2-space-3) var(--av2-space-2) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  text-align: left;
+  vertical-align: top;
+}
+.prose :global(th) { border-bottom-color: var(--av2-ink); }
+.prose :global(blockquote) {
+  margin: 0 0 var(--av2-space-4);
+  padding-left: var(--av2-space-4);
+  border-left: var(--av2-rule-strong-w) solid var(--av2-rule);
+}
+.prose :global(code) { font-size: 0.9em; }
+
+/* Sample citation card (FR-022): quote from writing_samples, link to that set and band. */
+.prose :global(figure.sample-cite) {
+  margin: 0 0 var(--av2-space-5);
+  padding: var(--av2-space-4) var(--av2-space-5);
+  background: var(--av2-surface);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+}
+.prose :global(figure.sample-cite figcaption) {
+  margin-bottom: var(--av2-space-2);
+  color: var(--av2-muted);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-13);
+}
+.prose :global(figure.sample-cite blockquote) { margin: 0 0 var(--av2-space-2); padding: 0; border: 0; font-style: italic; }
+.prose :global(figure.sample-cite blockquote p) { margin: 0; }
+.prose :global(.sample-cite-open) { font-family: var(--av2-font-sans); font-size: var(--av2-fs-14); }
+
+.source { margin: var(--av2-space-6) 0 0; color: var(--av2-muted); font-family: var(--av2-font-sans); font-size: var(--av2-fs-14); }
+
+.pager {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--av2-space-6);
+  margin-top: var(--av2-space-6);
+  padding-top: var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  font-family: var(--av2-font-sans);
+}
+.pager a { display: block; color: var(--av2-ink); text-decoration: none; }
+.pager a:hover .pagerTitle { text-decoration: underline; }
+.pagerNext { text-align: right; grid-column: 2; }
+.pagerLabel { display: block; color: var(--av2-muted); font-size: var(--av2-fs-13); }
+.pagerTitle { display: block; font-family: var(--av2-font-serif); font-size: var(--av2-fs-18); }
+
+@media (max-width: 767px) {
+  .title,
+  .articleTitle { font-size: var(--av2-fs-24); }
+  .group { grid-template-columns: minmax(0, 1fr); row-gap: var(--av2-space-3); margin-top: var(--av2-space-8); }
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .rowMeta { text-align: left; margin-top: var(--av2-space-1); }
+  .pager { grid-template-columns: minmax(0, 1fr); }
+  .pagerNext { grid-column: 1; text-align: left; }
+}

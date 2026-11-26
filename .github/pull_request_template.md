@@ -5,8 +5,8 @@ Spec: <!-- N/A or an existing ID such as FEAT-0001 -->
 
 For `feature` and `high-risk`, link a spec that was already approved on the
 base branch before implementation began, then list the implemented requirement
-IDs. Production promotion PRs from `staging` to `main` are exempt from repeating
-feature metadata.
+IDs. Production promotion PRs from `staging` (or a pinned `release/<sha>` cut) to
+`main` are exempt from repeating feature metadata.
 
 For incremental work on requirements approved at different times, use structured
 coverage evidence and map each requirement to its owned commit/path units:
@@ -37,7 +37,7 @@ Amendment class: <!-- major | minor | patch -->
 ## Release target
 
 - [ ] Normal feature/fix/content PR: base branch is `staging`.
-- [ ] Production promotion PR: head is `staging`, base is `main`, and the exact staging SHA has passed Staging E2E.
+- [ ] Production promotion PR: head is `staging` (or a pinned cut `release/<sha>` of an earlier staging tip), base is `main`, and the exact staging SHA has passed Staging E2E.
 
 ## Verification
 

@@ -156,3 +156,46 @@ aver-admin-chrome[data-collapsed="1"] > .au-shell {
 @media (prefers-reduced-motion: reduce) {
   .au-spinner { animation: none; }
 }
+
+/* ADMINIA-0074 FR-048/055 — activation-code ledger. */
+.au-related-link { margin: 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+.au-related-link a { color: var(--av-brand-teal-700); font-weight: var(--av-fw-semibold); }
+.au-ledger-status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.au-ledger-status small { color: var(--av-text-muted); font-size: var(--av-fs-xs); white-space: nowrap; }
+.au-row-menu__trigger { min-width: 36px; justify-content: center; }
+.au-row-menu {
+  position: fixed; z-index: 60; min-width: 220px; max-width: min(320px, calc(100vw - 16px));
+  padding: 6px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+  background: var(--av-surface-card); box-shadow: var(--av-shadow-lg);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.au-row-menu__item {
+  min-height: 40px; padding: 8px 10px; border: 0; border-radius: calc(var(--av-radius-md) - 2px);
+  background: transparent; color: var(--av-text-primary); font: inherit; font-size: var(--av-fs-sm);
+  text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+}
+.au-row-menu__item small { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+.au-row-menu__item:hover, .au-row-menu__item:focus-visible { background: var(--av-surface-sunken); outline: none; }
+.au-row-menu__item:focus-visible { box-shadow: inset 0 0 0 2px var(--av-primary); }
+.au-row-menu__item.is-danger { color: var(--av-error); }
+.au-row-menu__item[aria-disabled="true"] { color: var(--av-text-muted); cursor: not-allowed; }
+
+/* ADMINIA-0074 FR-055: one code's page with its danger zone. */
+.au-detail-card, .au-danger-zone { min-width: 0; padding: var(--av-space-4); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg); background: var(--av-surface-card); display: flex; flex-direction: column; gap: var(--av-space-3); }
+.au-detail-card h2, .au-danger-zone h2 { margin: 0; color: var(--av-text-primary); font-size: var(--av-fs-lg); }
+.au-detail-grid { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--av-space-3); }
+.au-detail-grid dt { color: var(--av-text-muted); font-size: var(--av-fs-xs); letter-spacing: var(--av-tracking-wide); text-transform: uppercase; }
+.au-detail-grid dd { margin: 2px 0 0; color: var(--av-text-primary); font-size: var(--av-fs-sm); overflow-wrap: anywhere; }
+.au-detail-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--av-space-2); }
+.au-detail-list li { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--av-space-2); color: var(--av-text-secondary); font-size: var(--av-fs-sm); overflow-wrap: anywhere; }
+.au-detail-list small { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+.au-detail-card .au-lookup-failed { white-space: normal; }
+.au-danger-zone { border-color: color-mix(in srgb, var(--av-error) 40%, var(--av-border-default)); }
+.au-danger-zone h2 { color: var(--av-error); }
+.au-danger-zone p { margin: 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: 1.6; }
+.au-danger-zone form { display: flex; flex-direction: column; gap: var(--av-space-3); max-width: 560px; }
+.au-danger-zone form > button { align-self: flex-start; min-height: 44px; }
+.au-danger-zone .au-lookup-failed { white-space: normal; }
+.au-form-error { color: var(--av-error) !important; font-weight: var(--av-fw-semibold); }
+a.au-code-link { text-decoration: none; }
+a.au-code-link:hover .au-code-value, a.au-code-link:focus-visible .au-code-value { border-color: var(--av-brand-teal-700); color: var(--av-brand-teal-800); }
