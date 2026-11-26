@@ -148,6 +148,7 @@ draft -> approved -> implementing -> verified -> shipped
 | CONTENTBATCH-0087 | Admins see every content import script run as a read-only batch and work one review queue per question on the four-tab content pages | draft | high | [spec](0087-content-import-batches/spec.md) |
 | WRITINGGPT-0088 | Writing grades that Claude cannot serve fall back to GPT before Gemini | draft | high | [spec](0088-writing-gpt-fallback/spec.md) |
 | SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
+| REGIVE-0103 | A teacher can give a class a course lesson bank it already received, and a retried give still creates it once | approved | high | [spec](0103-course-bank-regive/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
