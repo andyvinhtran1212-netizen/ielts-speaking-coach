@@ -8617,7 +8617,8 @@ export interface paths {
          *         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
          *         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
          *       - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
-         *       - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+         *       - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...};
+         *         lượt đã bỏ (`abandoned`) không vào lịch sử (EXAMLISTENT-0070 FR-012)
          *       - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
          *
          *     Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
@@ -9272,6 +9273,32 @@ export interface paths {
          *     payload back to the attempt row, and return the result.
          */
         post: operations["submit_listening_test_attempt_api_listening_tests_attempts__attempt_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abandon Listening Test Attempt
+         * @description EXAMLISTENT-0070 FR-012: abandon a self-selected Listening test.
+         *
+         *     200 ``{attempt_id, status: "abandoned"}``, also when repeated. 404 when the
+         *     attempt is not the caller's. 409 ``{"reason": ...}`` with
+         *     ``already_submitted``, ``not_self_selected`` (class item, mock sitting,
+         *     Black Eye unit) or ``resume_expired``. An abandoned attempt has no result;
+         *     "Start test" creates a new attempt.
+         */
+        post: operations["abandon_listening_test_attempt_api_listening_tests_attempts__attempt_id__abandon_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20946,6 +20973,19 @@ export interface components {
         LibraryMarksResponse: {
             /** Marks */
             marks: components["schemas"]["LibraryMark"][];
+        };
+        /**
+         * ListeningAttemptAbandonResponse
+         * @description EXAMLISTENT-0070 FR-012: the attempt is closed with no result.
+         */
+        ListeningAttemptAbandonResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "abandoned";
         };
         /**
          * ListeningAttemptRequest
@@ -42940,6 +42980,39 @@ export interface operations {
                     "application/json": components["schemas"]["BlackEyeAttemptState"] | {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    abandon_listening_test_attempt_api_listening_tests_attempts__attempt_id__abandon_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningAttemptAbandonResponse"];
                 };
             };
             /** @description Validation Error */
