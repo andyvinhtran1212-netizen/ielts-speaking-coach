@@ -1,3 +1,14 @@
+import { localCopyExpiry, readLocalCopy, removeAckedFromCopy, writeLocalCopy } from './exam-room/local-copy.mjs';
+
+/**
+ * EXAMLISTENP-0069 FR-015: the one place that names the exam-room surface of
+ * Listening practice. EXAMROOM-0066 amendment 1 (b) adds `'listening-practice'`
+ * to `EXAM_ROOM_SURFACES` (#2507, which this lands after). Flag, events and the
+ * local-copy key all read it; if it ever has to fall back to `'listening'`,
+ * only this line changes.
+ */
+export const LISTENING_PRACTICE_SURFACE = 'listening-practice';
+
 /**
  * Keep writes for one question strictly ordered while allowing independent
  * questions to save in parallel. A rejected autosave does not poison the
@@ -166,4 +177,102 @@ export function createProgrammeSaveStatusTracker() {
   }
 
   return { begin, beginFlush, succeed, fail, finishFlush, reset, status };
+}
+
+/** @param {unknown} value */
+function answerText(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * EXAMLISTENP-0069 FR-009: compare the legacy draft (`{q_num: value}`, no
+ * timestamps) with what the server holds now. Equal answers are dropped:
+ * there is nothing to restore. A different answer is never sent on its own:
+ * it goes to `ask`, and the learner picks between the two. A missing or null
+ * server answer counts as empty.
+ *
+ * @param {Record<number | string, string>} legacy
+ * @param {Record<number | string, string | null | undefined>} serverAnswers
+ * @returns {{ drop: number[], ask: { qNum: number, local: string, saved: string }[] }}
+ */
+export function planLegacyDraftMigration(legacy, serverAnswers) {
+  /** @type {number[]} */
+  const drop = [];
+  /** @type {{ qNum: number, local: string, saved: string }[]} */
+  const ask = [];
+  const entries = Object.entries(legacy || {})
+    .map(([q, value]) => /** @type {[number, unknown]} */ ([Number(q), value]))
+    .filter(([qNum, value]) => Number.isInteger(qNum) && qNum > 0 && typeof value === 'string')
+    .sort(([a], [b]) => a - b);
+  for (const [qNum, value] of entries) {
+    const local = /** @type {string} */ (value);
+    const saved = answerText(serverAnswers?.[qNum]);
+    if (local === saved) drop.push(qNum);
+    else ask.push({ qNum, local, saved });
+  }
+  return { drop, ask };
+}
+
+/**
+ * EXAMLISTENP-0069 FR-009: move the legacy `listening-programme-draft:{id}`
+ * into the account-bound local copy of EXAMROOM-0066 FR-035, once the server
+ * has returned the attempt.
+ *
+ * - `ownedByCurrentUser` false: the legacy key is neither read nor changed.
+ * - The answers to ask about go into the new key with no `baseValue` (an
+ *   unknown base, EXAMROOM-0066 FR-035 amendment 1 (c)). The current server
+ *   value is never recorded as their base, so `planLocalCopyReplay` lists
+ *   them under `ask` and never re-sends them without the learner's choice.
+ * - A question the new copy already holds is skipped: that entry was written
+ *   by the new path, after the legacy draft, and replay already handles it.
+ * - The legacy key is removed only once the new key reads back with every
+ *   answer to ask about, or when nothing differs. If the new write fails,
+ *   the legacy key stays exactly as it was.
+ *
+ * @param {Storage | null | undefined} storage
+ * @param {{ attemptId: string, ownerKey: string, ownedByCurrentUser: boolean, serverAnswers: Record<number | string, string | null | undefined>, surface?: string, now?: number }} input
+ * @returns {{ ask: { qNum: number, local: string, saved: string }[], legacyCleared: boolean }}
+ */
+export function migrateLegacyProgrammeDraft(storage, {
+  attemptId, ownerKey, ownedByCurrentUser, serverAnswers, surface = LISTENING_PRACTICE_SURFACE, now = Date.now(),
+}) {
+  if (!storage || !ownedByCurrentUser || !attemptId || !ownerKey) return { ask: [], legacyCleared: false };
+  const legacy = createProgrammeAnswerDraftStore(storage, attemptId);
+  const values = legacy.load();
+  if (!Object.keys(values).length) return { ask: [], legacyCleared: false };
+  const scope = { surface, ownerKey, attemptKey: attemptId };
+  const existing = readLocalCopy(storage, { ...scope, now });
+  const ask = planLegacyDraftMigration(values, serverAnswers).ask
+    .filter(({ qNum }) => !existing || !Object.prototype.hasOwnProperty.call(existing.answers, String(qNum)));
+  if (ask.length) {
+    const written = writeLocalCopy(storage, {
+      ...scope,
+      answers: Object.fromEntries(ask.map(({ qNum, local }) => [qNum, { value: local }])),
+      expiresAt: existing?.expiresAt ?? localCopyExpiry({ now }),
+      now,
+    });
+    if (!written) return { ask, legacyCleared: false };
+  }
+  legacy.clear();
+  return { ask, legacyCleared: true };
+}
+
+/**
+ * The learner's answer to one question of `ask`. "Keep saved" removes the
+ * on-device value from both keys now (only if it is still the value asked
+ * about). "Use this device" changes nothing here: the surface sends the
+ * value on the normal save path, and the copy is cleared when the server
+ * acks it, as for any other answer. Returns the value to send, or null.
+ *
+ * @param {Storage | null | undefined} storage
+ * @param {{ attemptId: string, ownerKey: string, qNum: number, local: string, choice: 'use-local' | 'keep-saved', surface?: string, now?: number }} input
+ * @returns {string | null}
+ */
+export function resolveLegacyDraftChoice(storage, {
+  attemptId, ownerKey, qNum, local, choice, surface = LISTENING_PRACTICE_SURFACE, now = Date.now(),
+}) {
+  if (choice === 'use-local') return local;
+  if (storage && attemptId) createProgrammeAnswerDraftStore(storage, attemptId).clearIfCurrent(qNum, local);
+  removeAckedFromCopy(storage, { surface, ownerKey, attemptKey: attemptId, entries: [{ q: qNum, value: local }], now });
+  return null;
 }

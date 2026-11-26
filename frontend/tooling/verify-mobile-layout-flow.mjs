@@ -11,6 +11,10 @@
 //       and painted fixed white (1.06:1 on the light page).
 // PC-J13B: at 1280×800 the guest CTA bar covered "Bài trước / Bài tiếp" —
 //       the room reserved for it was phone-only.
+// G06-T14 (a): the article moved to the reading template; LIBRARY-0061 FR-003
+//       removed the guest bar and pop-up. The checks now hold the same intent
+//       on the new page: nothing pinned over the text, no bar or pop-up for a
+//       guest, the "Đăng nhập" line readable, the last links reachable.
 // U-18: /profile at 360–390px — band chips overflowed their card, the email
 //       was cut off with an ellipsis, and the "Đã lưu" toast text sat in the
 //       DOM before anything was saved.
@@ -152,20 +156,39 @@ function textContrastOf(page, selector) {
 }
 
 async function checkExerciseCta(page, tag) {
-  await page.locator('#exercise-cta:not(.hidden)').waitFor({ timeout: 15_000 });
+  await page.locator('#exercise-cta:not([hidden])').waitFor({ timeout: 15_000 });
   const ratio = await textContrastOf(page, '#exercise-cta-sub');
   check(`${tag} "Kiểm tra nhanh" sub-line contrast ≥ 4.5`, ratio >= 4.5, ratio.toFixed(2));
 }
 
-async function checkTailClearsBar(page, tag) {
+// The end of the article is reachable: scrolled to the bottom, the centre of
+// "Bài trước / Bài sau" is on screen and is not covered by anything pinned.
+async function checkTailReachable(page, tag) {
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   const tail = await page.evaluate(() => {
-    const bar = document.getElementById('guest-cta-bar').getBoundingClientRect();
-    const last = document.getElementById('prev-next').getBoundingClientRect();
-    return { lastBottom: Math.round(last.bottom), barTop: Math.round(bar.top), barHeight: Math.round(bar.height) };
+    const nav = document.getElementById('prev-next');
+    const r = nav.getBoundingClientRect();
+    const x = r.left + r.width / 2; const y = r.top + r.height / 2;
+    const hit = y >= 0 && y <= window.innerHeight ? document.elementFromPoint(x, y) : null;
+    return { onScreen: r.bottom <= window.innerHeight + 1, uncovered: !!hit && nav.contains(hit), bottom: Math.round(r.bottom), vh: window.innerHeight };
   });
-  check(`${tag} last article links clear the CTA bar`, tail.lastBottom <= tail.barTop,
-    `prev/next bottom ${tail.lastBottom}px, bar top ${tail.barTop}px, bar height ${tail.barHeight}px`);
+  check(`${tag} last article links are reachable and uncovered`, tail.onScreen && tail.uncovered,
+    `prev/next bottom ${tail.bottom}px of ${tail.vh}px, uncovered=${tail.uncovered}`);
+}
+
+// Nothing pinned at the top or bottom once the reader scrolls into the text.
+async function checkNothingPinned(page, tag) {
+  await page.evaluate(() => window.scrollTo(0, 400));
+  const pinned = await page.evaluate(() => [...document.querySelectorAll('body *')]
+    .filter((el) => {
+      const pos = getComputedStyle(el).position;
+      if (pos !== 'fixed' && pos !== 'sticky') return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight
+        && (r.top <= 1 || r.bottom >= window.innerHeight - 1) && !el.closest('aver-chrome');
+    })
+    .map((el) => `${el.tagName.toLowerCase()}#${el.id || ''}.${String(el.className).slice(0, 40)}`));
+  check(`${tag} nothing of the article page is pinned over the text`, pinned.length === 0, pinned.join(', '));
 }
 
 const overflowOf = (page) => page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
@@ -265,49 +288,25 @@ try {
       await page.addInitScript(() => { try { localStorage.setItem('_aver_grammar_reads', '1'); } catch (e) {} });
       const response = await page.goto(`${BASE}${ARTICLE}`, { waitUntil: 'networkidle' });
       check(`${tag} article loads`, response?.ok() === true, `HTTP ${response?.status()}`);
-      await page.locator('#guest-cta-bar:not(.hidden)').waitFor({ timeout: 15_000 });
-      // Before the 8 s guest modal can cover the bar.
-      const barRatio = await contrastOf(page, '#guest-cta-bar a');
-      check(`${tag} "Dùng thử miễn phí" contrast ≥ 4.5`, barRatio >= 4.5, barRatio.toFixed(2));
-      await page.locator('#guest-cta-bar a').hover();
-      await page.waitForTimeout(300); // transition-colors
-      const barHover = await contrastOf(page, '#guest-cta-bar a');
-      check(`${tag} "Dùng thử miễn phí" hover contrast ≥ 4.5`, barHover >= 4.5, barHover.toFixed(2));
+      // FR-003: a guest gets one sign-in line under the title, no bar, no pop-up.
+      await page.locator('#article-save a[href^="/login?next="]').waitFor({ timeout: 15_000 });
+      const signInRatio = await textContrastOf(page, '#article-save a');
+      check(`${tag} "Đăng nhập để lưu bài" contrast ≥ 4.5`, signInRatio >= 4.5, signInRatio.toFixed(2));
 
       check(`${tag} article has no horizontal overflow`, await overflowOf(page) <= 1, `${await overflowOf(page)}px`);
 
-      // Scroll into the article: whatever stays pinned is what the reader loses.
-      await page.evaluate(() => window.scrollTo(0, 400));
-      const covered = await page.evaluate(() => {
-        const vh = window.innerHeight;
-        const nav = document.querySelector('nav.gw-subnav').getBoundingClientRect();
-        const bar = document.getElementById('guest-cta-bar').getBoundingClientRect();
-        const top = nav.bottom > 0 && nav.top <= 0 ? nav.bottom : 0;
-        const bottom = bar.top < vh ? vh - Math.max(bar.top, 0) : 0;
-        return { top: Math.round(top), bottom: Math.round(bottom), share: (top + bottom) / vh };
-      });
-      check(`${tag} breadcrumb is not pinned over the article`, covered.top === 0, `${covered.top}px pinned at top`);
-      check(`${tag} pinned chrome covers ≤ 10% of the screen`, covered.share <= 0.10,
-        `top ${covered.top}px + bottom ${covered.bottom}px = ${(covered.share * 100).toFixed(1)}%`);
-
-      // The end of the article must be reachable above the fixed bar.
-      await checkTailClearsBar(page, tag);
+      await checkNothingPinned(page, tag);
+      await checkTailReachable(page, tag);
       await checkExerciseCta(page, tag);
       if (SHOT_DIR && theme === 'light') {
         await page.evaluate(() => window.scrollTo(0, 400));
         await page.screenshot({ path: join(SHOT_DIR, `grammar-article-${width}.png`) });
       }
 
-      // Second read opens the guest modal after 8 s.
-      await page.locator('#guest-modal-overlay:not(.hidden)').waitFor({ timeout: 15_000 });
-      const cta = '#guest-modal-overlay a[href="/login"]';
-      const modalRatio = await contrastOf(page, cta);
-      check(`${tag} "Luyện Speaking ngay" contrast ≥ 4.5`, modalRatio >= 4.5, modalRatio.toFixed(2));
-      await page.locator(cta).hover();
-      await page.waitForTimeout(300); // transition-colors
-      const modalHover = await contrastOf(page, cta);
-      check(`${tag} "Luyện Speaking ngay" hover contrast ≥ 4.5`, modalHover >= 4.5, modalHover.toFixed(2));
-      if (SHOT_DIR) await page.screenshot({ path: join(SHOT_DIR, `grammar-modal-${width}-${theme}.png`) });
+      // The old second-read pop-up opened after 8 s; nothing may open now.
+      await page.waitForTimeout(9_000);
+      check(`${tag} no guest bar or pop-up after 9 s`,
+        await page.locator('#guest-cta-bar, #guest-modal-overlay, [role="dialog"]').count() === 0);
       await page.context().close();
 
       await checkProfile(width, theme);
@@ -321,14 +320,13 @@ try {
     const page = await newPage(browser, { width: 1280, height: 800, theme, signedIn: false });
     const response = await page.goto(`${BASE}${ARTICLE}`, { waitUntil: 'networkidle' });
     check(`${tag} article loads`, response?.ok() === true, `HTTP ${response?.status()}`);
-    await page.locator('#guest-cta-bar:not(.hidden)').waitFor({ timeout: 15_000 });
     await checkExerciseCta(page, tag);
-    await checkTailClearsBar(page, tag);
+    await checkTailReachable(page, tag);
     if (SHOT_DIR && theme === 'light') await page.screenshot({ path: join(SHOT_DIR, 'grammar-article-1280-end.png') });
 
     const exercises = await page.goto(`${BASE}/grammar/exercises`, { waitUntil: 'networkidle' });
     check(`${tag} /grammar/exercises loads`, exercises?.ok() === true, `HTTP ${exercises?.status()}`);
-    const intro = 'main header p.text-white\\/45';
+    const intro = '#exercises-intro'; // G06-T14 (c): av2 intro line, muted token
     const introRatio = await textContrastOf(page, intro);
     check(`${tag} /grammar/exercises intro contrast ≥ 4.5`, introRatio >= 4.5, introRatio.toFixed(2));
     await page.context().close();

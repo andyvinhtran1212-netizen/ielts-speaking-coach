@@ -1,9 +1,10 @@
 # Tech Debt — IELTS Speaking Coach
 
-> Historical backlog snapshot. Item labels below reflect their recorded review
-> dates and must be revalidated against current code, tests, PRs and
-> [active specs](specs/README.md) before scheduling work. In particular, notes
-> predating the Next.js cutover do not describe today's frontend architecture.
+> Historical backlog, frozen on 2026-11-23. New work: open a spec under
+> [`specs/`](specs/README.md) or an issue. Items below keep their recorded
+> review dates and must be revalidated against current code, tests and PRs;
+> notes predating the Next.js cutover do not describe today's frontend
+> architecture.
 
 **Last updated:** 2026-08-03 (MED-ADMIN-NAV kiểm kê lại: 8 trang / 2 nguyên nhân, không phải 4) · 2026-07-25 (DEBT-J CLOSED — 7 font families → 4, 4 type systems → 1, PRs #827/#828/#830; DEBT-I favicon half shipped #829, wordmark half still waits on the Next migration)
 **Last reviewed:** 2026-05-07 (PM)
@@ -25,7 +26,7 @@ material, not active backlog.
 
 ---
 
-## 🔴 ACTIVE — Cần action
+## 🔴 Last active list (frozen)
 
 ### Brand — áp bộ nhận diện mới vào web (logged 2026-07-24)
 
