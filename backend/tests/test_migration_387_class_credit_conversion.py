@@ -74,13 +74,18 @@ def test_constant_reason_and_source_and_the_lock_order():
     assert values[columns.index("source_ref")] == "p_cohort_id"
     ledger = re.search(r"INSERT INTO public\.credit_ledger \(([^)]*)\)\s*VALUES \(([^;]*)\)", body)
     assert "'grant'" in ledger.group(2)
-    assert "FOR UPDATE" in body.split("FROM public.cohorts", 1)[1].split(";", 1)[0]
+    # The class is serialized by its own advisory lock and read FOR SHARE, never
+    # FOR UPDATE (Codex 4705779461: that would deadlock with 359's activation).
+    cohort_read = body.split("FROM public.cohorts", 1)[1].split(";", 1)[0]
+    assert "FOR SHARE" in cohort_read and "FOR UPDATE" not in cohort_read
+    assert "pg_advisory_xact_lock(hashtextextended('aver.convert.cohort:' || p_cohort_id::text, 0))" in body
     assert "ORDER BY s.user_id NULLS LAST" in body
     assert "public.fn_credit_lock_user(v_member.user_id)" in body
     # The key is checked under its own lock before the class is touched.
     function = body.split("AS $$", 1)[1]
     assert (function.index("pg_advisory_xact_lock(hashtextextended('aver.convert:'")
             < function.index("FROM public.credit_class_conversions WHERE request_key")
+            < function.index("'aver.convert.cohort:'")
             < function.index("FROM public.cohorts")
             < function.index("INSERT INTO public.entitlements"))
 
@@ -373,6 +378,32 @@ async def test_two_admins_at_once_grant_each_member_once(pg):
             assert len(await pg.ents(user)) == 1 and await pg.grants(user) == [4]
         for c in cons:
             await c.close()
+
+
+@pytest.mark.asyncio
+async def test_a_member_activating_meanwhile_does_not_deadlock(pg):
+    """Codex 4705779461: fn_activation_serialize (359) locks the member's user
+    row FOR UPDATE and then the class FOR SHARE; the conversion's entitlement
+    INSERT needs a KEY SHARE lock on that user row. With the class held FOR
+    UPDATE by the conversion the two waited on each other; now activation gets
+    its FOR SHARE, commits, and the conversion goes on."""
+    world = await _class(pg)
+    activation, conversion = await pg.connect(), await pg.connect()
+    await activation.execute("BEGIN")
+    await activation.execute("SELECT 1 FROM users WHERE id = $1 FOR UPDATE", world["a"])
+    task = asyncio.create_task(pg.convert(world["cohort"], world["product"], 4, con=conversion))
+    pid = conversion.get_server_pid()
+    for _ in range(200):
+        if await pg.con.fetchval("SELECT wait_event_type = 'Lock' FROM pg_stat_activity WHERE pid = $1", pid):
+            break
+        await asyncio.sleep(0.05)
+    else:
+        pytest.fail("the conversion never waited on the activating member's row")
+    await asyncio.wait_for(activation.execute("SELECT 1 FROM cohorts WHERE id = $1 FOR SHARE",
+                                              world["cohort"]), 10)
+    await activation.execute("COMMIT")
+    result = await asyncio.wait_for(task, 10)
+    assert result["status"] == "converted" and len(result["converted"]) == 3
 
 
 @pytest.mark.asyncio

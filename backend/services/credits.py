@@ -689,15 +689,26 @@ def list_classes_pending_conversion() -> list[dict]:
 def convert_class(*, admin_id: str, cohort_id: str, credits_per_member: int, request_key: str,
                   product_id: Optional[str] = None) -> dict:
     """``POST /admin/credits/convert-class``: pick the product, then one 387 RPC
-    (one transaction, so a failure leaves nothing half done). Sync."""
-    cohort = _convert_cohort(cohort_id)
-    products = _class_products(str(cohort["course_id"]))
-    if not products:
-        raise ConvertClassRefused(409, "no_class_product")
-    if product_id is None:
-        if len(products) > 1:
-            raise ConvertClassRefused(409, "product_ambiguous")
-        product_id = str(products[0]["id"])
+    (one transaction, so a failure leaves nothing half done). Sync.
+
+    A request_key that already converted is sent straight to the RPC with the
+    product it recorded: the class or its products may have changed since
+    (a second product, an archive), and a retry after a lost response must
+    still replay the first result. The RPC compares the other arguments and
+    answers request_key_conflict when they differ."""
+    prior = (supabase_admin.table("credit_class_conversions").select("product_id")
+             .eq("request_key", request_key).limit(1).execute().data or [])
+    if prior:
+        product_id = product_id or str(prior[0]["product_id"])
+    else:
+        cohort = _convert_cohort(cohort_id)
+        products = _class_products(str(cohort["course_id"]))
+        if not products:
+            raise ConvertClassRefused(409, "no_class_product")
+        if product_id is None:
+            if len(products) > 1:
+                raise ConvertClassRefused(409, "product_ambiguous")
+            product_id = str(products[0]["id"])
     result = _unwrap(supabase_admin.rpc("fn_credit_convert_class", {
         "p_admin_id": admin_id, "p_cohort_id": cohort_id, "p_product_id": product_id,
         "p_credits_per_member": credits_per_member, "p_request_key": request_key,

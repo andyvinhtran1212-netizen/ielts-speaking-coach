@@ -27,9 +27,14 @@
 -- Locking (same rules as 384 and 385):
 --   * the request key's advisory lock first ('aver.convert:' || key), so two
 --     calls with one key queue even for two different classes;
---   * then the cohort row is locked FOR UPDATE first, so two calls for one class
---     (two admins, or a double click) queue and the second sees the first's
---     rows;
+--   * then the class's own advisory lock ('aver.convert.cohort:' || cohort), so
+--     two calls for one class (two admins, or a double click) queue and the
+--     second sees the first's rows; the cohort row itself is read FOR SHARE
+--     only, so an archive cannot commit mid-conversion. Not FOR UPDATE:
+--     fn_activation_serialize (359) locks the user row FOR UPDATE and then the
+--     cohort FOR SHARE, while the entitlement INSERT below needs a KEY SHARE
+--     lock on that same user row, so a cohort FOR UPDATE here would deadlock
+--     with a member activating another code of the class;
 --   * then each member's per-user advisory lock (fn_credit_lock_user, the key
 --     of fn_credit_reserve and of every admin grant), taken in user_id order,
 --     so two calls for two classes that share members lock them in one order
@@ -143,8 +148,9 @@ BEGIN
         END IF;
         RETURN jsonb_build_object('status', 'request_key_conflict');
     END IF;
+    PERFORM pg_advisory_xact_lock(hashtextextended('aver.convert.cohort:' || p_cohort_id::text, 0));
     SELECT c.course_id, c.archived_at INTO v_course, v_archived
-      FROM public.cohorts c WHERE c.id = p_cohort_id FOR UPDATE;
+      FROM public.cohorts c WHERE c.id = p_cohort_id FOR SHARE;
     IF NOT FOUND THEN
         RETURN jsonb_build_object('status', 'cohort_not_found');
     END IF;

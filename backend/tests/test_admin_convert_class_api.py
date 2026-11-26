@@ -56,9 +56,17 @@ def world(monkeypatch):
         "user_code_assignments": [{"id": "uca-1", "user_id": A, "code_id": "code-a", "is_active": True}],
         "entitlements": [],
         "users": [{"id": u, "display_name": f"User {u[-1]}"} for u in (A, B, C, E)],
+        "credit_class_conversions": [],
     })
 
     def convert(params):
+        # Like the 387 RPC: a known request_key replays (same arguments) or conflicts.
+        scope = {k: params[k] for k in ("p_cohort_id", "p_product_id", "p_credits_per_member", "p_admin_id")}
+        prior = next((r for r in db.tables["credit_class_conversions"]
+                      if r["request_key"] == params["p_request_key"]), None)
+        if prior is not None:
+            return ({**prior["result"], "status": "replay"} if prior["scope"] == scope
+                    else {"status": "request_key_conflict"})
         converted, skipped = [], []
         for m in db.tables["student_cohort_memberships"]:
             if m["cohort_id"] != params["p_cohort_id"] or not m["is_active"]:
@@ -76,7 +84,11 @@ def world(monkeypatch):
                 db.tables["entitlements"].append(row)
                 converted.append({"user_id": user, "entitlement_id": row["id"], "expires_at": None,
                                   "balance": params["p_credits_per_member"]})
-        return {"status": "converted", "converted": converted, "skipped": skipped}
+        result = {"status": "converted", "converted": converted, "skipped": skipped}
+        db.tables["credit_class_conversions"].append({"request_key": params["p_request_key"],
+                                                      "product_id": params["p_product_id"],
+                                                      "scope": scope, "result": result})
+        return result
 
     db.handlers = {"fn_credit_convert_class": convert}
     for module in (credits, ent, admin_commerce):
@@ -182,6 +194,33 @@ def test_product_choice(client, world):
     res = _post(client, product_id=PRODUCT)
     assert res.status_code == 200 and world["db"].rpcs[0][1]["p_product_id"] == PRODUCT
     assert world["db"].rpcs[0][1]["p_credits_per_member"] == 10 and world["db"].rpcs[0][1]["p_admin_id"] == "admin-1"
+
+
+def test_a_retry_replays_after_the_class_changed(client, world):
+    """Codex 4705779453: a resend of a key that converted replays its first
+    result even after the course gains a second class product or the class
+    and its product are archived; a changed argument is still a conflict."""
+    first = _post(client)
+    assert first.status_code == 200 and first.json()["status"] == "converted"
+    products = world["db"].tables["course_products"]
+    products.append({"id": "a0000000-0000-4000-8000-000000000002", "course_id": COURSE, "kind": "class",
+                     "title": "Lớp B", "archived_at": None})
+    again = _post(client)
+    assert again.status_code == 200 and again.json() == {**first.json(), "status": "replay"}
+    assert world["db"].rpcs[-1][1]["p_product_id"] == PRODUCT
+    products[0]["archived_at"] = NOW.isoformat()
+    world["db"].tables["cohorts"][0]["archived_at"] = NOW.isoformat()
+    archived = _post(client)
+    assert archived.status_code == 200 and archived.json()["status"] == "replay"
+    changed = _post(client, credits_per_member=11)
+    assert changed.status_code == 409 and changed.json()["detail"]["error_code"] == "request_key_conflict"
+    other = _post(client, product_id="a0000000-0000-4000-8000-000000000002")
+    assert other.status_code == 409 and other.json()["detail"]["error_code"] == "request_key_conflict"
+    # A new key still runs the current-state checks.
+    fresh = client.post("/admin/credits/convert-class", headers=AUTH,
+                        json={"cohort_id": COHORT, "credits_per_member": 10,
+                              "request_key": "f0000000-0000-4000-8000-000000000003"})
+    assert fresh.status_code == 409 and fresh.json()["detail"]["error_code"] == "cohort_archived"
 
 
 def test_zero_credits_still_needs_step_up_and_a_failed_rpc_is_503(client, world):
