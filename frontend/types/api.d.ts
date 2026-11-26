@@ -13535,6 +13535,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/mock-exams/{exam_id}/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Audience
+         * @description MOCKORG-0086 FR-142: who sits this exam (flag mock_exam_audiences).
+         */
+        get: operations["get_audience_admin_mock_exams__exam_id__audience_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Audience
+         * @description Add classes / learners, refresh classes, edit rows, set the window.
+         */
+        patch: operations["update_audience_admin_mock_exams__exam_id__audience_patch"];
+        trace?: never;
+    };
+    "/admin/mock-exams/{exam_id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule Exam
+         * @description MOCKORG-0086 FR-144: check what is missing, then publish.
+         */
+        post: operations["schedule_exam_admin_mock_exams__exam_id__schedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/mock-exams/{exam_id}/live": {
         parameters: {
             query?: never;
@@ -15293,6 +15337,11 @@ export interface components {
              * @enum {string}
              */
             exam_mode: "sequential" | "retake";
+            /**
+             * Exam Mode V2
+             * @enum {string}
+             */
+            exam_mode_v2: "live" | "self_paced";
             /** Is Open */
             is_open: boolean;
             /**
@@ -16399,6 +16448,41 @@ export interface components {
             name: string;
             /** Course Id */
             course_id?: string | null;
+        };
+        /** AudiencePatch */
+        AudiencePatch: {
+            /** Add Cohort Ids */
+            add_cohort_ids?: string[];
+            /** Add Student Ids */
+            add_student_ids?: string[];
+            /** Add Group Ids */
+            add_group_ids?: string[];
+            /**
+             * Refresh Cohorts
+             * @default false
+             */
+            refresh_cohorts: boolean;
+            /** Set */
+            set?: components["schemas"]["AudienceSetRow"][];
+            window?: components["schemas"]["AudienceWindow"] | null;
+        };
+        /** AudienceSetRow */
+        AudienceSetRow: {
+            /** User Id */
+            user_id?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Selected */
+            selected?: boolean | null;
+            /** Skills */
+            skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+        };
+        /** AudienceWindow */
+        AudienceWindow: {
+            /** Open From */
+            open_from?: string | null;
+            /** Open Until */
+            open_until?: string | null;
         };
         /**
          * AuditRunRequest
@@ -19158,7 +19242,7 @@ export interface components {
             private_content_copy: true;
             /**
              * Exam Mode
-             * @default sequential
+             * @default live
              */
             exam_mode: string;
             /** Listening Test Id */
@@ -19203,6 +19287,16 @@ export interface components {
              * @default true
              */
             post_test_capture_required: boolean;
+            /** Skills */
+            skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+            /** Allow Early Advance */
+            allow_early_advance?: boolean | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Draft State */
+            draft_state?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ExamPatch */
         ExamPatch: {
@@ -19244,6 +19338,16 @@ export interface components {
             web_explanation_content_version?: string | null;
             /** Post Test Capture Required */
             post_test_capture_required?: boolean | null;
+            /** Skills */
+            skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+            /** Allow Early Advance */
+            allow_early_advance?: boolean | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Draft State */
+            draft_state?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -50867,6 +50971,109 @@ export interface operations {
         };
     };
     section_progress_admin_mock_exams__exam_id__section_progress_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_audience_admin_mock_exams__exam_id__audience_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_audience_admin_mock_exams__exam_id__audience_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AudiencePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schedule_exam_admin_mock_exams__exam_id__schedule_post: {
         parameters: {
             query?: never;
             header?: {
