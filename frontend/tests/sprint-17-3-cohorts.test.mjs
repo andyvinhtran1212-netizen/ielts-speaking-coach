@@ -12,8 +12,6 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Confirms the reused util still exports what the controller imports.
-import { usdLabel, countLabel, lastActiveLabel } from '../js/admin-usage-util.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
@@ -27,13 +25,9 @@ const CHROME = front('js', 'components', 'aver-admin-chrome.js');
 const HTML = front('pages', 'admin', 'classes', 'index.html');
 
 
-describe('Sprint 17.3 — reused usage-util still exports formatters', () => {
-  test('usdLabel / countLabel / lastActiveLabel are callable', () => {
-    assert.strictEqual(typeof usdLabel, 'function');
-    assert.strictEqual(countLabel(null), '—');
-    assert.strictEqual(lastActiveLabel(null), '—');
-  });
-});
+// LEGACYJS-0075 W4a: admin-usage-util.js is deleted. Its last consumers
+// (admin-classes.js in W3b, admin-usage.js here) are gone; the Next class
+// surfaces format with their own models.
 
 describe('Sprint 17.3 — class wiring (Next directory + detail route)', () => {
   test('member roster is its own route keyed by cohortId', () => {
