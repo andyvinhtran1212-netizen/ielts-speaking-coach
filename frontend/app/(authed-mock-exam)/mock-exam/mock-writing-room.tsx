@@ -27,6 +27,8 @@ export interface MockWritingBridge {
   finalize(): Promise<{ task1_text: string; task2_text: string }>;
   /** FR-010 on leave / re-sign-in: write both boxes now and read them back. */
   saveLocalCopy(): boolean;
+  /** Typed text the server has not acked yet, debounce included (shell loss guard). */
+  hasUnsavedText(): boolean;
 }
 
 export interface MockWritingRoomProps {
@@ -151,6 +153,9 @@ export function MockWritingRoom(props: MockWritingRoomProps) {
   const [task, setTask] = useState<WritingTask>('task1');
   const [texts, setTexts] = useState<Texts>(opened.texts);
   const [asks, setAsks] = useState<Ask[]>(opened.ask);
+  /** FR-010: tasks whose device version waits for the learner's choice. */
+  const unresolvedRef = useRef<Set<WritingTask>>(new Set(opened.ask.map((a) => a.task)));
+  unresolvedRef.current = new Set(asks.map((a) => a.task));
   const textsRef = useRef<Texts>(opened.texts);
   textsRef.current = texts;
   /** Text the server acked last per task: the copy's `baseValue` (FR-010). */
@@ -174,7 +179,12 @@ export function MockWritingRoom(props: MockWritingRoomProps) {
 
   const writeCopy = useCallback((tasks: readonly WritingTask[] = TASKS): boolean => {
     if (!ownerKey || readOnlyRef.current) return false;
-    const answers = Object.fromEntries(tasks.map((t) => [t, { value: textsRef.current[t], baseValue: ackedRef.current[t] }]));
+    // FR-010 (Codex P1 on #2715): an unresolved device version is never
+    // replaced by an automatic snapshot (edit, pagehide, hidden, unmount);
+    // it stays until the learner chooses.
+    const writable = tasks.filter((t) => !unresolvedRef.current.has(t));
+    if (!writable.length) return true;
+    const answers = Object.fromEntries(writable.map((t) => [t, { value: textsRef.current[t], baseValue: ackedRef.current[t] }]));
     return writeLocalCopy(storage, { ...scope, answers, expiresAt: localCopyExpiry({}) });
   }, [ownerKey, scope, storage]);
 
@@ -244,6 +254,7 @@ export function MockWritingRoom(props: MockWritingRoomProps) {
 
   const choose = useCallback((row: Ask, useDevice: boolean) => {
     setAsks((rows) => rows.filter((r) => r.task !== row.task));
+    unresolvedRef.current.delete(row.task);
     if (useDevice) {
       const next = { ...textsRef.current, [row.task]: row.local };
       textsRef.current = next;
@@ -276,6 +287,7 @@ export function MockWritingRoom(props: MockWritingRoomProps) {
       removeAckedFromCopy(storage, { ...scope, entries: [{ q: row.task, value: row.local }] });
       if (ownerKey) writeLocalCopy(storage, { ...scope, answers: { [row.task]: { value: row.local } as LocalCopyAnswer }, expiresAt: localCopyExpiry({}) });
     }
+    for (const row of plan.ask) unresolvedRef.current.add(row.task);
     if (plan.ask.length) setAsks((rows) => [...rows.filter((r) => !plan.ask.some((a) => a.task === r.task)), ...plan.ask]);
     dirtyRef.current = plan.resend.length > 0;
     if (dirtyRef.current) void flush();
@@ -316,9 +328,14 @@ export function MockWritingRoom(props: MockWritingRoomProps) {
         if (!dirtyRef.current) return true;
         if (!writeCopy()) return false;
         const back = readLocalCopy(storage, scope);
-        return TASKS.every((t) => back?.answers?.[t] === undefined
+        return TASKS.every((t) => (unresolvedRef.current.has(t) || back?.answers?.[t] === undefined
+          // An unresolved task keeps the device version in the copy: the box is
+          // safe only while it holds nothing the server has not acked.
           ? textsRef.current[t] === ackedRef.current[t]
-          : back.answers[t].value === textsRef.current[t]);
+          : back.answers[t].value === textsRef.current[t]));
+      },
+      hasUnsavedText() {
+        return !finalizedRef.current && dirtyRef.current;
       },
     };
     register(bridge);
