@@ -156,13 +156,9 @@ test('actual Next bridge completes with durable retry hints while shared practic
   const h = harness(), accountId = randomUUID(), sessionId = randomUUID(), calls = [];
   const source = readFileSync(new URL('../app/(authed-practice)/practice/session/practice-submission-bridge.tsx', import.meta.url), 'utf8');
   const ast = ts.createSourceFile('bridge.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let effect;
-  const visit = node => {
-    if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect') effect = node.arguments[0].getText(ast);
-    ts.forEachChild(node, visit);
-  };
-  visit(ast); assert.ok(effect);
-  const compiled = ts.transpileModule(`return (${effect})();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const bridge = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'PracticeSubmissionBridge');
+  assert.ok(bridge?.body);
+  const compiled = ts.transpileModule(bridge.body.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const request = createCoreOperationTransport({ enabled: () => true, getStorage: () => ({
     getItem: key => h.rows.get(key) ?? null, setItem: (key, value) => h.rows.set(key, value), removeItem: key => h.rows.delete(key),
   }) });
@@ -171,9 +167,18 @@ test('actual Next bridge completes with durable retry hints while shared practic
     calls.push(args); if (fail) { fail = false; throw Error('lost complete'); }
     return { session_id: sessionId, status: 'completed' };
   } } };
-  const mount = () => new Function('status', 'user', 'window', 'SpeakingSubmissionController', 'coreSpeakingUpload', 'coreOperationRequest', compiled)(
-    'signed-in', { id: accountId }, win, SpeakingSubmissionController, h.upload, request,
-  );
+  const mount = () => {
+    const cleanups = [];
+    const effect = callback => {
+      const cleanup = callback();
+      if (typeof cleanup === 'function') cleanups.push(cleanup);
+    };
+    new Function('useAuth', 'useRef', 'useEffect', 'window', 'SpeakingSubmissionController', 'coreSpeakingUpload', 'coreOperationRequest', compiled)(
+      () => ({ status: 'signed-in', user: { id: accountId } }), current => ({ current }), effect,
+      win, SpeakingSubmissionController, h.upload, request,
+    );
+    return () => cleanups.forEach(cleanup => cleanup());
+  };
   let cleanup = mount();
   await assert.rejects(win.PracticeSubmission.complete(sessionId), /lost complete/);
   cleanup(); assert.equal(win.PracticeSubmission, undefined);
