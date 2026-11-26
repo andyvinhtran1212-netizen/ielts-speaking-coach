@@ -116,10 +116,13 @@ async def assigned(response: Response, authorization: str | None = Header(defaul
 
     Writes nothing of its own; the only write is the class-ledger reconcile
     inside `_visible_assignments` (FR-103 exception). A failed list read is
-    `degraded: ["items"]`, never an empty "no work" answer.
+    `degraded: ["items"]`, never an empty "no work" answer. 404 while
+    `learner_v2` is off for the caller, before any read or reconcile runs
+    (same gate as GET /today).
     """
     response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
+    await _require_learner_v2(auth_user["id"])
     account_name = account_display_name(auth_user)
     now = datetime.now(timezone.utc)
     return await asyncio.to_thread(

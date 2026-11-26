@@ -394,6 +394,8 @@ def api(monkeypatch):
     monkeypatch.setattr(student_home, "get_supabase_user", _user)
     from services import activation_gate
     monkeypatch.setattr(activation_gate, "aaccount_is_active", _true)
+    # The route answers only while learner_v2 is on for the caller (gate tests below).
+    monkeypatch.setattr(student_home, "is_learner_v2_enabled", lambda _uid: True)
     return TestClient(main.app, raise_server_exceptions=False)
 
 
@@ -416,3 +418,42 @@ def test_route_requires_sign_in():
 
     res = TestClient(main.app, raise_server_exceptions=False).get("/api/student/assigned")
     assert res.status_code == 401
+
+
+def _never(*_a):
+    raise AssertionError("class-ledger reconcile ran behind a closed learner_v2 gate")
+
+
+def test_route_404_while_learner_v2_is_off(monkeypatch, api):
+    from routers import student_home
+
+    asked = []
+    monkeypatch.setattr(student_home, "is_learner_v2_enabled",
+                        lambda uid: asked.append(uid) or False)
+    monkeypatch.setattr(st, "_visible_assignments_for", _never)
+    res = api.get("/api/student/assigned", headers={"Authorization": "Bearer x"})
+    assert res.status_code == 404, res.text
+    assert res.json()["detail"]["code"] == "not_found"
+    assert res.headers["cache-control"] == "private, no-store"
+    assert asked == ["u-1"]
+
+
+def test_route_gate_denies_on_flag_lookup_error(monkeypatch, api):
+    from routers import student_home
+    from services import feature_flags, runtime_flags
+
+    monkeypatch.setattr(student_home, "is_learner_v2_enabled", feature_flags.is_learner_v2_enabled)
+    monkeypatch.setattr(feature_flags, "_per_user_flag", lambda *_a: True)
+    # Opted in, but the runtime-flag read fails: is_enabled answers its on_error.
+    monkeypatch.setattr(runtime_flags, "is_enabled",
+                        lambda key, default=False, on_error=False: on_error)
+    monkeypatch.setattr(st, "_visible_assignments_for", _never)
+    res = api.get("/api/student/assigned", headers={"Authorization": "Bearer x"})
+    assert res.status_code == 404, res.text
+
+
+def test_course_work_actions_match_the_router_set():
+    """The copy here must stay equal to the set `_visible_assignments` uses."""
+    from routers.class_student import _COURSE_WORK_ACTIONS
+
+    assert sa.COURSE_WORK_ACTIONS == frozenset(_COURSE_WORK_ACTIONS)
