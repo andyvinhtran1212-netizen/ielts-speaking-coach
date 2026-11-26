@@ -322,11 +322,30 @@ def _require_permission(user_id: str, mode: str) -> None:
 
     if has_permission(perms, required):
         return
+    if _course_speaking_entitlement(user_id):
+        return
 
     raise HTTPException(
         status_code=403,
         detail=f"Tài khoản không có quyền sử dụng chế độ này (cần: {required})",
     )
+
+
+def _course_speaking_entitlement(user_id: str) -> bool:
+    """COURSEACCESS-0055 G04-T07 (plan 5.6): while ``credit_metering`` is on,
+    a course entitlement whose product has ``speaking`` admits every Speaking
+    mode; its gradings are then metered (credits.charge_plan → 'entitlement').
+    Checked only after the access-code scope failed, so a code holder's path
+    and query count are unchanged. Fail-closed: a flag or entitlement read
+    error never admits (the caller's 403 stands) and is logged."""
+    from services import credits, entitlements
+    try:
+        if not credits._metering_on():
+            return False
+        return entitlements.has_feature_entitlement(user_id, "speaking")
+    except Exception as e:  # CreditUnavailable included
+        logger.warning("[sessions] course speaking entitlement lookup failed user=%s: %s", user_id, e)
+        return False
 
 
 def _require_active(user_id: str) -> None:
@@ -368,7 +387,8 @@ def require_speaking_entitlement(user_id: str, session: dict | None) -> None:
         except Exception as e:
             logger.error("[sessions] speaking entitlement lookup failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra quyền. Vui lòng thử lại.") from None
-        if not any(has_permission(perms, scope) for scope in sorted(SPEAKING_PERMISSIONS)):
+        if not any(has_permission(perms, scope) for scope in sorted(SPEAKING_PERMISSIONS)) \
+                and not _course_speaking_entitlement(user_id):
             raise HTTPException(
                 status_code=403,
                 detail="Tài khoản không có quyền sử dụng Speaking",

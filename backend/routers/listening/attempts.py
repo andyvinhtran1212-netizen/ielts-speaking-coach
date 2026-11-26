@@ -1630,7 +1630,11 @@ async def get_listening_test_attempt(
                             headers={"Cache-Control": "private, no-store"})
     if _mock_sealed(attempt):
         raise HTTPException(403, "Kết quả đang chờ giám khảo duyệt.")
-    return {
+    from fastapi.encoders import jsonable_encoder
+    from starlette.responses import JSONResponse
+    # EXAMLISTENP-0069 FR-012: the practice room re-reads this under the write
+    # lock, so a browser or proxy must never answer it from a cache.
+    return JSONResponse(jsonable_encoder({
         "attempt_id":      attempt["id"],
         "test_id":         attempt["test_id"],
         "status":          attempt["status"],
@@ -1644,7 +1648,7 @@ async def get_listening_test_attempt(
         "result_summary":  attempt.get("result_summary") or {},
         "started_at":      attempt.get("started_at"),
         "submitted_at":    attempt.get("submitted_at"),
-    }
+    }), headers={"Cache-Control": "private, no-store"})
 
 
 @user_router.get(
