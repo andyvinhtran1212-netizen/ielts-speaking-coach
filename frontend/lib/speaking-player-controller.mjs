@@ -69,9 +69,11 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
     tooShort: null,
   }),
   // Exam room only (EXAMSPEAK-0072 FR-003): unknown | prompt | pending | granted
-  // | denied | not_found | busy | unsupported.
+  // | denied | not_found | busy | unsupported. `lost`: the track ended while
+  // recording (the microphone was unplugged), shown with not_found.
   mic: Object.freeze({
     state: 'unknown',
+    lost: false,
   }),
   // Exam room only (EXAMSPEAK-0072 FR-006–FR-008, FR-010): the box the room is
   // asking about, or null. `unsent` counts the recordings it is about.

@@ -73,7 +73,7 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
   const strings = speakingRoomStrings(mode);
   const mic = micState(view.mic?.state);
   const requestMic = () => { void callApp('requestMicrophone'); };
-  const micBox = <MicStatus state={mic} strings={strings} onRequest={requestMic} track={trackExamRoomEvent} />;
+  const micBox = <MicStatus state={mic} lost={view.mic?.lost === true} strings={strings} onRequest={requestMic} track={trackExamRoomEvent} />;
   const rec = view.recording || {};
   const substate: RecordingSubstate = rec.substate === 'recording' || rec.substate === 'recorded' ? rec.substate : 'idle';
   const level = typeof rec.level === 'number' ? rec.level : null;

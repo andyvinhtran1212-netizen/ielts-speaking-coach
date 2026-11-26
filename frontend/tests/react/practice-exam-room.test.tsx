@@ -363,6 +363,36 @@ describe('MicStatus (FR-003)', () => {
     expect(screen.getByText(VI.micBusy)).toBeTruthy();
   });
 
+  it('unplugged while recording: "Mất kết nối micro" above the not-found reason, then "Thử lại" (R139)', () => {
+    const p = player();
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: 'practice' });
+    p.updateView('prep', { inlineRecordingVisible: true });
+    p.updateView('mic', { state: 'not_found', lost: true });
+    shell(p);
+    expect(screen.getByText(VI.micLost)).toBeTruthy();
+    expect(screen.getByText(VI.micNotFound)).toBeTruthy();
+    expect(screen.getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(document.querySelector('[data-mic-tone]')?.getAttribute('data-mic-tone')).toBe('warning');
+    cleanup();
+    p.updateView('mic', { state: 'busy', lost: true });
+    shell(p);
+    expect(screen.getByText(VI.micLost)).toBeTruthy();
+    expect(screen.getByText(VI.micBusy)).toBeTruthy();
+    cleanup();
+    p.updateView('mic', { state: 'denied', lost: true });
+    shell(p);
+    expect(screen.getByRole('alert').textContent).toContain(VI.micLost);
+    cleanup();
+    p.updateView('mic', { state: 'granted', lost: false });
+    shell(p);
+    expect(screen.queryByText(VI.micLost)).toBeNull();
+  });
+
+  it('a plain not-found keeps the info tone', () => {
+    mic('not_found');
+    expect(document.querySelector('[data-mic-tone]')?.getAttribute('data-mic-tone')).toBe('info');
+  });
+
   it('unsupported: the reason, no button', () => {
     mic('unsupported');
     expect(screen.getByText(VI.micUnsupported)).toBeTruthy();

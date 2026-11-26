@@ -23,6 +23,7 @@ const VI = Object.freeze({
   ]),
   micDeniedKept: 'Các câu bạn đã gửi vẫn được giữ.',
   micNotFound: 'Không tìm thấy micro. Hãy cắm micro rồi bấm Thử lại.',
+  micLost: 'Mất kết nối micro.',
   // Same words as the recorder's NotReadableError and unsupported messages today.
   micBusy: 'Microphone đang được dùng bởi ứng dụng khác. Hãy đóng ứng dụng đó và thử lại.',
   micUnsupported: 'Trình duyệt không hỗ trợ ghi âm. Hãy dùng Chrome, Firefox hoặc Edge phiên bản mới.',
@@ -72,6 +73,7 @@ const EN = Object.freeze({
   ]),
   micDeniedKept: 'Answers you have already sent are kept.',
   micNotFound: 'No microphone found. Plug in a microphone, then click Try again.',
+  micLost: 'The microphone was disconnected.',
   micBusy: 'Another app is using the microphone. Close that app and try again.',
   micUnsupported: 'This browser cannot record audio. Use a recent Chrome, Firefox or Edge.',
   micRetry: 'Try again',
