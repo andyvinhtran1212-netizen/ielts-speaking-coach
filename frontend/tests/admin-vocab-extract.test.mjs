@@ -32,9 +32,9 @@ const VCB_D1        = read('pages', 'admin', 'vocab', 'd1-curation.html');
 const VCB_LEMMAS    = read('pages', 'admin', 'vocab', 'lemmas.html');
 // LEGACYJS-0075 W4b: the three vocab controllers are deleted; the Next owners
 // hold the wiring (fixtures stay, ADR-005).
-const JS_STATS      = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'stats', 'admin-vocab-stats.tsx');
-const JS_D1         = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'd1-curation', 'admin-vocab-d1-curation.tsx');
-const JS_LEMMAS     = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'lemmas', 'admin-vocab-lemmas.tsx');
+const JS_STATS      = read('app', '(authed-admin)', '(vocab)', 'admin', 'vocab', 'stats', 'admin-vocab-stats.tsx');
+const JS_D1         = read('app', '(authed-admin)', '(vocab)', 'admin', 'vocab', 'd1-curation', 'admin-vocab-d1-curation.tsx');
+const JS_LEMMAS     = read('app', '(authed-admin)', '(vocab)', 'admin', 'vocab', 'lemmas', 'admin-vocab-lemmas.tsx');
 const ADMIN_LEGACY  = read('admin.html');
 
 

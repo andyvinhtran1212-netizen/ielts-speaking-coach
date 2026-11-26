@@ -18,7 +18,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIALOG = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-exams)', 'admin', 'mock-exams',
+const DIALOG = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-exams)', 'admin', 'mock-exams',
   'retake-assignment-dialog.tsx'), 'utf8');
 
 describe('retake assign — the un-refreshed students are named', () => {

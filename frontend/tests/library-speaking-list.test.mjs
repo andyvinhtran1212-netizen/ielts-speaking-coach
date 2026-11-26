@@ -46,3 +46,19 @@ test('links into a question page are plain anchors (CSP is per document)', async
   assert.ok(files.length > 3);
   for (const file of files) assert.doesNotMatch(readFileSync(file, 'utf8'), /from 'next\/link'/, file);
 });
+
+test('relaxSuggestions: one line per active filter that shows questions, dropping only that filter', async () => {
+  const { relaxSuggestions } = await import('../app/(public-library)/library/speaking/speaking-list-model.mjs');
+  const f = { part: '3', chude: null, video: true, q: 'zoo' };
+  const lines = relaxSuggestions(f, { part: 4, video: 2, q: 7 }, null);
+  assert.deepEqual(lines.map((l) => [l.key, l.label, l.count, l.query]), [
+    ['video', 'Bỏ “Chỉ đề có video”', 2, '?part=3&q=zoo'],
+    ['part', 'Tìm “zoo” ở cả ba Part', 4, '?video=1&q=zoo'],
+    ['q', 'Xoá chữ “zoo”, giữ Part 3 · chỉ đề có video', 7, '?part=3&video=1'],
+  ]);
+  // A condition whose removal still shows nothing, or with no count, gets no line.
+  assert.deepEqual(relaxSuggestions(f, { part: 0, video: 2 }, null).map((l) => l.key), ['video']);
+  assert.deepEqual(relaxSuggestions(f, undefined, null), []);
+  const topic = relaxSuggestions({ part: null, chude: 'noi-chon', video: false, q: '' }, { chude: 5 }, 'Nơi chốn');
+  assert.deepEqual(topic.map((l) => [l.label, l.query]), [['Bỏ chủ đề “Nơi chốn”', '']]);
+});

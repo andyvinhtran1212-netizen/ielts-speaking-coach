@@ -2356,7 +2356,8 @@ export interface paths {
          * List Course Banks
          * @description Kho bài tập theo buổi của khoá mà lớp này thuộc về.
          *
-         *     Trả CẢ bộ không giao được kèm lý do — `already_given` là việc đã xong, còn
+         *     Trả CẢ bộ không giao được kèm lý do. `already_given` + `last_given_at` chỉ
+         *     là ghi chú (lớp đã từng nhận bộ này, vẫn giao lại được — `can_regive`), còn
          *     `question_count = 0` là việc CHƯA làm (nạp tệp JSONL của buổi ấy).
          */
         get: operations["list_course_banks_admin_cohorts__cohort_id__course_banks_get"];
@@ -14225,7 +14226,8 @@ export interface paths {
          *     Writes nothing of its own, not even the seen cursor (FR-078). The only write
          *     is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
          *     amendment 3, #2484). Each part runs in its own worker; a failing part lands
-         *     in `degraded`.
+         *     in `degraded`. 404 while `learner_v2` is off for the caller, before any
+         *     read or reconcile runs.
          */
         get: operations["today_api_student_today_get"];
         put?: never;
@@ -14248,7 +14250,8 @@ export interface paths {
         /**
          * Today Seen
          * @description Advance the caller's "Vừa có kết quả" cursor (FR-078). Forward-only in
-         *     tuple order, idempotent; a future time or a malformed key is 422.
+         *     tuple order, idempotent; a future time or a malformed key is 422. 404 while
+         *     `learner_v2` is off for the caller.
          */
         post: operations["today_seen_api_student_today_seen_post"];
         delete?: never;

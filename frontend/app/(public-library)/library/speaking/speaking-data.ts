@@ -23,6 +23,8 @@ export type SpeakingList = {
   items: SpeakingItem[];
   total: number;
   facets: { part: Record<string, number>; topic: Record<string, number>; video: number };
+  /** Questions shown if ONE active filter were dropped (key = that filter). */
+  relaxed?: Partial<Record<'part' | 'chude' | 'video' | 'q', number>>;
   topics: SpeakingTopic[];
 };
 

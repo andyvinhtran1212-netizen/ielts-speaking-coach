@@ -97,3 +97,54 @@ later wave.
   - `/admin/feedback → /admin`: 25,822 px. Base is wrong here; head equals the direct load (as recorded for T002).
 - Frontend contract suite: 14,143 tests, 14,142 pass, 1 fail. The failure is env-only (`hook pre-push`).
 - `npm run test:react`: pass. `tsc --noEmit`: clean after the build. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.
+
+## T004 evidence (G10-T15-3, 2026-11-23)
+
+`grammar`, `grammar-analytics`, `grammar-articles`, `grammar-recommend` and `vocab` move to `(authed-admin)/(grammar)`, `(grammar-analytics)`, `(grammar-articles)`, `(grammar-recommend)`, `(vocab)`. Each child layout adds only its page sheets with a plain `<link rel="stylesheet">` (vocab keeps `admin-vocab-next.css` then `vocabulary-workspace.css`) and keeps `export const instant = false;`. URLs and page code are unchanged. Stacked on T003 (#2535); the base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 14 pages (the 4 grammar pages use `active="grammar"`): head **962/962**. The same verifier on base `cc6dd4c8`: 786/962; all 176 failures are "base sheets duplicated" after a client navigation between pages that do not yet share the parent layout. The 182 FR-005 observations are reported, not enforced, per amended FR-005. The verifier now opens a page whose sidebar entry is hidden (a sub-item of a collapsed section, such as `/admin/grammar/recommend-test`) with the same `router.push` it already used for pages without an entry.
+- Screenshots 1280×800, head vs base, CI fixture environment:
+  - Direct loads of all 14 pages: 0 px against the base run before this one. The second base run differs by 8 px in one box on `/admin/grammar/articles` while both head runs are identical, so that box varies on base itself.
+  - Client navigation `/admin/feedback →` `/admin/grammar`, `/admin/grammar/analytics`, `/admin/grammar/recommend-test`, `/admin/vocab`, `/admin/users`, `/admin/classes`: 0 px. `/admin/grammar/analytics → /admin/grammar` and `/admin/grammar → /admin/vocab`: 0 px.
+  - `/admin/feedback → /admin/grammar/articles`: 30 px; head equals its own direct load (0 px), so the difference is on base.
+  - `/admin/feedback → /admin/usage` and `→ /admin/instructors`: 19 px each, the same box at the top right ("Làm mới" button transition). It differs the same way between head client navigation and head direct load.
+  - `/admin/feedback → /admin/students`: 1 px. `/admin/grammar → /admin/grammar/analytics`: 8 px in a 6×3 box. Head and base both differ from the direct load there by the same order (previous page's own sheet left by `cacheComponents`, FR-005 observation).
+  - `/admin/feedback → /admin`: 25,822 px. Base is wrong here; head equals the direct load (as recorded for T002).
+- Frontend contract suite: 14,126 tests, 14,125 pass, 1 fail. The failure is env-only (`hook pre-push`).
+- `npm run test:react`: pass. `tsc --noEmit`: clean. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.
+
+## T005 evidence (G10-T15-4, 2026-11-23)
+
+`speaking`, `speaking-sessions` and `speaking-topics` move to `(authed-admin)/(speaking)`, `(speaking-sessions)`, `(speaking-topics)`, each child layout with its one page sheet as a plain `<link rel="stylesheet">` and `export const instant = false;`. `listening` stays a separate group (coordinator, option a, 23/11): its layout puts `aver-design/components.css` between `admin-surface.css` and `admin-components.css`, and a child layout can only emit links after the parent's 4 base sheets, so moving it would change the cascade order (FR-001). Stacked on T004 (#2553); base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 17 pages: head **1422/1422**. Same verifier on base `cc6dd4c8`: 1156/1422; all 266 failures are "base sheets duplicated" after a client navigation between pages that do not yet share the parent layout. The 272 FR-005 observations are reported, not enforced.
+- Screenshots 1280×800, head vs base, CI fixture environment:
+  - Direct loads of all 17 pages: 0 px. (`/admin/grammar/articles` differs by 8 px from this base run and 0 px from the earlier base run; the box varies on base, as noted in T004.)
+  - Every client navigation shot is 0 px, including `/admin/feedback →` the 3 speaking pages and `/admin/speaking ↔` its sub-pages, except `/admin/feedback → /admin` (25,822 px; base is wrong, head equals the direct load, as in T002). The small T004 differences (19, 30, 8, 1 px) are 0 px in this run, so they were frame timing.
+- `telemetry-coverage.test.mjs` walks top-level route groups only: the 3 moved groups no longer get their own 4 telemetry tests (12 fewer tests); `(authed-admin)`, whose layout is the only one that renders the shell for them, is still covered.
+- Frontend contract suite: 14,114 tests, 14,113 pass, 1 fail (env-only `hook pre-push`). `npm run test:react`: pass. `tsc --noEmit`: clean. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.
+
+## T006 evidence (G10-T15-5, 2026-11-23)
+
+`reading`, `reading-attempts`, `mock-exams`, `mock-live` and `mock-reviews` move to `(authed-admin)/(reading)`, `(reading-attempts)`, `(mock-exams)`, `(mock-live)`, `(mock-reviews)`; each child layout emits its page sheets as plain `<link rel="stylesheet">` in the old order (`mock-exams`: `admin-mock-exams-next`, `admin-exam-ops-next`, `admin-mock-corrections`; `mock-live` / `mock-reviews`: own sheet then `admin-exam-ops-next`) and keeps `export const instant = false;`. `reading-content` stays a separate group for the same reason as `listening` (T005): its layout puts `aver-design/components.css` between the base sheets. Stacked on T005 (#2567); base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 22 pages: head **2388/2388**; base `cc6dd4c8` 1932/2388, all 456 failures are "base sheets duplicated" after client navigation between groups that do not yet share the parent. `/admin/mock-reviews` redirects to `/admin/mock-tests` without `mock_exam_id`, so the verifier opens it as `/admin/mock-reviews?mock_exam_id=<fixture uuid>` and now matches path plus query when it waits for a page.
+- Screenshots 1280×800, head vs base:
+  - Direct loads of all 22 pages: 0 px (the `/admin/grammar/articles` box that varies on base, as in T004).
+  - Client navigation `/admin/feedback →` `/admin/reading`, `/admin/mock-exams`, `/admin/mock-live`, `/admin/mock-reviews?…`: 0 px. `/admin/mock-live → /admin/mock-reviews?…` and back to `/admin/mock-exams`: 0 px.
+  - `/admin/mock-exams → /admin/mock-live`: 9,933 px, all in the sidebar row under the pointer (the "Reading" item shows its hover background). Both pages are in the same parent now, so the sidebar stays mounted under the pointer after the click; on base the shell remounts and the hover is not repainted. No stylesheet difference.
+  - `/admin/feedback → /admin/dashboard/reading-attempts` (10 px), `/admin/error-logs → /admin/feedback` (28 px), `→ /admin/instructors` (19 px), `→ /admin/grammar/articles` (30 px), `/admin/grammar → /admin/grammar/analytics` (8 px): the top-right button box and the frame-timing boxes seen in T003–T005, 0 px in other runs.
+  - `/admin/feedback → /admin`: 25,822 px; base is wrong, head equals the direct load (T002).
+- Frontend contract suite: 14,094 tests, 14,093 pass, 1 fail (env-only `hook pre-push`); the count drops with the per-group telemetry tests, as in T005. `npm run test:react`: pass. `tsc --noEmit`: clean. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.
+
+## T007 evidence (G10-T15-6, 2026-11-23)
+
+`mock-tests`, `writing` and `writing-new` move to `(authed-admin)/(mock-tests)`, `(writing)`, `(writing-new)`; each child layout emits its page sheets as plain `<link rel="stylesheet">` in the old order (`mock-tests`: `admin-mock-tests-next`, `admin-exam-ops-next`; `writing`: `admin-writing-hub-next`; `writing-new`: `admin-writing-new-next`) and keeps `export const instant = false;`. The 7 other writing groups (`writing-assignments`, `writing-cohorts`, `writing-instructor-queue`, `writing-prompts`, `writing-queue`, `writing-regrade`, `writing-status`) stay separate (coordinator, option a): their layouts carry only `admin-surface` and `admin-components`, so the parent would add `admin-buttons` and `admin-status` (FR-001). T007 is therefore one PR, not two. Stacked on T006 (#2594); base for the comparison is staging `cc6dd4c8`.
+
+- `verify-admin-route-group-flow.mjs`, extended to 25 pages: head **3089/3089**; base `cc6dd4c8` 2495/3089, all 594 failures are "base sheets duplicated" after client navigation between groups that do not yet share the parent.
+- Screenshots 1280×800, head vs base:
+  - Direct loads of all 25 pages: 0 px, except `/admin/writing/new` (4,480 px) and `/admin/error-logs` (2 px). On `/admin/writing/new` the difference is sub-pixel anti-aliasing inside the sticky "Submission review" aside; a separate probe on both builds measured identical stylesheet lists and identical boxes (`.awn-review` y 349.17 h 439.11, `h2` y 401.28, `dl` y 445.28 h 223.44), so no layout or cascade change. The same 4,480 px shows on both client navigations into that page.
+  - Client navigation `/admin/feedback →` `/admin/mock-tests`, `/admin/writing`: 0 px.
+  - `/admin/mock-exams → /admin/mock-tests`: 212,640 px, all inside the page body. The base frame shows the fixture's "contract" error state, the head frame is still "Đang tải đề thi…" at the 300 ms settle; the direct load of `/admin/mock-tests` is 0 px, so this is data-load timing, not styling.
+  - `/admin/mock-exams → /admin/mock-live` (9,933 px, sidebar hover, T006), `/admin/feedback → /admin` (25,822 px, base wrong, T002), and the 8–28 px frame-timing boxes are unchanged from earlier waves.
+- Frontend contract suite: 14,082 tests, 14,081 pass, 1 fail (env-only `hook pre-push`). `npm run test:react`: 131 files / 1,337 tests pass. `tsc --noEmit`: clean. `npm run build`: ok. `route-ownership-check.mjs` and `--manifest`: clean.

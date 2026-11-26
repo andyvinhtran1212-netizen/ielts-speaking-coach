@@ -13,12 +13,12 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-grammar-analytics)', 'admin', 'grammar', 'analytics', 'page.tsx');
-const CLIENT = read('app', '(authed-admin-grammar-analytics)', 'admin', 'grammar', 'analytics', 'admin-grammar-analytics.tsx');
-const LAYOUT = read('app', '(authed-admin-grammar-analytics)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(grammar-analytics)', 'admin', 'grammar', 'analytics', 'page.tsx');
+const CLIENT = read('app', '(authed-admin)/(grammar-analytics)', 'admin', 'grammar', 'analytics', 'admin-grammar-analytics.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(grammar-analytics)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-grammar-analytics-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-grammar)', 'admin', 'grammar', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(grammar)', 'admin', 'grammar', 'page.tsx');
 const LEGACY_HUB = read('public', 'pages', 'admin', 'grammar', 'index.html');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
@@ -59,11 +59,11 @@ describe('/admin/grammar/analytics native ownership', () => {
   });
 
   test('records route ownership and responsive CI coverage', () => {
-    assert.match(LEDGER, /`\/admin\/grammar\/analytics`[^\n]+authed-admin-grammar-analytics[^\n]+recent activity/);
+    assert.match(LEDGER, /`\/admin\/grammar\/analytics`[^\n]+\(authed-admin\)\/\(grammar-analytics\)[^\n]+recent activity/);
     assert.match(CSS, /@media\(max-width:680px\)/);
     assert.match(CSS, /@media\(max-width:430px\)/);
     assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
-    assert.match(WORKFLOW, /authed-admin-grammar-analytics/);
+    assert.match(WORKFLOW, /\(authed-admin\)\/\(grammar-analytics\)/);
     assert.match(WORKFLOW, /verify-admin-grammar-analytics-flow\.mjs/);
   });
 });

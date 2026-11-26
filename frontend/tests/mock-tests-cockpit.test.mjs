@@ -20,7 +20,7 @@ import { mockExamStage, mockTestsFrame, normalizeMockExamList } from '../lib/adm
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const HTML = read('public', 'pages', 'admin', 'mock-tests', 'index.html');
-const COCKPIT = read('app', '(authed-admin-mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
+const COCKPIT = read('app', '(authed-admin)', '(mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'queue.html');
 // LEGACYJS-0075 W4b: admin-writing-queue.js is deleted; the Next queue and its

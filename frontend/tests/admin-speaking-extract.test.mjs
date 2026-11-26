@@ -30,9 +30,9 @@ const SPK_SESSIONS = read('pages', 'admin', 'speaking', 'sessions.html');
 const SPK_TOPICS   = read('pages', 'admin', 'speaking', 'topics.html');
 // LEGACYJS-0075 W4b: both speaking controllers are deleted; the Next owners and
 // the typed sessions client hold the wiring (fixtures stay, ADR-005).
-const JS_SESSIONS  = read('app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx');
+const JS_SESSIONS  = read('app', '(authed-admin)', '(speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx');
 const API_SESSIONS = read('lib', 'admin-speaking-sessions-api.ts');
-const JS_TOPICS    = read('app', '(authed-admin-speaking-topics)', 'admin', 'speaking', 'topics', 'admin-speaking-topics.tsx');
+const JS_TOPICS    = read('app', '(authed-admin)', '(speaking-topics)', 'admin', 'speaking', 'topics', 'admin-speaking-topics.tsx');
 const ADMIN_LEGACY = read('admin.html');
 
 

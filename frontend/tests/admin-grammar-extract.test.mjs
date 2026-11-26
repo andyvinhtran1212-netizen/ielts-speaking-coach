@@ -29,9 +29,9 @@ const GRM_ANALYTICS = read('pages', 'admin', 'grammar', 'analytics.html');
 const GRM_RECOMMEND = read('pages', 'admin', 'grammar', 'recommend-test.html');
 // LEGACYJS-0075 W4b: the three grammar controllers are deleted; the Next owners
 // hold the endpoint wiring (the retired HTML fixtures stay, ADR-005).
-const JS_ARTICLES   = read('app', '(authed-admin-grammar-articles)', 'admin', 'grammar', 'articles', 'admin-grammar-articles.tsx');
-const JS_ANALYTICS  = read('app', '(authed-admin-grammar-analytics)', 'admin', 'grammar', 'analytics', 'admin-grammar-analytics.tsx');
-const JS_RECOMMEND  = read('app', '(authed-admin-grammar-recommend)', 'admin', 'grammar', 'recommend-test', 'admin-grammar-recommend.tsx');
+const JS_ARTICLES   = read('app', '(authed-admin)', '(grammar-articles)', 'admin', 'grammar', 'articles', 'admin-grammar-articles.tsx');
+const JS_ANALYTICS  = read('app', '(authed-admin)', '(grammar-analytics)', 'admin', 'grammar', 'analytics', 'admin-grammar-analytics.tsx');
+const JS_RECOMMEND  = read('app', '(authed-admin)', '(grammar-recommend)', 'admin', 'grammar', 'recommend-test', 'admin-grammar-recommend.tsx');
 const ADMIN_LEGACY  = read('admin.html');
 
 

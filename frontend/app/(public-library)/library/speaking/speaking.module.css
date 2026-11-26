@@ -216,3 +216,9 @@
   .neighbours { grid-template-columns: minmax(0, 1fr); }
   .neighbourNext { text-align: left; }
 }
+
+/* "Bỏ …" lines of an empty result (tờ DeSpeakingDanhSach). */
+.page .relax { display: grid; gap: var(--av2-space-2); justify-items: start; }
+.page .relax p { margin: 0; }
+.page .relax ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--av2-space-1); }
+.page .relaxCount { color: var(--av2-muted); }

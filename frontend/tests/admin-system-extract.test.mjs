@@ -30,7 +30,7 @@ const USERS        = read('pages', 'admin', 'users', 'index.html');
 const JS_AIUSAGE   = read('app', '(authed-admin-system)', 'admin', 'system', 'ai-usage', 'admin-ai-usage.tsx');
 const JS_ALERTS    = read('app', '(authed-admin-system)', 'admin', 'system', 'alerts', 'admin-alerts.tsx');
 // LEGACYJS-0075 W4b: admin-vocab-exercises.js is deleted; the Next owner below.
-const JS_VEX       = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'exercises', 'admin-vocab-exercises.tsx');
+const JS_VEX       = read('app', '(authed-admin)', '(vocab)', 'admin', 'vocab', 'exercises', 'admin-vocab-exercises.tsx');
 // LEGACYJS-0075 W3a: admin-users.js is deleted; /admin/users is the Next panel.
 const JS_USERS     = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
 const USERS_API    = read('lib', 'admin-users-api.ts');

@@ -88,7 +88,7 @@ describe('migration — mechanical, timing preserved', () => {
   // next action (no 5 s auto-dismiss); errors still persist.
   test('Next speaking-sessions + writing-queue report through StatusBanner, no timer', () => {
     for (const f of [
-      ['app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx'],
+      ['app', '(authed-admin)', '(speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx'],
       ['app', '(authed-admin-writing-queue)', 'admin', 'writing', 'queue', 'admin-writing-queue.tsx'],
     ]) {
       const src = read(...f);

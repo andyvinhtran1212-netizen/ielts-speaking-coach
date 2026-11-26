@@ -13,12 +13,12 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-grammar-articles)', 'admin', 'grammar', 'articles', 'page.tsx');
-const CLIENT = read('app', '(authed-admin-grammar-articles)', 'admin', 'grammar', 'articles', 'admin-grammar-articles.tsx');
-const LAYOUT = read('app', '(authed-admin-grammar-articles)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(grammar-articles)', 'admin', 'grammar', 'articles', 'page.tsx');
+const CLIENT = read('app', '(authed-admin)/(grammar-articles)', 'admin', 'grammar', 'articles', 'admin-grammar-articles.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(grammar-articles)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-grammar-articles-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-grammar)', 'admin', 'grammar', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(grammar)', 'admin', 'grammar', 'page.tsx');
 const LEGACY_HUB = read('public', 'pages', 'admin', 'grammar', 'index.html');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
@@ -64,8 +64,8 @@ describe('/admin/grammar/articles native ownership', () => {
   });
 
   test('records typed truth, rollback and CI ownership', () => {
-    assert.match(LEDGER, /`\/admin\/grammar\/articles`[^\n]+authed-admin-grammar-articles[^\n]+explicit per-source analytics availability/);
-    assert.match(WORKFLOW, /authed-admin-grammar-articles/);
+    assert.match(LEDGER, /`\/admin\/grammar\/articles`[^\n]+\(authed-admin\)\/\(grammar-articles\)[^\n]+explicit per-source analytics availability/);
+    assert.match(WORKFLOW, /\(authed-admin\)\/\(grammar-articles\)/);
     assert.match(WORKFLOW, /verify-admin-grammar-articles-flow\.mjs/);
   });
 });

@@ -3,8 +3,9 @@
 // FR-031 the answer status always in words; FR-062 `q=` pages are noindex.
 //
 // Public, no account (FR-001). The list is read per request with `no-store`.
-// Not in this task: the signed-in "Bạn" column (T016) and the per-condition
-// "Bỏ …" suggestions of an empty result (they need one count per condition).
+// An empty filtered result lists one "Bỏ …" line per active filter whose
+// removal shows questions, with the real count from the API (`relaxed`).
+// Not in this task: the signed-in "Bạn" column (T016).
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
@@ -16,7 +17,7 @@ import { answerStatus } from '@/lib/library-cues.mjs';
 
 import { getLibrary, speakingHref, SPEAKING_PATH, type SpeakingList } from './speaking-data';
 import { SpeakingFilters, type Filters } from './speaking-filters';
-import { apiQuery, describeFilters, filterQuery, groupByTopic, readFilters } from './speaking-list-model.mjs';
+import { apiQuery, describeFilters, filterQuery, groupByTopic, readFilters, relaxSuggestions } from './speaking-list-model.mjs';
 import styles from './speaking.module.css';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -136,13 +137,31 @@ function ListBody({ list, filters }: { list: SpeakingList | null; filters: Filte
   } else if (list.total === 0 && !filtered) {
     body = <PageState kind="empty" title="Chưa có đề nào" body="Kệ Speaking chưa có đề nào kèm câu trả lời mẫu." />;
   } else if (list.total === 0) {
+    const suggestions = relaxSuggestions(filters, list.relaxed, topicLabel);
     body = (
       <PageState
         kind="empty"
         label="Không có kết quả"
         title="Không có đề nào khớp bộ lọc"
         body={`Đang lọc: ${describeFilters(filters, topicLabel)}.`}
-        action={<a href={SPEAKING_PATH}>Xoá mọi bộ lọc</a>}
+        action={(
+          <div className={styles.relax}>
+            {suggestions.length ? (
+              <>
+                <p>Gỡ bớt một điều kiện để xem thêm:</p>
+                <ul>
+                  {suggestions.map((line) => (
+                    <li key={line.key}>
+                      <a href={`${SPEAKING_PATH}${line.query}`}>{line.label}</a>
+                      <span className={styles.relaxCount}> còn {line.count} đề</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <a href={SPEAKING_PATH}>Xoá mọi bộ lọc</a>
+          </div>
+        )}
       />
     );
   } else {
