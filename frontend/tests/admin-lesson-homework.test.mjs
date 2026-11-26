@@ -62,7 +62,9 @@ describe('danh sách buổi', () => {
       ['set-2', false, 'Đã giao cho lớp này'],
       ['set-3', false, 'Thiếu audio cho 2 câu'],
     ]);
-    assert.match(SRC, /disabled=\{!item\.ready \|\| item\.already_given\}>/);
+    // REGIVE-0103 FR-002: only a Course bank (can_regive true) stays selectable once given;
+    // lesson sets come back with can_regive false, so a given set stays locked.
+    assert.match(SRC, /disabled=\{!item\.ready \|\| \(item\.already_given && !item\.can_regive\)\}>/);
     assert.match(SRC, /item\.lesson_no != null \? `Buổi \$\{item\.lesson_no\} · ` : ''/);
   });
   test('kho đọc hỏng thì nói ra, không để danh sách rỗng im lặng', () => {
