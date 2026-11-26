@@ -647,8 +647,19 @@
   // The hand-over flush. Speaking keeps unsent takes only in page memory
   // (FR-009), so they can never be "secured" by a flush: with any take still
   // recording, unsent, or uploading, this tab refuses to hand over.
+  // A Nộp still waiting for the server keeps this tab the writer until the
+  // completion answers or fails (block on #2712): the other tab would reload
+  // into a session that is about to close.
+  var _roomCompleting = 0;
+  function _roomAwaitCompletion(promise) {
+    if (!_examRoomMode) return promise;
+    _roomCompleting++;
+    return Promise.resolve(promise).finally(function () { _roomCompleting--; });
+  }
+
   function roomFlush() {
     var busy = _roomUnsentCount();
+    if (_roomCompleting > 0) busy += 1;
     if (_sheet && Array.isArray(_sheet.slots)) {
       busy += _sheet.slots.filter(function (slot) {
         return !slot.retryBlob && (slot.state === 'grading' || slot.state === 'recording');
@@ -5784,7 +5795,7 @@
     // re-record can still acquire a fresh controller session.
     _releaseRecorderResources();
     try {
-      await _completeSpeakingSession(sessionId);
+      await _roomAwaitCompletion(_completeSpeakingSession(sessionId));
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       _sheetSubmitting = false;
@@ -5870,7 +5881,7 @@
     _feedbackAudioIsBlob = false;
 
     try {
-      await _completeSpeakingSession(sessionId);
+      await _roomAwaitCompletion(_completeSpeakingSession(sessionId));
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       console.warn('[practice] session complete failed:', err.message);

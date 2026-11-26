@@ -199,6 +199,7 @@ describe('tab B presses "Nộp bài" while tab A still has an unsent take (CR #2
       // Tab B's own sheet: the failed re-record lives only in tab A's memory.
       var _sheet = { slots: [{ state: 'graded' }, { state: 'graded' }] };
       function _roomReadOnly() { return _examRoomMode && _roomWriteRight === false; }
+      function _roomAwaitCompletion(promise) { return promise; }
       ${SUBMIT}
       return _sheetSubmit;
     `)(...Object.values(env));
@@ -215,6 +216,73 @@ describe('tab B presses "Nộp bài" while tab A still has an unsent take (CR #2
     const { run, calls } = submitSandbox({ writeRight: true });
     await run();
     assert.deepEqual(calls.map(([k]) => k), ['release', 'complete', 'navigate']);
+  });
+});
+
+// Andy's block on #2712 (93347421): tab A pressed "Nộp bài" and waits for the
+// server; tab B asks for the right in that window. The real _sheetSubmit and the
+// real room block (roomFlush) run together.
+describe('a "Nộp bài" still waiting keeps the right in tab A', () => {
+  const at = JS.indexOf('  async function _sheetSubmit() {');
+  const stop = JS.indexOf('\n  function nextQuestion() {', at);
+  const SUBMIT = JS.slice(at, stop);
+
+  function pendingSubmit({ on = true } = {}) {
+    let answer;
+    const calls = [];
+    const env = {
+      navigator: {}, MediaRecorder: function () {}, window: {}, $: () => null,
+      _updateNativeView: () => true, _getNativeRecorder: () => null,
+      _startManagedInterval: () => 1, _clearManagedEffect: () => true,
+      _hasUnsentWork: () => false,
+      _releaseRecorderResources: () => calls.push('release'),
+      _completeSpeakingSession: () => new Promise((resolve, reject) => { answer = { resolve, reject }; }),
+      _navigateTo: (url) => calls.push(`navigate ${url}`),
+      _singleSessionResultUrl: (id) => `/speaking/result?session_id=${id}`,
+    };
+    const api = new Function(...Object.keys(env), `
+      var _examRoomMode = ${on ? 'true' : 'false'};
+      var _roomMicState = 'granted', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomMicLostDone = false, _roomMicLostShown = false;
+      var _roomWriteRight = true;
+      var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
+      var _playerGeneration = 1, _playerActive = true, _analyser = null, _recorder = null, _stream = null;
+      var _p2RetryQuestionId = null, _currentState = 'sheet', _recSubState = 'idle', _recordingDirty = false;
+      var _sheet = { slots: [{ state: 'graded' }, { state: 'graded' }] };
+      var _timerId = null, _p2SpeakTimerId = null;
+      var _sheetSubmitting = false, _sessionId = 's-1';
+      ${ROOM}
+      ${SUBMIT}
+      return { submit: _sheetSubmit, flush: roomFlush };
+    `)(...Object.values(env));
+    return { api, calls, answer: () => answer };
+  }
+  const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+  test('while the server has not answered, tab A refuses to hand over', async () => {
+    const { api, answer } = pendingSubmit();
+    assert.deepEqual(await api.flush(), { secured: true, unsaved: 0 }, 'before Nộp: nothing pending');
+    const submitting = api.submit();
+    await tick();
+    assert.deepEqual(await api.flush(), { secured: false, unsaved: 1 }, 'tab B must not reload into a session that is closing');
+    answer().resolve({});
+    await submitting;
+    assert.deepEqual(await api.flush(), { secured: true, unsaved: 0 }, 'after the answer the right can move');
+  });
+
+  test('a failed Nộp also gives the right back once it is known', async () => {
+    const { api, answer } = pendingSubmit();
+    const submitting = api.submit();
+    await tick();
+    assert.equal((await api.flush()).secured, false);
+    answer().reject(new Error('503'));
+    await submitting;
+    assert.deepEqual(await api.flush(), { secured: true, unsaved: 0 });
+  });
+
+  test('finishSession waits through the same guard', () => {
+    const from = JS.indexOf('  async function finishSession(');
+    const fin = JS.slice(from, JS.indexOf('\n  }\n', from));
+    assert.match(fin, /await _roomAwaitCompletion\(_completeSpeakingSession\(sessionId\)\)/);
   });
 });
 
