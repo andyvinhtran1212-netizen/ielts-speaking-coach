@@ -39,6 +39,9 @@ export type CatalogOption = Partial<Pick<components['schemas']['CatalogEntry'],
   lesson_no: number | null;
   ready: boolean;
   already_given: boolean;
+  /** Đã giao nhưng vẫn giao lại được — `already_given` chỉ là ghi chú. */
+  can_regive?: boolean;
+  last_given_at?: string | null;
   reason: string | null;
   exam_only: boolean;
   cohort_ids: string[];
