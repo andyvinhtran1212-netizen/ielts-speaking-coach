@@ -28,7 +28,8 @@ const MIGRATED_JS = {
   // colour/bg, pinned in sprint-17-5-reassignment.test.mjs).
   'admin-usage.js':        front('js', 'admin-usage.js'),
   'admin-foot-traffic.js': front('js', 'admin-foot-traffic.js'),
-  'admin-classes.js':      front('js', 'admin-classes.js'),
+  // LEGACYJS-0075 W3b: admin-classes.js is deleted (Next class detail: no inline
+  // colour/bg, pinned in sprint-17-5-reassignment.test.mjs and sprint-18-1-ia.test.mjs).
 };
 
 
