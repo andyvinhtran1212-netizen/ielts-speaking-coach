@@ -90,7 +90,9 @@ test('navigation seam: Next → redirected legacy alias → Next keeps query/has
   });
   await page.waitForURL('**/grammar?from=probe&x=1#main');
   await page.waitForLoadState('load');
-  await expect(page.locator('body')).toContainText('IELTS Grammar Reference');
+  // G06-T14 (b) (#2515) replaced the old hero, and its "IELTS Grammar Reference"
+  // badge, with the Wiki home index; its heading is the stable marker now.
+  await expect(page.locator('h1')).toHaveText('Grammar Wiki');
   // Canonical chrome rendered + the pre-paint theme bootstrap honored storage.
   await expect(page.locator('aver-chrome')).toBeAttached();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');

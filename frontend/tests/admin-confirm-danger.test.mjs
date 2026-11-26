@@ -16,9 +16,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const CD = read('js', 'confirm-danger.js');
 const ADMINCSS = read('css', 'aver-design', 'admin-components.css');
-const AC = read('js', 'admin-access-codes.js');
-const USERS = read('js', 'admin-users.js');
-const COH = read('js', 'admin-classes.js');
+// LEGACYJS-0075 W3a: the codes and users controllers are the Next panels now;
+// they confirm through the shared React dialog (`danger: true`), not window.confirmDanger.
+const AC = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+const USERS = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
+// LEGACYJS-0075 W3b: admin-classes.js and admin-students-panel.js are deleted;
+// the class roster and the students directory confirm through the shared Dialog.
+const COH = read('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const STU = read('app', '(authed-admin)', '(students)', 'admin', 'students', 'admin-students-directory.tsx');
 
 
 describe('confirmDanger helper — modal + a11y', () => {
@@ -52,47 +57,44 @@ describe('confirmDanger helper — modal + a11y', () => {
 
 
 describe('migration — 4 core revoke/gỡ confirms → confirmDanger (gate preserved)', () => {
-  test('access-codes revokeCode + removeUser use confirmDanger (action in onConfirm)', () => {
-    assert.match(AC, /function revokeCode\(codeId\) \{\s*confirmDanger\(\{/);
-    assert.match(AC, /function removeUser\(codeId, userId, email\) \{[\s\S]*?confirmDanger\(\{/);
-    assert.match(AC, /onConfirm: async \(\) => \{[\s\S]*?api\.delete\('\/admin\/access-codes\/' \+ codeId\)/);
+  test('access-codes revoke + remove-user confirm as danger (action only in run)', () => {
+    assert.match(AC, /title: 'Thu hồi mã',[\s\S]{0,200}danger: true,\s*run: async \(\) => mutate\(\s*\(\) => window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}`\)/);
+    assert.match(AC, /title: 'Gỡ người dùng khỏi mã',[\s\S]{0,260}danger: true,\s*run: async \(\) => mutate\(/);
   });
-  test('users removeFromCode uses confirmDanger; refetch (loadList) preserved', () => {
-    assert.match(USERS, /function removeFromCode\(codeId, userId\) \{\s*confirmDanger\(\{/);
-    assert.match(USERS, /onConfirm: async[\s\S]*?loadList\(\)/);
+  test('users remove-from-code confirms as danger; canonical refetch preserved', () => {
+    assert.match(USERS, /title: 'Gỡ người dùng khỏi mã',[\s\S]{0,260}danger: true,\s*run: async \(\) => mutate\(/);
+    assert.match(USERS, /await action\(\);[\s\S]+await loadUsers\(true\)/);
   });
-  test('cohorts removeMember uses confirmDanger; refetch (loadDetail) preserved', () => {
-    assert.match(COH, /function removeMember\(studentId\) \{\s*(?:window\.)?confirmDanger\(\{/);
-    assert.match(COH, /onConfirm: async[\s\S]*?loadDetail\(_cohortId\)/);
+  test('cohorts removeMember is gated by a dialog; canonical refetch preserved', () => {
+    assert.match(COH, /onClick=\{\(\) => setConfirm\(\{ kind: 'remove-member', member \}\)\}/);
+    assert.match(COH, /if \(confirm\?\.kind === 'remove-member'\) void removeMember\(confirm\.member\)/);
+    assert.match(COH, /const removeMember = async[\s\S]*?window\.api\.delete\(`\/admin\/cohorts\/[\s\S]*?await loadOverview\(true\)/);
   });
   test('those 4 no longer call native confirm()', () => {
-    assert.doesNotMatch(AC, /if \(!confirm\('Thu hồi mã này/);
-    assert.doesNotMatch(AC, /if \(!confirm\('Gỡ ' \+ who/);
-    assert.doesNotMatch(USERS, /if \(!confirm\('Gỡ học viên này khỏi mã/);
-    assert.doesNotMatch(COH, /if \(!confirm\('Xóa học viên này khỏi lớp/);
+    assert.doesNotMatch(AC, /\bconfirm\(/);
+    assert.doesNotMatch(USERS, /\bconfirm\(/);
+    assert.doesNotMatch(COH, /\bconfirm\(/);
   });
 });
 
 
 describe('migration — out-of-scope confirms stay NATIVE (no over-reach)', () => {
-  test('refill (not a revoke) + changeRole (inline-boolean) keep native confirm', () => {
-    assert.match(AC, /if \(!confirm\('Cấp một mã mới/);
-    assert.match(USERS, /if \(!confirm\(`Đổi role thành/);
+  test('refill (not a revoke) is a plain confirm; a role change is danger only for self-demotion', () => {
+    assert.match(AC, /title: 'Cấp mã mới',\s*body: [^\n]+\n\s*confirmLabel: 'Cấp mã mới',\s*run:/);
+    assert.match(USERS, /danger: user\.id === profileId && nextRole !== 'admin'/);
   });
-  test('DELETE-frozen confirm (delete student) stays native', () => {
-    const STU = read('pages', 'admin', 'classes', 'index.html')
-  + read('js', 'admin-students-panel.js');
-    // STUDENTARCHIVE-0029: the confirm now archives (work kept), still native.
-    assert.match(STU, /if \(!confirm\('Lưu trữ học viên "/);
-    assert.doesNotMatch(STU, /confirmDanger/);
+  test('archive student is gated by its own dialog (work kept), not a danger confirm', () => {
+    // STUDENTARCHIVE-0029: archiving keeps work. The native directory gates it
+    // with the shared Dialog and a reason form, not window.confirm.
+    assert.match(STU, /onClick=\{\(\) => setArchiveDraft\(\{ student, reason: '', deactivateAccount: false, error: '' \}\)\}/);
+    assert.match(STU, /<Dialog open=\{Boolean\(archiveDraft\)\} title=\{`Lưu trữ /);
+    assert.doesNotMatch(STU, /\bconfirm\(|confirmDanger/);
   });
 });
 
 
-describe('confirm-danger.js loaded on the 3 migrated pages', () => {
+describe('confirm-danger.js loaded on the migrated legacy page', () => {
   for (const p of [
-    ['pages','admin','access-codes','index.html'],
-    ['pages','admin','users','index.html'],
     ['pages','admin','classes','index.html'],
   ]) {
     test(`${p.slice(2).join('/')} loads /js/confirm-danger.js`, () => {
