@@ -244,6 +244,22 @@ def has_course_entitlement(user_id: UUID | str, course_id: UUID | str,
     return any((products.get(str(r.get("product_id"))) or {}).get("kind") in wanted for r in rows)
 
 
+def has_feature_entitlement(user_id: UUID | str, feature: str) -> bool:
+    """G04-T07 (plan 5.6): an ``entitlements`` row that is active and started
+    and whose product lists ``feature`` (``'speaking'`` / ``'writing'``) opens
+    that skill's practice routes while ``credit_metering`` is on. Derived class
+    membership and legacy codes are not entitlements here (they keep their
+    own gates). A read error raises; the caller decides (fail-closed)."""
+    now = datetime.now(timezone.utc)
+    uid = str(user_id)
+    rows = fetch_entitlement_rows(uid)
+    products = fetch_products(r.get("product_id") for r in rows)
+    return any(
+        item.is_entitlement and item.status == "active" and _started(item, now) and feature in item.features
+        for item in build_access(rows, products, [], [], now)
+    )
+
+
 def has_ever_had_online_course(user_id: UUID | str) -> bool:
     """FR-042: any entitlements row on an online product, whatever its status
     or expiry. A read error raises; the caller decides (fail-closed)."""
