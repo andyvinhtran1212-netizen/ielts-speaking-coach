@@ -173,6 +173,56 @@ describe('leave (FR-008)', () => {
   });
 });
 
+describe('collection during leave (FR-009, HOLD on #2714)', () => {
+  const RUNNER = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
+
+  it('the runner re-reads the collection after the exit flush, so a collection that began meanwhile still refuses the exit', () => {
+    const exit = RUNNER.slice(RUNNER.indexOf('const flushForExit = useCallback'), RUNNER.indexOf('const submitOutcome = useMemo'));
+    const checks = [...exit.matchAll(/if \(awaitingCollectionRef\.current\) throw/g)].map((m) => m.index ?? -1);
+    expect(checks).toHaveLength(2);
+    const lastAwait = Math.max(exit.lastIndexOf('await bridge.flush()'), exit.lastIndexOf('await requestEmbedFlush(section)'));
+    expect(checks[1]).toBeGreaterThan(lastAwait);
+  });
+
+  it('a collection that starts while the exit flush waits keeps the learner in the room and shows the collection', async () => {
+    let resolveFlush: (r: { unsaved: number }) => void = () => {};
+    const flushForExit = vi.fn(() => new Promise<{ unsaved: number }>((r) => { resolveFlush = r; }));
+    const { rerender } = render(<MockExamRoom {...props({ flushForExit })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Leave test' }));
+    await waitFor(() => expect(flushForExit).toHaveBeenCalled());
+    rerender(<MockExamRoom {...props({ flushForExit, collecting: true })} />);
+    resolveFlush({ unsaved: 0 });
+    await waitFor(() => expect(screen.getByText('Saving your final answers…')).toBeTruthy());
+    expect(document.querySelector('dialog[open]')).toBeNull();
+    expect(window.location.pathname).not.toBe('/home');
+  });
+});
+
+describe('retries and earlier sections (FR-007)', () => {
+  const RUNNER = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
+
+  it('after the 3 automatic retries, polls and online events wait for "Try again" in the exam room', () => {
+    const replays = [...RUNNER.matchAll(/void submitRef\.current\(owed\);/g)];
+    expect(replays).toHaveLength(2);
+    for (const m of replays) {
+      const before = RUNNER.slice(Math.max(0, (m.index ?? 0) - 400), m.index);
+      expect(before).toMatch(/examRoomRef\.current && manualRetryRef\.current === owed/);
+    }
+    const submit = RUNNER.slice(RUNNER.indexOf('const submitSection = useCallback'), RUNNER.indexOf('submitRef.current = submitSection;'));
+    expect(submit).toMatch(/if \(attempt === 0\) manualRetryRef\.current = null;/);
+    expect(submit).toMatch(/if \(track\) manualRetryRef\.current = section;/);
+  });
+
+  it('an earlier section closed without a confirmed save stays named on the next section, which stays usable', () => {
+    const state = mockState({ listeningSubmittedAt: T }, { activeSection: 'reading' });
+    const outcome = { section: 'listening' as const, outcome: 'closed_unconfirmed' as const, retry: false, closedAt: T, savedUpTo: null, sectionSubmitted: true };
+    render(<MockExamRoom {...props({ state, outcome })} />);
+    expect(screen.getByText(`Listening was closed by our server at ${hhmm(T)}. We could not confirm that its last answers were saved.`)).toBeTruthy();
+    expect(document.querySelector('iframe')?.hasAttribute('inert')).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+});
+
 describe('screens outside the test (FR-016)', () => {
   it('waiting room: English with a Vietnamese line and the strip', () => {
     const state = mockState({ listeningSubmittedAt: null }, { activeSection: 'not_started' });
@@ -434,5 +484,75 @@ describe('write right gained after another tab (FR-010, FR-013, HOLD #2555)', ()
     rerender(<MockWritingRoom {...p} saveWriting={save} readOnly={false} />);
     expect((screen.getByLabelText('Answer for Task 1') as HTMLTextAreaElement).value).toBe('server one plus mine');
     await waitFor(() => expect(save).toHaveBeenCalledWith({ task1_text: 'server one plus mine', task2_text: '' }, expect.anything()));
+  });
+});
+
+describe('Writing copy after the section closes and under automatic snapshots (HOLD + Codex on #2715)', () => {
+  const closed = (task1: string, task2: string) => mockState({
+    readingSubmittedAt: T, writingSubmittedAt: T, status: 'lrw_submitted',
+    writingSubmission: { task1: { text: task1, submittedAt: T }, task2: { text: task2, submittedAt: T } },
+  }, { activeSection: 'done' });
+  const outcome = { section: 'writing' as const, retry: false, closedAt: T, savedUpTo: null, sectionSubmitted: true, outcome: 'closed_unconfirmed' as const };
+  afterEach(() => { try { window.localStorage.clear(); } catch { /* none */ } });
+
+  it('closed_unconfirmed: a device text the server does not hold is kept; an equal one is cleared', () => {
+    writeLocalCopy(window.localStorage, { ...SCOPE, answers: { task1: { value: 'last words never saved', baseValue: 'server one' }, task2: { value: 'server two', baseValue: 'server two' } }, expiresAt: FAR });
+    render(<MockExamRoom {...props({ state: closed('server one', 'server two'), view: 'waiting', section: null, outcome })} />);
+    const copy = readLocalCopy(window.localStorage, SCOPE)!;
+    expect(copy.answers.task1.value).toBe('last words never saved');
+    expect(copy.answers).not.toHaveProperty('task2');
+  });
+
+  it('confirmed submit: the server holds both texts, so the copy goes', () => {
+    writeLocalCopy(window.localStorage, { ...SCOPE, answers: { task1: { value: 'final one' }, task2: { value: 'final two' } } as never, expiresAt: FAR });
+    render(<MockExamRoom {...props({ state: closed('final one', 'final two'), view: 'waiting', section: null, outcome: { ...outcome, outcome: 'submitted' as never } })} />);
+    expect(window.localStorage.getItem(localCopyKey(SCOPE))).toBeNull();
+  });
+
+  it('a differing legacy draft survives hidden, edits and unmount, and a reopen still asks', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('mock-writing:sit-1:task1', JSON.stringify({ text: 'legacy text', ts: 1, synced: false }));
+    const p = writingProps({ storage });
+    const { unmount } = render(<MockWritingRoom {...p} />);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('pagehide'));
+    fireEvent.click(screen.getByRole('tab', { name: /Task 2/ }));
+    fireEvent.change(screen.getByLabelText('Answer for Task 2'), { target: { value: 'task two words' } });
+    expect(readLocalCopy(storage, SCOPE)?.answers.task1.value).toBe('legacy text');
+    unmount();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (document as any).visibilityState;
+    expect(readLocalCopy(storage, SCOPE)?.answers.task1.value).toBe('legacy text');
+    render(<MockWritingRoom {...writingProps({ storage })} />);
+    expect(screen.getByRole('button', { name: 'Use the text on this device' })).toBeTruthy();
+  });
+
+  it('hasUnsavedText is true inside the save debounce and false once the server acked', async () => {
+    vi.useFakeTimers();
+    const p = writingProps();
+    render(<MockWritingRoom {...p} />);
+    expect(p.bridge.current!.hasUnsavedText()).toBe(false);
+    fireEvent.change(screen.getByLabelText('Answer for Task 1'), { target: { value: 'server one more' } });
+    expect(p.bridge.current!.hasUnsavedText()).toBe(true);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(p.bridge.current!.hasUnsavedText()).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('the room exit asks the runner whether Writing text would be lost', () => {
+    const src = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-room.tsx', 'utf8');
+    expect(src).toMatch(/losesWork: \(\) => Boolean\(props\.losesWork\?\.\(\)\)/);
+    const runner = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
+    expect(runner).toMatch(/losesWork=\{writingLosesWork\}/);
+    expect(runner).toMatch(/writingBridgeRef\.current\?\.hasUnsavedText\?\.\(\)/);
+  });
+
+  it('a timer submit refused for lack of the write right runs once this tab gains it (Codex P1)', () => {
+    const runner = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
+    expect(runner).toMatch(/if \(examRoomRef\.current && !canWriteRef\.current\) \{\s*[^}]*if \(attempt === 0\) blockedSubmitRef\.current = section;/);
+    const effect = runner.slice(runner.indexOf('const pending = blockedSubmitRef.current;'), runner.indexOf('}, [canWrite, examRoom]);'));
+    expect(effect).toContain('isMockSubmitSettled(stateRef.current, pending)');
+    expect(effect).toContain('void submitRef.current(pending);');
   });
 });

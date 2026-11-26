@@ -113,6 +113,8 @@ interface Prompt {
 interface WritingBridge {
   flush(): Promise<void>;
   finalize(): Promise<{ task1_text: string; task2_text: string }>;
+  /** Exam-room Writing only (FR-012 loss guard). */
+  hasUnsavedText?(): boolean;
 }
 
 const POLL_MS = 8_000;
@@ -729,6 +731,9 @@ export function MockExamRunner() {
   const pollFailuresRef = useRef(0);
   const submittingRef = useRef(false);
   const owedSubmitRef = useRef<Section | null>(null);
+  // FR-007: the exam-room branch stops after its 3 automatic retries and waits
+  // for "Try again"; a poll or an `online` event must not restart the ladder.
+  const manualRetryRef = useRef<Section | null>(null);
   const submitTimersRef = useRef<Set<number>>(new Set());
   const activeSectionRef = useRef<Section | null>(null);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
@@ -736,6 +741,8 @@ export function MockExamRunner() {
   const finalWritingBodyRef = useRef<{ task1_text: string; task2_text: string } | null>(null);
   const timerAnchorRef = useRef({ section: null as Section | null, seconds: 0, at: 0 });
   const timerSubmitTriggeredRef = useRef<Section | null>(null);
+  /** FR-013: a submit refused for lack of the write right, run once it is granted. */
+  const blockedSubmitRef = useRef<Section | null>(null);
   const submitRef = useRef<(section: Section, attempt?: number) => Promise<void>>(async () => {});
   const integrityRef = useRef<Record<string, number> | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
@@ -945,7 +952,10 @@ export function MockExamRunner() {
         if (owed && !submittingRef.current) {
           if (isMockSubmitSettled(stateRef.current, owed)) {
             owedSubmitRef.current = null;
+            manualRetryRef.current = null;
             setConnection(null);
+          } else if (examRoomRef.current && manualRetryRef.current === owed) {
+            // Exhausted in the exam room: only "Try again" submits again.
           } else {
             owedSubmitRef.current = null;
             void submitRef.current(owed);
@@ -995,7 +1005,10 @@ export function MockExamRunner() {
         if (owed && !submittingRef.current) {
           if (isMockSubmitSettled(stateRef.current, owed)) {
             owedSubmitRef.current = null;
+            manualRetryRef.current = null;
             setConnection(null);
+          } else if (examRoomRef.current && manualRetryRef.current === owed) {
+            // Exhausted in the exam room: only "Try again" submits again.
           } else {
             owedSubmitRef.current = null;
             void submitRef.current(owed);
@@ -1179,7 +1192,12 @@ export function MockExamRunner() {
   const submitSection = useCallback(async (section: Section, attempt = 0) => {
     if (submittingRef.current && attempt === 0) return;
     // FR-013: only the tab holding the write right submits; the writer submits as usual.
-    if (examRoomRef.current && !canWriteRef.current) return;
+    if (examRoomRef.current && !canWriteRef.current) {
+      // Keep it (Codex P1 on #2715): the timer latch will not fire again, so
+      // the submit runs when this tab gains the write right.
+      if (attempt === 0) blockedSubmitRef.current = section;
+      return;
+    }
     if (attempt > 0 && isMockSubmitSettled(stateRef.current, section)) {
       submittingRef.current = false;
       owedSubmitRef.current = null;
@@ -1187,6 +1205,7 @@ export function MockExamRunner() {
       return;
     }
     submittingRef.current = true;
+    if (attempt === 0) manualRetryRef.current = null;
     const track = examRoomRef.current;
     if (track) {
       observedSubmitRef.current.add(section);
@@ -1236,6 +1255,7 @@ export function MockExamRunner() {
       }
       submittingRef.current = false;
       owedSubmitRef.current = section;
+      if (track) manualRetryRef.current = section;
       setConnection('submit_failed');
     }
   }, [doSubmit, loadState, noteAuthError]);
@@ -1366,6 +1386,21 @@ export function MockExamRunner() {
     }
   }, [noteAuthError, openingSpeaking]);
 
+  // FR-013: run a submit that waited for the write right. The Writing room's
+  // layout effect has already reconciled the boxes with the server by now.
+  useEffect(() => {
+    if (!examRoom || !canWrite) return;
+    const pending = blockedSubmitRef.current;
+    if (!pending) return;
+    blockedSubmitRef.current = null;
+    if (submittingRef.current || isMockSubmitSettled(stateRef.current, pending)) return;
+    void submitRef.current(pending);
+  }, [canWrite, examRoom]);
+  const writingLosesWork = useCallback(
+    () => activeSectionRef.current === 'writing' && Boolean(writingBridgeRef.current?.hasUnsavedText?.()),
+    [],
+  );
+
   const registerWriting = useCallback((bridge: WritingBridge | null) => {
     writingBridgeRef.current = bridge;
   }, []);
@@ -1382,12 +1417,18 @@ export function MockExamRunner() {
     if (awaitingCollectionRef.current) throw new Error('mock-collection-in-progress');
     const section = activeSectionRef.current;
     if (!section) return { unsaved: 0 };
+    let result: { unsaved: number };
     if (section === 'writing') {
       const bridge = writingBridgeRef.current;
       if (!bridge) return { unsaved: 1 };
-      try { await bridge.flush(); return { unsaved: 0 }; } catch { return { unsaved: 1 }; }
+      try { await bridge.flush(); result = { unsaved: 0 }; } catch { result = { unsaved: 1 }; }
+    } else {
+      result = { unsaved: await requestEmbedFlush(section) };
     }
-    return { unsaved: await requestEmbedFlush(section) };
+    // FR-009 (HOLD on #2714): a collection that began while this flush was
+    // waiting still refuses the exit, even when the flush itself succeeded.
+    if (awaitingCollectionRef.current) throw new Error('mock-collection-in-progress');
+    return result;
   }, [requestEmbedFlush]);
   const submitOutcome = useMemo(() => (submitTrack ? {
     section: submitTrack.section,
@@ -1476,6 +1517,7 @@ export function MockExamRunner() {
         onSubmitSection={submitSection}
         gapRemaining={gapRemaining}
         frameQuestions={frameQuestions && frameQuestions.section === renderedSection ? frameQuestions.list : null}
+        losesWork={writingLosesWork}
       />
     );
   }
