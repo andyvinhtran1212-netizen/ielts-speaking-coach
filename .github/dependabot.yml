@@ -8,12 +8,19 @@ updates:
       interval: monthly
     open-pull-requests-limit: 2
 
+  # Pinned to Tailwind v3 on purpose (see tooling/css/package.json). v4 moves
+  # the CLI to @tailwindcss/cli, drops tailwind.config.cjs auto-loading and
+  # changes the committed public/css/tailwind.build.css, so a major bump is a
+  # migration task with UI QA, not a Dependabot PR (#2678).
   - package-ecosystem: npm
     directory: /frontend/tooling/css
     target-branch: staging
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
 
   # One grouped PR per month so every backend/requirements.txt bump goes
   # through a single QA pass. httpx/httpcore/supabase/postgrest are pinned on
