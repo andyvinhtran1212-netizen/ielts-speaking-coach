@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  legacyMockWritingKey, legacyRemovable, MOCK_SUBMIT_AUTO_RETRIES, mockSubmitOutcome, reconcileMockWritingCopy,
+  holdBlockedMockSubmit, legacyMockWritingKey, legacyRemovable, MOCK_SUBMIT_AUTO_RETRIES, mockSubmitOutcome, reconcileMockWritingCopy,
+  replayBlockedMockSubmit,
 } from '../lib/mock-exam-model.mjs';
 
 const T = '2026-11-23T10:45:00Z';
@@ -197,4 +198,23 @@ test('FR-016: a link error still reads the flag once window.api is ready, with n
   const effect = runner.slice(start, runner.indexOf('}, [params.error]);', start));
   assert.match(effect, /whenGlobalReady\([\s\S]*examRoomEnabled\('mock'\)[\s\S]*setExamRoom\(on\)/);
   assert.doesNotMatch(effect, /window\.api\.(get|post)/);
+});
+
+test('write right lost between two submit attempts: the retry resumes at its own turn (FR-007, FR-013, HOLD on #2715)', () => {
+  const live = state();
+  // The first POST failed; retry 1 comes due while this tab is read-only.
+  let held = holdBlockedMockSubmit(null, 'reading', 1);
+  // The timer, a poll or an online event asks again at attempt 0: the turn is kept.
+  held = holdBlockedMockSubmit(held, 'reading', 0);
+  assert.deepEqual(held, { section: 'reading', attempt: 1 });
+  // The write right comes back with nothing in flight: retry 1 runs, not a fresh attempt 0.
+  assert.deepEqual(replayBlockedMockSubmit({ held, submitting: false, state: live }), { section: 'reading', attempt: 1 });
+  // Never while another submit is in flight, and never once the server settled it.
+  assert.equal(replayBlockedMockSubmit({ held, submitting: true, state: live }), null);
+  assert.equal(replayBlockedMockSubmit({ held, submitting: false, state: state({ submitted: { reading: T } }) }), null);
+  // A first submit refused before any POST is kept at attempt 0 (Codex P1).
+  assert.deepEqual(replayBlockedMockSubmit({ held: holdBlockedMockSubmit(null, 'reading', 0), submitting: false, state: live }), { section: 'reading', attempt: 0 });
+  // The last automatic retry keeps its turn too, so the limit is not reset.
+  const last = holdBlockedMockSubmit(held, 'reading', MOCK_SUBMIT_AUTO_RETRIES);
+  assert.equal(holdBlockedMockSubmit(last, 'reading', 0).attempt, MOCK_SUBMIT_AUTO_RETRIES);
 });

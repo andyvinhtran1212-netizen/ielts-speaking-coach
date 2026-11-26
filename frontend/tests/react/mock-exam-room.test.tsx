@@ -550,9 +550,12 @@ describe('Writing copy after the section closes and under automatic snapshots (H
 
   it('a timer submit refused for lack of the write right runs once this tab gains it (Codex P1)', () => {
     const runner = readFileSync('app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', 'utf8');
-    expect(runner).toMatch(/if \(examRoomRef\.current && !canWriteRef\.current\) \{\s*[^}]*if \(attempt === 0\) blockedSubmitRef\.current = section;/);
-    const effect = runner.slice(runner.indexOf('const pending = blockedSubmitRef.current;'), runner.indexOf('}, [canWrite, examRoom]);'));
-    expect(effect).toContain('isMockSubmitSettled(stateRef.current, pending)');
-    expect(effect).toContain('void submitRef.current(pending);');
+    const blocked = runner.slice(runner.indexOf('if (examRoomRef.current && !canWriteRef.current) {'), runner.indexOf('if (attempt > 0 && isMockSubmitSettled'));
+    expect(blocked).toContain('blockedSubmitRef.current = holdBlockedMockSubmit(blockedSubmitRef.current, section, attempt);');
+    // A retry that lost the right leaves the in-flight state (HOLD on #2715).
+    expect(blocked).toContain('if (attempt > 0) submittingRef.current = false;');
+    const effect = runner.slice(runner.indexOf('const pending = replayBlockedMockSubmit('), runner.indexOf('}, [canWrite, examRoom]);'));
+    expect(effect).toContain('submitting: submittingRef.current');
+    expect(effect).toContain('void submitRef.current(pending.section as Section, pending.attempt);');
   });
 });
