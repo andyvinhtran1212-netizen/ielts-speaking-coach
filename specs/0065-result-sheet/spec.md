@@ -1,14 +1,14 @@
 ---
 id: RESULTSHEET-0065
 title: Learners read every Writing, Speaking and mock-test result sheet with the same next steps, honest grading source and band rules, and ask for a Writing regrade by choosing a reason
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Learners read every Writing, Speaking and mock-test result sheet with the same next steps, honest grading source and band rules, and ask for a Writing regrade by choosing a reason
 
-Status: **draft**. Spec này soạn ngày 23/11/2026 cho nhiệm vụ `G07-T04` (thương mại hoá 2026-11), dựa trên `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` (bản 18/11): mục 4.6 (FR-07-050…058), 5.6, 5.7, 5.9 (phần T27), các nhiệm vụ G07-T20, T21, T22, T27 và câu hỏi mở #7, #8, #9. Chưa có dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, câu trả lời được ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục, và `status` đổi sang `approved`. Số 0065 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6 và còn trống ở staging `31725a9b`.
+Status: **approved**: anh Andy duyệt toàn bộ spec ngày 26/11/2026 lúc 09:03 giờ VN (xem `approval-decision.md`). Spec này soạn ngày 23/11/2026 cho nhiệm vụ `G07-T04` (thương mại hoá 2026-11), dựa trên `docs/proposals/commercialization-2026-11/GOI-07-loi-hoc-vien.md` (bản 18/11): mục 4.6 (FR-07-050…058), 5.6, 5.7, 5.9 (phần T27), các nhiệm vụ G07-T20, T21, T22, T27 và câu hỏi mở #7, #8, #9. Chưa có dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, câu trả lời được ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục, và `status` đổi sang `approved`. Số 0065 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6 và còn trống ở staging `31725a9b`.
 
 ## Problem
 
