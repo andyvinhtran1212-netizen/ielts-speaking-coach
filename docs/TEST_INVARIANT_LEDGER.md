@@ -69,6 +69,46 @@ See [wave 7 mapping and evidence](audits/GATE_F_PRICING_RETIREMENT_REHEARSAL_202
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
 
+## LEGACYJS-0075 W4b — 2026-11-23
+
+Spec `specs/0075-legacy-public-js-retirement` T005 (G10-T07-W4b) deletes 11
+error-log, grammar, speaking, vocab and writing-queue scripts in
+`frontend/public/js/` (3,175 lines): `admin-error-logs.js` (566),
+`admin-speaking-sessions.js` (483), `admin-writing-queue.js` (438),
+`admin-speaking-topics.js` (404), `admin-vocab-exercises.js` (271),
+`admin-vocab-d1.js` (249), `admin-grammar-analytics.js` (191),
+`admin-grammar-articles.js` (160), `admin-vocab-lemmas.js` (159),
+`admin-vocab-stats.js` (153) and `admin-grammar-recommend.js` (101). Their
+pages are Next routes under `frontend/app/(authed-admin)/(error-logs)/`,
+`(authed-admin-grammar-*)`, `(authed-admin-speaking-*)`, `(authed-admin-vocab)`
+and `(authed-admin-writing-queue)`, with their `lib/admin-*-model.mjs` models;
+no Next code, kept `public/js` file or browser flow loads these scripts. The CI
+path filter drops the 9 lines naming them, and
+`tooling/verify-admin-grammar-analytics-flow.mjs` drops its rollback-page block
+(CI already ran it with `--next-only`, now a no-op). Retired HTML fixtures stay
+(ADR-005); assertions on them are kept. One row per test edited (FR-002):
+
+| Test file | Assertions removed (only those reading a deleted script) | Disposition | Replacement that holds the invariant now |
+|---|---|---|---|
+| `admin-error-logs-humanize.test.mjs` | ran `humanizeError` from `admin-error-logs.js` in a VM | port | same 19 cases now import `humanizeError` from `lib/admin-error-logs-model.mjs` (the function the Next page uses) |
+| `rollback-exposure-line.test.mjs` | ran `_exposureLine()` from `admin-error-logs.js` in a VM; panel wiring pin | port | executed `normalizeRollbackPayload` (clamp flag, requested vs measured minutes, no exposure → `null`) and `formatWindow`; pins on the Next `<ExposureLine>` (evaluated cohort only, `ít nhất` + `cận dưới` + `is-warning` when not exact, clamp note with both numbers, other cohorts listed as "Không tính vào sàn"), the Next window picker (30 phút / 24 giờ / 7 ngày / 30 ngày) and `<ExposureLine metrics={rollback} />`; fixture option pins kept. Clamp copy is now "không thuộc cửa sổ đã yêu cầu" |
+| `admin-error-logs.test.mjs` | controller pins (stats, list, dismiss/undismiss, test error, `escapeHtml`, vi-VN, noise filter, `generateTestError`, `humanizeError`) | port | `admin-error-logs.tsx`: same endpoints through `window.api`, no `dangerouslySetInnerHTML`, `hideNoise` default on and filtering by `humanizeError(row).noise`, `generateTestError` → `setHideNoise(false)`; model `formatLogTime` vi-VN and the humanize categories; fixture pins kept |
+| `adr-012-telemetry.test.mjs` | triage refresh, migration-stats and rollback-metrics pins on `admin-error-logs.js` | port | dismiss/undismiss and the test error each refresh `loadLogs`, `loadStats`, `loadMigration`; migration truncation note; rollback query built with `URLSearchParams` (route encoded); model reads `error_verdict`/`vitals_verdict` and the page renders both `VerdictLine`s; `insufficient-sample` surfaced |
+| `admin-progressive-loading-toggle.test.mjs` | 5 wrapper pins (`logs-table-wrap`, `top-wrap`, `saved-wrap`, `zero-wrap`, `gra-table-wrap`) | retire | Next owners render from React state with no hidden-toggle wrapper: `admin-error-logs-next-behavior`, `admin-grammar-analytics-next-behavior`, `admin-grammar-articles-next-behavior` |
+| `admin-toast.test.mjs` | 8 scripts in the showBanner list; speaking-sessions 5 s and writing-queue hybrid timing | port | list keeps `admin-reading-attempts.js` (W4c); Next speaking sessions and writing queue use `<StatusBanner>` with errors kept until the next action and no native dialogs. **Difference:** success banners no longer auto-dismiss after 5 s |
+| `admin-daily-board.test.mjs` | `?session=` deep link and `feedbackReport` pins on `admin-speaking-sessions.js` | port | Next sessions page reads `params.get('session')` and loads the detail; `<FeedbackReport feedback={response.feedback} />`; the model reads `fc_feedback`, `lr_feedback`, `gra_feedback`, `p_feedback`, `strengths`, `improvements`, `grammar_issues` |
+| `admin-speaking-extract.test.mjs` | sessions/topics controller pins (page limit, endpoints, vi-VN, state, `initSupabase`) | port | `PAGE_LIMIT = 50` with offset paging; typed client `lib/admin-speaking-sessions-api.ts` names `/admin/sessions`, detail, both regrades and rebuild-summary; Asia/Ho_Chi_Minh vi-VN format; topics state (list snapshot, `part` default 1, question snapshot) and `/admin/topics`, `/questions`, `/generate-questions`; both read the account from `useAdminProfile`, no own Supabase client. **Difference:** the user filter sends `user_email` instead of reading `/admin/users` first |
+| `admin-grammar-extract.test.mjs` | endpoint pins on the 3 grammar controllers | port | Next articles list + `/{slug}/preview`, analytics `?days=${nextDays}`, recommend POST with `draft_suppressed` and the `seq` stale guard |
+| `admin-grammar-analytics-next-behavior.test.mjs` | 5 rollback-client pins | retire | the same file's Next pins (`requestId === sequence.current`, "Dấu — không có nghĩa là 0", per-section empty copy) |
+| `admin-grammar-articles-next-behavior.test.mjs` | rollback-client test (analytics status, stale guard, learner link) | retire | the same file's Next pins: contradictory `analytics_status` rejected, `requestId` guards, executed `grammarStudentHref` |
+| `admin-grammar-recommend-next-behavior.test.mjs` | `requestId !== runSequence` on the rollback client | retire | same test's Next `id === seq.current` and edit-invalidation pins |
+| `admin-vocab-extract.test.mjs` | stats, D1 and lemma controller pins | port | Next `/admin/vocab/stats`, `/admin/flashcards/stats?days=`, `vocab-flag`; D1 `PAGE_LIMIT = 50` offset paging and GET/PATCH/DELETE `/admin/vocab/d1-questions`; lemma GET/POST/DELETE `/admin/vocab/lemmas/overrides`; vi-VN dates. Lemma pages now load 100 rows per page |
+| `admin-system-extract.test.mjs` | `admin-vocab-exercises.js` endpoint pins | port | Next exercises list, per-item `/${action}`, `/bulk`, `/d1/generate-batch` |
+| `admin-writing-status-next-behavior.test.mjs` | rollback queue link to `/admin/writing/status?essay_id=` | port | executed `writingQueueDestination` sends a pending essay to `/admin/writing/status?essay_id=…` |
+| `assignment-analysis-level.test.mjs` | queue level pill pins on `admin-writing-queue.js` | port | Next row renders `L{row.analysisLevel}`; executed `normalizeWritingQueueRow` keeps L4 and rejects L9; fixture CSS pin kept |
+| `grade-queue.test.mjs` | 20 controller pins (overdue, poll, row open, queue context, no-image badge, list endpoint, bulk deliver, selection, mock lane, mock minimum, grade-anyway/skip, `?status=` deep link) | port | executed `isWritingEssayOverdue`, `shouldPollWritingQueue`, `writingQueueDestination`, `writingQueueApiPath` (`mock=false`/`mock=true`), `normalizeBulkDelivery` (counts must match), `writingMockMinimum`, `normalizeWritingQueueFilters` (lanes, `''` → all, default graded); Next pins on `gradeQueue` sessionStorage, "Thiếu hình", bulk POST then canonical re-read, `bulkable` on reviewed only, select-all, grade/skip behind a confirm dialog, start-grading and mock skip-grading paths. **Difference:** list reads the paged `/admin/writing/essay-queue` (25 per page) instead of `/admin/writing/essays?limit=200`; grade opens `/admin/writing/grade` |
+| `mock-tests-cockpit.test.mjs` | `mocklane`/embed hooks, `_stripEmbedChrome`, `openEssay`, `_withEmbed` on `admin-writing-queue.js` | port | `mocklane=1` → mock lane, `embed=1` drops header and lane rail, lane change never sets embed; executed `writingQueueDestination` carries `mocklane=1&embed=1` to status and grade and drops them off the cockpit. **Difference:** in the cockpit the filter toolbar stays visible (only header and lanes are dropped). Fixture pins for grade/status/instructor pages kept |
+
 ## LEGACYJS-0075 W4a — 2026-11-23
 
 Spec `specs/0075-legacy-public-js-retirement` T005 (G10-T07-W4a) deletes 10

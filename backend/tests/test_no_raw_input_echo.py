@@ -73,6 +73,7 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin_mock_exams.py", "create_exam", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "delete_assignment", "str(e)"): (1, "RevocationError: constant text + count"),
     ("routers/admin_mock_exams.py", "live_monitor", "str(e)"): (1, UUID_LOOKUP),
+    ("routers/admin_mock_exams.py", "schedule_exam", "str(e)"): (1, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "section_progress", "str(e)"): (1, UUID_LOOKUP),
     ("routers/admin_mock_exams.py", "set_open", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "set_sitting_retest", "str(e)"): (1, UUID_LOOKUP),
