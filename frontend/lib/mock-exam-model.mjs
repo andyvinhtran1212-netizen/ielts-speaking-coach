@@ -392,8 +392,10 @@ export function legacyMockWritingKey(sittingId, task) {
  *   server → drop it now. Different → never written over the server: ask the
  *   learner, and copy it into the new key first; the legacy key goes only
  *   after that write reads back (`legacyRemovable`) or the server acked it.
- *   A task that already has a new-key entry ignores its older legacy key.
- * - Section closed (`server.open` false): send nothing, clear everything.
+ *   A task that already has a new-key entry keeps its legacy key untouched
+ *   (not migrated, not dropped) unless the two texts are the same.
+ * - Section closed (`server.open` false): send nothing and clear the new copy.
+ *   A legacy text the server does not hold is kept, never deleted unconfirmed.
  * @param {{
  *   copy: import('./exam-room/local-copy.mjs').LocalCopy | null,
  *   legacy: Partial<Record<'task1' | 'task2', { text: string } | null>>,
@@ -423,7 +425,17 @@ export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches })
       if (!draft || typeof draft.text !== 'string') continue;
       const inCopy = Boolean(copy?.answers && Object.prototype.hasOwnProperty.call(copy.answers, task));
       const serverText = typeof server[task] === 'string' ? server[task] : '';
-      if (!server.open || inCopy || draft.text === serverText) { dropLegacy.push(task); continue; }
+      const copyText = inCopy ? copy.answers[task]?.value : undefined;
+      // FR-010: the legacy key goes only once its exact text is held elsewhere:
+      // the server has it, or the new key already carries the same text.
+      if (draft.text === serverText || (typeof copyText === 'string' && draft.text === copyText)) {
+        dropLegacy.push(task);
+        continue;
+      }
+      // A different text with a new-key entry, or a section the server has
+      // closed: keep the legacy key as it is. Never overwrite the new key with
+      // it, and never delete it until the text is confirmed (HOLD on #2713).
+      if (!server.open || inCopy) continue;
       migrate.push({ q: task, value: draft.text });
       ask.push({ task, local: draft.text, server: serverText, source: 'legacy' });
     }
