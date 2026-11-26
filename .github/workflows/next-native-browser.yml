@@ -276,7 +276,6 @@ jobs:
               - 'frontend/tests/listening-review-next-behavior.test.mjs'
               - 'frontend/app/(authed-admin)/(overview)/**'
               - 'frontend/public/css/admin-overview.css'
-              - 'frontend/public/js/admin-overview.js'
               - 'backend/routers/admin_overview.py'
               - 'backend/tests/test_admin_overview.py'
               - 'frontend/app/(authed-admin-system)/**'
@@ -319,7 +318,6 @@ jobs:
               - 'frontend/lib/admin-feedback-model.mjs'
               - 'frontend/public/css/admin-feedback-next.css'
               - 'frontend/public/pages/admin/feedback/index.html'
-              - 'frontend/public/js/admin-feedback.js'
               - 'frontend/app/(authed-admin)/(reading-attempts)/**'
               - 'frontend/lib/admin-reading-attempts-model.mjs'
               - 'frontend/public/css/admin-reading-attempts-next.css'
@@ -483,7 +481,7 @@ jobs:
               - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
               - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
               - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-              - 'frontend/app/(authed-admin-mock-tests)/**'
+              - 'frontend/app/(authed-admin)/(mock-tests)/**'
               - 'frontend/lib/admin-mock-tests-model.mjs'
               - 'frontend/public/css/admin-mock-tests-next.css'
               - 'frontend/public/pages/admin/mock-tests/index.html'
@@ -510,7 +508,7 @@ jobs:
               - 'frontend/tooling/verify-admin-mock-reviews-flow.mjs'
               - 'frontend/tests/admin-mock-reviews-next-model.test.mjs'
               - 'frontend/tests/admin-mock-reviews-next-behavior.test.mjs'
-              - 'frontend/app/(authed-admin-writing)/**'
+              - 'frontend/app/(authed-admin)/(writing)/**'
               - 'frontend/app/(authed-admin-writing-queue)/**'
               - 'frontend/app/(authed-admin-writing-status)/**'
               - 'frontend/app/(authed-admin-writing-prompts)/**'
@@ -518,7 +516,7 @@ jobs:
               - 'frontend/app/(authed-admin-writing-assignments)/**'
               - 'frontend/app/(authed-admin-writing-cohorts)/**'
               - 'frontend/app/(authed-admin-writing-instructor-queue)/**'
-              - 'frontend/app/(authed-admin-writing-new)/**'
+              - 'frontend/app/(authed-admin)/(writing-new)/**'
               - 'backend/routers/admin_writing.py'
               - 'backend/routers/admin_writing_prompts.py'
               - 'backend/services/student_service.py'
@@ -788,7 +786,10 @@ jobs:
   browser-regression:
     name: Next-native browser regression
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # 45: the ADMINGROUP-0077 route-group flow visits every ordered pair of
+    # (authed-admin) pages; after T007 it alone takes ~12 min and the job ran
+    # past 30 (570be010).
+    timeout-minutes: 45
     # Job LUÔN chạy và luôn báo check (check bắt buộc của staging): skip ở mức job
     # thì GitHub báo «skipped»; ở đây PR ngoài danh sách chỉ chạy bước báo bỏ qua
     # rồi XANH. `!cancelled()`: `changes` hỏng ⇒ output rỗng ⇒ RUN_BROWSER 'true'.

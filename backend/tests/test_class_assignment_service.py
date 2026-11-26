@@ -1436,3 +1436,60 @@ def test_skill_drill_same_content_in_two_courses_has_independent_completion():
     assert reconcile_test_attempts(db, [required, optional]) == 1
     assert first["submitted_at"] == "2026-08-03T13:00:00+00:00"
     assert reconcile_test_attempts(db, [required, optional]) == 0
+
+
+# ── báo cáo săn lỗi #54 #56 #64 ─────────────────────────────────────────
+
+
+class _RpcOnly:
+    def __init__(self, data):
+        self._data = data
+
+    def rpc(self, *_a, **_k):
+        data = self._data
+
+        class _X:
+            def execute(self_inner):
+                return type("R", (), {"data": data})()
+        return _X()
+
+
+@pytest.mark.parametrize("data,expected", [
+    (True, True), ([True], True), (False, False), ([False], False), (None, False), ([], False),
+])
+def test_bind_reads_only_a_real_true_as_linked(data, expected):
+    # #54: bool([False]) là True ⇒ lời từ chối từng bị báo là "đã gắn".
+    assert attach_session_to_class_item(_RpcOnly(data), "s", "u", "i") is expected
+
+
+def test_test_attempt_with_unreadable_time_is_left_for_later(monkeypatch):
+    # #56: giờ nộp không đọc được ⇒ now=None ⇒ mark_item_submitted đóng dấu
+    # giờ sửa, bài đúng hạn hiện thành trễ.
+    from services import class_assignment_service as mod
+
+    monkeypatch.setattr(mod, "test_attempt_handins", lambda db, a: {
+        "item-1": {"attempt": {"id": "att-1", "band_estimate": 6.0},
+                   "when": "not-a-time", "artifact_kind": "reading_attempt"},
+    })
+    calls = []
+    monkeypatch.setattr(mod, "mark_item_submitted", lambda db, **kw: calls.append(kw) or True)
+    assert reconcile_test_attempts(object(), []) == 0
+    assert calls == []
+
+
+def test_naive_completion_time_is_read_as_utc_against_the_deadline():
+    # #64: completed_at thiếu múi giờ so với due_at có múi giờ từng ném TypeError.
+    db = _DB({
+        "class_assignments": [
+            {"id": "asg-1", "due_at": "2026-08-03T12:00:00+00:00", "cohort_id": "c1"},
+        ],
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-1", "submitted_at": None, "state": "assigned"},
+        ],
+        "sessions": [
+            {"id": "sess-1", "class_assignment_item_id": "item-1", "status": "completed",
+             "overall_band": 6.0, "completed_at": "2026-08-03T13:00:00"},
+        ],
+    })
+    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 0
+    assert db.tables["class_assignment_items"][0]["submitted_at"] is None

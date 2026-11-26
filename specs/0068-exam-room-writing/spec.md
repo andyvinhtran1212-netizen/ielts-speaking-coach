@@ -112,8 +112,9 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
      "Nộp chấm" (chính) / "Quay lại". Chỉ nút "Nộp chấm" gọi đường nộp hiện có.
   Không còn `window.confirm`, `alert` hay `prompt` nào trong luồng của nhánh mới (kiểm
   bằng journey bắt sự kiện `dialog`).
-- **FR-006:** Hết giờ (đồng hồ về 0, `timer.is_expired` lúc mở, hoặc `PATCH /draft` báo
-  "Hết giờ"): khoá ô nhập, đưa giá trị cuối cùng đã gõ vào lần nộp, không hỏi lại, nộp
+- **FR-006:** Hết giờ (đồng hồ về 0, `timer.is_expired` lúc mở, hoặc `PATCH /draft` trả
+  **410**; nhánh mới xét mã `status === 410`, không dò chữ "Hết giờ" trong thông điệp như
+  code cũ): khoá ô nhập, đưa giá trị cuối cùng đã gõ vào lần nộp, không hỏi lại, nộp
   qua đường hiện có (`submitFromModal(ms, true)`, cùng `request_id` của biên nhận). Trạng
   thái nộp đưa cho khung theo EXAMROOM-0066 FR-034:
   - `confirmed` chỉ khi `WritingSubmitReceipt.normalizeAck` nhận phản hồi nộp khớp bài,
@@ -132,6 +133,10 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
   lúc HH:MM" (giờ của lần `PATCH /draft` được ack gần nhất, giữ nguyên tới lần lưu sau),
   "Chưa lưu được, đang thử lại", và "Thử lưu lại" khi lần lưu tự động thất bại (gọi lại
   đúng `saveDraft`). Nhịp lưu giữ 3 giây ngừng gõ như hôm nay; nút "Lưu nháp" giữ nguyên.
+  Mỗi lúc chỉ một `PATCH /draft` đang chạy: lần lưu đến khi còn lần trước thì xếp hàng (chỉ
+  giữ một lần chờ) và gửi chữ mới nhất của ô khi lần trước xong. Hôm nay ack chỉ so
+  `assignment_id` (`coreOperationRequest`), nên hai lần cùng chạy có thể về sai thứ tự và
+  `baseText` (FR-008) thành chữ cũ trong khi máy chủ giữ chữ khác.
 - **FR-008:** Bản sao nháp tại máy theo EXAMROOM-0066 FR-035, khoá
   `exam-room:local-copy:writing:{ownerKey}:{assignmentId}` (`ownerKey` là id tài khoản
   của phiên), ghi mỗi lần ô nhập đổi (gộp tối đa 1 lần mỗi giây) và khi có 401. Bản ghi
@@ -172,10 +177,13 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
 - **FR-011:** Mất mạng và phiên hết hạn theo EXAMROOM-0066 FR-014, FR-015: dải mất mạng
   tiếng Việt; khi có mạng lại thì lưu phần còn lại. Mọi lời gọi `window.api.*` của trình
   soạn trong nhánh mới truyền `{ noRedirect: true }`, kể cả lần đồng bộ đồng hồ 30 giây
-  (`GET /timer`). 401 giữa bài: ghi bản sao FR-008 và kiểm khi rời, hiện hộp đăng nhập lại
+  (`GET /timer`) và hai lời gọi đi qua `coreOperationRequest` (`PATCH /draft`, `POST
+  /submit`: tuỳ chọn là tham số thứ tư của `patchWith`/`postWith`). `api.js` chuyển trang cả
+  khi 401 lẫn 403 nếu thiếu tuỳ chọn này, nên FR-012 (403 `no_entitlement`) cũng cần nó. 401 giữa bài: ghi bản sao FR-008 và kiểm khi rời, hiện hộp đăng nhập lại
   của khung. Trước G05-T19, phương án dự phòng `/login?next=<URL hiện tại có
-  assignment_id>` cùng tab chỉ được chạy khi bản sao đọc lại khớp đúng ô nhập; không khớp
-  thì hộp đăng nhập lại ở yên trong trang, nói rõ phần chưa lưu như FR-010, và không
+  assignment_id>` cùng tab chỉ được chạy khi bài đã giữ theo FR-008 (bản sao đọc lại khớp
+  đúng ô nhập, **hoặc** `PATCH /draft` đã ack đúng chữ trong ô), như EXAMROOM-0066 FR-015
+  sửa đổi 2; chưa giữ thì hộp đăng nhập lại ở yên trong trang, nói rõ phần chưa lưu như FR-010, và không
   chuyển trang (học viên có thể chép chữ ra trước); quay lại đúng tài khoản thì khôi phục theo FR-009.
 - **FR-012:** Hộp nộp chỉ nói về lượt chấm khi có số liệu từ API của G04; API chưa có
   thì không có câu đó, không hiện `XXX`, không bịa số. Máy chủ trả 402
@@ -303,6 +311,8 @@ dòng, DOM mệnh lệnh gắn vào id của `page-shell.tsx`) trên `staging` @
 
 ## Open questions
 
+Anh Andy gõ "duyệt … 0068 A1 A3 theo đề xuất" lúc 23/11 13:21Z: A1 là câu 5, A3 là câu 6 dưới đây. Bước bật cờ staging (đổi env Vercel, A2) chưa có lời duyệt: anh gõ duyệt riêng lúc tới T004. Câu 1–4 vẫn ở mặc định tạm.
+
 Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi anh Andy trả lời.
 
 1. **Writing tự luyện giữ lượt (G08-T25).** GOI-08 đặt route này trong S2, nhưng nó cần
@@ -315,3 +325,9 @@ Mỗi câu kèm đề xuất; mặc định tạm là đề xuất cho tới khi
    cũng làm mất chữ ở bài không giờ. Mặc định tạm: có.
 4. **Thời hạn bản sao.** Đề xuất: 7 ngày, hoặc sớm hơn khi nộp được xác nhận. Mặc định
    tạm: 7 ngày.
+5. **FR-009 bước 3 khác EXAMROOM-0066 FR-035.** 0066 FR-035 giữ bản máy chủ và bỏ bản trên
+   máy, không hỏi, khi giá trị máy chủ khác `baseValue`; spec này hỏi học viên chọn. Đề
+   xuất: hỏi, ghi là ngoại lệ có chủ ý cho trình chỉ có một ô chữ dài, vì bỏ âm thầm là mất
+   cả một bản bài viết (với Reading/Listening, bỏ một câu mất ít). Mặc định tạm: hỏi, chờ anh
+   Andy quyết. **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất).
+6. **Lần nộp thử trên staging (T004).** Bài nộp đi đường chấm hiện có, có thể gọi AI trả phí. Đề xuất: một lần nộp thử bằng tài khoản QA; trước khi chạy báo anh Andy chi phí ước tính theo từng nhà cung cấp, chạy xong báo chi phí thật. **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất).

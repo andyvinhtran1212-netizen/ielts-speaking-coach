@@ -19,10 +19,9 @@ const EDUCATOR = readFileSync(
   path.join(FRONTEND, 'app', '(authed-admin)/(grammar)', 'admin', 'grammar-diagnostic', 'report.tsx'),
   'utf8',
 );
-const MY_CLASS = readFileSync(
-  path.join(FRONTEND, 'app', '(authed-my-class)', 'my-class', 'my-class-workspace.tsx'),
-  'utf8',
-);
+// The class-start call moved out of MyClassWorkspace so Today (0063 FR-022)
+// opens the same exact item through the same code.
+const MY_CLASS = readFileSync(path.join(FRONTEND, 'lib', 'class-assignment-open.ts'), 'utf8');
 
 const operations = [
   ['get_home_api_grammar_home_get', 'GrammarHomeResponse'],
