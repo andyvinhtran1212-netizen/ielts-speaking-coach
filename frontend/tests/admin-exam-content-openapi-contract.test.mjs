@@ -7,7 +7,7 @@ const FRONTEND = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(FRONTEND, ...parts), 'utf8');
 const API = read('lib', 'admin-exam-content-api.ts');
 const OPENAPI = read('types', 'api.d.ts');
-const CATALOG = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
+const CATALOG = read('app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
 
 describe('admin exam content read contract', () => {
   test('derives the paginated catalog envelope from generated OpenAPI', () => {

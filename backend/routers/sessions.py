@@ -51,7 +51,8 @@ from services.access_code_permissions import (
     get_user_session_quota,
     has_permission,
 )
-from services.retention import compute_expiry, content_purge_cutoff, should_touch
+from services.retention import RetentionPolicy, compute_expiry, content_purge_cutoff, should_touch
+from services import retention_policy
 from services.active_player_lifecycle import (
     is_active_player_expired_error,
     require_resume_active,
@@ -896,6 +897,13 @@ async def list_sessions(
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+    # COURSEACCESS-0055 plan 5.14: the caller's content window (one lookup per
+    # request; flag off or lookup error → today's 60-day rule).
+    window = await asyncio.to_thread(retention_policy.content_window, user_id)
+    policy = RetentionPolicy(window=window)
+    now = datetime.now(timezone.utc)
+    window_closed = window.mode == "until" and window.visible_until is not None \
+        and now >= window.visible_until
 
     paginated = (
         page is not None
@@ -940,10 +948,15 @@ async def list_sessions(
         # deleted; ?include_hidden=true returns everything. content_purged_at IS
         # NULL until the Sprint 16.4 sweep starts writing it.
         if not include_hidden:
-            cutoff = content_purge_cutoff()
-            q = q.is_("content_purged_at", "null").or_(
-                f"started_at.gte.{cutoff},last_accessed_at.gte.{cutoff}"
-            )
+            q = q.is_("content_purged_at", "null")
+            if window.mode == "default":
+                cutoff = content_purge_cutoff()
+                q = q.or_(f"started_at.gte.{cutoff},last_accessed_at.gte.{cutoff}")
+            elif window_closed:
+                # Past the window after the last course: nothing is listed
+                # (FR-048). Ruled out in the query so `total` agrees.
+                q = q.is_("id", "null")
+            # open, or until and still inside the window: no age cut-off.
 
         sort_col, sort_desc = _SORT_FIELD[sort]
         # nullsfirst=False keeps NULL bands (in-progress sessions) at the
@@ -969,7 +982,7 @@ async def list_sessions(
     # is_hidden) so the warning UI can render countdowns without recomputing
     # policy client-side.
     for row in rows:
-        row["retention"] = compute_expiry(row)
+        row["retention"] = compute_expiry(row, now, policy)
     if not paginated:
         return rows
 
@@ -1241,7 +1254,9 @@ async def get_session(
     out = {
         **session,
         "session_id": session["id"],   # alias so frontend can use either field
-        "retention":  compute_expiry(session),
+        "retention":  compute_expiry(
+            session, policy=RetentionPolicy(window=await asyncio.to_thread(
+                retention_policy.content_window, session.get("user_id") or user_id))),
         "questions":  questions,
         "responses":  responses,
         "response_receipts": response_receipts,

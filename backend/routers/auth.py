@@ -26,7 +26,12 @@ from services.db_async import aexecute
 from services.errors import new_ref, safe_error
 from services.request_context import current_request_id
 from services.server_timing import record_stage
-from services.feature_flags import ais_flashcard_enabled, is_flashcard_enabled
+from services.feature_flags import (
+    ais_flashcard_enabled,
+    ais_learner_v2_enabled,
+    is_flashcard_enabled,
+    is_learner_v2_enabled,
+)
 from services import runtime_flags
 from services.runtime_flags import require_flag
 from services.class_membership_service import remove_student, student_is_active_in_cohort
@@ -206,6 +211,12 @@ async def get_supabase_user(authorization: str | None):
         record_stage("auth", (perf_counter() - auth_start) * 1000)
 
     if response.status_code != 200:
+        # COURSEACCESS-0055 T009: a session displaced by a claim on another
+        # device gets its own code (screen 8c); anything else stays generic.
+        from services import session_gate  # local — session_gate imports routers.admin lazily
+        displaced = await session_gate.displaced_detail(authorization)
+        if displaced is not None:
+            raise HTTPException(status_code=401, detail=displaced)
         raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
 
     user = response.json()
@@ -249,6 +260,10 @@ def _me_sync_flags(user_id: str, curated_opt_in: bool) -> tuple[bool, bool]:
         "vocab_units_read", default=False,
     )
     return flashcard_enabled, vocab_curated_enabled
+
+
+def _me_sync_learner_v2(user_id: str, opted_in: bool) -> bool:
+    return is_learner_v2_enabled(user_id, per_user=opted_in)
 
 
 @router.get("/me", response_model=AuthMeResponse)
@@ -358,6 +373,15 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         flashcard_enabled, vocab_curated_enabled = await asyncio.to_thread(
             _me_sync_flags, user_id, curated_opt_in,
         )
+    # LEARNERCORE-0063 FR-072/FR-073: the opt-in comes from the users row read
+    # above; only the two runtime keys are looked up (cached, default deny).
+    learner_v2_opt_in = flags.get("learner_v2") is True
+    if settings.USE_ASYNC_DB:
+        learner_v2_enabled = await ais_learner_v2_enabled(
+            user_id, run=aexecute, per_user=learner_v2_opt_in)
+    else:
+        learner_v2_enabled = await asyncio.to_thread(
+            _me_sync_learner_v2, user_id, learner_v2_opt_in)
     return {
         "id": user["id"],
         "email": user["email"],
@@ -377,6 +401,7 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "d3_enabled": settings.D3_ENABLED and flags.get("d3_enabled") is True,
         "flashcard_enabled": flashcard_enabled,
         "vocab_curated_enabled": vocab_curated_enabled,
+        "learner_v2_enabled": learner_v2_enabled,
         "speaking_course_access": speaking_course_access,
     }
 

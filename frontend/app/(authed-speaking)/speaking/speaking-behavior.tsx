@@ -198,7 +198,7 @@ function applyFlashcardsFlag(enabled: unknown, api: any, st: State) {
   if (!c) return;
   if (enabled !== true) { c.innerHTML = ''; return; }
   c.innerHTML =
-    '<a href="/flashcards" class="main-tab-btn" style="text-decoration:none;">'
+    '<a href="/vocabulary/flashcards" class="main-tab-btn" style="text-decoration:none;">'
     + '<span class="main-tab-label">📚 Flashcards</span>'
     + '<span class="main-tab-sub" id="flashcards-tab-sub">Ôn từ vựng theo lịch tự động</span>'
     + '</a>';

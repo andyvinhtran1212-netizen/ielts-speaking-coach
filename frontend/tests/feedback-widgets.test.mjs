@@ -176,8 +176,12 @@ describe('Practice/exercise flag — mounts + anchors', () => {
     });
   }
 
-  it('admin inbox deep-link skips practice:/exercise: rows (no broken ?test= links)', () => {
-    const ADMIN = read('js', 'admin-feedback.js');
-    assert.match(ADMIN, /\^\(practice\|exercise\):/);
+  // LEGACYJS-0075 W4a: admin-feedback.js is deleted; the Next inbox builds
+  // links with feedbackDeepLink() in lib/admin-feedback-model.mjs.
+  it('admin inbox deep-link skips practice:/exercise: rows (no broken ?test= links)', async () => {
+    const { feedbackDeepLink } = await import(join(__dirname, '..', 'lib', 'admin-feedback-model.mjs'));
+    assert.equal(feedbackDeepLink({ skill: 'reading', testId: 'practice:abc', questionNumber: 1 }), null);
+    assert.equal(feedbackDeepLink({ skill: 'listening', testId: 'exercise:xyz' }), null);
+    assert.equal(feedbackDeepLink({ skill: 'listening', testId: 'L-01' }), '/admin/listening/tests');
   });
 });

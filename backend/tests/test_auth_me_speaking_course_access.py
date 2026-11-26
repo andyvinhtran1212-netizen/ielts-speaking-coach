@@ -54,8 +54,8 @@ class _FakeAdmin:
         return _Builder(self.row)
 
 
-def _me(monkeypatch, *, perms, metering, entitled, active=True, suspended=False):
-    row = {"id": _USER_ID, "email": "c@example.com", "role": "user", "is_active": active,
+def _me(monkeypatch, *, perms, metering, entitled, active=True, suspended=False, role="user"):
+    row = {"id": _USER_ID, "email": "c@example.com", "role": role, "is_active": active,
            "feature_flags": {}, "last_seen_at": None, "suspended_at": "2026-11-01T00:00:00Z" if suspended else None}
     calls = {"entitlement": 0}
 
@@ -96,6 +96,16 @@ def test_flag_off_never_grants_and_never_reads_entitlements(monkeypatch):
     out, calls = _me(monkeypatch, perms=[], metering=False, entitled=True)
     assert out["speaking_course_access"] is False
     assert calls["entitlement"] == 0
+
+
+@pytest.mark.parametrize("role", ["user", "admin"])
+@pytest.mark.parametrize("metering", [False, True])
+def test_role_alone_does_not_open_speaking(monkeypatch, role, metering):
+    out, calls = _me(monkeypatch, perms=[], metering=metering, entitled=False, role=role)
+    assert out["role"] == role
+    assert out["permissions"] == []
+    assert out["speaking_course_access"] is False
+    assert calls["entitlement"] == int(metering)
 
 
 def test_a_full_speaking_code_holder_does_no_extra_read(monkeypatch):
