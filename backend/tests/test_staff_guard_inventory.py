@@ -34,9 +34,11 @@ from fastapi.routing import APIRoute
 
 import main
 import routers.admin as admin_module
+import routers.admin_commerce as commerce_module
 import routers.auth as auth_module
 from config import settings
 from services import activation_gate, staff_guard
+from services import credits as credits_module
 from services.activation_gate import is_staff_path
 
 from tests.test_staff_guard import (  # shared fakes
@@ -117,7 +119,9 @@ def test_allow_aal1_keyword_appears_only_in_the_mfa_status_handler():
         for m, p, r in ROUTES if (m, p) in staff_guard.AAL1_ALLOWED_ADMIN_ROUTES
     }
     offenders = []
-    for path in sorted(ROUTERS_DIR.glob("*.py")):
+    for path in sorted(ROUTERS_DIR.rglob("*.py")):
+        parts = path.relative_to(ROUTERS_DIR).with_suffix("").parts
+        module = ".".join(("routers",) + (parts[:-1] if parts[-1] == "__init__" else parts))
         tree = ast.parse(path.read_text())
         for fn in ast.walk(tree):
             if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -126,7 +130,7 @@ def test_allow_aal1_keyword_appears_only_in_the_mfa_status_handler():
                 isinstance(n, ast.Call) and any(k.arg == "allow_aal1" for k in n.keywords)
                 for n in ast.walk(fn)
             )
-            if uses and fn.name != "require_admin" and (f"routers.{path.stem}", fn.name) not in allowed_handlers:
+            if uses and fn.name != "require_admin" and (module, fn.name) not in allowed_handlers:
                 offenders.append(f"{path.name}:{fn.lineno} {fn.name}")
     assert not offenders, f"allow_aal1 used outside GET /admin/mfa/status: {offenders}"
 
@@ -135,7 +139,7 @@ def test_allow_aal1_keyword_appears_only_in_the_mfa_status_handler():
 def aal1_admin(live_activation_gate, monkeypatch):
     TOKENS.clear()
     db = _DB()
-    for module in (admin_module, activation_gate):
+    for module in (admin_module, activation_gate, commerce_module):
         monkeypatch.setattr(module, "supabase_admin", db)
     monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient([]))
     monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)
@@ -357,11 +361,27 @@ STEP_UP_ROUTES = frozenset({
     ("PATCH", "/admin/users/{user_id}/role"),
     ("PATCH", "/admin/users/{user_id}/active"),
     ("POST", "/admin/users/{user_id}/revoke-sessions"),
+    # ADMINIA-0074 FR-055: revoking a code in use from the danger zone.
+    ("POST", "/admin/access-codes/{code_id}/revoke-used"),
 })
 
 # Amendment 2 (FR-020, option c): routes whose step-up depends on the request.
 # Each maps to (guarded handler args, unguarded handler args) and the exact
 # pure normalization that decides it.
+_UID = "00000000-0000-4000-8000-000000000001"
+
+
+def _adjust(delta: int):
+    return commerce_module.AdjustCredits(entitlement_id=_UID, delta=delta, reason="Sửa lượt chấm cho học viên",
+                                         request_key="00000000-0000-4000-8000-0000000000aa")
+
+
+def _grant(credits):
+    extra = {} if credits is None else {"credits": credits}
+    return commerce_module.GrantEntitlement(user_id=_UID, product_id=_UID, reason="Cấp quyền luyện lại",
+                                            request_key="00000000-0000-4000-8000-0000000000bb", **extra)
+
+
 CONDITIONAL_STEP_UP_ROUTES = {
     ("POST", "/admin/access-codes/generate"): {
         "guarded": lambda: {"body": admin_module.GenerateCodesRequest(
@@ -369,6 +389,31 @@ CONDITIONAL_STEP_UP_ROUTES = {
         "ordinary": lambda: {"body": admin_module.GenerateCodesRequest(count=1, grants_role="  ")},
         "normalize": "grants_role = (body.grants_role or '').strip().lower() or None",
         "condition": "grants_role is not None",
+    },
+    # COURSEACCESS-0055 Q13 / plan 5.3: large credit grants (threshold 50).
+    ("POST", "/admin/credits/adjust"): {
+        "guarded": lambda: {"body": _adjust(51)},
+        "ordinary": lambda: {"body": _adjust(50)},
+        "normalize": "step_up_credits = abs(body.delta)",
+        "condition": "step_up_credits > CREDIT_STEP_UP_THRESHOLD",
+    },
+    ("POST", "/admin/entitlements"): {
+        "guarded": lambda: {"body": _grant(None)},
+        "ordinary": lambda: {"body": _grant(50)},
+        "normalize": "step_up_credits = CREDIT_STEP_UP_THRESHOLD + 1 if body.credits is None else body.credits",
+        "condition": "step_up_credits > CREDIT_STEP_UP_THRESHOLD",
+    },
+    # COURSEACCESS-0055 Q13 (G04-T12): a class grant always, else > 50 credits.
+    ("POST", "/admin/credits/grant-extra"): {
+        "guarded": lambda: {"body": commerce_module.GrantExtra(
+            cohort_id="11111111-1111-1111-1111-111111111111", credits=1, reason="bù bài lỗi",
+            request_key="22222222-2222-2222-2222-222222222222")},
+        "ordinary": lambda: {"body": commerce_module.GrantExtra(
+            user_ids=["33333333-3333-3333-3333-333333333333"],
+            entitlement_id="44444444-4444-4444-4444-444444444444", credits=50, reason="bù bài lỗi",
+            request_key="22222222-2222-2222-2222-222222222222")},
+        "normalize": "needs_step_up = body.needs_step_up",
+        "condition": "needs_step_up",
     },
 }
 ALL_STEP_UP_ROUTES = STEP_UP_ROUTES | frozenset(CONDITIONAL_STEP_UP_ROUTES)
@@ -388,12 +433,16 @@ def test_routes_that_use_require_recent_mfa_are_exactly_the_step_up_routes():
     # Nothing outside the route handlers calls it (a helper would hide which
     # routes are covered).
     callers = []
-    for path in sorted(ROUTERS_DIR.glob("*.py")):
+    # rglob: router packages (routers/admin/, routers/listening/) count too;
+    # a package's __init__.py is the package module itself.
+    for path in sorted(ROUTERS_DIR.rglob("*.py")):
+        parts = path.relative_to(ROUTERS_DIR).with_suffix("").parts
+        module = ".".join(("routers",) + (parts[:-1] if parts[-1] == "__init__" else parts))
         for fn in ast.walk(ast.parse(path.read_text())):
             if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
                 isinstance(n, ast.Call) and _call_name(n) == "require_recent_mfa" for n in ast.walk(fn)
             ):
-                callers.append((f"routers.{path.stem}", fn.name))
+                callers.append((module, fn.name))
     handlers = {(r.endpoint.__module__, r.endpoint.__name__) for m, p, r in ROUTES if (m, p) in ALL_STEP_UP_ROUTES}
     assert set(callers) == handlers and len(callers) == len(ALL_STEP_UP_ROUTES)
 
@@ -450,8 +499,8 @@ def test_conditional_step_up_follows_the_guard_and_its_pure_normalization():
         assert _call_name(step_up.value) == "require_recent_mfa"
         assert [ast.unparse(a) for a in step_up.value.args] == [guard.targets[0].id, "authorization"]
         # The guard is the only call before the branch.
-        assert [n for n in ast.walk(normalize) if isinstance(n, ast.Call) and _call_name(n) != "strip"
-                and _call_name(n) != "lower"] == []
+        assert [n for n in ast.walk(normalize) if isinstance(n, ast.Call)
+                and _call_name(n) not in ("strip", "lower", "abs", "len")] == []
         seen.append((method, path))
     assert set(seen) == set(CONDITIONAL_STEP_UP_ROUTES)
 
@@ -459,7 +508,7 @@ def test_conditional_step_up_follows_the_guard_and_its_pure_normalization():
 def test_every_step_up_route_refuses_a_stale_totp_before_any_db_call(live_activation_gate, monkeypatch):
     TOKENS.clear()
     db = _DB()
-    for module in (admin_module, activation_gate):
+    for module in (admin_module, activation_gate, commerce_module):
         monkeypatch.setattr(module, "supabase_admin", db)
     monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient([]))
     monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)
@@ -502,7 +551,8 @@ def _refuse_every_step_up_route(token: str) -> dict:
 def step_up_db(live_activation_gate, monkeypatch):
     TOKENS.clear()
     db = _DB()
-    for module in (admin_module, activation_gate):
+    # services.credits: the grant-extra handler's own DB reads (G04-T12).
+    for module in (admin_module, activation_gate, commerce_module, credits_module):
         monkeypatch.setattr(module, "supabase_admin", db)
     monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient([]))
     monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)
@@ -558,3 +608,42 @@ def test_ordinary_branch_of_a_conditional_route_takes_no_step_up(step_up_db, mon
         with pytest.raises(HTTPException):  # the spy lets the guarded body through too
             _call_endpoint(route, method, f"Bearer {token}", spec["guarded"]())
     assert len(called) == len(CONDITIONAL_STEP_UP_ROUTES)  # only the guarded body called it
+
+
+# ── SA-2335-R7-C2: no admin route feeds client input into lifecycle writes ─
+
+
+_LIFECYCLE = ("expire_entitlements", "carry")
+
+
+def test_no_router_passes_client_input_to_expire_or_carry_writes():
+    """Only ``_expire_entitlements_after_confirm`` calls a lifecycle function
+    (``fn_credit_expire_entitlements``); its arguments are its own ``user_id``
+    parameter, constants and ``settings``, and the confirm route passes the
+    order's user read back from the database."""
+    found = []
+    for path in sorted(ROUTERS_DIR.glob("*.py")):
+        tree = ast.parse(path.read_text())
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for call in ast.walk(fn):
+                if not (isinstance(call, ast.Call) and call.args and isinstance(call.args[0], ast.Constant)
+                        and isinstance(call.args[0].value, str) and call.args[0].value.startswith("fn_")
+                        and any(word in call.args[0].value for word in _LIFECYCLE)):
+                    continue
+                found.append((path.stem, fn.name, call.args[0].value))
+                params = call.args[1]
+                assert isinstance(params, ast.Dict)
+                for value in params.values:
+                    ok = (isinstance(value, ast.Constant)
+                          or (isinstance(value, ast.Name) and value.id == "user_id")
+                          or (isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name)
+                              and value.value.id == "settings"))
+                    assert ok, (path.stem, fn.name, ast.unparse(value))
+    assert found == [("admin_commerce", "_expire_entitlements_after_confirm", "fn_credit_expire_entitlements")]
+    confirm_src = inspect.getsource(commerce_module.confirm)
+    calls = [n for n in ast.walk(ast.parse(confirm_src)) if isinstance(n, ast.Call)
+             and any(isinstance(a, ast.Name) and a.id == "_expire_entitlements_after_confirm" for a in n.args)]
+    assert [ast.unparse(c.args[1]) for c in calls] == ["order['user']['id']"]
+    assert "order = await _reload(order_id)" in confirm_src

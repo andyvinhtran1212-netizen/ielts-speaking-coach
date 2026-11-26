@@ -361,6 +361,10 @@
     postWith:  function (path, body, hdrs, opts) { return _apiRequest('POST',  path, body, false, hdrs, opts); },
     /** @template T @param {string} path @param {*} [body] @param {Record<string,string>} [hdrs] @param {*} [opts] @returns {Promise<T>} */
     patchWith: function (path, body, hdrs, opts) { return _apiRequest('PATCH', path, body, false, hdrs, opts); },
+    // LIBRARY-0061 T016: DELETE with a JSON body (a Library mark's item_key,
+    // which can hold a "/"), plus opts ({noRedirect:true} on public pages).
+    /** @template T @param {string} path @param {*} [body] @param {Record<string,string>} [hdrs] @param {*} [opts] @returns {Promise<T>} */
+    deleteWith: function (path, body, hdrs, opts) { return _apiRequest('DELETE', path, body, false, hdrs, opts); },
     // U-07: sign-out drops the keepalive token so no later request reuses it.
     clearAuthCache: function () { _lastToken = null; },
   };

@@ -5,8 +5,8 @@
  * Pins the markup + JS-module contract for the Cambridge IELTS tests
  * admin browser:
  *   - /pages/admin/listening/tests.html (filter + search + table)
- *   - /js/admin-listening-tests-list.js (GET /admin/listening/tests,
- *     pagination, status filter, search-by-test-id debounce)
+ *   - /js/admin-listening-tests-list.js was retired in LEGACYJS-0075 W1; the
+ *     Next owner is pinned by admin-listening-tests-next-behavior.test.mjs
  */
 
 import { test, describe } from 'node:test';
@@ -84,38 +84,3 @@ describe('Sprint 13.4 — tests page structure', () => {
 
 // ── Tests browser controller logic ──────────────────────────────────────────
 
-
-describe('Sprint 13.4 — tests list controller logic', () => {
-  const js = read('js', 'admin-listening-tests-list.js');
-
-  test('GET /admin/listening/tests called on mount', () => {
-    assert.match(
-      js,
-      /window\.api\.get\(\s*`?\/admin\/listening\/tests/,
-    );
-  });
-
-  test('status filter is wired into the query string', () => {
-    assert.match(js, /status:\s*STATE\.status/);
-  });
-
-  test('search debounced (setTimeout) before re-fetch', () => {
-    assert.match(js, /setTimeout/);
-    assert.match(js, /STATE\.search/);
-  });
-
-  test('row renders test_id + audio_ready_count + section_count', () => {
-    assert.match(js, /t\.test_id/);
-    assert.match(js, /audio_ready_count/);
-    assert.match(js, /section_count/);
-  });
-
-  test('row exposes status chip with is-<status> class', () => {
-    assert.match(js, /tl-chip is-\$\{escapeHtml\(t\.status\)\}/);
-  });
-
-  test('pagination prev/next buttons bound', () => {
-    assert.match(js, /tl-prev/);
-    assert.match(js, /tl-next/);
-  });
-});

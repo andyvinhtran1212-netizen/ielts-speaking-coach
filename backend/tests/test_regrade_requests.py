@@ -14,7 +14,18 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def _threshold(monkeypatch):
+    """The list reads ``regrade_hours`` from ops thresholds; keep it off the network."""
+    from routers import admin_writing_regrade as module
+
+    async def hours():
+        return 48
+    monkeypatch.setattr(module, "_regrade_hours", hours)
 
 
 def _app():
@@ -27,6 +38,7 @@ _ADMIN_USER = {"id": "00000000-0000-0000-0000-00000000aaaa"}
 _STUDENT = {"id": "00000000-0000-0000-0000-0000000000cc", "user_id": "u1"}
 _ESSAY = "00000000-0000-0000-0000-0000000000ee"
 _REQ = "00000000-0000-0000-0000-0000000000bb"
+_KEEP = "Band đã đúng theo descriptor: hai quan điểm có nêu nhưng chưa có ví dụ."  # ≥40
 _REASON = "Em nghĩ phần Task Response chưa được đánh giá đúng, vì em đã nêu đủ hai khía cạnh."  # ≥50
 
 
@@ -275,17 +287,50 @@ def test_admin_reject_requires_response():
 def test_admin_reject_persists_response():
     db = _rpc_db({"ok": True, "request": {
         "id": _REQ, "status": "rejected", "essay_id": _ESSAY,
-        "admin_response": "Band đã đúng theo descriptor.",
+        "admin_response": _KEEP,
     }})
     with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_regrade.supabase_admin", db), \
          patch("routers.admin_writing_regrade._decorate", side_effect=lambda rows: rows):
         r = TestClient(_app()).patch(f"/admin/writing/regrade-requests/{_REQ}",
-                                     json={"action": "reject", "response": "Band đã đúng theo descriptor."},
+                                     json={"action": "reject", "response": _KEEP},
                                      headers=_ADMIN_AUTH)
     assert r.status_code == 200
-    assert r.json()["admin_response"] == "Band đã đúng theo descriptor."
-    assert db.rpc.call_args.args[1]["p_response"] == "Band đã đúng theo descriptor."
+    assert r.json()["admin_response"] == _KEEP
+    assert db.rpc.call_args.args[1]["p_response"] == _KEEP
+
+
+def test_admin_keep_score_needs_a_40_character_explanation():
+    """FR-062: "Giữ nguyên điểm" (reject) is refused under 40 characters
+    after trimming, before any RPC runs."""
+    db = MagicMock()
+    short = "  " + "x" * 39 + "  "
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db):
+        r = TestClient(_app()).patch(f"/admin/writing/regrade-requests/{_REQ}",
+                                     json={"action": "reject", "response": short}, headers=_ADMIN_AUTH)
+    assert r.status_code == 400 and "40" in r.json()["detail"]
+    db.rpc.assert_not_called()
+
+
+def test_admin_list_carries_the_regrade_hours_threshold(monkeypatch):
+    from routers import admin_writing_regrade as module
+
+    db = _rpc_db({"requests": [], "capped": False})
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db):
+        r = TestClient(_app()).get("/admin/writing/regrade-requests", headers=_ADMIN_AUTH)
+    assert r.json()["regrade_hours"] == 48 and r.json()["thresholds_failed"] is False
+
+    async def down():
+        raise module.ops_thresholds.ThresholdsUnavailable("ops_thresholds_unavailable")
+    monkeypatch.undo()  # drop the autouse stub; fail the threshold store instead
+    monkeypatch.setattr(module.ops_thresholds, "get", down)
+    with patch("routers.admin_writing_regrade.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_regrade.supabase_admin", db):
+        r = TestClient(_app()).get("/admin/writing/regrade-requests", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    assert r.json()["regrade_hours"] is None and r.json()["thresholds_failed"] is True
 
 
 def test_admin_action_non_pending_409():

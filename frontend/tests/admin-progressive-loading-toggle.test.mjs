@@ -25,32 +25,11 @@ import path from 'node:path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const readJs = (name) => readFileSync(path.join(__dirname, '..', 'js', name), 'utf8');
-const readHtml = (...rel) => readFileSync(path.join(__dirname, '..', 'pages', ...rel), 'utf8');
 
 // (js file, wrapper id) — every admin list/table wrapper whose render path
 // toggles visibility by empty/non-empty result.
 const WRAPS = [
-  ['admin-access-codes.js', 'codes-table-wrap'],
-  ['admin-ai-usage.js', 'users-wrap'],
-  ['admin-alerts.js', 'alr-sessions-wrap'],
-  ['admin-alerts.js', 'alr-grading-wrap'],
-  ['admin-foot-traffic.js', 'ft-body'],
-  ['admin-users.js', 'usr-table-wrap'],
-  ['admin-error-logs.js', 'logs-table-wrap'],
-  ['admin-grammar-analytics.js', 'top-wrap'],
-  ['admin-grammar-analytics.js', 'saved-wrap'],
-  ['admin-grammar-analytics.js', 'zero-wrap'],
-  ['admin-grammar-articles.js', 'gra-table-wrap'],
   ['admin-reading.js', 'ar-list-table'],
-  ['admin-usage.js', 'usage-table-wrap'],
-  ['admin-usage.js', 'code-usage-table-wrap'],
-  ['admin-classes.js', 'list-table-wrap'],
-  ['admin-classes.js', 'roster-table-wrap'],
-  // NOTE: admin-listening-tests-list.js (tl-table-wrap) is intentionally not
-  // listed — renderRows() fetches the element into a local `tableWrap` var and
-  // toggles `tableWrap.hidden` (both true on empty and false on success), a
-  // different idiom from the `$('id').hidden = …` inline pattern this regex
-  // checks. It was never affected by the toggle-back bug.
 ];
 
 for (const [file, wrap] of WRAPS) {
@@ -76,23 +55,28 @@ for (const [file, wrap] of WRAPS) {
   });
 }
 
-// Category B — destructive controls on the listening test DETAIL page must be
-// gated on a successful fetch, never shown by default. A failed/unauthorized/
-// 404 load must not present archive + hard-delete buttons over un-loaded data
-// for the id taken from the URL.
-test('admin-listening-tests-detail: destructive section is gated on successful fetch', () => {
-  const html = readHtml('admin', 'listening', 'tests-detail.html');
-  const js = readJs('admin-listening-tests-detail.js');
-  // Hidden by default in HTML…
-  assert.match(
-    html,
-    /id="td-delete"[^>]*\shidden/,
-    '#td-delete (archive + hard-delete) must be hidden by default',
-  );
-  // …and revealed only inside render(), which runs only after fetchTest() succeeds.
-  assert.match(
-    js,
-    /getElementById\('td-delete'\)\.hidden\s*=\s*false/,
-    'render() must reveal #td-delete after a successful fetch',
-  );
-});
+// LEGACYJS-0075 W1: the listening test DETAIL guard (danger zone only after a
+// successful fetch) moved to admin-listening-test-detail-next-behavior.test.mjs
+// with the deletion of admin-listening-tests-detail.js.
+
+// LEGACYJS-0075 W3a: admin-access-codes.js (#codes-table-wrap) and
+// admin-users.js (#usr-table-wrap) are deleted; the Next /admin/users panels
+// render their tables from React state, with no hidden-toggle wrapper.
+// LEGACYJS-0075 W3b: admin-classes.js (#list-table-wrap, #roster-table-wrap)
+// is deleted; the Next class directory and class detail render their tables
+// from React state, with no hidden-toggle wrapper (admin-classes-next-behavior,
+// admin-class-detail-next-behavior).
+// LEGACYJS-0075 W4a: admin-ai-usage.js (#users-wrap), admin-alerts.js
+// (#alr-sessions-wrap, #alr-grading-wrap), admin-foot-traffic.js (#ft-body) and
+// admin-usage.js (#usage-table-wrap, #code-usage-table-wrap) are deleted; the
+// Next /admin/system/ai-usage, /admin/system/alerts, /admin/foot-traffic and
+// /admin/usage owners render their tables from React state, with no
+// hidden-toggle wrapper (admin-ai-usage-next-behavior, admin-alerts-next-behavior,
+// admin-foot-traffic-next-behavior, admin-usage-next-behavior).
+// LEGACYJS-0075 W4b: admin-error-logs.js (#logs-table-wrap),
+// admin-grammar-analytics.js (#top-wrap, #saved-wrap, #zero-wrap) and
+// admin-grammar-articles.js (#gra-table-wrap) are deleted; the Next
+// /admin/error-logs, /admin/grammar/analytics and /admin/grammar/articles owners
+// render from React state, with no hidden-toggle wrapper
+// (admin-error-logs-next-behavior, admin-grammar-analytics-next-behavior,
+// admin-grammar-articles-next-behavior).

@@ -17,11 +17,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(__dirname, '..', '..');
 const read = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 
-let html, js, sparkSrc;
-before(() => {
-  // dashboard-consolidation — the ops Dashboard was merged into Tổng quan.
-  html    = read('frontend/pages/admin/index.html');
-  js      = read('frontend/js/admin-dashboard.js');
+let html, tsx, css, layout, model, sparkSrc;
+before(async () => {
+  // LEGACYJS-0075 W4a — the ops Dashboard lives in the Next Tổng quan owner;
+  // the retired admin-dashboard.js controller is gone.
+  html     = read('frontend/pages/admin/index.html');
+  tsx      = read('frontend/app/(authed-admin)/(overview)/admin/admin-overview.tsx');
+  css      = read('frontend/public/css/admin-overview.css');
+  layout   = read('frontend/app/(authed-admin)/(overview)/layout.tsx');
+  model    = await import(path.join(REPO, 'frontend/lib/admin-overview-model.mjs'));
   sparkSrc = read('frontend/js/charts/sparkline.js');
 });
 
@@ -58,7 +62,7 @@ describe('charts/sparkline.js — zero-dep, pure, theme-aware', () => {
 });
 
 
-describe('dashboard page — tiles + sparklines + trends + attention', () => {
+describe('retired dashboard fixture (ADR-005) — tiles + sparklines + trends + attention', () => {
   test('loads the chart helper before the dashboard module', () => {
     assert.match(html, /js\/charts\/sparkline\.js/);
     const spark = html.indexOf('charts/sparkline.js');
@@ -102,28 +106,72 @@ describe('dashboard page — tiles + sparklines + trends + attention', () => {
 });
 
 
-describe('dashboard JS — dual fetch + graceful degradation', () => {
+describe('dashboard page — tiles + sparklines + trends + attention (Next owner)', () => {
+  test('renders sparklines with the native SVG helper, not a page script', () => {
+    assert.match(tsx, /function Sparkline\(/);
+    assert.match(tsx, /<svg className="av-spark"/);
+    assert.match(tsx, /stroke="currentColor"/);
+    assert.ok(!/charts\/sparkline\.js/.test(tsx), 'no legacy chart script on the Next route');
+  });
+
+  test('six KPI tiles preserved (labels stable)', () => {
+    for (const label of ['Tổng người dùng', 'Mã đã kích hoạt', 'Người xem', 'Bài practice đã hoàn thành', 'Phút chấm', 'Token đã gọi']) {
+      assert.match(tsx, new RegExp(`label=\\{?[\`"]${label}`), `${label} tile must exist`);
+    }
+  });
+
+  test('sparkline + delta slots on the trend-having tiles', () => {
+    assert.match(tsx, /series=\{trends\?\.visitors \|\| \[\]\}/);
+    assert.match(tsx, /series=\{trends\?\.practices \|\| \[\]\}/);
+    assert.match(tsx, /series=\{trends\?\.tokens \|\| \[\]\}/);
+    assert.match(tsx, /\{series && <Delta values=\{series\} \/>\}/);
+    assert.match(tsx, /\{series && <div className="db-card__spark"><Sparkline values=\{series\} \/><\/div>\}/);
+  });
+
+  test('trends panel with chart host + series tabs', () => {
+    assert.match(tsx, /id="trend-panel"/);
+    assert.match(tsx, /role="tablist" aria-label="Chỉ số xu hướng"/);
+    assert.match(tsx, /\['practices', 'visitors', 'tokens'\] as SeriesKey\[\]/);
+    assert.match(tsx, /<AreaChart values=\{series\}/);
+  });
+
+  test('"Cần chú ý" strip with error + writing-pending counts', () => {
+    assert.match(tsx, /Cần chú ý/);
+    assert.match(tsx, /ops\?\.attention\?\.errorsUndismissed/);
+    assert.match(tsx, /ops\?\.attention\?\.writingPending/);
+  });
+
+  test('reuses design primitives + tokens; no non-existent --av-color-error', () => {
+    // ADMINGROUP-0077 (#2480): the base sheets come from the (authed-admin) parent layout.
+    assert.match(read('frontend/app/(authed-admin)/layout.tsx'), /admin-components\.css/);
+    assert.match(layout, /admin-overview\.css/);
+    const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.ok(!/--av-color-error/.test(live), 'the banner must use --av-error, not the non-existent --av-color-error');
+    assert.match(css, /\.db-banner[\s\S]{0,200}var\(--av-error\)/);
+  });
+});
+
+
+describe('dashboard data — dual fetch + graceful degradation (Next owner)', () => {
   test('fetches BOTH overview and trends endpoints', () => {
-    assert.match(js, /\/admin\/dashboard\/overview\?visitors_window=/);
-    assert.match(js, /\/admin\/dashboard\/trends\?days=/);
+    assert.match(tsx, /getAdminDashboardOverview\(days\)/);
+    assert.match(tsx, /getAdminDashboardTrends\(days\)/);
   });
 
   test('trends fetch is best-effort — its failure does not block the tiles', () => {
-    // overview + trends are awaited in separate try/catch blocks.
-    assert.match(js, /catch[\s\S]{0,400}renderChart\(/);
-    assert.match(js, /renderOverview\(/);
+    assert.match(tsx, /trends fetch failed[\s\S]{0,80}setTrends\(null\)/);
+    assert.match(tsx, /const value = await opsRequest/);
   });
 
-  test('renders sparklines, deltas, chart, and attention counts', () => {
-    assert.match(js, /renderSpark\(/);
-    assert.match(js, /renderDelta\(/);
-    assert.match(js, /renderChart\(/);
-    assert.match(js, /a-errors/);
-    assert.match(js, /a-writing/);
+  test('model computes a P/P delta and SVG points for the chart', () => {
+    assert.deepEqual(model.periodDelta([1, 1, 1, 1, 2, 2, 2, 2]), { pct: 100, dir: 'up' });
+    assert.equal(model.periodDelta([1, 2]), null);
+    assert.equal(model.chartPoints([], 120, 28, 2).length, 0);
+    assert.equal(model.chartPoints([{ value: 1 }, { value: 4 }, { value: 2 }], 640, 160, 6).length, 3);
   });
 
   test('trend tab switch re-renders without re-fetching (uses cached series)', () => {
-    assert.match(js, /db-trend-tabs[\s\S]{0,300}renderChart\(/);
-    assert.match(js, /_trends\b/);
+    assert.match(tsx, /onClick=\{\(\) => setSeriesKey\(key\)\}/);
+    assert.match(tsx, /const series = trends\?\.\[seriesKey\] \|\| \[\]/);
   });
 });

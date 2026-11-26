@@ -68,6 +68,13 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/auth/check-active"): "the activation-status probe itself (AuthProvider, login)",
     ("POST", "/auth/activate"): "redeeming an access code is how an inactive account becomes active",
     ("GET", "/auth/profile"): "caller's own profile read (no learner content, no paid work); read by the G2 authed probe",
+    # ── One session per learner (COURSEACCESS-0055 T009) ─────────────────
+    # These run the session gate's own state read, so a not-yet-claimed
+    # session can see screen 8a/8b, claim, or sign out everywhere.
+    ("GET", "/api/account/session/status"): "single-session state probe; no learner content, no paid work",
+    ("POST", "/api/account/session/claim"): "single-session claim (\"Tiếp tục ở đây\"); refuses while timed work runs",
+    ("POST", "/api/account/sessions/revoke-all"): "sign out of every device; keeps a session in timed work until it ends",
+    ("GET", "/api/account/login-events"): "recent sign-ins of the caller's own current session (G04-T16); no learner content",
     # ── Unauthenticated infrastructure ───────────────────────────────────
     ("GET", "/api/public-stats"): "public marketing counter, no auth",
     ("GET", "/health"): "uptime probe, no auth",
@@ -79,6 +86,18 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/sitemap-grammar.xml"): "public SEO sitemap",
     ("POST", "/api/error-logs"): "client error ingestion; accepts anonymous reports by design",
     ("POST", "/api/analytics/events"): "page-view/analytics beacons; anonymous by design, user only attributed",
+    # ── Course access (COURSEACCESS-0055 plan 5.9) ───────────────────────
+    # An online enrollee stays inactive until an admin confirms the order.
+    ("GET", "/api/courses"): "public course catalogue; a token only adds the caller's own enrollment state",
+    ("GET", "/api/courses/{slug}"): "public course page; a token only adds the caller's own enrollment state",
+    ("GET", "/api/me/courses"): "caller's own courses and credits, read before activation (pending online enrollment)",
+    ("GET", "/api/me/credits"): "caller's own credit history (read-only), visible before activation",
+    ("POST", "/api/enrollment-orders"): "an online enrollee creates the order that, once confirmed, activates them",
+    ("GET", "/api/enrollment-orders/me"): "caller's own enrollment orders, read before the confirm that activates",
+    ("GET", "/api/enrollment-orders/{order_code}"): "caller's own order page with the transfer details",
+    ("POST", "/api/enrollment-orders/{order_code}/report-transfer"): "caller reports paying their own order",
+    ("POST", "/api/enrollment-orders/{order_code}/supplement"): "caller answers an admin's needs_info on their order",
+    ("POST", "/api/enrollment-orders/{order_code}/cancel"): "caller cancels their own open order",
     # ── Public content (Grammar Wiki, Vocabulary library, prompt bank) ───
     ("GET", "/api/grammar/home"): "public Grammar Wiki",
     ("GET", "/api/grammar/categories"): "public Grammar Wiki",
@@ -107,6 +126,15 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/library/writing-samples/index"): "public Library",
     ("GET", "/api/library/writing-samples/{slug}"): "public Library",
     ("GET", "/api/library/media/{shelf}/{key}/{asset}"): "public Library",
+    ("GET", "/api/library/writing-guides"): "public Library",
+    ("GET", "/api/library/writing-guides/index"): "public Library",
+    ("GET", "/api/library/writing-guides/{slug}"): "public Library",
+    ("GET", "/api/library/speaking"): "public Library",
+    ("GET", "/api/library/speaking/index"): "public Library",
+    ("GET", "/api/library/speaking/{slug}"): "public Library",
+    ("GET", "/api/library/me/marks"): "own library marks; no paid work (LIBRARY-0061 FR-061)",
+    ("PATCH", "/api/library/me/marks/{shelf}/{kind}"): "own library marks; no paid work (LIBRARY-0061 FR-061)",
+    ("DELETE", "/api/library/me/marks/{shelf}/{kind}"): "own library marks; no paid work (LIBRARY-0061 FR-061)",
     ("POST", "/api/feedback"): "content-error reports; anonymous Reading/Vocabulary reports allowed by design",
     # ── Reading share links (anonymous capability, X-Reading-Anon) ───────
     # These accept an anonymous share-link attempt OR the caller's own attempt.
@@ -255,6 +283,10 @@ async def _enforce(request: Request) -> None:
     from routers.auth import get_supabase_user  # local — routers.auth imports this module
     user = await get_supabase_user(authorization)
     await aensure_account_active(user["id"])
+    # COURSEACCESS-0055 T009: one current session per learner account (no-op
+    # while runtime flag single_session_learners is off).
+    from services import session_gate  # local — session_gate imports this module
+    await session_gate.ensure_current(user["id"], authorization, request.headers.get("user-agent"))
 
 
 async def require_active_learner(request: Request) -> None:
