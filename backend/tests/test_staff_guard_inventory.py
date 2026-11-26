@@ -361,6 +361,8 @@ STEP_UP_ROUTES = frozenset({
     ("PATCH", "/admin/users/{user_id}/role"),
     ("PATCH", "/admin/users/{user_id}/active"),
     ("POST", "/admin/users/{user_id}/revoke-sessions"),
+    # COURSEACCESS-0055 Q13 amendment (G04-T15): every class conversion.
+    ("POST", "/admin/credits/convert-class"),
     # ADMINIA-0074 FR-055: revoking a code in use from the danger zone.
     ("POST", "/admin/access-codes/{code_id}/revoke-used"),
 })
