@@ -4,18 +4,14 @@
 import 'server-only';
 
 import { cache } from 'react';
-import { ABORT_MS, API_BASE } from '@/lib/backend';
+import { getPublicJson } from '@/lib/backend';
 import { emptySiteInfo, normalizeSiteInfo, type SiteInfo } from '@/lib/site-info-model.mjs';
 
 export type { ContactRow, SiteContact, SiteEnroll, SiteInfo } from '@/lib/site-info-model.mjs';
 
 export const getSiteInfo = cache(async (): Promise<SiteInfo> => {
   try {
-    const response = await fetch(`${API_BASE}/api/public/site-info`, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(ABORT_MS),
-    });
-    if (response.ok) return normalizeSiteInfo(await response.json());
+    return normalizeSiteInfo(await getPublicJson('/api/public/site-info'));
   } catch {
     // A failed or malformed response keeps the public feature flags off.
   }
