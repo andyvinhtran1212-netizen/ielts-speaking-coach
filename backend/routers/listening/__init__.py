@@ -460,6 +460,34 @@ def _resolve_attempt_target(
     return exercise_row, content_row
 
 
+def _require_own_listening_session(user_id: str, listening_session_id: str) -> None:
+    """Báo cáo săn lỗi B2-12: `listening_session_id` đến thẳng từ body. Ghi
+    bằng `supabase_admin` (bỏ qua RLS) mà không kiểm chủ thì một người có thể
+    gắn lượt làm của mình vào phiên của người khác. Chỉ nhận phiên của chính
+    người gọi; id lạ (không phải UUID) hay phiên không tồn tại đều 404 như
+    nhau để không lộ phiên nào có thật.
+    """
+    try:
+        uuid.UUID(str(listening_session_id))
+    except (ValueError, TypeError):
+        raise HTTPException(404, "Không tìm thấy phiên nghe.") from None
+    try:
+        res = (
+            supabase_admin.table("listening_sessions")
+            .select("id")
+            .eq("id", str(listening_session_id))
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.error("[listening] session ownership lookup failed user=%s session=%s: %s",
+                     user_id, listening_session_id, e, exc_info=True)
+        raise HTTPException(503, "Không kiểm được phiên nghe. Vui lòng thử lại.") from None
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy phiên nghe.")
+
+
 def _insert_attempt(
     *,
     user_id: str,
@@ -484,6 +512,7 @@ def _insert_attempt(
         "audio_play_completed": listen_count >= 1,
     }
     if listening_session_id:
+        _require_own_listening_session(user_id, listening_session_id)
         row["listening_session_id"] = listening_session_id
     try:
         supabase_admin.table("listening_attempts").insert(row).execute()
@@ -1639,7 +1668,8 @@ async def get_listening_analytics(
         · avg_score  = % đúng TB (score/số câu) của lượt đầu ĐÃ NỘP, 0..1
         · completion = tỉ lệ lượt đã nộp / mọi lượt của loại đó
       - by_day: 14 ngày gần nhất (count + avg_score theo ngày)
-      - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...}
+      - recent_attempts: 10 lượt gần nhất {type, title, status, accuracy, ...};
+        lượt đã bỏ (`abandoned`) không vào lịch sử (EXAMLISTENT-0070 FR-012)
       - weakest_mode: loại có avg_score thấp nhất (≥3 lượt đã nộp), else null
 
     Per CLAUDE.md non-misleading-feedback rule: loại <3 lượt nộp không được
@@ -1780,6 +1810,11 @@ async def get_listening_analytics(
         })
     by_day.reverse()  # oldest first for chart rendering
 
+    # EXAMLISTENT-0070 FR-012: an abandoned attempt (the exam room's "Abandon
+    # test" or the old "start over") is not part of the learner's history.
+    # Engagement counts above (total_attempts, by_day, completion) keep it.
+    history = [r for r in flat if r["status"] != "abandoned"]
+
     report_only_rows = [r for r in flat if r["scoring_policy"] == "report_only"]
     report_only_submitted = [r for r in report_only_rows if r["status"] == "submitted"]
     return {
@@ -1787,7 +1822,7 @@ async def get_listening_analytics(
         "total_attempts":  len(flat),
         "by_mode":         by_mode,
         "by_day":          by_day,
-        "recent_attempts": flat[:10],
+        "recent_attempts": history[:10],
         "weakest_mode":    weakest_mode,
         "report_only": {
             "attempts_count": len(report_only_rows),

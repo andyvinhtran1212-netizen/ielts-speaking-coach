@@ -39,6 +39,11 @@ export function activeChangeBanner(requested, response) {
     return { kind: 'error', text: 'Backend trả kết quả tạm khóa/mở khóa không đúng định dạng. Hãy tải lại để xem trạng thái chuẩn.', retry: null };
   }
   if (requested === false) {
+    // Báo cáo săn lỗi #112: backend trả ok:false / is_active:true khi chưa
+    // khoá được — không được báo "Đã tạm khóa" cho tài khoản vẫn hoạt động.
+    if (ack.ok === false || ack.is_active !== false) {
+      return { kind: 'error', text: 'Chưa tạm khóa được — tài khoản vẫn hoạt động. Hãy thử lại.', retry: null };
+    }
     if (ack.sessions_revoked === false) {
       return { kind: 'warning', text: 'Đã tạm khóa nhưng chưa thu hồi được phiên — bấm Thu hồi phiên lại.', retry: 'revoke' };
     }

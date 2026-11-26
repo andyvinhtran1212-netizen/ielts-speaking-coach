@@ -1,0 +1,129 @@
+/* The new Today page (LEARNERCORE-0063 T14). Tokens only (`--av2-*`); the
+   G03 components bring their own styles. `home.css` stays loaded on /home, so
+   every colour, margin and link rule here is explicit. */
+
+.page {
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  box-sizing: border-box;
+}
+
+.main {
+  box-sizing: border-box;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--av2-space-6) var(--av2-space-4) var(--av2-space-10);
+  display: grid;
+  gap: var(--av2-space-6);
+}
+
+.header {
+  display: grid;
+  gap: var(--av2-space-2);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  line-height: var(--av2-lh-tight);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.block {
+  display: grid;
+  gap: var(--av2-space-3);
+  padding-top: var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: var(--av2-fs-16);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--av2-space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-3);
+  min-height: var(--av2-row);
+}
+
+.rowText {
+  display: grid;
+  gap: var(--av2-space-1);
+  min-width: 0;
+}
+
+.itemTitle {
+  margin: 0;
+  font-size: var(--av2-fs-15);
+  color: var(--av2-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-2);
+  font-size: var(--av2-fs-14);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-muted);
+}
+
+.creditRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--av2-space-3);
+}
+
+.creditNumber {
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  color: var(--av2-ink);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av2-space-3);
+}
+
+.link {
+  color: var(--av2-link);
+  text-decoration: underline;
+  font-size: var(--av2-fs-14);
+}
+
+.link:focus-visible {
+  outline: var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+@media (max-width: 767px) {
+  .main {
+    padding: var(--av2-space-4) var(--av2-space-4) calc(var(--av2-space-10) + var(--av2-bottombar-h));
+  }
+
+  .row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -60,7 +60,8 @@ Xem `rollout.md`.
 
 - `node --test frontend/tests/writing-draft-recovery.test.mjs`: bốn nhánh của FR-009,
   bài chỉ đọc, chủ khác, dán chữ (paste-log) không làm hỏi; `verifyLocalCopy` với bộ nhớ
-  từ chối ghi.
+  từ chối ghi. Test React: hai lần lưu chồng nhau chỉ có một `PATCH /draft` chạy, lần sau gửi
+  chữ mới nhất; `PATCH` trả 410 thì nộp tự động; mọi lời gọi có `noRedirect`.
 - Playwright `frontend/tests/writing-exam-room.spec.js` với `?exam_room=on` và API giả:
   nộp thiếu từ Task 1/Task 2, hộp hỏi lại, `dialog` = 0, offline → online, tải lại sau
   offline, hết giờ khi đang gõ (`page.clock`), 401 giữa bài, đóng X, hai tab.

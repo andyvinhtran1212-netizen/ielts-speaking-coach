@@ -86,7 +86,7 @@ These limits are a working agreement, not optional guidance:
 
 - Start normal feature, fix and content branches from `origin/staging`; their PR base is `staging`, never `main`.
 - A push to `staging` deploys the stable pre-production environment and runs integrated CI plus live Staging E2E on that exact SHA.
-- Production receives only a promotion PR with head `staging` and base `main`. Never merge the same feature independently into both branches. Direct feature PRs to `main` are rejected by CI.
+- Production receives only a promotion PR with head `staging` and base `main`, or with a pinned cut `release/<sha>` of an already integrated staging commit (Tuesday/Friday cadence, see the runbook). Never merge the same feature independently into both branches. Direct feature PRs to `main` are rejected by CI.
 - The required `Staging promotion gate` must confirm that the staging head has not moved and that exact-SHA integrated checks and live Staging E2E passed.
 - Apply migrations to staging before staging verification, then to production with the advisory-locked runner before promoting code that requires them.
 - See `docs/STAGING_FIRST_RELEASE_FLOW.md` for the operational runbook and emergency path.
