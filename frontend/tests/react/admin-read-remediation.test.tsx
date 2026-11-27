@@ -1,10 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { AdminGrammarArticles } from '@/app/(authed-admin-grammar-articles)/admin/grammar/articles/admin-grammar-articles';
+import { AdminGrammarArticles } from '@/app/(authed-admin)/(grammar-articles)/admin/grammar/articles/admin-grammar-articles';
 import { AdminListeningAudit } from '@/app/(authed-admin-listening)/admin/listening/audit/admin-listening-audit';
-import { AdminVocabEditorial } from '@/app/(authed-admin-vocab)/admin/vocab/curated/admin-vocab-editorial';
-import { AdminVocabPilotMetrics } from '@/app/(authed-admin-vocab)/admin/vocab/pilot-metrics/admin-vocab-pilot-metrics';
+import { AdminVocabEditorial } from '@/app/(authed-admin)/(vocab)/admin/vocab/curated/admin-vocab-editorial';
+import { AdminVocabPilotMetrics } from '@/app/(authed-admin)/(vocab)/admin/vocab/pilot-metrics/admin-vocab-pilot-metrics';
 
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), push: vi.fn(), replace: vi.fn() }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => navigation.params, useRouter: () => navigation }));

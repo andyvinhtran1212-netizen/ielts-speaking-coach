@@ -15,6 +15,10 @@ one still runs; any failure makes the exit code non-zero.
 4. ``fn_credit_expire_entitlements``: close lapsed credit books, carry and
    lapse carried credits (migration 385, G04-T12). Until 385 exists the
    function is missing and the step is skipped with a log line.
+5. ``fn_course_open_alerts_enqueue``: queue one ``course_open_alert`` per
+   "Báo cho tôi khi mở" sign-up of a course that is now open (G04-T17,
+   FR-050). The function and its table belong to G05-T22; until that
+   migration exists the step is skipped with a log line.
 7. Learner outbox dispatch (``services.learner_email.dispatch_due``).
 8. Account data (ACCOUNTDATA-0100, ``jobs.account_data_sweep``): erasure
    (dry-run until ``ACCOUNT_ERASURE_ENABLED``), export packages, export
@@ -23,9 +27,8 @@ one still runs; any failure makes the exit code non-zero.
    ``--erase``, which only the manual ``python -m jobs.account_data_sweep``
    takes.
 
-Steps 5 (course-open alerts, G04-T17) and 6 (login-event retention, G04-T16)
-are added by those tasks. Logs carry counts only: no e-mail, name, amount or
-order code.
+Step 6 (login-event retention, G04-T16) is added by that task. Logs carry
+counts only: no e-mail, name, amount or order code.
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ from services import learner_email
 logger = logging.getLogger("enrollment_sweep")
 
 BATCH = 500
+OPEN_ALERT_BATCH = 200   # plan 5.11: fn_course_open_alerts_enqueue(200)
 MAIL_BATCH = 50
 
 
@@ -85,6 +89,17 @@ def expire_entitlements() -> None:
         logger.info("[credits] lifecycle=%s count=%s", label, int(result.get(key) or 0))
 
 
+def enqueue_open_alerts() -> None:
+    try:
+        queued = eo.rpc_count("fn_course_open_alerts_enqueue", {"p_limit": OPEN_ALERT_BATCH})
+    except eo.OrdersUnavailable as exc:
+        if eo.is_missing_function(exc):
+            logger.info("[enroll] open_alerts skipped=no_function")
+            return
+        raise
+    logger.info("[enroll] open_alerts queued=%s", queued)
+
+
 def dispatch_mail() -> None:
     summary = asyncio.run(learner_email.dispatch_due(MAIL_BATCH))
     if not summary.ok:
@@ -102,6 +117,7 @@ def run(*, no_mail: bool = False) -> int:
         ("pay_reminders", queue_reminders),
         ("expire_reservations", expire_reservations),
         ("expire_entitlements", expire_entitlements),
+        ("open_alerts", enqueue_open_alerts),
     ]
     if not no_mail:
         steps.append(("dispatch_mail", dispatch_mail))

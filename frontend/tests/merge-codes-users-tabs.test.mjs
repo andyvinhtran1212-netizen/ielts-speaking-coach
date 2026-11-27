@@ -18,7 +18,10 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const HTML = read('pages', 'admin', 'users', 'index.html');
-const JS = read('js', 'admin-users.js');
+// LEGACYJS-0075 W3a: admin-users.js and admin-access-codes.js are deleted; the
+// Users tab is the Next panel and the sort lives in the model.
+const JS = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
+const MODEL = read('lib', 'admin-users-model.mjs');
 
 
 describe('merge-codes — 2-tab shell', () => {
@@ -39,8 +42,8 @@ describe('merge-codes — 2-tab shell', () => {
 
 
 describe('merge-codes — access-code module relocated VERBATIM (5 hazards intact)', () => {
-  // The module's own JS (admin-access-codes.js) is unchanged; here we assert its
-  // markup landed in the users page so its logic still finds its ids.
+  // Retired page markup (fixture, ADR-005); the live codes tab is the Next
+  // panel, pinned in admin-users-next-behavior.test.mjs.
   test('code table + toolbar present', () => {
     assert.match(HTML, /id="codes-tbody"/);
     assert.match(HTML, /id="btn-create"/);
@@ -69,24 +72,27 @@ describe('merge-codes — user tab merged code columns (READ-ONLY)', () => {
     assert.match(HTML, /<th>Quyền<\/th>/);
   });
   test('row renders code/type/permissions/status from code_summary', () => {
-    assert.match(JS, /u\.code_summary/);
-    assert.match(JS, /cs\.permissions/);
-    assert.match(JS, /has_active_code/);
-    assert.match(JS, /không có mã active/);   // inactive marker
+    assert.match(JS, /const summary = user\.code_summary;/);
+    assert.match(JS, /summary\.permissions/);
+    assert.match(JS, /summary\.has_active_code/);
+    assert.match(JS, /Không có mã active/);   // inactive marker
   });
   test('NO code-wide mutation on the user tab (no edit-perms/revoke/refill calls)', () => {
-    assert.doesNotMatch(JS, /\/refill|PATCH.*access-codes|revoke/i);
+    assert.doesNotMatch(JS, /\/refill/);
+    assert.doesNotMatch(JS, /patch[^\n]*access-codes/i);
+    assert.doesNotMatch(JS, /delete\(`\/admin\/access-codes\/\$\{[^}]+\}`\)/);   // code-wide revoke
   });
   test('"Gỡ khỏi mã" hits DELETE /access-codes/{id}/users/{uid} + refetches', () => {
-    assert.match(JS, /data-removecode=/);
-    assert.match(JS, /\/admin\/access-codes\/'[\s\S]*?\/users\/'/);
-    assert.match(JS, /function removeFromCode[\s\S]*?loadList\(\)/);   // canonical refetch
+    assert.match(JS, />Gỡ khỏi mã<\/button>/);
+    assert.match(JS, /window\.api\.delete\(`\/admin\/access-codes\/\$\{encodeURIComponent\(primary\.id\)\}\/users\/\$\{encodeURIComponent\(user\.id\)\}`\)/);
+    assert.match(JS, /await action\(\);[\s\S]+await loadUsers\(true\)/);   // canonical refetch
   });
   test('2-criteria sort (user + code) wired on sortable headers', () => {
-    assert.match(JS, /function compareUsers/);
-    assert.match(JS, /case 'code_type'/);
-    assert.match(JS, /case 'code_status'/);
-    assert.match(JS, /th\.usr-sortable\[data-sort\]/);
+    assert.match(MODEL, /export function selectUsers/);
+    assert.match(MODEL, /field === 'code_type'/);
+    assert.match(MODEL, /field === 'code_status'/);
+    assert.match(JS, /<SortButton field="code_type"/);
+    assert.match(JS, /<SortButton field="code_status"/);
   });
 });
 
@@ -104,21 +110,23 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
   };
   const chrome = read('js', 'components', 'aver-admin-chrome.js');
 
-  test('/admin/access-codes redirects to the users page codes tab', () => {
+  test('/admin/access-codes redirects to the activation-code ledger (ADMINIA-0074 FR-048)', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/admin/access-codes');
     assert.ok(r, 'missing /admin/access-codes redirect');
-    assert.equal(r.destination, '/admin/users?tab=codes');
+    assert.equal(r.destination, '/admin/activation-codes');
     assert.equal(r.permanent, true, 'retired alias must remain canonical and cache-stable');
   });
-  test('the old access-codes page path also redirects to the codes tab', () => {
+  test('the old access-codes page path still lands on the codes tab URL, which 307s to the ledger', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/pages/admin/access-codes/index.html');
     assert.ok(r);
     assert.equal(r.destination, '/admin/users?tab=codes');
     assert.equal(r.permanent, true);
+    assert.match(NEXT_CONFIG, /source: '\/admin\/users',\s+has: \[\{ type: 'query', key: 'tab', value: 'codes' \}\],\s+destination: '\/admin\/activation-codes',\s+permanent: false,/);
   });
-  test('nav no longer carries a standalone access-codes entry', () => {
+  test('nav links the native ledger, never the retired access-codes page', () => {
     assert.doesNotMatch(chrome, /href:\s*'\/pages\/admin\/access-codes\/index\.html'/);
-    // the native users entry remains the single door into both tabs
     assert.match(chrome, /href:\s*'\/admin\/users'/);
+    // ADMINIA-0074 FR-048: codes have their own ledger page again.
+    assert.match(chrome, /section: 'access-codes', label: 'Mã kích hoạt', href: '\/admin\/activation-codes'/);
   });
 });

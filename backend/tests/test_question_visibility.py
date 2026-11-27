@@ -87,9 +87,9 @@ def test_every_reader_of_the_questions_table_is_accounted_for():
     root = pathlib.Path(__file__).resolve().parents[1]
     hits = set()
     for d in ("routers", "services"):
-        for f in (root / d).glob("*.py"):
+        for f in (root / d).rglob("*.py"):
             if re.search(r'table\("questions"\)', f.read_text(encoding="utf-8")):
-                hits.add(f"{d}/{f.name}")
+                hits.add(f"{d}/{f.relative_to(root / d).as_posix()}")
 
     # Mỗi mục là một lời khẳng định đã KIỂM, không phải một danh sách bỏ qua.
     known = {
@@ -97,7 +97,7 @@ def test_every_reader_of_the_questions_table_is_accounted_for():
         "routers/sessions.py",       # GET /sessions/{id} đã lọc; hai chỗ khác không lấy chữ
         "routers/grading.py",        # chỉ đọc để CHẤM, không trả về client
         "routers/pronunciation.py",  # select("id, part") — không lấy chữ
-        "routers/admin.py",          # màn admin: giáo viên ĐƯỢC xem đề
+        "routers/admin/sessions.py",  # màn admin: giáo viên ĐƯỢC xem đề
         "services/pdf_generator.py", # lọc khi phiên chưa hoàn thành
     }
     assert hits == known, (

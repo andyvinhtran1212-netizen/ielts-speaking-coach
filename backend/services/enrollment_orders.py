@@ -158,9 +158,9 @@ class InvalidArgument(Exception):
         self.message = message
 
 
-def rpc(name: str, params: dict) -> dict:
+def _call(name: str, params: dict):
     try:
-        raw = supabase_admin.rpc(name, params).execute().data
+        return supabase_admin.rpc(name, params).execute().data
     except APIError as exc:
         if str(getattr(exc, "code", "")) == "22023":
             raise InvalidArgument(str(getattr(exc, "message", "") or exc)) from exc
@@ -169,7 +169,21 @@ def rpc(name: str, params: dict) -> dict:
     except Exception as exc:
         logger.warning("[enroll] rpc=%s failed: %s", name, type(exc).__name__)
         raise OrdersUnavailable(name) from exc
-    return _unwrap(raw)
+
+
+def rpc(name: str, params: dict) -> dict:
+    return _unwrap(_call(name, params))
+
+
+def rpc_count(name: str, params: dict) -> int:
+    """An RPC that RETURNS integer (G05's ``fn_course_open_alerts_enqueue``)."""
+    raw = _call(name, params)
+    value = raw[0] if isinstance(raw, list) and len(raw) == 1 else raw
+    if isinstance(value, dict) and len(value) == 1:
+        value = next(iter(value.values()))
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise OrdersUnavailable("unexpected_rpc_shape")
+    return value
 
 
 async def arpc(name: str, params: dict) -> dict:
@@ -269,17 +283,22 @@ def iso(value) -> Optional[str]:
 
 
 def _vietqr_payload(cfg: EnrollmentConfig, amount: int, memo: str) -> Optional[str]:
-    """EMVCo string from services.vietqr (G05-T11). Until that module lands
-    the field is null; the PR that adds it wires nothing else."""
+    """EMVCo string from services.vietqr (G05-T11, #2486). Until that module
+    lands the field is null; the PR that adds it wires nothing else.
+
+    Only ``ValueError`` (the module's answer to a bank setting or amount it
+    rejects) becomes null: the order page still shows the account and the
+    memo. Any other error, a ``TypeError`` from a changed signature above all,
+    is a contract bug and must surface instead of silently hiding the QR."""
     try:
         from services import vietqr  # type: ignore[attr-defined]
     except ImportError:
         return None
     try:
         return vietqr.build_payload(bank_bin=cfg.bank_bin, account_no=cfg.account_no,
-                                    amount_vnd=amount, memo=memo)
-    except Exception as exc:  # never break the order page over the QR
-        logger.warning("[enroll] vietqr payload failed: %s", type(exc).__name__)
+                                    amount_vnd=amount, note=memo)
+    except ValueError as exc:
+        logger.warning("[enroll] vietqr payload rejected the transfer settings: %s", exc)
         return None
 
 

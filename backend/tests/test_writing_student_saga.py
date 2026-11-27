@@ -554,3 +554,25 @@ def test_submit_falls_back_to_level_3_when_assignment_has_none(monkeypatch):
     ))
     assert captured["row"]["data"]["analysis_level"] == 3
     assert captured["sched"]["analysis_level"] == 3
+
+
+def test_inactive_account_cannot_submit(monkeypatch):
+    """Báo cáo săn lỗi B2-16: route nộp bài tự kiểm quyền Writing nhưng quên
+    chốt tài khoản (W-03). Tài khoản bị khoá phải bị chặn TRƯỚC khi tạo bài."""
+    from services import activation_gate
+    client = _Client(assignment_status="in_progress")
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    _patch_saga_service(monkeypatch)
+    monkeypatch.setattr(activation_gate, "account_is_active", lambda _uid: False)
+
+    bg = MagicMock(); bg.add_task = MagicMock()
+    with pytest.raises(HTTPException) as exc:
+        _run(submit_my_assignment(
+            assignment_id=_ASSIGNMENT_ID,
+            body=SubmitEssay(essay_text=_LONG),
+            background_tasks=bg,
+            student=_student(),
+        ))
+    assert exc.value.status_code == 403
+    assert not any(rec[1]["table"] == "writing_essays" for rec in client.calls)
+    bg.add_task.assert_not_called()

@@ -297,6 +297,41 @@ export function displayItemKey(value, grammar) {
   return grammar ? text.replaceAll('-', ' ') : text;
 }
 
+/**
+ * EXAMDRILL-0073 FR-011: a grammar point as the learner reads it. The bank's own
+ * name (`meta.item_labels` / `meta.point_labels`, a string or `{ title | label }`)
+ * when it has one, else "Điểm ngữ pháp N" by first appearance in the bank. The
+ * key itself is never shown. Vocabulary keys are the word, so they stay.
+ */
+export function displayPointLabel(bank, key) {
+  const text = String(key || '');
+  if (bank?.bank?.skill_area !== 'grammar') return text;
+  const meta = bank?.bank?.meta && typeof bank.bank.meta === 'object' ? bank.bank.meta : {};
+  for (const pool of [meta.item_labels, meta.point_labels]) {
+    const named = pool && typeof pool === 'object' && !Array.isArray(pool) && Object.hasOwn(pool, text) ? pool[text] : null;
+    const name = typeof named === 'string' ? named : named && typeof named === 'object' ? (named.title || named.label) : null;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  }
+  const keys = [];
+  for (const question of Array.isArray(bank?.questions) ? bank.questions : []) {
+    if (question?.item_key && !keys.includes(question.item_key)) keys.push(question.item_key);
+  }
+  const index = keys.indexOf(text);
+  return index >= 0 ? `Điểm ngữ pháp ${index + 1}` : 'Điểm ngữ pháp';
+}
+
+/**
+ * EXAMDRILL-0073 FR-008: "Câu N" (questions shown in this run, repeats
+ * included) and the mastery count. The mastery engine never knows the run's
+ * length ahead, so there is no "trên M".
+ */
+export function quizCounterText(questionNo, progress, grammar) {
+  const n = Math.max(1, Math.floor(Number(questionNo) || 0));
+  const mastered = Math.max(0, Number(progress?.mastered) || 0);
+  const total = Math.max(0, Number(progress?.total) || 0);
+  return `Câu ${n} · ${grammar ? 'Đã nắm' : 'Đã thuộc'} ${mastered}/${total}`;
+}
+
 export function stripAudioToken(value) {
   return String(value || '').replace(/\s*(?:\*\*)?\{\{audio\}\}(?:\*\*)?\s*/g, ' ').trim();
 }
@@ -371,6 +406,26 @@ export function quizResultModel(summary, durationSeconds, saved) {
     carriedKeys: Array.isArray(summary?.carried_keys) ? summary.carried_keys.map(String) : [],
     hardest: summary?.hardest && typeof summary.hardest === 'object' ? summary.hardest : null,
     saved: saved === true,
+  });
+}
+
+/**
+ * Running total for a Quick Check reopened after earlier answers (FR-02-006).
+ * `resume` is the word_stats list the session STARTED with (saved answers from
+ * earlier runs of this bank); `summary` is this run's engine summary. Returns
+ * null when nothing had been answered before, so a first run shows no total.
+ */
+export function quizCumulativeModel(resume, summary) {
+  let priorCorrect = 0;
+  let priorWrong = 0;
+  for (const row of Array.isArray(resume) ? resume : []) {
+    priorCorrect += Math.max(0, Number(row?.correct_count) || 0);
+    priorWrong += Math.max(0, Number(row?.wrong_count) || 0);
+  }
+  if (priorCorrect + priorWrong <= 0) return null;
+  return Object.freeze({
+    correct: priorCorrect + Math.max(0, Number(summary?.total_correct) || 0),
+    wrong: priorWrong + Math.max(0, Number(summary?.total_wrong) || 0),
   });
 }
 

@@ -57,8 +57,16 @@ def test_spec_minimum_list_0055_c2():
     }
     for (table, column), action in expect.items():
         assert inv.action_for(table, column) == action, (table, column)
-    notes = [e for e in inv.UPCOMING if e.table == "learner_care_notes"]
+    notes = [e for e in inv.INVENTORY if e.table == "learner_care_notes"]
     assert notes and all(e.action == "delete" and not e.export for e in notes)  # Q7
+
+
+def test_mock_invitations_are_removed_and_settlement_evidence_is_retained():
+    for column in ("student_id", "user_id"):
+        entry = inv.entry_for("mock_exam_audiences", column)
+        assert entry.action == "delete" and not entry.export
+    settlement = inv.entry_for("credit_attempt_outcomes", "user_id")
+    assert settlement.action == "keep" and not settlement.export
 
 
 def test_storage_is_only_audio_and_exports():

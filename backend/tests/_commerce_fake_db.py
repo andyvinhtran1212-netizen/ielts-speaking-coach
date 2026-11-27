@@ -38,7 +38,9 @@ class _Query:
     def __init__(self, db, table):
         self._db, self._table = db, table
         self._filters, self._order, self._limit = [], [], None
+        self._offset = 0
         self._update = None
+        self._insert = None
         self._count = None
 
     # ── builder ──
@@ -48,6 +50,10 @@ class _Query:
 
     def update(self, values):
         self._update = dict(values)
+        return self
+
+    def insert(self, row):
+        self._insert = dict(row)
         return self
 
     def eq(self, column, value):
@@ -104,11 +110,24 @@ class _Query:
         self._limit = n
         return self
 
+    def range(self, start, end):
+        self._offset, self._limit = start, end - start + 1
+        return self
+
     def execute(self):
-        self._db.calls.append((self._table, "update" if self._update is not None else "select"))
+        op = "insert" if self._insert is not None else "update" if self._update is not None else "select"
+        self._db.calls.append((self._table, op))
         if self._table in self._db.broken:
             raise RuntimeError(f"{self._table} down")
+        if op != "select" and self._table in self._db.write_errors:
+            raise self._db.write_errors[self._table]
+        if self._insert is not None:
+            row = {"id": f"{self._table}-{len(self._db.tables.setdefault(self._table, [])) + 1}", **self._insert}
+            self._db.tables[self._table].append(row)
+            return _Result([copy.deepcopy(row)])
         rows = [r for r in self._db.tables.setdefault(self._table, []) if all(f(r) for f in self._filters)]
+        if self._db.max_rows is not None and self._update is None:
+            self._limit = min(self._limit if self._limit is not None else self._db.max_rows, self._db.max_rows)
         if self._update is not None:
             for r in rows:
                 r.update(self._update)
@@ -118,7 +137,7 @@ class _Query:
                       reverse=desc)
         count = len(rows) if self._count else None
         if self._limit is not None:
-            rows = rows[: self._limit]
+            rows = rows[self._offset: self._offset + self._limit]
         return _Result(copy.deepcopy(rows), count)
 
 
@@ -142,6 +161,8 @@ class FakeDB:
         self.tables = tables or {}
         self.handlers = handlers or {}
         self.broken: set[str] = set()
+        self.write_errors: dict = {}   # table → exception raised by an insert/update
+        self.max_rows = None   # PostgREST's response cap (1000 on Supabase) when set
         self.calls: list = []
         self.rpcs: list = []
 

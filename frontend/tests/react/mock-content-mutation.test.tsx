@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ExamContentLibrary } from '@/app/(authed-admin-mock-exams)/admin/mock-exams/exam-content-library';
+import { ExamContentLibrary } from '@/app/(authed-admin)/(mock-exams)/admin/mock-exams/exam-content-library';
 import { getAdminExamContentPage } from '@/lib/admin-exam-content-api';
 
 vi.mock('@/lib/admin-exam-content-api', () => ({ getAdminExamContentPage: vi.fn() }));
