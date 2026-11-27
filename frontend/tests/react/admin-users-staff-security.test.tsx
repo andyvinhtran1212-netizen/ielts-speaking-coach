@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import { AdminUsersPanel } from '@/app/(authed-admin-users)/admin/users/admin-users-panel';
+import { AdminUsersPanel } from '@/app/(authed-admin)/(users)/admin/users/admin-users-panel';
 
 // ADMINAAL2-0032 T011: suspend/reactivate through the reason dialog, the
 // revoke retry, the FR-019 role refusal and "Lịch sử quyền", all against a

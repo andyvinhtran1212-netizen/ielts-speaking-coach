@@ -45,10 +45,18 @@ test('held courses come from access items in force, matched by product slug', ()
 test('a legacy class-code holding (no product) is matched by course code', () => {
   const prods = [{ id: 'p1', course_id: C1, slug: 'a' }, { id: 'p2', course_id: C2, slug: 'b' }];
   const legacy = [{ product_slug: null, course_code: 'K2', state: 'active' }, { product_slug: null, course_code: 'K1', state: 'expired' }];
-  assert.equal(needsCourseCodes(legacy), true);
-  assert.equal(needsCourseCodes([{ product_slug: 'a', course_code: 'K1', state: 'active' }]), false);
+  assert.equal(needsCourseCodes(legacy, prods), true);
+  assert.equal(needsCourseCodes([{ product_slug: 'a', course_code: 'K1', state: 'active' }], prods), false);
   assert.deepEqual(heldFromAccess(legacy, prods, [{ id: C1, code: 'K1' }, { id: C2, code: 'K2' }]), [C2]);
   assert.deepEqual(heldFromAccess(legacy, prods), [], 'no course list, nothing guessed');
+});
+
+test('an active entitlement from an archived product excludes its course', () => {
+  const access = [{ product_slug: 'archived-product', course_code: 'K2', state: 'active' }];
+  assert.equal(needsCourseCodes(access, products), true);
+  const holding = heldFromAccess(access, products, [{ id: C2, code: 'K2' }]);
+  assert.deepEqual(holding, [C2]);
+  assert.deepEqual(practiceProducts(products, { users: [A], heldCourseIds: { [A.id]: holding } }).map((p) => p.id), ['p1']);
 });
 
 test('a single course is preselected with its own review mode', () => {

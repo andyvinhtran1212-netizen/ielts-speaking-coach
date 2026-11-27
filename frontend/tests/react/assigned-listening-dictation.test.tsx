@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { AdminClassHomework } from '@/app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-homework';
+import { AdminClassHomework } from '@/app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-homework';
 import { ResultView } from '@/app/(authed-listening-player)/listening/test/session/listening-test-session';
 
 vi.mock('@/components/exercise-book/exercise-book-entry', () => ({ ExerciseBookAdminEntry: () => null }));

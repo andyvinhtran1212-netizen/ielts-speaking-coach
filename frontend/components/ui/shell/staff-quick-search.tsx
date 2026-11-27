@@ -163,7 +163,7 @@ export function StaffQuickSearch({ search, placeholder, open, onOpenChange }: St
             onChange={(event) => run(event.target.value)}
             onKeyDown={onKeyDown}
           />
-          <kbd className={styles.kbd} aria-hidden="true">{open ? 'Esc' : mac ? '⌘K' : 'Ctrl K'}</kbd>
+          <kbd className={styles.kbd} aria-hidden="true">{open ? 'Esc' : mac ? 'Cmd K' : 'Ctrl K'}</kbd>
         </label>
         {expanded ? (
           <div className={styles.searchPanel}>

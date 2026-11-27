@@ -97,9 +97,9 @@ export function PracticeGrantForm({ open, users, excludeCourseIds = NO_IDS, onCl
         }
         const items = out.items ?? [];
         const holdings = reads.map((r) => (r as PromiseFulfilledResult<{ items: Holding[] }>).value.items);
-        // A legacy class code names only its course code: read course codes
-        // so that course is left out too. A failed read blocks the form.
-        const courses = holdings.some((h) => needsCourseCodes(h)) ? (await getCourseCodes()).courses ?? [] : [];
+        // Legacy codes and holdings whose product is archived need the
+        // course-code lookup. A failed read blocks the form.
+        const courses = holdings.some((h) => needsCourseCodes(h, items)) ? (await getCourseCodes()).courses ?? [] : [];
         if (!live) return;
         const held: HeldCourseIds = {};
         holdings.forEach((h, i) => { held[ids[i]] = heldFromAccess(h, items, courses); });

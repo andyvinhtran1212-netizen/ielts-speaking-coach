@@ -15,7 +15,7 @@ export function StaffShellSection({ title }: { title: string }) {
       <h2 id="staff-shell-h">{title}</h2>
       <p>
         Khung quản trị đổi theo bề rộng cửa sổ: từ 1200px thanh bên có chữ; 768–1199px chỉ biểu tượng; dưới 768px
-        nút menu mở ngăn kéo. Bấm ⌘K hoặc Ctrl+K rồi gõ &ldquo;minh&rdquo;; bấm tên nhóm để thu hoặc mở.
+        nút menu mở ngăn kéo. Bấm Cmd K hoặc Ctrl K rồi gõ &ldquo;minh&rdquo;; bấm tên nhóm để thu hoặc mở.
       </p>
       <h3>Quản trị · Production · trang hiện tại Chấm bài › Writing</h3>
       <StaffShellDemo testId="staff-shell-admin" />

@@ -41,8 +41,8 @@ export function practiceProducts(products, { excludeCourseIds = [], users = [], 
 /**
  * Course ids a learner holds in force, from G04 `GET /admin/users/{id}/access`
  * items. An entitlement names its product by slug, matched to
- * `/admin/course-products`. Access with no product (a legacy class code) names
- * only the course code, matched to `/admin/courses` (`courses`: id and code).
+ * `/admin/course-products`. When the slug is absent from that catalog, use the
+ * access row's course code. An archived product can still confer active access.
  */
 export function heldFromAccess(items, products, courses = []) {
   const bySlug = new Map((products ?? []).filter((p) => p.slug).map((p) => [String(p.slug), String(p.course_id)]));
@@ -50,16 +50,18 @@ export function heldFromAccess(items, products, courses = []) {
   const out = new Set();
   for (const item of items ?? []) {
     if (item?.state !== 'active') continue;
-    const course = item.product_slug ? bySlug.get(String(item.product_slug))
-      : item.course_code ? byCode.get(String(item.course_code)) : undefined;
+    const productCourse = item.product_slug ? bySlug.get(item.product_slug) : undefined;
+    const course = productCourse ?? (item.course_code ? byCode.get(item.course_code) : undefined);
     if (course) out.add(course);
   }
   return [...out];
 }
 
-/** True when an access item in force can only be matched by its course code (FR-045 legacy class code). */
-export function needsCourseCodes(items) {
-  return (items ?? []).some((item) => item?.state === 'active' && !item.product_slug && item.course_code);
+/** True when a holding needs its course code because the catalog cannot resolve its slug. */
+export function needsCourseCodes(items, products) {
+  const slugs = new Set((products ?? []).map((product) => product.slug));
+  return (items ?? []).some((item) =>
+    item?.state === 'active' && item.course_code && (!item.product_slug || !slugs.has(item.product_slug)));
 }
 
 export function grantDraft(products) {
