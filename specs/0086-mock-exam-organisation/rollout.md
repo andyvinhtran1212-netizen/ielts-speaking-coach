@@ -15,7 +15,7 @@
 
 Giữ `mock_exam_audiences_learner` tắt trong khi thực hiện các bước 445, backend tương thích và 446. Trước khi mở cho học viên, kiểm sổ migration của đúng môi trường và định nghĩa đang cài của cả `public.fn_mock_section_valid(text,jsonb,jsonb)` và `public.fn_guard_owned_mock_attempt(text,jsonb,text)`. Cả hai phải giới hạn theo môn được giao cho từng học viên. Nếu sổ đã ghi 446 nhưng một trong hai hàm còn định nghĩa cũ, bổ sung migration mới theo thứ tự tăng và xin duyệt cho môi trường đó. Giữ nguyên dòng 446 trong sổ.
 
-Dùng hai học viên QA trong cùng kỳ live, một người chỉ được giao Reading, người kia chỉ được giao Listening. Với từng người, kiểm đường chọn đề và đường bắt đầu lượt làm đều cho phép môn được giao và từ chối môn còn lại. Ghi kết quả cho cả hai tài khoản trước khi mở cờ cho học viên.
+Dùng hai học viên QA trong cùng kỳ live, một người chỉ được giao Reading, người kia chỉ được giao Listening. Khi giám thị mở từng môn, kiểm cả bước mở đề và bước nộp bài. Cả hai bước phải cho phép học viên được giao môn đó và từ chối học viên còn lại. Ghi kết quả cho cả hai tài khoản trước khi mở cờ cho học viên.
 
 ## Production
 
