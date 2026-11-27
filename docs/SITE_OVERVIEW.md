@@ -176,6 +176,12 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/library/writing-guides` | all | Kiến thức Writing, no login: guides in four groups (Task 1, Task 2, Tiêu chí chấm, Dạng đề) from `/api/library/writing-guides`. |
 | `/library/writing-guides/[slug]` | all | One Writing guide, no login: reading layout with contents, quotes from published Writing samples, prev/next within its group. |
 
+### 4.7a2 Public — Courses
+
+| Page | Audience | Purpose · operation |
+|---|---|---|
+| `/courses` | all | Course catalogue (PUBLICSITE-0059 T04), 404 until the build flag `AVER_PUBLIC_COMMERCE=1`: one row per course from `GET /api/courses` with its state (open / upcoming / learning / expired), fee only when open, a comparison table and a short chooser; upcoming rows carry "Báo cho tôi khi mở". A signed-in visitor's own states are read in the browser. |
+
 ### 4.7b Student — classes and course work
 
 | Page | Audience | Purpose · operation |

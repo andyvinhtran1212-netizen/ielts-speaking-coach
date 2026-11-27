@@ -32,6 +32,10 @@ test('FR-008: enrolled with days_left ≤ 0 is "Hết hạn"; labels match the s
   assert.equal(courseRowLabel({ status: 'open', viewer: { state: 'enrolled', days_left: 12 } }), 'Bạn đang học · còn 12 ngày');
   assert.equal(courseRowLabel({ status: 'open', viewer: { state: 'guest' } }), 'Đang mở đăng ký');
   assert.equal(courseRowLabel({ status: 'coming_soon', viewer: { state: 'guest' } }), 'Sắp mở');
+  // Andy 23/11: a closed course is "Tạm đóng đăng ký", not "Sắp mở".
+  assert.equal(courseRowLabel({ status: 'closed', viewer: { state: 'guest' } }), 'Tạm đóng đăng ký');
+  assert.equal(courseRowLabel({ status: 'closed', viewer: { state: 'enrolled', days_left: 3 } }), 'Bạn đang học · còn 3 ngày');
+  assert.equal(courseRowLabel({ status: 'closed', viewer: { state: 'expired' } }), 'Hết hạn');
 });
 
 test('orderScreen maps every G04 order status (ENROLL-0060 FR-037)', () => {
@@ -76,8 +80,9 @@ test('formatVnd(null) === null; amounts use the Vietnamese grouping', () => {
 });
 
 test('catalogCounts on the one-open catalogue; bundle threshold', () => {
-  assert.deepEqual(catalogCounts(fixture('catalog-one-open.json').items), { open: 1, upcoming: 5 });
-  assert.deepEqual(catalogCounts(fixture('catalog-two-open.json').items), { open: 2, upcoming: 4 });
-  assert.deepEqual(catalogCounts(null), { open: 0, upcoming: 0 });
+  assert.deepEqual(catalogCounts(fixture('catalog-one-open.json').items), { open: 1, upcoming: 5, closed: 0 });
+  assert.deepEqual(catalogCounts(fixture('catalog-two-open.json').items), { open: 2, upcoming: 4, closed: 0 });
+  assert.deepEqual(catalogCounts(null), { open: 0, upcoming: 0, closed: 0 });
+  assert.deepEqual(catalogCounts([{ status: 'open' }, { status: 'closed' }, { status: 'coming_soon' }]), { open: 1, upcoming: 1, closed: 1 });
   assert.equal(COURSE_BUNDLE_MIN_OPEN, 2);
 });
