@@ -68,7 +68,11 @@ export function Timer({ mode = 'countdown', seconds, lang = 'vi', label, max, th
   }, [mode, seconds]);
 
   useEffect(() => {
-    if (!mark || announced.current.has(mark.at)) return;
+    if (!mark) {
+      setMessage('');
+      return;
+    }
+    if (announced.current.has(mark.at)) return;
     announced.current.add(mark.at);
     setMessage(mark.announce ?? mark.label);
   }, [mark]);

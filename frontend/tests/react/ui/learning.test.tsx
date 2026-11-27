@@ -165,6 +165,18 @@ describe('Timer', () => {
     expect(live.textContent).toBe('5 minutes left. The test will submit automatically.');
   });
 
+  it('clears a single countup warning so the next part can announce it again', () => {
+    const threshold = [{ at: 105, label: 'Còn 15 giây' }];
+    const timer = (seconds: number) => <Timer mode="countup" label="Đang ghi âm" seconds={seconds} thresholds={threshold} />;
+    const { container, rerender } = render(timer(105));
+    const live = container.querySelector('[aria-live="polite"]')!;
+    expect(live.textContent).toBe('Còn 15 giây');
+    rerender(timer(0));
+    expect(live.textContent).toBe('');
+    rerender(timer(105));
+    expect(live.textContent).toBe('Còn 15 giây');
+  });
+
   it('countup shows the limit in the page language', () => {
     render(<Timer mode="countup" label="Đang ghi âm" seconds={65} max={120} />);
     expect(screen.getByText('1:05')).toBeTruthy();
