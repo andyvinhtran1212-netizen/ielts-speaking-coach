@@ -18,12 +18,12 @@ import {
   transitionText,
   UNKNOWN_ACTOR,
   validateReason,
-} from '../app/(authed-admin-users)/admin/users/admin-staff-security-model.mjs';
+} from '../app/(authed-admin)/(users)/admin/users/admin-staff-security-model.mjs';
 
 // ADMINAAL2-0032 T011 — the admin users staff-security model. Rendered
 // behaviour lives in tests/react/admin-users-staff-security.test.tsx.
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DIR = join(ROOT, 'app', '(authed-admin-users)', 'admin', 'users');
+const DIR = join(ROOT, 'app', '(authed-admin)/(users)', 'admin', 'users');
 const PANEL = readFileSync(join(DIR, 'admin-users-panel.tsx'), 'utf8');
 const HISTORY = readFileSync(join(DIR, 'admin-security-history.tsx'), 'utf8');
 
@@ -141,4 +141,12 @@ describe('panel wiring', () => {
     assert.match(HISTORY, /'\/admin\/users\/\{user_id\}\/security-audit'/);
     assert.match(HISTORY, /⚠ không tải được lịch sử/);
   });
+});
+
+test('a failed suspension is never reported as suspended (bug-hunt #112)', () => {
+  for (const ack of [{ ok: false, is_active: true }, { ok: true, is_active: true }, { ok: false, is_active: false }]) {
+    const banner = activeChangeBanner(false, ack);
+    assert.equal(banner.kind, 'error');
+    assert.doesNotMatch(banner.text, /^Đã tạm khóa/);
+  }
 });

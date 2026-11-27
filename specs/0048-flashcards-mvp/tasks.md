@@ -27,7 +27,7 @@ tuần đang chặt (reset 08/11): ưu tiên F1, F2, F3, F4, F5a; F5b/F6 sau.
   frontend/types/api.d.ts`
 - [ ] T004 (F4, M, Codex) Panel "Dán danh sách từ" + bảng xem trước + commit
   trong `sets-console.tsx` (FR-001, FR-005, FR-006, FR-009, FR-014).
-  `depends: T003`. `owns: frontend/app/(authed-admin-vocab)/admin/vocab/sets/*,
+  `depends: T003`. `owns: frontend/app/(authed-admin)/(vocab)/admin/vocab/sets/*,
   frontend/tests/admin-vocab-set-import*.test.mjs`
 - [ ] T005 (F5a, S, Codex) Trình học Thẻ ghi nhớ: 2 nút + phím tắt + tổng
   cuối phiên khi cờ bật (FR-011, FR-014). `depends: T003 (chỉ cần trường

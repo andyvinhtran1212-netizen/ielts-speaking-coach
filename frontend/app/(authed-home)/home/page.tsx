@@ -29,6 +29,7 @@
 import type { Metadata } from 'next';
 
 import { HomeBehavior } from './home-behavior';
+import { HomeTreeSwitch } from './home-tree-switch';
 import { HomeShell } from './page-shell';
 
 export const metadata: Metadata = {
@@ -43,8 +44,11 @@ export default function HomePage() {
           bài học PR #897, thiếu dòng này là mất toàn bộ điều hướng mà build vẫn xanh. */}
       {/* @ts-ignore */}
       <aver-chrome active="home" />
-      <HomeShell />
-      <HomeBehavior />
+      {/* LEARNERCORE-0063 FR-075: the legacy tree unchanged unless learner_v2 is on. */}
+      <HomeTreeSwitch>
+        <HomeShell />
+        <HomeBehavior />
+      </HomeTreeSwitch>
     </>
   );
 }

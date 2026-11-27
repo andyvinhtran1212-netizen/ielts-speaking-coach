@@ -4,6 +4,10 @@
  * Source-sentinels (pages are DOM/IIFE): the new /admin/mock-tests page (exam
  * rail + 3 tabs hosting the existing surfaces embedded), the admin nav entry,
  * the chrome embed mode, and the writing-queue ?embed / ?mocklane hooks.
+ *
+ * LEGACYJS-0075 W2 retired `admin-mock-tests.js`: the controller assertions now
+ * pin the Next cockpit (`admin-mock-tests.tsx`, `lib/admin-mock-tests-model.mjs`);
+ * the retired HTML fixture assertions stay (ADR-005).
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,13 +15,18 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { mockExamStage, mockTestsFrame, normalizeMockExamList } from '../lib/admin-mock-tests-model.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const HTML = read('public', 'pages', 'admin', 'mock-tests', 'index.html');
-const JS = read('public', 'js', 'admin-mock-tests.js');
+const COCKPIT = read('app', '(authed-admin)', '(mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'queue.html');
-const QUEUE_JS = read('public', 'js', 'admin-writing-queue.js');
+// LEGACYJS-0075 W4b: admin-writing-queue.js is deleted; the Next queue and its
+// model own the cockpit embed hooks.
+const QUEUE_TSX = read('app', '(authed-admin-writing-queue)', 'admin', 'writing', 'queue', 'admin-writing-queue.tsx');
+const Q = await import('../lib/admin-writing-queue-model.mjs');
 const GRADE_HTML = read('public', 'pages', 'admin', 'writing', 'grade.html');
 const STATUS_HTML = read('public', 'pages', 'admin', 'writing', 'status.html');
 const INSTRUCTOR_QUEUE_HTML = read('public', 'pages', 'admin', 'writing', 'instructor-queue.html');
@@ -42,53 +51,37 @@ describe('mock-tests cockpit — page shell', () => {
     assert.match(HTML, /id="mt-frame"/);
     assert.match(HTML, /id="mt-need-exam"/);   // review with no exam selected
   });
-  test('loads the cockpit controller', () => {
-    assert.match(HTML, /src="\/js\/admin-mock-tests\.js"/);
-  });
 });
 
 describe('mock-tests cockpit — controller', () => {
   test('frame src per tab; review is scoped to the selected exam (embed=1)', () => {
-    assert.match(JS, /mock-exams\/index\.html\?embed=1/);
-    assert.match(JS, /mock-reviews\/index\.html\?mock_exam_id=' \+ encodeURIComponent\(id\) \+ '&embed=1/);
-    assert.match(JS, /\/admin\/writing\/queue\?embed=1&mocklane=1/);
+    assert.equal(mockTestsFrame('manage'), '/admin/mock-exams?embed=1');
+    assert.equal(mockTestsFrame('review', 'e1'), '/admin/mock-reviews?mock_exam_id=e1&embed=1');
+    assert.equal(mockTestsFrame('writing'), '/admin/writing/queue?embed=1&mocklane=1');
     // review returns null (→ "chọn đề") when no exam is selected
-    assert.match(JS, /review:\s*function \(id\) \{ return id \?/);
+    assert.equal(mockTestsFrame('review', ''), null);
   });
   test('lifecycle stage derived from status + is_open', () => {
-    assert.match(JS, /function stageOf\(ex\)[\s\S]*?status !== 'published'[\s\S]*?is_open \? 'live' : 'closed'/);
+    const { rows } = normalizeMockExamList([
+      { id: 'd', status: 'draft', is_open: false },
+      { id: 'l', status: 'published', is_open: true },
+      { id: 'c', status: 'published', is_open: false },
+    ]);
+    assert.deepEqual(rows.map(mockExamStage), ['draft', 'live', 'closed']);
   });
   test('exam list from GET /admin/mock-exams', () => {
-    assert.match(JS, /api\.get\('\/admin\/mock-exams'\)/);
-  });
-  test('inits Supabase so window.api carries the admin token (rail is require_admin)', () => {
-    assert.match(JS, /initSupabase\('https:\/\/huwsmtubwulikhlmcirx/);
+    assert.match(COCKPIT, /window\.api\.get<AdminMockExamListWire>\('\/admin\/mock-exams'\)/);
   });
 });
 
 // The frame navigates ITSELF (queue row-click → grade.html) without touching the
-// src attribute, so the attribute stops describing where the frame is. Comparing
-// it made re-clicking the active tab a no-op → teacher stranded on grade.html.
-describe('mock-tests cockpit — tab switch follows the frame, not its src attribute', () => {
-  test('renderFrame compares the LIVE location, never the src attribute', () => {
-    const body = JS.match(/function renderFrame\(\) \{([\s\S]*?)\n  \}/);
-    assert.ok(body, 'renderFrame() not found — sentinel is stale');
-    assert.match(body[1], /if \(frameAt\(frame\) !== src\) loadFrame\(frame, src\)/);
-    // the old attribute-compare is exactly the bug — it must not come back
-    assert.doesNotMatch(body[1], /getAttribute\('src'\) !== src/);
-  });
-  test('frameAt reads contentWindow.location, with about:blank + cross-origin fallbacks', () => {
-    const body = JS.match(/function frameAt\(frame\) \{([\s\S]*?)\n  \}/);
-    assert.ok(body, 'frameAt() not found — sentinel is stale');
-    assert.match(body[1], /frame\.contentWindow\.location/);
-    assert.match(body[1], /l\.protocol === 'about:'/);          // still loading → src attr
-    assert.match(body[1], /catch \(e\) \{[\s\S]*?getAttribute\('src'\)/);
-  });
-  test('loadFrame drives location.replace (same-src re-assign is not a renavigation)', () => {
-    const body = JS.match(/function loadFrame\(frame, src\) \{([\s\S]*?)\n  \}/);
-    assert.ok(body, 'loadFrame() not found — sentinel is stale');
-    assert.match(body[1], /contentWindow\.location\.replace\(src\)/);
-    assert.match(body[1], /frame\.setAttribute\('src', src\)/);   // first load / fallback
+// src attribute. In Next, re-clicking the active tab bumps an epoch that is part
+// of the iframe key, so the frame remounts at its tab's src instead of staying
+// stranded on grade.html.
+describe('mock-tests cockpit — re-clicking a tab reloads the frame', () => {
+  test('the active tab bumps the frame epoch, and the epoch keys the iframe', () => {
+    assert.match(COCKPIT, /if \(next === tab\) setFrameEpoch\(\(current\) => current \+ 1\);/);
+    assert.match(COCKPIT, /<iframe ref=\{frameRef\} key=\{`\$\{frame\}:\$\{frameEpoch\}`\}/);
   });
 });
 
@@ -110,30 +103,23 @@ describe('writing queue — cockpit embed hooks', () => {
     assert.match(QUEUE_HTML, /get\('embed'\) === '1'[\s\S]*?setAttribute\('embed', ''\)/);
   });
   test('?mocklane=1 opens the Mock lane on load', () => {
-    assert.match(QUEUE_JS, /get\('mocklane'\) === '1'/);
-    assert.match(QUEUE_JS, /if \(_mocklane\) \{ _stripEmbedChrome\(\); setMockLane\(\); return; \}/);
+    assert.match(QUEUE_TSX, /mocklane: params\?\.get\('mocklane'\) \|\| ''/);
+    assert.equal(Q.normalizeWritingQueueFilters({ mocklane: '1' }).lane, 'mock');
+    assert.equal(Q.normalizeWritingQueueFilters({}).lane, 'graded');
   });
-  // Mock-only embed: the cockpit tab names the lane and the rail scopes the
-  // exam, so the queue's lane rail + filter row are redundant there.
-  test('?mocklane=1 strips the lane rail and the filter row', () => {
-    const body = QUEUE_JS.match(/function _stripEmbedChrome\(\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, '_stripEmbedChrome() not found — sentinel is stale');
-    assert.match(body[1], /querySelectorAll\('\.adm-subtabs, \.q-toolbar'\)/);
-  });
-  // Must be inline display:none, not the hidden attribute: both rows set
-  // `display: flex` in the author stylesheet, which beats the UA's
-  // `[hidden] { display: none }` — hidden alone leaves them on screen.
-  test('embed chrome is stripped with inline display:none (author CSS beats [hidden])', () => {
-    const body = QUEUE_JS.match(/function _stripEmbedChrome\(\) \{([\s\S]*?)\n\}/);
-    assert.match(body[1], /style\.display = 'none'/);
+  // Embed-only chrome: the cockpit tab names the lane and the rail scopes the
+  // exam, so the queue header and lane rail are redundant there. The Next page
+  // renders them conditionally (no inline display:none needed).
+  test('?embed=1 drops the header and the lane rail', () => {
+    assert.match(QUEUE_TSX, /\{!filters\.embed && <header className="awq-header">/);
+    assert.match(QUEUE_TSX, /\{!filters\.embed && <nav className="awq-lanes"/);
+    assert.equal(Q.normalizeWritingQueueFilters({ embed: '1' }).embed, true);
   });
   test('the standalone queue keeps its lane rail and filters (no cockpit bleed)', () => {
-    // _stripEmbedChrome fires from the ?mocklane=1 branch ONLY: the Mock chip's
-    // own click handler (setMockLane) must never strip the chrome, or clicking
-    // Mock on the standalone page would strand the admin there.
-    const body = QUEUE_JS.match(/function setMockLane\(\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, 'setMockLane() not found — sentinel is stale');
-    assert.ok(!body[1].includes('_stripEmbedChrome'), 'setMockLane() must not strip the embed chrome');
+    // Choosing the Mock lane on the standalone page only changes the lane; it
+    // never sets embed, so the rail stays.
+    assert.match(QUEUE_TSX, /const setLane = \(lane: QueueLane\) => navigate\(\{ \.\.\.filters, lane, overdue: false \}\)/);
+    assert.equal(Q.normalizeWritingQueueFilters({ status: 'mock' }).embed, false);
   });
 });
 
@@ -141,18 +127,15 @@ describe('writing queue — cockpit embed hooks', () => {
 // frame's). Unless the flags ride along and the destination honours ?embed=1,
 // the tab panel gets a whole second admin page nested inside the cockpit.
 describe('writing queue — opening an essay from the cockpit stays chrome-less', () => {
-  test('openEssay carries embed + mocklane to grade.html and status.html', () => {
-    const body = QUEUE_JS.match(/function openEssay\(essayId\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, 'openEssay() not found — sentinel is stale');
-    assert.match(body[1], /_withEmbed\('\/admin\/writing\/status\?essay_id=/);
-    assert.match(body[1], /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=/);
+  test('row click carries embed + mocklane to grade and status', () => {
+    assert.match(QUEUE_TSX, /window\.location\.href = writingQueueDestination\(row, filters\)/);
+    const cockpit = Q.normalizeWritingQueueFilters({ mocklane: '1', embed: '1' });
+    assert.equal(Q.writingQueueDestination({ id: 'e1', status: 'pending' }, cockpit), '/admin/writing/status?essay_id=e1&from=queue&mocklane=1&embed=1');
+    assert.equal(Q.writingQueueDestination({ id: 'e1', status: 'delivered' }, cockpit), '/admin/writing/grade?essay_id=e1&from=queue&mocklane=1&embed=1');
   });
-  test('_withEmbed forwards both flags and no-ops off the cockpit', () => {
-    const body = QUEUE_JS.match(/function _withEmbed\(url\) \{([\s\S]*?)\n\}/);
-    assert.ok(body, '_withEmbed() not found — sentinel is stale');
-    assert.match(body[1], /get\('embed'\) === '1'/);
-    assert.match(body[1], /get\('mocklane'\) === '1'/);
-    assert.match(body[1], /if \(!out\.length\) return url;/);   // standalone → untouched
+  test('the destination drops the flags off the cockpit', () => {
+    const href = Q.writingQueueDestination({ id: 'e1', status: 'delivered' }, Q.normalizeWritingQueueFilters({ status: 'all' }));
+    assert.doesNotMatch(href, /embed=|mocklane=/);
   });
   // grade.html and status.html are both row-click destinations, so both need
   // the hook queue.html already had — otherwise the flag arrives and is ignored.
@@ -216,53 +199,35 @@ describe('mock-tests cockpit — .hidden must actually hide', () => {
     assert.doesNotMatch(HTML, /<link[^>]+tailwind\.build\.css/);
     assert.match(HTML, /\.hidden \{ display: none !important; \}/);
   });
-  test('the JS still relies on the class it just got given teeth', () => {
-    assert.match(JS, /classList\.add\('hidden'\)/);
-  });
 });
 
-// applyTheme only touches its own document and emits no event; the embed reads
-// the theme once in its anti-flash IIFE. Toggling the cockpit therefore left the
-// panel on the old theme — a dark review tab under a light page.
+// The embed reads the theme once in its anti-flash IIFE. Toggling the cockpit
+// therefore left the panel on the old theme — a dark review tab under a light page.
 describe('mock-tests cockpit — the frame follows the theme toggle', () => {
   test('the theme attribute is mirrored into the frame document', () => {
-    const body = JS.match(/function syncFrameTheme\(\) \{([\s\S]*?)\n  \}/);
-    assert.ok(body, 'syncFrameTheme() not found — sentinel is stale');
-    assert.match(body[1], /doc\.documentElement\.setAttribute\(\s*'data-theme'/);
-    assert.match(body[1], /document\.documentElement\.getAttribute\('data-theme'\)/);
+    assert.match(COCKPIT, /const theme = document\.documentElement\.getAttribute\('data-theme'\) \|\| 'light';\n\s+node\?\.contentDocument\?\.documentElement\.setAttribute\('data-theme', theme\);/);
   });
   test('it fires on toggle AND on every frame navigation', () => {
-    assert.match(JS, /new MutationObserver\(syncFrameTheme\)[\s\S]*?attributeFilter: \['data-theme'\]/);
-    assert.match(JS, /frame\.addEventListener\('load', syncFrameTheme\)/);
+    assert.match(COCKPIT, /const observer = new MutationObserver\(syncFrameTheme\);\n\s+observer\.observe\(document\.documentElement, \{ attributes: true, attributeFilter: \['data-theme'\] \}\);/);
+    assert.match(COCKPIT, /node\?\.addEventListener\('load', syncFrameTheme\);/);
   });
 });
 
 // …but mirroring parent → frame is only safe while the cockpit KNOWS the theme.
-// The embedded writing grade page carries its OWN .av-theme-toggle, which sets
-// its own data-theme + writes localStorage and tells the parent nothing. The
-// cockpit's attribute went stale, and the next navigation had syncFrameTheme()
-// write that stale value over the theme the user had just picked — measured
-// before the fix: child toggle → frame dark / parent light, then navigate →
-// frame back to light (Codex P2, PR #785).
+// The embedded writing grade page carries its OWN theme toggle, which writes
+// localStorage and tells the parent nothing (Codex P2, PR #785).
 describe('mock-tests cockpit — an embedded page may own the toggle too', () => {
   test('a storage write of av-theme is adopted onto the cockpit', () => {
-    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
-    assert.ok(body, 'adoptStoredTheme() not found — sentinel is stale');
-    assert.match(body[1], /localStorage\.getItem\('av-theme'\)/);
-    assert.match(body[1], /setAttribute\('data-theme', t\)/);
-  });
-  test('it is wired to the storage event', () => {
-    assert.match(JS, /window\.addEventListener\('storage', adoptStoredTheme\)/);
+    assert.match(COCKPIT, /const theme = localStorage\.getItem\('av-theme'\);/);
+    assert.match(COCKPIT, /window\.addEventListener\('storage', adoptStoredTheme\);/);
   });
   // storage fires for EVERY key; reacting to all of them would re-read the theme
   // on unrelated writes (auth tokens, drafts) and fight the observer.
   test('it ignores writes to other keys', () => {
-    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
-    assert.match(body[1], /e\.key !== 'av-theme'/);
+    assert.match(COCKPIT, /if \(event\.key !== 'av-theme'\) return;/);
   });
   // A junk/absent value must not blank the attribute out from under the page.
   test('only a valid theme is adopted', () => {
-    const body = JS.match(/function adoptStoredTheme\(e\) \{([\s\S]*?)\n  \}/);
-    assert.match(body[1], /t !== 'light' && t !== 'dark'/);
+    assert.match(COCKPIT, /if \(theme === 'light' \|\| theme === 'dark'\) document\.documentElement\.setAttribute\('data-theme', theme\);/);
   });
 });

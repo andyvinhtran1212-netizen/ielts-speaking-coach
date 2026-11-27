@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { anonymousReadingScope, createCoreOperationTransport, coreOperationHeaders, clearCoreOperationIntents } from '../lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '../lib/learner-tab-drafts.mjs';
 import { setAuthMeAccount } from '../lib/auth/auth-me-single-flight.mjs';
+import { clearForeignLocalCopies } from '../lib/exam-room/local-copy.mjs';
 
 const HEADER = 'X-Core-Operation-ID';
 const files = {
@@ -237,6 +238,8 @@ test('actual AuthProvider transitions clear account hints without erasing capabi
   const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: browser,
     activationGate: false, // W-03 gate is exercised in tests/react/auth-activation-gate.test.tsx
     sessionReadRef: { current: 0 }, confirmedAccountRef: { current: null }, chromeSignOutRef: { current: false },
+    // EXAMROOM-0066 FR-035 (R162): the exam-room copy sweep runs on window.localStorage, absent here.
+    lastSignedInAccountRef: { current: null }, clearForeignLocalCopies,
     clearLearnerTabDraftAccount: account => clearLearnerTabDraftAccount(account, browser),
     invalidateLearnerTabDraftOwner: () => invalidateLearnerTabDraftOwner(browser),
     setUser() {}, setStatus: value => states.push(value) });
@@ -262,6 +265,9 @@ for (const section of ['reading', 'listening']) {
         post: async (...args) => { calls.push(['parent', ...args]); if (parentFailures-- > 0) throw Error('parent lost'); return { received: true }; },
       } },
     };
+    // The runner's request helper with the flag off (EXAMMOCK-0071 FR-012): the exact calls of before.
+    scope.apiRef = { current: { post: (path, body, headers) => (headers
+      ? scope.window.api.postWith(path, body, headers) : scope.window.api.post(path, body)) } };
     await assert.rejects(actualHandler('mock', 'doSubmit', scope)(section), /parent lost/);
     await actualHandler('mock', 'doSubmit', { ...scope, coreOperationRequest: harnessTransport(h) })(section);
     assert.deepEqual(calls.map(call => call[0]), ['domain', 'parent', 'domain', 'parent']);
