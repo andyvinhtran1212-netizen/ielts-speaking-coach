@@ -2941,6 +2941,43 @@ def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
     assert validator.validate_pull_request(event, specs, root) == []
 
 
+def test_pinned_release_branch_promotion_is_exempt(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    for name in (f"release/{head_sha[:8]}", f"release/{head_sha}"):
+        event = _event(
+            root=root, change_class="feature", spec="N/A", base="main", head=name
+        )
+        assert validator.validate_pull_request(event, specs, root) == [], name
+
+
+def test_release_branch_must_pin_its_head_to_be_exempt(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    # Names that do not pin the head commit get the ordinary PR validation, so
+    # a missing change class is reported instead of being silently exempt.
+    for name in (
+        "release/0000000",
+        "release/7a2d826b-hotfix-2457",
+        "release/latest",
+        "releases/abcdef12",
+    ):
+        event = _event(root=root, change_class="", spec="N/A", base="main", head=name)
+        errors = validator.validate_pull_request(event, specs, root)
+        assert any("Change class" in error for error in errors), name
+    # A pinned name toward staging is not a promotion either.
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    event = _event(
+        root=root, change_class="", spec="N/A", base="staging", head=f"release/{head_sha[:8]}"
+    )
+    assert validator.validate_pull_request(event, specs, root)
+
+
 def test_unfiltered_workflow_reruns_when_pr_metadata_is_edited() -> None:
     workflow = (REPO_ROOT / ".github/workflows/spec-governance.yml").read_text(
         encoding="utf-8"

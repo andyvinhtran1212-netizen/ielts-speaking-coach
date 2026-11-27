@@ -28,6 +28,7 @@ import Script from 'next/script';
 import { BodyClassBridge } from '@/components/body-class-bridge';
 import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
 import { RedirectNotice } from '@/components/redirect-notice';
+import { StaffQuickSearch, type QuickSearchDoor } from '@/components/staff-quick-search';
 import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
 import { AuthProvider } from '@/lib/auth/auth-provider';
 // ADMINIA-0074 G09-T08: a tiny client loader; AdminFrame and its CSS load
@@ -112,6 +113,7 @@ export async function AuthedShell({
   utilityLayer = true,
   tailwindLayer = utilityLayer,
   chrome = 'student',
+  quickSearch = chrome === 'admin' ? 'admin' : undefined,
   authGated = true,
   lucideRuntime = false,
   bodyClass = design === 'v2' ? 'av2-body' : 'av-page font-sans min-h-screen',
@@ -146,6 +148,11 @@ export async function AuthedShell({
   tailwindLayer?: boolean;
   /** Shared coexistence chrome. Admin routes use the canonical admin component. */
   chrome?: 'student' | 'admin' | 'none';
+  /**
+   * Staff quick search, Ctrl/⌘K (ADMINIA-0074 FR-075, G09-T19). On by default
+   * for `chrome="admin"`; teacher layouts pass `"instructor"`.
+   */
+  quickSearch?: QuickSearchDoor;
   /**
    * Whether the whole route requires a signed-in account. Hybrid surfaces can
    * still consume AuthProvider while leaving their public modes accessible.
@@ -253,6 +260,7 @@ export async function AuthedShell({
           reachable. */}
       <AuthProvider activationGate={authGated}>
         {children}
+        {quickSearch && <StaffQuickSearch door={quickSearch} />}
         {/* G02-T11: the parent page's "đưa về trang cha" strip (`?notice=`). */}
         <RedirectNotice />
       </AuthProvider>

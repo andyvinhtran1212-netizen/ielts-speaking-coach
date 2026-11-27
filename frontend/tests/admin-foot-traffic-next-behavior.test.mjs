@@ -17,7 +17,7 @@ const CLIENT = read('app', '(authed-admin)', '(foot-traffic)', 'admin', 'foot-tr
 const PAGE = read('app', '(authed-admin)', '(foot-traffic)', 'admin', 'foot-traffic', 'page.tsx');
 const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(foot-traffic)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-foot-traffic-next.css');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const VERCEL = read('vercel.json');
 

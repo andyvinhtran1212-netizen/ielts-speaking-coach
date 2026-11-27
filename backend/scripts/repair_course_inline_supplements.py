@@ -87,7 +87,10 @@ def reading_meta(rows: list[dict]) -> dict:
             if input_type == "tfng":
                 options = row.get("options") or []
                 index = row.get("answer")
-                if options != ["T", "F", "NG"] or not isinstance(index, int):
+                # Báo cáo săn lỗi #48: bool là int, và -1 là "phần tử cuối" ⇒
+                # True→F, -1→NG lọt qua thành đáp án sai. Chỉ nhận 0, 1, 2.
+                if (options != ["T", "F", "NG"] or not isinstance(index, int)
+                        or isinstance(index, bool) or not 0 <= index < 3):
                     raise ValueError(f"Đáp án T/F/NG câu {number} không hợp lệ.")
                 answer = options[index]
             else:
@@ -304,6 +307,28 @@ def continued_mastery(item: dict, weights: dict[str, float], writing_attempt: in
     }
 
 
+def item_needs_reopen(item: dict) -> bool:
+    """Chỉ mở lại item học viên đã NỘP (báo cáo săn lỗi #53).
+
+    Item đang làm dở (assigned/opened, chưa có submitted_at, lượt cuối chưa
+    completed) phải để nguyên: mở lại sẽ chèn thêm một lượt và xoá điểm, còn
+    lượt chưa xong phần nào thì continued_mastery dừng cả script.
+    """
+    if not item.get("mastery"):
+        return False
+    latest = ((item.get("mastery") or {}).get("attempts") or [{}])[-1]
+    latest_sections = latest.get("sections") or {}
+    if (latest.get("repair_reason") == REPAIR_REASON
+            or any(name in latest_sections for name in (
+                "reading", "listening", "pronunciation"))):
+        return False
+    return bool(
+        latest.get("completed")
+        or item.get("submitted_at")
+        or item.get("state") in ("submitted", "graded")
+    )
+
+
 def reopened_item_patch(item: dict, mastery: dict) -> dict:
     """Return a submitted item to an interactive state without erasing history."""
     return {
@@ -416,13 +441,7 @@ def main() -> int:
                 writing_attempt.get(item_id, 0), int(row.get("attempt_no") or 1))
         item_patches = []
         for item in items:
-            if not item.get("mastery"):
-                continue
-            latest = ((item.get("mastery") or {}).get("attempts") or [{}])[-1]
-            latest_sections = latest.get("sections") or {}
-            if (latest.get("repair_reason") == REPAIR_REASON
-                    or any(name in latest_sections for name in (
-                        "reading", "listening", "pronunciation"))):
+            if not item_needs_reopen(item):
                 continue
             attempt_no = writing_attempt.get(item["id"])
             if not attempt_no:
