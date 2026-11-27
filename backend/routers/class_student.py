@@ -35,14 +35,18 @@ from services.quiz_service import (
     bank_has_writing,
     course_assignment_action_with_session_truth,
     course_start_archive_refused,
+    course_item_handins,
     reconcile_course_items,
 )
 from services.class_assignment_service import (
     _ID_CHUNK,
+    _at,
     assignment_timer_state,
     is_accepting_submissions,
     is_assignment_open,
+    item_submission_patch,
     reconcile_test_attempts,
+    test_attempt_handins,
 )
 from services.active_player_lifecycle import is_resume_active
 from services.cohort_assignment_service import parse_deadline
@@ -490,9 +494,47 @@ def _visible_writing_gives(student_id: str, cohort_ids: list[str],
     ], stale
 
 
+def _project_handed_in_items(items: list, assignments: list, course_ids: list, student_id: str) -> tuple[list, bool]:
+    """Reflect accepted hand-ins on the caller's rows without repairing the ledger."""
+    pending = [row for row in items if not row.get("submitted_at")]
+    if not pending:
+        return items, False
+
+    projected: dict[str, dict] = {}
+    stale = False
+    try:
+        for item_id, hit in test_attempt_handins(supabase_admin, assignments, pending).items():
+            when = _at(hit["when"])
+            if when is None:
+                continue
+            attempt = hit["attempt"]
+            projected[item_id] = item_submission_patch(
+                artifact_kind=hit["artifact_kind"], artifact_id=attempt["id"],
+                score=attempt.get("band_estimate"), now=when,
+            )
+    except Exception as exc:
+        stale = True
+        logger.warning("[class] read-only test hand-ins unavailable: %s", exc)
+
+    try:
+        course_handins, course_stale = course_item_handins(
+            supabase_admin, course_ids, pending, student_id=student_id,
+        )
+        projected.update(course_handins)
+        stale = stale or course_stale
+    except Exception as exc:
+        stale = True
+        logger.warning("[class] read-only course hand-ins unavailable: %s", exc)
+    return [
+        {**row, **projected[row["id"]]} if row["id"] in projected and not row.get("submitted_at") else row
+        for row in items
+    ], stale
+
+
 def _visible_assignments(student: Dict[str, Any], now: datetime,
                          cohort_ids: list[str] | None = None, *,
-                         reconcile_student_only: bool = False) -> tuple[list, bool]:
+                         reconcile_student_only: bool = False,
+                         read_only: bool = False) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
 
     Shared by /my-assignments and /me so the two can never disagree about what
@@ -504,7 +546,7 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     ahead of one old unsubmitted one. A student must never be shown "nothing to
     do" while an unanswered task exists.
     """
-    if reconcile_student_only and not student.get("id"):
+    if (reconcile_student_only or read_only) and not student.get("id"):
         raise ValueError("Student ID required for scoped ledger reconciliation")
     cohort_ids = cohort_ids if cohort_ids is not None else (
         [str(student["cohort_id"])] if student.get("cohort_id") else [])
@@ -606,32 +648,35 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     stale = False
     # The new assigned route repairs only the authenticated student's ledger.
     # Existing callers keep their original repair scope.
-    repair_scope = {"student_id": student["id"]} if reconcile_student_only else {}
     course_repair_ids = [
         aid for aid, row in by_id.items() if row.get("skill") == "course"
     ]
-    for what, fn in (
-        ("test-attempts", lambda: reconcile_test_attempts(
-            supabase_admin, list(by_id.values()), **repair_scope)),
-        # Bài tập theo buổi cũng vậy, và còn nặng hơn: `end_session` ghi sổ
-        # best-effort nên một lượt hỏng ở chặng CUỐI để bài nằm mãi ở "Cần nộp"
-        # cho tới khi giáo viên tình cờ mở bảng. Em ấy thì thấy bài mình vừa
-        # làm xong vẫn đang nợ.
-        ("course", lambda: reconcile_course_items(supabase_admin, course_repair_ids,
-                                                  **repair_scope)),
-    ):
+    if read_only:
+        items, stale = _project_handed_in_items(items, list(by_id.values()), course_repair_ids, student["id"])
+    else:
+        repair_scope = {"student_id": student["id"]} if reconcile_student_only else {}
+        for what, fn in (
+            ("test-attempts", lambda: reconcile_test_attempts(
+                supabase_admin, list(by_id.values()), **repair_scope)),
+            # Bài tập theo buổi cũng vậy, và còn nặng hơn: `end_session` ghi sổ
+            # best-effort nên một lượt hỏng ở chặng CUỐI để bài nằm mãi ở "Cần nộp"
+            # cho tới khi giáo viên tình cờ mở bảng. Em ấy thì thấy bài mình vừa
+            # làm xong vẫn đang nợ.
+            ("course", lambda: reconcile_course_items(supabase_admin, course_repair_ids,
+                                                      **repair_scope)),
+        ):
+            try:
+                fn()
+            except Exception as exc:
+                stale = True
+                logger.warning("[class] reconcile skipped (%s): %s", what, exc)
+        # Đọc lại SAU cả hai bộ, và ngoài khối bắt lỗi của chúng: một bộ hỏng vẫn
+        # phải lấy được kết quả của bộ kia.
         try:
-            fn()
+            items = _reread_items(student["id"], [i["id"] for i in items]) or items
         except Exception as exc:
             stale = True
-            logger.warning("[class] reconcile skipped (%s): %s", what, exc)
-    # Đọc lại SAU cả hai bộ, và ngoài khối bắt lỗi của chúng: một bộ hỏng vẫn
-    # phải lấy được kết quả của bộ kia.
-    try:
-        items = _reread_items(student["id"], [i["id"] for i in items]) or items
-    except Exception as exc:
-        stale = True
-        logger.warning("[class] reread items failed: %s", exc)
+            logger.warning("[class] reread items failed: %s", exc)
 
     # MỘT chỗ nhớ cho cả lượt gọi: trang lớp hỏi cùng một bank cho nhiều mục,
     # và một lượt đọc là đủ cho cả trang.
