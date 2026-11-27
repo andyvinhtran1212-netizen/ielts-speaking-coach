@@ -198,7 +198,9 @@ def _class_for(user_id: str, account_name: str) -> Optional[Dict[str, Any]]:
 
 def _assigned_open_for(user_id: str, account_name: str, now: datetime) -> Tuple[int, bool]:
     """T13's count (`assigned_total_open`), from the same reader."""
-    _has_class, rows, stale = student_today._visible_assignments_for(user_id, account_name, now)
+    _has_class, rows, stale = student_today._visible_assignments_for(
+        user_id, account_name, now, reconcile_student_only=True
+    )
     return student_today.build_assigned(rows, now)["assigned_total_open"], stale
 
 

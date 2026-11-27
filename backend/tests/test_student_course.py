@@ -97,7 +97,11 @@ def test_class_only_uses_todays_count(monkeypatch):
     rows = [{"assignment": {"due_at": "2026-11-30T00:00:00Z"}, "item_id": "a"},
             {"assignment": {"due_at": None}, "item_id": "b"},
             {"assignment": {"due_at": None}, "item_id": "c", "submitted_at": "2026-11-20T00:00:00Z"}]
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (True, rows, False))
+    def assigned(user_id, account_name, now, *, reconcile_student_only):
+        assert user_id == "u-1" and reconcile_student_only is True
+        return True, rows, False
+
+    monkeypatch.setattr(st, "_visible_assignments_for", assigned)
     monkeypatch.setattr(sc, "_courses_for", lambda _u: None)
     monkeypatch.setattr(sc, "_catalog_for", lambda: None)
     monkeypatch.setattr(sc, "_class_for", lambda *_a: {"name": "IELTS 6.5 tối", "teacher_name": None,
