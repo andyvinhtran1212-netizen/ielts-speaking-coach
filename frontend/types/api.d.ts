@@ -19635,13 +19635,6 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
-        /** ExtendEntitlement */
-        ExtendEntitlement: {
-            /** Days */
-            days: number;
-            /** Reason */
-            reason: string;
-        };
         /** ExamResultRow */
         ExamResultRow: {
             /**
@@ -19669,6 +19662,13 @@ export interface components {
             overall?: number | null;
             /** Href */
             href: string;
+        };
+        /** ExtendEntitlement */
+        ExtendEntitlement: {
+            /** Days */
+            days: number;
+            /** Reason */
+            reason: string;
         };
         /** FanOutBody */
         FanOutBody: {
