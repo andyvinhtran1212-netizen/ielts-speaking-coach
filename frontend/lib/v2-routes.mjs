@@ -12,6 +12,7 @@
 export const V2_ROUTES = Object.freeze([
   '/about',
   '/contact',
+  '/help',
   '/library',
   '/library/speaking',
   '/library/speaking/[slug]',
@@ -20,6 +21,7 @@ export const V2_ROUTES = Object.freeze([
   '/library/writing-samples',
   '/library/writing-samples/[slug]',
   '/privacy',
+  '/start',
   '/profile/v2-pilot',
   '/terms',
   '/ui-library',

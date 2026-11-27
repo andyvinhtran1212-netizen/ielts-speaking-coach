@@ -72,6 +72,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/` | all | Landing / entry; routes to login or app. |
 | `/login` | all | Google OAuth + access-code activation → `POST /auth/activate` (sets `users.is_active`, permissions, marks `access_codes` used). |
 | `/onboarding` | new user | First-time setup (band target, level, goals) → `/auth/*` profile write. |
+| `/start` | new learner | "Lần đầu vào" (LEARNERCORE-0063 amendment 2, behind `learner_v2`): three skippable steps on plain pages; the optional goal saves `target_band`/`exam_date` via `PATCH /auth/profile`; step 3 is chosen from `/api/class/me` and the learner's courses; every exit writes `onboarding_completed=true`. Shown once; signed out → `/login`; `noindex`. |
+| `/help` | student | Trợ giúp: six groups of short answers with accent-insensitive search and a "no answer" state; each question has its own `/help#<id>` address; links only to live pages; `noindex`. |
 | `/pricing` | public | Pre-launch server redirect to `/`; no pricing controls or payment promise are currently served here. |
 | `/terms` | public | Draft Terms of use skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
 | `/privacy` | public | Draft Privacy policy skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
