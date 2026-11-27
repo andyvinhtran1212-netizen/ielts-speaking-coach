@@ -43,13 +43,16 @@ from routers.auth import get_supabase_user
 from routers.sessions import refuse_if_class_session_archived, require_speaking_entitlement
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
+from services import credits
 from services import azure_pronunciation
 from services import ai_usage_logger
 from services import kp_evidence
 from services import feature_flags
 from services import runtime_flags
 from services import vocab_speaking_recommendations
-from services.pronunciation_sampling import _part2_segment, extract_audio_segment
+from services.pronunciation_sampling import (
+    PronSample, _part2_segment, extract_audio_segment, sample_window,
+)
 from services import speaking_progress
 from services.transcript_reliability import classify_reliability
 from services.audio_validation import AudioTooShortError, validate_audio_duration
@@ -256,6 +259,12 @@ _PRON_UNAVAILABLE_FEEDBACK = (
     "tạm thời không khả dụng). Điểm phát âm sẽ được cập nhật khi hệ thống phân "
     "tích lại được bản ghi âm của bạn."
 )
+# COURSEACCESS-0055 FR-036 (G04-T13): an answer the session did not send to
+# Azure is not "unavailable" — its session's P band comes from another answer.
+_PRON_NOT_SAMPLED_FEEDBACK = (
+    "Phát âm của phần này được chấm trên một câu trả lời khác trong cùng phiên."
+)
+_PRON_SAMPLE_FLAG = "pron_sample_window"
 
 
 async def _assess_pronunciation_safe(
@@ -302,6 +311,26 @@ async def _assess_pronunciation_safe(
         except Exception as seg_exc:  # noqa: BLE001 — fall back to full audio
             logger.info("[grading] Part 2 segment extract failed, sending full clip: %s", seg_exc)
 
+    return await _azure_assess_bounded(
+        send_bytes, send_ct, assessment_duration,
+        user_id=user_id, session_id=session_id,
+        resource_type=resource_type, resource_id=resource_id,
+    )
+
+
+async def _azure_assess_bounded(
+    send_bytes: bytes,
+    send_ct: str,
+    assessment_duration: float,
+    *,
+    user_id: str | None,
+    session_id: str | None,
+    resource_type: str | None,
+    resource_id: str | None,
+) -> dict | None:
+    """One Azure call under _PRON_TIMEOUT_SECONDS; None on any failure.
+    ``audio_seconds`` is the length actually sent, so the usage log prices the
+    sample, not the whole recording."""
     try:
         usage_kwargs = {}
         if user_id is not None or session_id is not None or resource_id is not None:
@@ -325,6 +354,111 @@ async def _assess_pronunciation_safe(
     except Exception as exc:   # noqa: BLE001 — best-effort, log + skip
         logger.info("[grading] pronunciation assessment skipped (non-fatal): %s", exc)
         return None
+
+
+async def _assess_pronunciation_sampled(
+    audio_bytes: bytes,
+    content_type: str | None,
+    *,
+    duration_sec: float,
+    sample_seconds: int,
+    user_id: str | None = None,
+    session_id: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+) -> tuple[dict | None, PronSample]:
+    """`pron_sample_window` path (COURSEACCESS-0055 FR-035, plan 5.16 step 1).
+
+    Every Part: a recording longer than ``sample_seconds + 5`` sends Azure one
+    ``sample_seconds`` window from its middle; a shorter one, or a failed cut,
+    sends the whole recording (``scope='full'``). Returns the Azure result
+    (None on failure, like _assess_pronunciation_safe) and what was sent.
+    The flag-off path stays _assess_pronunciation_safe, unchanged.
+    """
+    full = PronSample("full")
+    if not audio_bytes:
+        return None, full
+
+    send_bytes = audio_bytes
+    send_ct = content_type or "audio/webm; codecs=opus"
+    assessment_duration = duration_sec
+    sample = full
+    start_s, end_s = sample_window(duration_sec, sample_seconds)
+    if start_s is not None and end_s is not None:
+        try:
+            seg = await asyncio.to_thread(extract_audio_segment, audio_bytes, start_s, end_s)
+            # Same identity rule as _assess_pronunciation_safe: the same object
+            # back means ffmpeg failed, so keep the original bytes and label.
+            if seg is not None and seg is not audio_bytes:
+                send_bytes, send_ct = seg, "audio/wav"
+                assessment_duration = end_s - start_s
+                sample = PronSample("segment", start_s, end_s)
+        except Exception as seg_exc:  # noqa: BLE001 — fall back to full audio
+            logger.info("[grading] sample extract failed, sending full clip: %s", seg_exc)
+
+    result = await _azure_assess_bounded(
+        send_bytes, send_ct, assessment_duration,
+        user_id=user_id, session_id=session_id,
+        resource_type=resource_type, resource_id=resource_id,
+    )
+    return result, sample
+
+
+def _pron_one_per_session_parts() -> frozenset[int]:
+    """PRON_ONE_PER_SESSION_PARTS ("1", "1,3", "") as a set of Part numbers;
+    unparseable entries are ignored."""
+    raw = str(getattr(settings, "PRON_ONE_PER_SESSION_PARTS", "") or "")
+    parts: set[int] = set()
+    for item in raw.split(","):
+        item = item.strip()
+        if item.isdigit():
+            parts.add(int(item))
+    return frozenset(parts)
+
+
+async def _should_sample_pronunciation(
+    session_id: str,
+    question_id: str,
+    duration_sec: float,
+    *,
+    is_practice: bool = False,
+) -> bool:
+    """One Azure answer per session for the Parts in PRON_ONE_PER_SESSION_PARTS
+    (plan 5.16 step 2). False when another answer of the session already holds
+    a usable sample: ``pronunciation_status='completed'`` AND the answer was
+    graded AND, in test mode, it carries ``final_band_p`` (Codex P2 on #2514:
+    an Azure success whose text grade failed has its P band cleared, so it must
+    not use up the session's sample); True when the completed one is this
+    question (a re-record keeps its sample); False when this answer is shorter
+    than PRON_ONE_PER_SESSION_MIN_SECONDS (a later, longer one is waited for);
+    otherwise True. A read error returns True: one extra Azure call costs less
+    than a session with no P band. Two answers submitted at the same moment
+    may both be sampled (accepted, spec G04-T13: one extra call, no wrong
+    score). An unknown duration (0, see the F2 gate) is not "too short"."""
+    try:
+        res = await aexecute(
+            lambda db: db.table("responses")
+            .select("question_id, grading_status, final_band_p")
+            .eq("session_id", session_id)
+            .eq("pronunciation_status", "completed")
+        )
+        rows = [
+            r for r in (res.data or [])
+            if r.get("grading_status") == "completed"
+            and (is_practice or r.get("final_band_p") is not None)
+        ]
+    except Exception as exc:  # noqa: BLE001 — fail toward assessing
+        logger.warning("[grading] pronunciation sample lookup failed, assessing: %s", exc)
+        return True
+    sampled = {str(r.get("question_id")) for r in rows if r.get("question_id") is not None}
+    if str(question_id) in sampled:
+        return True
+    if sampled:
+        return False
+    min_seconds = int(getattr(settings, "PRON_ONE_PER_SESSION_MIN_SECONDS", 12) or 0)
+    if duration_sec and duration_sec > 0 and duration_sec < min_seconds:
+        return False
+    return True
 
 
 @lru_cache(maxsize=1)
@@ -362,6 +496,7 @@ def _merge_pronunciation_into_grading(
     grading: dict,
     pron_result: dict | None,
     is_practice: bool,
+    sample: PronSample | None = None,
 ) -> dict | None:
     """Make Azure the authoritative source of the P band, in-place.
 
@@ -373,7 +508,25 @@ def _merge_pronunciation_into_grading(
     left absent; the pronunciation card is surfaced via the signals block only.
 
     Returns the pronunciation-detail dict to persist/surface (or None).
+
+    ``sample`` is passed only while `pron_sample_window` is on (FR-036): the
+    detail then carries ``sample`` {scope, start_s, end_s}, and a
+    ``not_sampled`` answer gets its own honest text instead of "unavailable".
     """
+    if sample is not None and sample.scope == "not_sampled":
+        if not is_practice:
+            grading["band_p"] = None
+            grading["p_feedback"] = _PRON_NOT_SAMPLED_FEEDBACK
+            grading["pronunciation_source"] = "not_sampled"
+            crit_vals = [
+                float(grading[k])
+                for k in ("band_fc", "band_lr", "band_gra")
+                if grading.get(k) is not None
+            ]
+            if crit_vals:
+                grading["overall_band"] = _round_band(sum(crit_vals) / len(crit_vals))
+        return {"status": "not_sampled", "provider": "azure", "sample": sample.as_dict()}
+
     pron_score = (pron_result or {}).get("pronunciation_score")
     fluency    = (pron_result or {}).get("fluency_score")
     band_p = _pron_band_from_scores(pron_score, fluency)
@@ -413,6 +566,7 @@ def _merge_pronunciation_into_grading(
         "words":                pron_result.get("words", []),
         "provider":             "azure",
         "locale":               "en-US",
+        **({"sample": sample.as_dict()} if sample is not None else {}),
     }
 
 
@@ -487,6 +641,11 @@ async def grade_response_endpoint(
     Thời gian xử lý ước tính: 15–30 giây.
     """
     step = "auth"
+    # COURSEACCESS-0055 plan 5.6 (G04-T07): the credit hold of this request,
+    # settled as ``failed`` in `finally` unless it was settled ``graded``
+    # after the save (fn_credit_settle_attempt, migration 503).
+    credit_hold: credits.CreditHold | None = None
+    credit_release_reason = "request_failed"
     try:
         # ── STEP 1: Auth + session + question ownership ───────────────────────
         auth_user = await get_supabase_user(authorization)
@@ -519,6 +678,10 @@ async def grade_response_endpoint(
         require_speaking_entitlement(user_id, session)
         part: int = session["part"]
         session_mode: str = session.get("mode", "practice") or "practice"
+        # Plan 5.6 step 1. Flag off → ChargePlan(metered=False), no credit RPC.
+        # A read error with the flag on is 503 credits_unavailable (FR-017).
+        step = "credit_plan"
+        credit_plan = await credits.acharge_plan(user_id, "speaking_grading", session=session)
 
         step = "load_question"
         try:
@@ -602,6 +765,18 @@ async def grade_response_endpoint(
             enforce_grading_rate_limit(user_id, settings.MAX_GRADINGS_PER_USER_PER_DAY)
             record_grading_attempt(user_id)
 
+        # ── Plan 5.6 step 2: hold credits AFTER the replay branch and the rate
+        # limit, BEFORE any paid call (FR-017: a refused or failed hold never
+        # reaches Whisper or the grader). The request key is the submission id:
+        # a replay returned above never reaches this point.
+        step = "credit_reserve"
+        if credit_plan.metered:
+            # A ``covered`` answer pays nothing here: its cluster's hold is
+            # open or committed, and with this answer registered on it the
+            # hold cannot be released until this attempt has settled.
+            credit_hold = await _reserve_speaking_credit(
+                user_id, credit_plan, session_id, question_id, part, submission_id)
+
         # ── STEP 3: Whisper STT (directly from in-memory bytes) ──────────────
         # Transcribe BEFORE uploading to storage so we never hit CDN caching:
         # if the same path is upserted and Whisper downloaded via the public URL,
@@ -621,6 +796,7 @@ async def grade_response_endpoint(
         except Exception as e:
             logger.error("[grading] Whisper thất bại: %s", e)
             _mark_session_error(session_id, "stt_failed", "whisper", str(e))
+            credit_release_reason = "stt_failed"
             # Mục 28 (B4): don't leak the provider name or the raw exception to the
             # user — the full error is already logged + recorded above.
             raise HTTPException(502, "Lỗi nhận dạng giọng nói. Vui lòng thử lại.")
@@ -847,13 +1023,39 @@ async def grade_response_endpoint(
         # audio). Runs on the in-memory bytes so it needs no storage round-trip;
         # _assess_pronunciation_safe bounds it at _PRON_TIMEOUT_SECONDS and never
         # raises, so a slow/absent Azure just yields None → honest "chưa đánh giá".
-        pron_task = asyncio.create_task(
-            _assess_pronunciation_safe(
-                audio_bytes, audio_file.content_type, part=part, duration_sec=duration_sec,
-                user_id=user_id, session_id=session_id,
-                resource_type="question", resource_id=question_id,
-            )
+        #
+        # COURSEACCESS-0055 FR-035 (G04-T13): with the runtime flag
+        # `pron_sample_window` on, Azure hears one middle window of every
+        # Part and, in PRON_ONE_PER_SESSION_PARTS, one answer per session. The
+        # flag fails closed (lookup error → today's path). Off → unchanged.
+        # Sync read in a worker thread: only /auth/me may hand runtime_flags
+        # the async facade (PC-J05, test_async_db_scaffold).
+        pron_sample_on = await asyncio.to_thread(
+            runtime_flags.is_enabled, _PRON_SAMPLE_FLAG, False, on_error=False,
         )
+        pron_sample: PronSample | None = None
+        pron_task = None
+        if not pron_sample_on:
+            pron_task = asyncio.create_task(
+                _assess_pronunciation_safe(
+                    audio_bytes, audio_file.content_type, part=part, duration_sec=duration_sec,
+                    user_id=user_id, session_id=session_id,
+                    resource_type="question", resource_id=question_id,
+                )
+            )
+        elif part in _pron_one_per_session_parts() and not await _should_sample_pronunciation(
+            session_id, question_id, duration_sec, is_practice=(session_mode == "practice"),
+        ):
+            pron_sample = PronSample("not_sampled")   # no Azure call at all
+        else:
+            pron_task = asyncio.create_task(
+                _assess_pronunciation_sampled(
+                    audio_bytes, audio_file.content_type, duration_sec=duration_sec,
+                    sample_seconds=int(settings.PRON_SAMPLE_SECONDS),
+                    user_id=user_id, session_id=session_id,
+                    resource_type="question", resource_id=question_id,
+                )
+            )
 
         try:
             grading = await grading_task
@@ -898,10 +1100,17 @@ async def grade_response_endpoint(
         # Audit 2026-07-02 — await the Azure pronunciation task (never raises).
         pron_result: dict | None = None
         try:
-            pron_result = await pron_task
+            if pron_task is not None:
+                pron_out = await pron_task
+                if pron_sample_on:
+                    pron_result, pron_sample = pron_out
+                else:
+                    pron_result = pron_out
         except Exception as pron_exc:  # defensive — _assess_pronunciation_safe swallows
             logger.warning("[grading] pronunciation task unexpected error (silent skip): %s", pron_exc)
             pron_result = None
+        if pron_sample_on and pron_sample is None:
+            pron_sample = PronSample("full")   # the task itself failed: the whole clip was meant
 
         # Make Azure the authoritative P band (test mode) BEFORE the feedback blob
         # is serialized, so the persisted grade + the reload path agree. Returns
@@ -916,6 +1125,7 @@ async def grade_response_endpoint(
             try:
                 pron_detail = _merge_pronunciation_into_grading(
                     grading, pron_result, is_practice=(session_mode == "practice"),
+                    sample=pron_sample,
                 )
             except Exception as merge_exc:  # noqa: BLE001 — never block grading
                 logger.warning("[grading] pronunciation merge failed (non-fatal): %s", merge_exc)
@@ -989,8 +1199,13 @@ async def grade_response_endpoint(
             # single grade call (no fragile second round-trip). `status` is
             # "unavailable" (with band_p null upstream) when Azure didn't run.
             "pronunciation": pron_detail if pron_detail is not None else {
-                "status": "unavailable",
+                "status": (
+                    "not_sampled"
+                    if pron_sample is not None and pron_sample.scope == "not_sampled"
+                    else "unavailable"
+                ),
                 "provider": "azure",
+                **({"sample": pron_sample.as_dict()} if pron_sample is not None else {}),
             },
         }
 
@@ -1079,9 +1294,35 @@ async def grade_response_endpoint(
             if grading and session_mode != "practice" and grading.get("band_p") is not None:
                 db_row["final_band_p"]       = grading["band_p"]
                 db_row["final_overall_band"] = grading["overall_band"]
+        else:
+            # Ghi âm lại mà lần này Azure không chạy: `_upsert_response` chỉ ghi
+            # khoá có mặt, nên điểm phát âm và `pronunciation_status='completed'`
+            # của bản ghi CŨ ở lại; Full Test summary đọc các dòng `completed`
+            # nên học viên thấy chỉ số phát âm của lần trước cạnh band mới (CR
+            # #2696 trên B2-01). Bản ghi mới chỉ mang dữ liệu phát âm của chính nó.
+            for col in _PRONUNCIATION_CLEAR_COLUMNS:
+                db_row[col] = None
+
+        # FR-036 (G04-T13): with `pron_sample_window` on, always record what
+        # Azure heard — not_sampled included (migration 502). Outside
+        # _CORE_COLUMNS on purpose: the core-row fallback drops them when the
+        # schema lacks them. Flag off → not written (old behaviour).
+        if pron_sample is not None:
+            db_row["pronunciation_sample_scope"]   = pron_sample.scope
+            db_row["pronunciation_sample_start_s"] = pron_sample.start_s
+            db_row["pronunciation_sample_end_s"]   = pron_sample.end_s
 
         if grading:
             db_row["overall_band"] = grading["overall_band"]
+            # Ghi âm lại một câu từng có Azure, lần này Azure không chạy (không
+            # có khoá, lỗi, hoặc không lấy mẫu): `_upsert_response` chỉ ghi
+            # khoá CÓ MẶT, nên `final_*` của bản ghi CŨ ở lại, và
+            # `_compute_session_bands` ưu tiên `final_*` hơn `overall_band` ⇒
+            # học viên thấy điểm của lần ghi âm trước (báo cáo săn lỗi B2-01).
+            # Bản ghi âm mới chỉ được mang `final_*` do chính nó sinh ra.
+            if "final_overall_band" not in db_row:
+                db_row["final_overall_band"] = None
+                db_row["final_band_p"] = None
             # Pre-mint a stable rec_id (client UUID) on every grammar
             # recommendation BEFORE serializing the feedback blob, so the
             # persisted blob carries the SAME id later written to the
@@ -1155,7 +1396,7 @@ async def grade_response_endpoint(
         # Không nhét hai cột này vào `_CORE_COLUMNS`: chúng đến từ migration và
         # có thể vắng mặt, mà cả điểm của đường lùi là KHÔNG được hỏng thêm.
         # Xoá riêng ở đây, hỏng thì thôi — bản ghi của học viên đã an toàn.
-        if partial and response_id and not grading:
+        if partial and response_id and db_row.get("final_overall_band", 0) is None:
             try:
                 query = supabase_admin.table("responses").update(
                     {"final_overall_band": None, "final_band_p": None}
@@ -1167,6 +1408,27 @@ async def grade_response_endpoint(
                 logger.warning(
                     "[grading] không xoá được final_* của dòng chấm hỏng %s: %s",
                     response_id, exc)
+
+        # CR #2696: đường lùi cũng nuốt các lệnh xoá `pronunciation_*` của một
+        # lần ghi lại không có Azure ⇒ dòng còn `pronunciation_status='completed'`
+        # của bản trước và Full Test summary lấy lại điểm phát âm cũ. Xoá riêng,
+        # cùng chốt phiên bản (id + audio_storage_path vừa lưu). Cột có thể vắng
+        # (migration) ⇒ thử cả nhóm, hỏng thì ít nhất bỏ `pronunciation_status`
+        # (cột summary dùng để lọc); hỏng nữa thì thôi, bản ghi đã an toàn.
+        if partial and response_id and "pronunciation_status" in db_row \
+                and db_row["pronunciation_status"] is None:
+            path = db_row["audio_storage_path"]
+            stale = {k: None for k in _PRONUNCIATION_CLEAR_COLUMNS if k in db_row and db_row[k] is None}
+            for payload in (stale, {"pronunciation_status": None}):
+                try:
+                    query = supabase_admin.table("responses").update(payload).eq("id", response_id)
+                    query = query.eq("audio_storage_path", path) if path else query.is_("audio_storage_path", "null")
+                    await asyncio.to_thread(query.execute)
+                    break
+                except Exception as exc:
+                    logger.warning(
+                        "[grading] không xoá được %s của dòng ghi lại %s: %s",
+                        sorted(payload), response_id, exc)
 
         # ── Sprint 14.3 — orchestrator audit trail ───────────────────────────
         # Best-effort. Captures every provider attempt (success, retry,
@@ -1251,6 +1513,7 @@ async def grade_response_endpoint(
         if not grading:
             # Audio + transcript saved; AI grading unavailable — tell the frontend
             note_operation_failure()
+            credit_release_reason = "grader_failed"   # plan 5.6 step 4: no grade, no charge
             # `_error` hiển thị cho học viên (lịch sử câu hỏi in nguyên), nên
             # viết tiếng Việt — trùng câu của stub dựng lại từ dòng đã lưu trong
             # practice.js. Frontend nhận "AI tạm gián đoạn" bằng cờ
@@ -1272,6 +1535,13 @@ async def grade_response_endpoint(
                 "score_confidence":    score_confidence,
                 **signals,
             }
+
+        # Plan 5.6 step 3: graded and saved → commit the hold (the cluster's
+        # hold for a covered answer). A failed settle is logged and the hold
+        # is left to the expiry sweep (the grade is already the learner's;
+        # never 5xx it). Sealed mock sittings are never metered.
+        await _settle_speaking_attempt(credit_hold, "graded")
+        credit_hold = None
 
         # Sealed 4-skill mock speaking: grading is fully persisted above (the
         # draft the admin reviews), but the per-response feedback is withheld
@@ -1296,14 +1566,227 @@ async def grade_response_endpoint(
         # Receipt only: reconciliation uses the owned session read, including its seal.
         return {"response_id": replay.response_id, "_replayed": True,
                 "backend_release_sha": _backend_release_sha()}
+    except (credits.CreditUnavailable, credits.CreditRefused, credits.CreditReplay) as credit_exc:
+        raise _credit_http_error(credit_exc) from None
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("[grading] lỗi không mong đợi tại step=%s: %s", step, e)
         raise HTTPException(500, "Lỗi khi chấm bài. Vui lòng thử lại.") from None
+    finally:
+        # Plan 5.6 step 4 / FR-015: every path that did not save a grade
+        # (STT failure, grader stub, 422 duration, save failure, replay at
+        # save, anything unexpected) settles its attempt as failed. The hold
+        # is released once no answer it covers can still be saved. Never
+        # raises; no-op without a hold.
+        await _settle_speaking_attempt(credit_hold, "failed", credit_release_reason)
+
+
+# ── Credits (COURSEACCESS-0055 plan 5.6, G04-T07) ─────────────────────────────
+
+def _speaking_cluster_parts() -> frozenset[int]:
+    raw = str(getattr(settings, "CREDIT_SPEAKING_CLUSTER_PARTS", "") or "")
+    return frozenset(int(p) for p in (x.strip() for x in raw.split(",")) if p.isdigit())
+
+
+def _speaking_credit_resource(session_id: str, question_id: str, part: int) -> dict:
+    """FR-044: Part 2 → one credit per answer; Parts in
+    CREDIT_SPEAKING_CLUSTER_PARTS (1, 3) → a cluster seat the RPC assigns
+    atomically (the backend never counts graded answers itself)."""
+    if part in _speaking_cluster_parts():
+        return {"resource_type": "speaking_cluster",
+                "resource_id": f"{session_id}:p{part}:q{question_id}"}
+    return {"resource_type": "speaking_response", "resource_id": f"{session_id}:{question_id}"}
+
+
+_CREDIT_KEY_RETRIES = 3
+
+
+def _fetch_request_key_state(user_id: str, request_key: str) -> dict | None:
+    """The hold a Speaking request key already names: its own reservation, or
+    the cover hold of a ``covered`` answer. ``{resource_type, resource_id,
+    status}`` with the resource the key was used for; None when unused."""
+    rows = (
+        supabase_admin.table("credit_reservations").select("resource_type, resource_id, status")
+        .eq("user_id", user_id).eq("feature", "speaking_grading").eq("request_key", request_key)
+        .limit(1).execute().data
+    ) or []
+    if rows:
+        return rows[0]
+    rows = (
+        supabase_admin.table("credit_covered_requests").select("resource_type, resource_id, reservation_id")
+        .eq("user_id", user_id).eq("feature", "speaking_grading").eq("request_key", request_key)
+        .limit(1).execute().data
+    ) or []
+    if not rows:
+        return None
+    cover = (
+        supabase_admin.table("credit_reservations").select("status")
+        .eq("id", rows[0]["reservation_id"]).limit(1).execute().data
+    ) or []
+    return {"resource_type": rows[0]["resource_type"], "resource_id": rows[0]["resource_id"],
+            "status": cover[0]["status"] if cover else None, "covered": True}
+
+
+def _fetch_attempt_outcome(user_id: str, request_key: str) -> str | None:
+    """``graded`` / ``failed`` once the attempt under ``request_key`` has
+    settled (credit_attempt_outcomes, migration 503); None while it runs."""
+    rows = (
+        supabase_admin.table("credit_attempt_outcomes").select("outcome")
+        .eq("user_id", user_id).eq("request_key", request_key).limit(1).execute().data
+    ) or []
+    return rows[0]["outcome"] if rows else None
+
+
+def _fetch_request_key_attempt(user_id: str, request_key: str) -> dict | None:
+    state = _fetch_request_key_state(user_id, request_key)
+    if state is not None:
+        state = {**state, "outcome": _fetch_attempt_outcome(user_id, request_key)}
+    return state
+
+
+async def _request_key_state(user_id: str, request_key: str) -> dict | None:
+    return await asyncio.wait_for(asyncio.to_thread(_fetch_request_key_attempt, user_id, request_key),
+                                  timeout=credits.RPC_TIMEOUT_SECONDS)
+
+
+def _same_answer(state: dict, resource: dict) -> bool:
+    if (state.get("resource_type"), state.get("resource_id")) == (resource["resource_type"], resource["resource_id"]):
+        return True
+    # A paid cluster re-grade is held as speaking_response '<s>:<q>:r<n>'.
+    if resource["resource_type"] == "speaking_cluster" and state.get("resource_type") == "speaking_response":
+        session_id, _part, question = resource["resource_id"].split(":", 2)
+        return str(state.get("resource_id") or "").startswith(f"{session_id}:{question[1:]}:r")
+    return False
+
+
+async def _key_state_for(user_id: str, request_key: str) -> dict | None:
+    try:
+        return await _request_key_state(user_id, request_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[credits] request key lookup failed: %s", exc)
+        raise credits.CreditUnavailable("request_key_lookup") from exc
+
+
+async def _attempt_failed(user_id: str, request_key: str, resource: dict) -> bool:
+    """True when the attempt under ``request_key`` settled as ``failed`` for
+    THIS answer while its hold stays open (the cluster waits for another
+    answer) or was committed by another answer of the cluster. The route's
+    receipt check found no saved response for this submission, so the
+    learner is retrying the same recording: grade it under a new key (a
+    covered re-grade of the question, free once, then charged, per plan
+    5.6). An attempt that is still running stays 409."""
+    state = await _key_state_for(user_id, request_key)
+    return bool(state and state.get("outcome") == "failed" and _same_answer(state, resource))
+
+
+async def _key_was_released_for(user_id: str, request_key: str, resource: dict) -> bool:
+    """True when ``request_key`` names a released/expired hold of THIS answer
+    (Codex P2 / CR on 68a027c0): the attempt failed and gave its credit back,
+    so the same recording may be retried under a new key. A key used for
+    another answer, or still open/committed, stays a conflict."""
+    state = await _key_state_for(user_id, request_key)
+    if not state or state.get("status") not in ("released", "expired"):
+        return False
+    return _same_answer(state, resource)
+
+
+async def _reserve_speaking_credit(user_id: str, plan: credits.ChargePlan, session_id: str,
+                                   question_id: str, part: int, base_key: str) -> credits.CreditHold:
+    """Plan 5.6 step 2 with a retry rule. The first key is the submission id.
+    fn_credit_reserve answers ``request_key_conflict`` for a key whose hold was
+    released, so a learner retrying the same recording after an STT 502 or a
+    save failure would get 409 and lose the recording. When the conflicting
+    key names a released hold of this same answer, or an attempt of this
+    answer that settled as failed while the hold lives on, try
+    ``<key>:a<n>``. A still-running attempt is a replay (409
+    grading_in_progress) and a graded one is ``already_graded``."""
+    resource = _speaking_credit_resource(session_id, question_id, part)
+    key = base_key
+    for attempt in range(_CREDIT_KEY_RETRIES + 1):
+        try:
+            return await credits.reserve(
+                user_id, "speaking_grading", request_key=key, **resource,
+                ttl_seconds=settings.CREDIT_HOLD_TTL_SPEAKING_SECONDS,
+                course_ids=plan.course_ids, kinds=plan.kinds, credit_source=plan.credit_source,
+            )
+        except credits.CreditRefused as exc:
+            if (exc.code != "request_key_conflict" or attempt == _CREDIT_KEY_RETRIES
+                    or not await _key_was_released_for(user_id, key, resource)):
+                raise
+            key = f"{base_key}:a{attempt + 1}"
+        except credits.CreditReplay as exc:
+            if (exc.code not in ("grading_in_progress", "already_graded") or attempt == _CREDIT_KEY_RETRIES
+                    or not await _attempt_failed(user_id, key, resource)):
+                raise
+            key = f"{base_key}:a{attempt + 1}"
+    raise AssertionError("unreachable")
+
+
+async def _settle_speaking_attempt(hold: credits.CreditHold | None, outcome: str,
+                                   reason: str | None = None) -> None:
+    """Plan 5.6 steps 3/4 with FR-015 (Andy, BLOCKER on #2554 11:18Z), via
+    fn_credit_settle_attempt (migration 503) under the user's credit lock.
+    ``graded`` (after the save) commits the hold, also when this answer was
+    covered by its cluster's hold. ``failed`` releases the hold only when
+    every answer it covers has failed; while another answer of the cluster
+    may still be saved, the credit stays held. Never raises: a settle error
+    is logged and the expiry sweep returns a hold nobody settled."""
+    if hold is None:
+        return
+    try:
+        status = await credits.settle_attempt(hold, outcome, reason)
+    except Exception as exc:  # noqa: BLE001 — never turn a saved grade or an error path into another error
+        logger.warning("[credits] decision=settle_failed outcome=%s reservation=%s: %s",
+                       outcome, hold.reservation_id, exc)
+        return
+    if outcome == "graded" and status == "not_open":
+        # The hold expired while this answer was graded: the grade is kept.
+        logger.warning("[credits] decision=graded_after_expiry reservation=%s", hold.reservation_id)
+    else:
+        logger.info("[credits] decision=settle outcome=%s status=%s reservation=%s",
+                    outcome, status, hold.reservation_id)
+
+
+_CREDIT_MESSAGES = {
+    "credits_unavailable": "Chưa kiểm tra được lượt chấm. Vui lòng thử lại sau ít phút.",
+    "insufficient_credits": "Bạn đã dùng hết lượt chấm AI.",
+    "no_entitlement": "Tài khoản chưa có khoá học dùng được cho phần này.",
+    "request_key_conflict": "Bài nộp này trùng với một lần nộp khác. Vui lòng ghi âm lại.",
+    "not_owner": "Không tìm thấy bài nộp.",
+    "grading_in_progress": "Bài này đang được chấm. Vui lòng đợi kết quả.",
+    "already_graded": "Bài này đã được chấm.",
+}
+
+
+def _credit_http_error(exc: Exception) -> HTTPException:
+    """credits.* → HTTP, with ``error_code`` so the 5xx sanitizer keeps it.
+    402 tells the page whose credits ran out (``credit_source`` class →
+    "liên hệ giáo viên", online → "đăng ký lại"; plan 5.6 step 5)."""
+    if isinstance(exc, credits.CreditRefused):
+        detail = {"error_code": exc.code, "credit_source": exc.credit_source,
+                  "message": _CREDIT_MESSAGES.get(exc.code, exc.code)}
+        if exc.code == "insufficient_credits":
+            detail["balance"] = exc.balance
+        return HTTPException(exc.status_code, detail=detail)
+    if isinstance(exc, credits.CreditReplay):
+        return HTTPException(409, detail={"error_code": exc.code,
+                                          "message": _CREDIT_MESSAGES.get(exc.code, exc.code)})
+    return HTTPException(503, detail={"error_code": "credits_unavailable",
+                                      "message": _CREDIT_MESSAGES["credits_unavailable"]})
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+# Cột phát âm của MỘT bản ghi: ghi âm lại không có Azure phải xoá cả nhóm
+# (CR #2696), ở bản ghi đủ cột lẫn ở bước dọn sau đường lùi core-row.
+_PRONUNCIATION_CLEAR_COLUMNS = (
+    "pronunciation_score", "pronunciation_fluency",
+    "pronunciation_accuracy", "pronunciation_completeness",
+    "pronunciation_status", "pronunciation_provider",
+    "pronunciation_locale", "pronunciation_payload",
+)
+
 
 def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
                                     session_id, question_id):

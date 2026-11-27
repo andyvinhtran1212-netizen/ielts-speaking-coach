@@ -1,10 +1,10 @@
 /**
  * frontend/tests/sprint-17-1-admin-codes.test.mjs — Sprint 17.1 (Direction A)
  *
- * Functional tests of the pure admin-codes-util helpers (quota label, search,
- * sort), plus source-scan of admin-access-codes.js wiring (renders assigned
- * email + quota, lookup-failure warning, no inline styles) and the index.html
- * columns/search. No headless browser (project source-scan convention).
+ * LEGACYJS-0075 W3a: `public/js/admin-codes-util.js` and
+ * `admin-access-codes.js` are retired. The same helpers live in
+ * `lib/admin-users-model.mjs` (`quotaLabel`, `selectCodes`, `codeStatusRank`)
+ * and the wiring in the Next codes panel; this file now pins those.
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
@@ -12,13 +12,15 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { quotaLabel, codeMatchesSearch, compareCodesBy, statusRank }
-  from '../js/admin-codes-util.js';
+import { quotaLabel, selectCodes, codeStatusRank } from '../lib/admin-users-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const CTRL = front('js', 'admin-access-codes.js');
+const CTRL = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 const HTML = front('pages', 'admin', 'access-codes', 'index.html');
+
+const searchCodes = (codes, search) => selectCodes(codes, { search }, { field: 'created_at', order: 'desc' });
+const sortCodes = (codes, field, order) => selectCodes(codes, {}, { field, order });
 
 
 // ── quotaLabel ──────────────────────────────────────────────────────────────
@@ -36,65 +38,65 @@ describe('Sprint 17.1 — quotaLabel', () => {
   });
 });
 
-// ── codeMatchesSearch ─────────────────────────────────────────────────────────
-describe('Sprint 17.1 — codeMatchesSearch', () => {
+// ── search (selectCodes) ─────────────────────────────────────────────────────
+describe('Sprint 17.1 — code search', () => {
   const code = { code: 'ABCD-1234', assigned_users: [{ email: 'student@example.com' }] };
-  test('empty query matches all', () => assert.ok(codeMatchesSearch(code, '')));
-  test('matches code value (case-insensitive)', () => assert.ok(codeMatchesSearch(code, 'abcd')));
-  test('matches assigned email', () => assert.ok(codeMatchesSearch(code, 'student@')));
-  test('no match → false', () => assert.strictEqual(codeMatchesSearch(code, 'zzz'), false));
-  test('no assigned_users → still searchable by code', () =>
-    assert.ok(codeMatchesSearch({ code: 'XY-1' }, 'xy')));
+  test('empty query matches all', () => assert.deepStrictEqual(searchCodes([code], ''), [code]));
+  test('matches code value (case-insensitive)', () => assert.deepStrictEqual(searchCodes([code], 'abcd'), [code]));
+  test('matches assigned email', () => assert.deepStrictEqual(searchCodes([code], 'student@'), [code]));
+  test('no match → empty', () => assert.deepStrictEqual(searchCodes([code], 'zzz'), []));
+  test('no assigned users → still searchable by code', () => {
+    const bare = { code: 'XY-1', assigned_users: [] };
+    assert.deepStrictEqual(searchCodes([bare], 'xy'), [bare]);
+  });
 });
 
-// ── compareCodesBy + statusRank ───────────────────────────────────────────────
-describe('Sprint 17.1 — compareCodesBy', () => {
-  const a = { created_at: '2026-01-01T00:00:00Z', expires_at: null, is_active: true };
-  const b = { created_at: '2026-03-01T00:00:00Z', expires_at: '2026-04-01T00:00:00Z', is_revoked: true };
+// ── sort (selectCodes) + codeStatusRank ──────────────────────────────────────
+describe('Sprint 17.1 — code sort', () => {
+  const a = { code: 'A', assigned_users: [], created_at: '2026-01-01T00:00:00Z', expires_at: null, is_active: true };
+  const b = { code: 'B', assigned_users: [], created_at: '2026-03-01T00:00:00Z', expires_at: '2026-04-01T00:00:00Z', is_active: false };
 
   test('created_at desc → newest first', () => {
-    const s = [a, b].sort(compareCodesBy('created_at', 'desc'));
-    assert.strictEqual(s[0], b);
+    assert.strictEqual(sortCodes([a, b], 'created_at', 'desc')[0], b);
   });
   test('created_at asc → oldest first', () => {
-    const s = [a, b].sort(compareCodesBy('created_at', 'asc'));
-    assert.strictEqual(s[0], a);
+    assert.strictEqual(sortCodes([a, b], 'created_at', 'asc')[0], a);
   });
   test('expires_at: null sorts last regardless of direction', () => {
-    assert.strictEqual([a, b].sort(compareCodesBy('expires_at', 'asc'))[1], a);
-    assert.strictEqual([a, b].sort(compareCodesBy('expires_at', 'desc'))[1], a);
+    assert.strictEqual(sortCodes([a, b], 'expires_at', 'asc')[1], a);
+    assert.strictEqual(sortCodes([a, b], 'expires_at', 'desc')[1], a);
   });
   test('status rank: active < locked < revoked', () => {
-    assert.strictEqual(statusRank({ is_active: true }), 0);
-    assert.strictEqual(statusRank({ is_active: false }), 1);
-    assert.strictEqual(statusRank({ is_revoked: true }), 2);
+    assert.strictEqual(codeStatusRank({ is_active: true }), 0);
+    assert.strictEqual(codeStatusRank({ is_active: false }), 1);
+    assert.strictEqual(codeStatusRank({ is_revoked: true }), 2);
   });
 });
 
-// ── Controller wiring (source-scan, Pattern #34 / #26) ───────────────────────
-describe('Sprint 17.1 — admin-access-codes.js wiring', () => {
-  test('imports the pure util helpers', () => {
-    assert.match(CTRL, /import\s*\{[^}]*quotaLabel[^}]*\}\s*from\s*'\.\/admin-codes-util\.js'/);
+// ── Panel wiring (source-scan) ───────────────────────────────────────────────
+describe('Sprint 17.1 — codes panel wiring', () => {
+  test('imports the model helpers', () => {
+    assert.match(CTRL, /import \{[^}]*quotaLabel[^}]*selectCodes[^}]*\} from '@\/lib\/admin-users-model\.mjs'/);
   });
   test('renders assigned email + quota + lookup-failure + empty placeholder', () => {
-    assert.match(CTRL, /assignedCell/);
-    assert.match(CTRL, /u\.email/);
-    assert.match(CTRL, /quotaLabel\(u\.quota\)/);
+    assert.match(CTRL, /user\.email/);
+    assert.match(CTRL, /quotaLabel\(user\.quota\)/);
     assert.match(CTRL, /association_lookup_failed/);
     assert.match(CTRL, /⚠ lookup failed/);
     assert.match(CTRL, /Chưa gán/);
   });
-  test('escapes email (no raw interpolation of user data into the new cell)', () => {
-    assert.match(CTRL, /esc\(u\.email\)/);
+  test('never injects HTML (React escapes the email)', () => {
+    assert.doesNotMatch(CTRL, /dangerouslySetInnerHTML|\.innerHTML/);
   });
-  test('wires client-side search + sortable headers', () => {
-    assert.match(CTRL, /codeMatchesSearch\(c, _search\)/);
-    assert.match(CTRL, /compareCodesBy\(_sort\.field, _sort\.order\)/);
-    assert.match(CTRL, /th\[data-sort\]/);
+  test('wires client-side search + sort through selectCodes', () => {
+    // #2644: selectCodes sorts and searches; the ledger state filters after it.
+    assert.match(CTRL, /selectCodes\(codes, \{ type, status: 'all', cohort, search \}, sort\)/);
+    assert.match(CTRL, /ledger\.get\(code\.id\)\?\.state === status/);
+    assert.match(CTRL, /placeholder="Mã hoặc email…"/);
   });
-  test('Pattern #26 — no inline style/color/bg literals in the controller', () => {
-    assert.doesNotMatch(CTRL, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(CTRL, /style\s*=\s*["'][^"']*background/);
+  test('Pattern #26 — no inline color/background literals in the panel', () => {
+    assert.doesNotMatch(CTRL, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(CTRL, /style=\{\{[^}]*background/);
     assert.doesNotMatch(CTRL, /rgba\(\s*\d+\s*,/);
   });
 });

@@ -1005,6 +1005,37 @@ async def test_degraded_deep_result_is_attributed_to_the_pass1_model(monkeypatch
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("pass3_fails", [False, True])
+async def test_full_deep_result_is_attributed_to_the_pass1_model(monkeypatch, pass3_fails):
+    """A full (or Pass-3-degraded) Deep run keeps the Pass 1 server as model_used;
+    the Gemini Pro passes 2/3 are recorded per pass, never as the run's model."""
+    from config import settings
+    from models.writing_feedback import (
+        GradingResult, GradingTier, Pass2Refinement, Pass3Rewrites, WritingFeedback,
+    )
+    from services.gemini_writing_grader import GeminiWritingGrader
+
+    grader = GeminiWritingGrader(api_key="test-gemini")
+    pass1 = GradingResult(
+        feedback=WritingFeedback(**json.loads(_writing_feedback_json())),
+        model_used="claude-sonnet-5-5", tokens_input=10, tokens_output=5, cost_usd=0.01,
+        grading_duration_ms=5, prompt_version="v2", grading_tier=GradingTier.STANDARD,
+    )
+    monkeypatch.setattr(grader, "_grade_standard", AsyncMock(return_value=pass1))
+    monkeypatch.setattr(grader, "_run_deep_pass2", AsyncMock(
+        return_value=(Pass2Refinement(), {"input_tokens": 7, "output_tokens": 3})))
+    monkeypatch.setattr(grader, "_run_deep_pass3", AsyncMock(
+        side_effect=RuntimeError("pass3 down")) if pass3_fails else AsyncMock(
+        return_value=(Pass3Rewrites(), {"input_tokens": 4, "output_tokens": 2})))
+    result = await grader._grade_deep(SimpleNamespace(), SimpleNamespace(PROMPT_VERSION="v2"))
+    assert result.prompt_version.endswith("-degraded") is pass3_fails
+    assert result.model_used == "claude-sonnet-5-5"
+    assert result.tier_metadata["pass1"]["model"] == "claude-sonnet-5-5"
+    assert result.tier_metadata["pass2"]["model"] == settings.GEMINI_PRO_MODEL
+    assert result.tier_metadata["pass3"]["model"] == settings.GEMINI_PRO_MODEL
+
+
+@pytest.mark.asyncio
 async def test_success_metadata_is_added_to_the_success_row_only(claude_on, usage_rows):
     claude_on.results = [_message('{"ok": true}')]
     _, parsed = await ai_router.call_anthropic(

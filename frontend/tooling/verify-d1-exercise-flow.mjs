@@ -350,7 +350,7 @@ await context.route('**/*', async (route) => {
 const page = await context.newPage();
 guard.watchPage(page);
 page.on('pageerror', (error) => pageErrors.push(String(error)));
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Điền từ đúng vào ngữ cảnh' }).waitFor();
 await check('feature gate đọc canonical /auth/me', requests.includes('GET /auth/me'));
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
@@ -399,7 +399,7 @@ await page.evaluate(([userId, sessionId]) => {
   localStorage.setItem(`aver:d1:active-session:${userId}`, JSON.stringify([sessionId]));
   localStorage.removeItem('aver:d1:active-session');
 }, [USER, SESSION]);
-await page.goto(`${BASE}/d1-exercise?session=${FOREIGN_SESSION}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in?session=${FOREIGN_SESSION}`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
 await check('URL foreign 404 fallback ngay sang registry account',
   new URL(page.url()).searchParams.get('session') === SESSION
@@ -414,7 +414,7 @@ await page.evaluate(([userId, activeId, staleId]) => {
     JSON.stringify([activeId, staleId]),
   );
 }, [USER, SESSION, FOREIGN_SESSION]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
 await check('registry thử toàn bộ session mới→cũ trước khi hiện Start', await page.evaluate(
   ([userId, activeId]) => {
@@ -431,7 +431,7 @@ await page.evaluate(([userId, sessionId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.setItem('aver:d1:active-session', sessionId);
 }, [USER, SESSION]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
 await check('singleton legacy chỉ bị claim sau resume user-scoped thành công', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
@@ -450,7 +450,7 @@ await page.evaluate(() => localStorage.setItem('d1-page-owns-auth-me-once', '1')
 const resumeRequestsBefore = requests.filter(
   (entry) => entry === `GET /api/exercises/d1/sessions/${SESSION}`,
 ).length;
-await page.goto(`${BASE}/d1-exercise?session=${SESSION}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in?session=${SESSION}`, { waitUntil: 'domcontentloaded' });
 await guard.within(resumeOwnerSwitchStarted, "player's /auth/me during resume (owner switch)");
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
@@ -474,7 +474,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem('aver:d1:active-session');
   window.__d1CurrentUser = userId;
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise?session=${FOREIGN_OWNER_SESSION}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in?session=${FOREIGN_OWNER_SESSION}`, { waitUntil: 'domcontentloaded' });
 await guard.within(foreignOwnerMissStarted, 'fixture: old-account 404 for foreign-owner session');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
@@ -500,7 +500,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
   window.__d1CurrentUser = userId;
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise?session=${UNAUTHORIZED_SESSION}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in?session=${UNAUTHORIZED_SESSION}`, { waitUntil: 'domcontentloaded' });
 await guard.within(unauthorizedResponseStarted, 'fixture: old-account 401 for resume');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
@@ -515,7 +515,7 @@ await guard.within(answered.unauthorized, 'fixture: late resume 401 of the old a
 // proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
 await check('401 trễ của account cũ không redirect account mới về login',
-  new URL(page.url()).pathname === '/d1-exercise'
+  new URL(page.url()).pathname === '/vocabulary/fill-in'
   && new URL(page.url()).searchParams.get('session') === UNAUTHORIZED_SESSION);
 await check('account mới giữ được session sau stale 401', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
@@ -527,7 +527,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await guard.within(bootstrap401Started, 'fixture: old-account 401 for /auth/me bootstrap');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
@@ -542,14 +542,14 @@ await guard.within(answered.bootstrap401, 'fixture: late /auth/me 401 of the old
 // proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
 await check('401 trễ ở feature bootstrap không redirect account mới',
-  new URL(page.url()).pathname === '/d1-exercise');
+  new URL(page.url()).pathname === '/vocabulary/fill-in');
 
 attempt401Armed = true;
 await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
 await guard.within(attempt401Started, 'fixture: old-account 401 for attempt');
@@ -566,14 +566,14 @@ await guard.within(answered.attempt401, 'fixture: late attempt 401 of the old ac
 // proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
 await check('401 trễ khi lưu attempt không redirect account mới',
-  new URL(page.url()).pathname === '/d1-exercise');
+  new URL(page.url()).pathname === '/vocabulary/fill-in');
 
 complete401Armed = true;
 await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise?session=${COMPLETE_401_SESSION}`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in?session=${COMPLETE_401_SESSION}`, { waitUntil: 'domcontentloaded' });
 await guard.within(complete401Started, 'fixture: old-account 401 for complete');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
@@ -588,7 +588,7 @@ await guard.within(answered.complete401, 'fixture: late complete 401 of the old 
 // proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
 await check('401 trễ khi complete không redirect account mới',
-  new URL(page.url()).pathname === '/d1-exercise');
+  new URL(page.url()).pathname === '/vocabulary/fill-in');
 
 refresh401Armed = true;
 await page.evaluate(([userId, foreignUserId]) => {
@@ -597,7 +597,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.setItem('d1-page-owns-auth-me-once', '1');
 }, [USER, FOREIGN_USER]);
 const refreshAuthMeBefore = requests.length;
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await guard.within(refresh401Started, "player's /auth/me with the old token (401 refresh)");
 await page.evaluate(([userId]) => {
   window.__d1CurrentUser = userId;
@@ -612,7 +612,7 @@ resolveRefreshTokenInstalled();
 await guard.within(refreshRetryObserved, '401 token cũ retry một lần bằng token refresh cùng account');
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 await check('401 token cũ retry một lần bằng token refresh cùng account',
-  refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise'
+  refreshRetrySeen && new URL(page.url()).pathname === '/vocabulary/fill-in'
   && requests.slice(refreshAuthMeBefore).filter((entry) => entry === 'GET /auth/me').length === 2);
 
 generationRaceArmed = true;
@@ -621,7 +621,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
 await guard.within(generationOldAttemptStarted, 'fixture: old-generation attempt A');
@@ -661,7 +661,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
 await guard.within(staleRetryFirstStarted, 'fixture: old-generation transient 503');
@@ -696,7 +696,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
   window.__d1AccessToken = 'fixture-token';
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
 await guard.within(refreshGenerationOldStarted, 'fixture: old-generation attempt (delayed 401)');
@@ -734,7 +734,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
   window.__d1AccessToken = 'fixture-token';
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 const adaptPostsBeforeDelayedToken = attemptBodies.filter((body) => body.user_answer === 'adapt').length;
 await page.evaluate(() => {
@@ -778,7 +778,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   window.__d1CurrentUser = userId;
   window.__d1AccessToken = 'fixture-token';
 }, [USER, FOREIGN_USER]);
-await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${BASE}/vocabulary/fill-in`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 final401Armed = true;
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();

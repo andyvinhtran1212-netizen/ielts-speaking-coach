@@ -228,7 +228,7 @@ grep -rl "$OLD_ANON" . --include=*.html --include=*.js | grep -v practice.legacy
   | xargs sed -i '' "s#$OLD_ANON#$NEW_ANON#g"
 
 # Rebuild Tailwind (CI gate) sau khi sửa hàng loạt HTML — dùng script thật của repo:
-npm run build:css        # = build:css:plusjakarta + build:css:inter (regenerate tailwind.build.css + tailwind.inter.css)
+npm run build:css        # = build:css:plusjakarta (regenerate tailwind.build.css)
 grep -rl "$OLD_URL" . --include=*.html --include=*.js | grep -v practice.legacy.html   # phải rỗng
 ```
 → commit + deploy Vercel. *(Anon/publishable key là public theo thiết kế — an toàn để hardcode.)*

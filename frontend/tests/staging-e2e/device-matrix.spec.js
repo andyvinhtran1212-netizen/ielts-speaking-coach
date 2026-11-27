@@ -46,7 +46,9 @@ test('Next → redirected legacy alias → Next seam keeps origin storage and ne
     window.location.assign('/grammar.html?from=staging-matrix#main');
   });
   await page.waitForURL('**/grammar?from=staging-matrix#main');
-  await expect(page.locator('body')).toContainText('IELTS Grammar Reference');
+  // G06-T14 (b) (#2515) replaced the old hero, and its "IELTS Grammar Reference"
+  // badge, with the Wiki home index; its heading is the stable marker now.
+  await expect(page.locator('h1')).toHaveText('Grammar Wiki');
   await expect(page.locator('aver-chrome')).toBeAttached();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 

@@ -74,7 +74,7 @@ def test_admin_finds_each_group_without_accents(db):
     out = _admin("lan")
     assert _titles(out, "learners") == ["Nguyễn Thị Lan"]
     assert out["learners"][0] == {"title": "Nguyễn Thị Lan", "meta": "HV001 · Tue–Thu 19:30",
-                                  "href": f"/admin/learners/u-{U_LAN}"}
+                                  "href": "/admin/students"}
     # Newest first; a deleted essay is not listed.
     assert [r["href"] for r in out["submissions"]] == ["/admin/writing/grade?essay_id=e-practice",
                                                       "/admin/writing/grade?essay_id=e-class"]

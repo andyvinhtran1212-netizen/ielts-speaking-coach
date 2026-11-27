@@ -2,6 +2,10 @@
  * admin-listening-attempts.test.mjs — trang admin "Lượt làm bài nghe"
  * (audit 2026-07-17: 418 attempts trong listening_test_attempts vô hình với
  * admin). Source sentinels — page/JS là DOM/IIFE, không import được.
+ *
+ * LEGACYJS-0075 W1: public/js/admin-listening-attempts.js đã gỡ; phần hành vi
+ * nay do admin-listening-attempts-next-behavior.test.mjs +
+ * verify-admin-listening-attempts-flow.mjs giữ (TEST_INVARIANT_LEDGER).
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +16,6 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const PAGE = read('pages', 'admin', 'listening', 'attempts.html');
-const JS = read('js', 'admin-listening-attempts.js');
 const CHROME = read('js', 'components', 'aver-admin-chrome.js');
 
 describe('attempts.html — cấu trúc trang', () => {
@@ -41,37 +44,6 @@ describe('attempts.html — cấu trúc trang', () => {
   });
 });
 
-describe('admin-listening-attempts.js — hành vi', () => {
-  test('gọi đúng endpoints admin', () => {
-    assert.match(JS, /\/admin\/listening\/attempts' \+ qs\(\)/);
-    assert.match(JS, /\/admin\/listening\/attempts\/' \+ encodeURIComponent\(id\)/);
-  });
-  test('render danh tính học viên + bài, KHÔNG hiện user_id trần khi có email', () => {
-    assert.match(JS, /u\.display_name \|\| '—'/);
-    assert.match(JS, /u\.email \|\| u\.id/);
-    assert.match(JS, /t\.title \|\| '—'/);
-  });
-  test('drill-down: bảng từng câu (học viên trả lời / đáp án / trap)', () => {
-    assert.match(JS, /Học viên trả lời/);
-    assert.match(JS, /grading_details \|\| \[\]/);
-    assert.match(JS, /trap_caught \? ' 🪤✓' : \(d\.trap_missed \? ' 🪤✗' : ''\)/);
-    assert.match(JS, /\(bỏ trống\)/);
-  });
-  test('trạng thái có nhãn tiếng Việt, gồm Bỏ dở', () => {
-    assert.match(JS, /submitted: 'Đã nộp', in_progress: 'Đang làm', abandoned: 'Bỏ dở'/);
-  });
-  test('deep-link ?user= để trang khác filter sẵn học viên', () => {
-    assert.match(JS, /new URLSearchParams\(location\.search\)\.get\('user'\)/);
-  });
-  test('phân trang qua offset (tôn trọng PostgREST cap)', () => {
-    assert.match(JS, /offset = Math\.max\(0, offset - LIMIT\)/);
-    assert.match(JS, /offset \+= LIMIT/);
-  });
-  test('escape mọi chuỗi động (đi qua esc/WC.escapeHtml)', () => {
-    assert.match(JS, /window\.WC && window\.WC\.escapeHtml/);
-  });
-});
-
 describe('nav admin', () => {
   test('Lượt làm bài nằm trong subsections của Listening', () => {
     assert.match(CHROME, /slug: 'attempts',\s+label: 'Lượt làm bài',\s+href: '\/admin\/listening\/attempts'/);
@@ -95,12 +67,4 @@ describe('type filter covers every test_type the table allows', () => {
     }
   });
 
-  test('every kind has a Vietnamese label', () => {
-    const decl = 'var TYPE_LABEL = {';
-    const block = JS.slice(JS.indexOf(decl) + decl.length);
-    const body = block.slice(0, block.indexOf('};'));
-    for (const k of KINDS) {
-      assert.match(body, new RegExp(`\\b${k}:`), `TYPE_LABEL is missing "${k}"`);
-    }
-  });
 });

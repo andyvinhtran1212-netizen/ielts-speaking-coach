@@ -528,6 +528,12 @@ class TestStats:
 
 
 class TestDogfoodEndpoint:
+    @pytest.fixture(autouse=True)
+    def _no_railway_tier(self, monkeypatch):
+        # The guard reads RAILWAY_ENVIRONMENT_NAME too; a value in the
+        # caller's shell must not decide these tests (CR delta nit, #2655).
+        monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+
     def test_warning_inserts_row(self, client, fake_db):
         r = client.post("/admin/error-logs/test?error_type=warning", headers=_ADMIN_AUTH)
         assert r.status_code == 200
@@ -543,3 +549,42 @@ class TestDogfoodEndpoint:
     def test_rejects_bad_error_type(self, client):
         r = client.post("/admin/error-logs/test?error_type=weird", headers=_ADMIN_AUTH)
         assert r.status_code == 422
+
+    @pytest.mark.parametrize(
+        ("environment", "railway"),
+        [
+            ("production", None),
+            (" Production ", None),
+            # Railway production sets no ENVIRONMENT: the config default stays.
+            ("development", "production"),
+            ("", "production"),
+            # A Railway environment that is neither staging nor production.
+            ("development", "pr-2655"),
+            ("qa", None),
+        ],
+    )
+    def test_refused_outside_staging_and_development(self, client, fake_db, monkeypatch, environment, railway):
+        # ADMINIA-0074 FR-073: the server blocks the dogfood helper on
+        # Production and fails closed on an unknown tier.
+        monkeypatch.setattr("routers.error_logs.settings.ENVIRONMENT", environment)
+        if railway is None:
+            monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+        else:
+            monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", railway)
+        for error_type in ("warning", "exception"):
+            r = client.post(f"/admin/error-logs/test?error_type={error_type}", headers=_ADMIN_AUTH)
+            assert r.status_code == 403
+        assert fake_db.tables.get("error_logs", []) == []
+
+    @pytest.mark.parametrize(
+        ("environment", "railway"),
+        [("staging", None), ("development", "staging"), ("development", None), ("test", None)],
+    )
+    def test_allowed_on_staging_and_development(self, client, fake_db, monkeypatch, environment, railway):
+        monkeypatch.setattr("routers.error_logs.settings.ENVIRONMENT", environment)
+        if railway is None:
+            monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+        else:
+            monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", railway)
+        r = client.post("/admin/error-logs/test?error_type=warning", headers=_ADMIN_AUTH)
+        assert r.status_code == 200
