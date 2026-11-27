@@ -181,7 +181,9 @@ describe('Sprint 12.1 — aver-admin-chrome component source', () => {
       CHROME_JS.indexOf('if (this._mounted) {'),
       CHROME_JS.indexOf('this._mounted = true;'),
     );
-    assert.match(reconnectBlock, /if \(!this\.hasAttribute\('embed'\)\) this\._bindInteractiveChrome\(\)/);
+    // G09-T08: slot-only covers embed and the new admin frame (av-admin-frame-v2).
+    assert.match(reconnectBlock, /if \(!this\._slotOnly\) this\._bindInteractiveChrome\(\)/);
+    assert.match(CHROME_JS, /this\._slotOnly = this\.hasAttribute\('embed'\) \|\| isAdminFrameV2\(\)/);
     const postAwaitBlock = CHROME_JS.slice(
       CHROME_JS.indexOf('await sb.auth.getSession()'),
       CHROME_JS.indexOf('const session = data && data.session;'),

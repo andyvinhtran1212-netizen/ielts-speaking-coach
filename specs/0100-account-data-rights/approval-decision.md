@@ -65,3 +65,7 @@ Decision:
   that learner while that context is set. Every other update or delete is
   refused exactly as before.
 - Applying migration 504 follows the rule above (Andy's typed approval).
+
+## Phân loại dữ liệu phát sinh từ migration 445 và 503
+
+Andy duyệt trong phiên điều phối hiện hành việc xoá các dòng mời dự thi gắn học viên và giữ bằng chứng quyết toán lượt AI gắn với mã đã ẩn danh. Giữ nguyên quan hệ tới bản ghi giữ lượt và cơ chế chỉ ghi thêm. Gói tải dùng lịch sử sổ lượt hiện hành. Các quyết định về chạy migration và xoá dữ liệu thật theo quy trình riêng đã ghi ở trên.
