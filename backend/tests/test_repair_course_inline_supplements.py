@@ -152,3 +152,62 @@ def test_reopened_item_state_matches_the_submitted_at_constraint():
     assert patch["passed_at"] is None
     assert patch["artifact_kind"] is None
     assert patch["artifact_id"] is None
+
+
+def _tfng_rows(answer):
+    shared = {
+        "title": "T", "focus": "F", "passage": "The library is near the gate.",
+        "translation": "Thư viện.", "vocabulary": [{"tu": "gate", "loai": "n", "nghia": "cổng"}],
+    }
+    return [
+        _row("TM20-B06-DOC-R01", "course_reading", "READ-CONTENT", 100,
+             prompt="P", options=["T", "F", "NG"], answer=answer, explain="E",
+             segments={"section": "content", "shared": shared}),
+        _row("TM20-B06-DOC-R02", "course_reading", "READ-STRUCTURE", 101,
+             prompt="P2", accept=["near"], explain="E2",
+             segments={"section": "structure"}),
+    ]
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("bad", [-1, True, False, 3])
+def test_tfng_answer_outside_0_to_2_or_bool_is_rejected(bad):
+    # Báo cáo săn lỗi #48: -1 từng thành "NG", True thành "F".
+    with pytest.raises(ValueError, match="T/F/NG"):
+        repair.reading_meta(_tfng_rows(bad))
+
+
+@pytest.mark.parametrize("good,letter", [(0, "T"), (1, "F"), (2, "NG")])
+def test_tfng_valid_answers_still_map(good, letter):
+    assert repair.reading_meta(_tfng_rows(good))["answers"][0]["answer"] == letter
+
+
+def _two_section_mastery(completed):
+    return {"attempts": [{
+        "phase": "run", "completed": completed,
+        "sections": {"quiz": {"completed": True, "pct": 80.0}},
+    }]}
+
+
+def test_in_progress_item_is_not_reopened():
+    # Báo cáo săn lỗi #53: item đang làm dở bị chèn lượt mới và xoá điểm.
+    item = {"id": "i", "state": "opened", "submitted_at": None,
+            "mastery": _two_section_mastery(False)}
+    assert repair.item_needs_reopen(item) is False
+
+
+@pytest.mark.parametrize("extra", [
+    {"state": "submitted", "submitted_at": "2026-08-24T01:00:00+00:00"},
+    {"state": "graded", "submitted_at": "2026-08-24T01:00:00+00:00"},
+])
+def test_submitted_item_is_reopened(extra):
+    item = {"id": "i", "mastery": _two_section_mastery(True), **extra}
+    assert repair.item_needs_reopen(item) is True
+
+
+def test_already_repaired_item_is_skipped():
+    mastery = _two_section_mastery(True)
+    mastery["attempts"][-1]["repair_reason"] = repair.REPAIR_REASON
+    assert repair.item_needs_reopen({"state": "submitted", "mastery": mastery}) is False

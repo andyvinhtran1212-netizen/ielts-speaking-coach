@@ -26,7 +26,7 @@ const LAYOUT = read('app', '(authed-admin-writing-prompts)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-prompts-next.css');
 const CONFIG = read('next.config.ts');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(writing)', 'admin', 'writing', 'page.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 

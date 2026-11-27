@@ -18,14 +18,14 @@ from routers import admin_learner_profile as mod
 from routers import admin_learners as learners_mod
 from services import admin_learner_directory as directory
 from services import admin_learner_profile as profile
-from services import learner_attention, ops_thresholds, staff_scope, test_data_visibility
+from services import learner_attention, learner_care_notes, ops_thresholds, staff_scope, test_data_visibility
 from test_admin_learners import (DEFAULTS, NOW, S_LAN, S_OFFLINE, U_ADMIN, U_LAN, U_MINH, _DB, _ago)
 
 
 @pytest.fixture
 def db(monkeypatch):
     fake = _DB()
-    for module in (directory, learner_attention, staff_scope, profile):
+    for module in (directory, learner_attention, staff_scope, profile, learner_care_notes):
         monkeypatch.setattr(module, "supabase_admin", fake)
     monkeypatch.setattr(ops_thresholds, "get", AsyncMock(return_value=dict(DEFAULTS)))
     monkeypatch.setattr(test_data_visibility, "hide_for", lambda **_k: False)
@@ -59,8 +59,8 @@ def test_the_overview_has_every_block_and_nothing_failed(db):
     assert out["alerts"] == {"open": [{"code": "late_streak", "text": "trễ 2 bài liên tiếp",
                                        "action": "Xem bài được giao"}],
                              "checked_off": ["inactive"], "undecided": []}
-    # No source yet: null, never 0.
-    assert out["side"] == {"due_notes": None, "courses": None, "credits_left": None, "credits_carried": None}
+    # No booked care work: []. No source yet (G04): null, never 0.
+    assert out["side"] == {"due_notes": [], "courses": None, "credits_left": None, "credits_carried": None}
 
 
 def test_assigned_counts_only_past_deadline_work_and_lists_the_rest_as_open(db):

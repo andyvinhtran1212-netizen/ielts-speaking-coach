@@ -1,0 +1,59 @@
+/* UIBASE-0056 StatCard (ThanhPhanDuLieu §3). Only var(--av2-*). Comparison never green/red. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--av2-space-6);
+}
+@media (min-width: 1024px) {
+  .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av2-space-4); }
+}
+
+.card {
+  min-width: 0;
+  padding: var(--av2-space-6);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+}
+.insufficient { border-style: dashed; border-color: var(--av2-muted); }
+
+.card .label { margin: 0; font-weight: var(--av2-fw-strong); }
+.card .value {
+  margin: var(--av2-space-1) 0 0;
+  font-size: 44px;
+  font-weight: var(--av2-fw-strong);
+  line-height: 48px;
+  font-variant-numeric: tabular-nums;
+}
+.of { font-size: var(--av2-fs-20); color: var(--av2-muted); }
+.card .comparison {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-2);
+  margin: var(--av2-space-3) 0 0;
+  color: var(--av2-muted);
+  font-variant-numeric: tabular-nums;
+}
+.arrow { flex: none; }
+.card .context { margin: var(--av2-space-1) 0 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+
+.card .errorTitle {
+  margin: var(--av2-space-2) 0 var(--av2-space-1);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-danger);
+}
+.card .errorBody { margin: 0 0 var(--av2-space-4); color: var(--av2-muted); }
+
+.skeleton { display: block; margin: var(--av2-space-3) 0 var(--av2-space-4); }
+.barValue { display: block; width: 96px; height: 44px; margin-bottom: var(--av2-space-4); background: var(--av2-off); }
+.bar { display: block; width: 80%; height: 12px; margin-bottom: var(--av2-space-3); background: var(--av2-off); }
+.barShort { width: 55%; }
+
+@media (max-width: 767px) {
+  .card { padding: var(--av2-space-4); }
+  .card .value { font-size: 32px; line-height: 36px; }
+}

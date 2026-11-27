@@ -14,8 +14,11 @@ status change).
 Answers recorded with this approval (also written under the spec's Open questions
 table):
 
-- **Q12:** adding a class snapshots its roster at that moment; learners who join
-  the class later are not added automatically ("Cập nhật theo lớp" adds them).
+- **Q12 (default, 10:57:43Z):** adding a class snapshots its roster at that
+  moment; learners who join the class later are not added automatically.
+- **Q12 "Cập nhật theo lớp" button (separate approval, 11:14:44Z):** the button
+  from the proposal column, which adds learners who joined the class after it
+  was added, is approved. See "Second approval" below.
 - **Q13:** keep make-up sittings as their own exam (`source_exam_id`), linked from
   the Thí sinh tab. Results are not merged into the original exam in this round.
 - **Q14:** release rules (a)–(e) approved; (b) partial release ships behind the
@@ -26,7 +29,14 @@ table):
   before the window closes runs to the end; (d) submitting a section early starts
   the next one at once.
 
-Scope of this approval:
+## Second approval (Q12 button)
+
+On 2026-11-23 at 18:14 Asia/Saigon (11:14:44 UTC), anh Andy wrote in the
+project chat, verbatim (the line about this spec, from a longer message):
+
+> duyệt thêm nút "Cập nhật theo lớp" cho Q12 spec 0086
+
+## Scope (both approvals)
 
 - MOCKORG-0086 as written (status draft → approved). Requirements are unchanged by
   this commit.
