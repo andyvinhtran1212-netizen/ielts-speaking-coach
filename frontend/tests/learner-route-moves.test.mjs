@@ -33,6 +33,8 @@ const MOVES = [
   { from: '/grammar-lessons/assigned', to: '/course/grammar-lesson', legacy: null },
   // Batch 4 (G07-T09); the review/[routeId] child has its own param rule below.
   { from: '/grammar-checkup', to: '/course/grammar-checkup', legacy: null },
+  // Batch 5 (G07-T10)
+  { from: '/full-test-result', to: '/speaking/full-test/result', legacy: '/pages/full-test-result.html' },
   // Batch 7a (G07-T12a): /tests starts as the existing exam chooser, and the
   // retired /exam player goes there too (decided 18/11, 00 section 2 point 22).
   { from: '/full-test', to: '/tests', legacy: '/pages/full-test.html' },
