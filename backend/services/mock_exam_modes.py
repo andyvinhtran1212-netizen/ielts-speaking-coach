@@ -45,6 +45,17 @@ def legacy_name(mode: Optional[str]) -> Optional[str]:
     return _NEW_TO_LEGACY.get(new) if new else None
 
 
+def with_both_names(row):
+    """A copy of an exam row that answers ``exam_mode`` with the legacy name and
+    ``exam_mode_v2`` with the new one, whichever name is stored (before or
+    after migration 446). Rows without ``exam_mode`` pass through unchanged."""
+    if not isinstance(row, dict) or "exam_mode" not in row:
+        return row
+    stored = row.get("exam_mode") or "sequential"
+    return {**row, "exam_mode": legacy_name(stored) or stored,
+            "exam_mode_v2": normalize(stored) or stored}
+
+
 def is_live(mode: Optional[str]) -> bool:
     return normalize(mode) == LIVE
 
