@@ -19517,25 +19517,6 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
-        /**
-         * ExamPatchResponse
-         * @description The persisted exam row, with additional columns from the database.
-         */
-        ExamPatchResponse: {
-            /** Id */
-            id: string;
-            /** Code */
-            code: string;
-            /** Title */
-            title: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "draft" | "published" | "archived";
-        } & {
-            [key: string]: unknown;
-        };
         /** ExamScheduleResponse */
         ExamScheduleResponse: {
             /**
@@ -19549,6 +19530,25 @@ export interface components {
             mirror_locked?: string[];
             /** Mirror Refresh Failed */
             mirror_refresh_failed?: string[];
+        };
+        /**
+         * ExamWriteResponse
+         * @description The persisted exam row, with additional columns from the database.
+         */
+        ExamWriteResponse: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+        } & {
+            [key: string]: unknown;
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -51142,7 +51142,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51246,7 +51246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExamPatchResponse"];
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */

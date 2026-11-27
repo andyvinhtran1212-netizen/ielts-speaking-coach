@@ -114,6 +114,41 @@ describe('Tổ chức kỳ thi (FR-141…FR-144)', () => {
     expect(await screen.findByText(/đã lưu lúc/)).toBeTruthy();
   });
 
+  it('Tiếp tục retries one code collision and the saved draft opens again from its URL', async () => {
+    routes({
+      '/admin/mock-exams/picker': { items: [], total: 0, limit: 25, offset: 0 },
+      '/admin/mock-exams/e1/audience': audience(),
+      '/admin/mock-exams': { exams: [exam({ title: 'Kỳ thi mới', draft_state: { step: 'audience' } })] },
+    });
+    post.mockRejectedValueOnce(Object.assign(new Error('Trùng mã'), { status: 409 }))
+      .mockResolvedValueOnce({ id: 'e1' });
+    window.history.replaceState(null, '', '/admin/mock-tests/new');
+    render(<MockExamSetup examId={null} />);
+    fireEvent.change(screen.getByLabelText('Tên kỳ thi'), { target: { value: 'Kỳ thi mới' } });
+    const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValue(0.5);
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' }));
+      await screen.findByRole('heading', { name: 'Người thi' });
+    } finally {
+      random.mockRestore();
+    }
+    expect(post).toHaveBeenCalledTimes(2);
+    const [[firstPath, first], [retryPath, retry]] = post.mock.calls;
+    expect(firstPath).toBe('/admin/mock-exams');
+    expect(retryPath).toBe(firstPath);
+    expect(first).toMatchObject({ title: 'Kỳ thi mới', draft_state: { step: 'audience' } });
+    expect(retry.code).not.toBe(first.code);
+    expect(retry).toEqual({ ...first, code: retry.code });
+    expect(window.location.pathname + window.location.search).toBe('/admin/mock-tests/e1/setup?step=audience');
+
+    cleanup();
+    const idFromUrl = window.location.pathname.split('/').at(-2) ?? null;
+    render(<MockExamSetup examId={idFromUrl} />);
+    expect(await screen.findByRole('heading', { name: /Tổ chức kỳ thi · Kỳ thi mới/ })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Người thi' })).toBeTruthy();
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
   it('at least one skill: with none the page warns and the save is refused', async () => {
     routes({ '/admin/mock-exams/picker': { items: [], total: 0, limit: 25, offset: 0 } });
     render(<MockExamSetup examId={null} />);
@@ -134,6 +169,25 @@ describe('Tổ chức kỳ thi (FR-141…FR-144)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
     expect(await screen.findByText('Lưu nháp không thành công')).toBeTruthy();
     expect((screen.getByLabelText('Tên kỳ thi') as HTMLInputElement).value).toBe('Tên mới');
+  });
+
+  it('refuses to clear a saved Writing prompt and reload still shows that prompt', async () => {
+    routes({
+      '/admin/mock-exams/e1/audience': audience(),
+      '/admin/mock-exams/picker': { items: [], total: 0, limit: 25, offset: 0 },
+      '/admin/mock-exams': { exams: [exam({ skills: ['writing'], writing_task1_prompt_id: 'W1', writing_task2_prompt_id: 'W2' })] },
+    });
+    render(<MockExamSetup examId="e1" />);
+    const prompt = await screen.findByLabelText(/Đề Writing Task 1/) as HTMLSelectElement;
+    expect(prompt.value).toBe('W1');
+    fireEvent.change(prompt, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
+    expect(await screen.findByText(/Không thể bỏ đề Writing Task 1 đã lưu/)).toBeTruthy();
+    expect(screen.queryByText(/đã lưu lúc/i)).toBeNull();
+    expect(patch).not.toHaveBeenCalled();
+    cleanup();
+    render(<MockExamSetup examId="e1" />);
+    expect((await screen.findByLabelText(/Đề Writing Task 1/) as HTMLSelectElement).value).toBe('W1');
   });
 
   it('people: a row edit goes to the API and the list is read back, a person without an account cannot be selected', async () => {
@@ -167,6 +221,34 @@ describe('Tổ chức kỳ thi (FR-141…FR-144)', () => {
     fireEvent.click(button);
     expect(await screen.findByText(/Một đề đã chọn chưa sẵn sàng/)).toBeTruthy();
     expect(post).toHaveBeenCalledWith('/admin/mock-exams/e1/schedule', {});
+  });
+
+  it('review: replacing the rejected paper lets the admin schedule again without reloading', async () => {
+    let stored = exam({ skills: ['reading'], reading_test_id: 'R1', starts_at: '2026-11-25T13:00:00Z', draft_state: { step: 'review' } });
+    routes({
+      '/admin/mock-exams/e1/audience': audience([person()]),
+      '/admin/mock-exams/picker': { items: [{ id: 'R2', title: 'Đề thay thế' }], total: 1, limit: 25, offset: 0 },
+      '/admin/mock-exams': () => ({ exams: [stored] }),
+    });
+    patch.mockImplementation(async (_path, body) => { stored = { ...stored, ...body }; return stored; });
+    post.mockRejectedValueOnce(Object.assign(new Error('Chưa lên lịch được.'), { status: 422, detail: { code: 'not_ready', missing: ['paper_not_ready'] } }));
+    post.mockResolvedValueOnce({ status: 'published', selected: 1 });
+    window.history.replaceState(null, '', '/admin/mock-tests/e1/setup?step=review');
+    render(<MockExamSetup examId="e1" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Lên lịch' }));
+    expect(await screen.findByText(/Một đề đã chọn chưa sẵn sàng/)).toBeTruthy();
+
+    const steps = within(screen.getByRole('navigation', { name: 'Các bước tổ chức kỳ thi' }));
+    fireEvent.click(steps.getByRole('button', { name: /Kỹ năng và đề/ }));
+    await screen.findByRole('option', { name: 'Đề thay thế' });
+    fireEvent.change(screen.getByLabelText(/Đề Reading/), { target: { value: 'R2' } });
+    fireEvent.click(steps.getByRole('button', { name: /Xem lại/ }));
+    await waitFor(() => expect(patch).toHaveBeenCalledWith('/admin/mock-exams/e1', expect.objectContaining({ reading_test_id: 'R2' })));
+    const scheduleAgain = await screen.findByRole('button', { name: 'Lên lịch' });
+    expect(scheduleAgain.hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByText(/Một đề đã chọn chưa sẵn sàng/)).toBeNull();
+    fireEvent.click(scheduleAgain);
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
   });
 
   it('review: with Speaking and no paper, and no time, the button is off with the reasons', async () => {

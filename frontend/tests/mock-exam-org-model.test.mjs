@@ -119,6 +119,15 @@ describe('setup form', () => {
     });
   });
 
+  test('patch refuses to clear a saved active time that the API cannot remove', () => {
+    const exam = normalizeOrgExam(row({ starts_at: '2026-11-25T13:00:00Z' }));
+    const form = formFromExam(exam);
+    assert.deepEqual(buildPatchBody({ ...form, startsAt: '' }, exam, 'mode'), {
+      ok: false,
+      error: 'Không thể bỏ giờ bắt đầu đã lưu. Chọn giá trị mới để lưu.',
+    });
+  });
+
   test('self-paced mode line counts the chosen parts', () => {
     const exam = normalizeOrgExam(row({ reading_minutes: 60, writing_minutes: 60 }));
     assert.equal(modeLine({ ...formFromExam(exam), mode: 'self_paced', skills: ['listening', 'reading'] }, exam), 'Người thi cần một quãng liền khoảng 92 phút.');

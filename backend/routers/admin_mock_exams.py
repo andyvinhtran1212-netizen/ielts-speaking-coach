@@ -421,7 +421,18 @@ async def exam_picker_page(
     return await asyncio.to_thread(svc.admin_exam_picker_page, kind, q.strip(), limit, offset)
 
 
-@router.post("")
+class ExamWriteResponse(BaseModel):
+    """The persisted exam row, with additional columns from the database."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    code: str
+    title: str
+    status: Literal["draft", "published", "archived"]
+
+
+@router.post("", responses={200: {"model": ExamWriteResponse}})
 async def create_exam(body: ExamCreate, authorization: str | None = Header(default=None)):
     admin = await require_admin(authorization)
     payload = _stored_mode(body.model_dump(exclude_none=True))
@@ -441,18 +452,7 @@ async def create_exam(body: ExamCreate, authorization: str | None = Header(defau
         raise HTTPException(400, str(e))
 
 
-class ExamPatchResponse(BaseModel):
-    """The persisted exam row, with additional columns from the database."""
-
-    model_config = ConfigDict(extra="allow")
-
-    id: str
-    code: str
-    title: str
-    status: Literal["draft", "published", "archived"]
-
-
-@router.patch("/{exam_id}", responses={200: {"model": ExamPatchResponse}})
+@router.patch("/{exam_id}", responses={200: {"model": ExamWriteResponse}})
 async def update_exam(
     exam_id: str, body: ExamPatch, authorization: str | None = Header(default=None),
 ):

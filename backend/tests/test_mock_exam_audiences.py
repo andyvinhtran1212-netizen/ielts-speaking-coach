@@ -370,13 +370,14 @@ def test_setup_response_schemas_describe_the_existing_http_json(admin, db, monke
         (method.lower(), route.path): route.response_model
         for route in app.routes if isinstance(route, APIRoute) for method in route.methods
     }
-    template = "/admin/mock-exams/{exam_id}"
-    exam_path = f"/admin/mock-exams/{EXAM}"
+    collection = "/admin/mock-exams"
+    template = f"{collection}/{{exam_id}}"
+    exam_path = f"{collection}/{EXAM}"
     audience_path = f"{exam_path}/audience"
 
-    def assert_response(method, path, response, model, expected):
-        assert response_models[method, f"{template}{path}"] is None
-        schema = api_paths[f"{template}{path}"][method]["responses"]["200"]
+    def assert_response(method, contract_path, response, model, expected):
+        assert response_models[method, contract_path] is None
+        schema = api_paths[contract_path][method]["responses"]["200"]
         assert schema["content"]["application/json"]["schema"]["$ref"] == f"#/components/schemas/{model.__name__}"
         assert response.status_code == 200
         assert response.json() == expected
@@ -384,24 +385,29 @@ def test_setup_response_schemas_describe_the_existing_http_json(admin, db, monke
 
     _exam(db).update({"code": "KT1", "title": "Kỳ thi", "starts_at": "2026-12-01T01:00:00Z"})
     with TestClient(app) as client:
+        created = {**_exam(db), "id": U(901), "code": "KT2", "title": "Kỳ thi mới"}
+        monkeypatch.setattr(exam_svc, "admin_create_exam", lambda *_: created)
+        made = client.post(collection, json={"code": created["code"], "title": created["title"]})
+        assert_response("post", collection, made, admin.ExamWriteResponse, created)
+
         changed = client.patch(exam_path, json={"title": "Kỳ thi đã sửa"})
-        assert_response("patch", "", changed, admin.ExamPatchResponse, _exam(db))
+        assert_response("patch", template, changed, admin.ExamWriteResponse, _exam(db))
         assert changed.json()["title"] == "Kỳ thi đã sửa"
 
         added = client.patch(audience_path, json={"add_cohort_ids": [COH_A]})
         draft = aud.get_audience(EXAM)
         assert len(draft["items"]) == 3
-        assert_response("patch", "/audience", added, admin.ExamAudiencePatchResponse, draft)
-        assert_response("get", "/audience", client.get(audience_path), admin.ExamAudienceResponse, draft)
+        assert_response("patch", f"{template}/audience", added, admin.ExamAudiencePatchResponse, draft)
+        assert_response("get", f"{template}/audience", client.get(audience_path), admin.ExamAudienceResponse, draft)
 
         scheduled = client.post(f"{exam_path}/schedule")
-        assert_response("post", "/schedule", scheduled, admin.ExamScheduleResponse,
+        assert_response("post", f"{template}/schedule", scheduled, admin.ExamScheduleResponse,
                         {"status": "published", "selected": 2})
 
         _, window = _published_self_paced(db, monkeypatch)
         monkeypatch.setattr(aud.assign_svc, "assign", lambda *args, **kwargs: {"refresh_failed": [A1]})
         mirrored = client.patch(audience_path, json={"window": window})
-        assert_response("patch", "/audience", mirrored, admin.ExamAudiencePatchResponse, {
+        assert_response("patch", f"{template}/audience", mirrored, admin.ExamAudiencePatchResponse, {
             **aud.get_audience(EXAM),
             "mirror_failed": True,
             "mirror_locked": [],
