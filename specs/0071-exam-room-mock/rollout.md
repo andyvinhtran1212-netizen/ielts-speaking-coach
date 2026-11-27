@@ -19,8 +19,8 @@
    báo anh Andy chi phí dự kiến theo nhà cung cấp trước khi nộp một bài Writing thử, và chi phí
    thật sau đó.
 4. G08-T22: merge PR backend (cờ `mock_exam_audiences_learner` tắt), rồi PR frontend. Thứ tự
-   bắt buộc: áp migration 445 trước, rồi mới bật cờ `mock_exam_audiences_learner` (CR của #2581);
-   bật cờ trên staging; nghiệm thu `self_paced` với kỳ QA do G09 tạo cho hai lớp thử.
+   áp 445, triển khai backend tương thích rồi áp 446 theo [điều kiện mở cổng học viên](../0086-mock-exam-organisation/rollout.md#phạm-vi-môn-của-học-viên).
+   Sau khi đủ điều kiện bật cờ trên staging, nghiệm thu `self_paced` với kỳ QA do G09 tạo cho hai lớp thử.
 
 ## Production
 

@@ -11,6 +11,12 @@
 - 447 và 448 đi cùng T33, sau T31, cũng dưới khoá advisory, test PG17 + postcondition.
 - Bật `ADMIN_FRAME_V2` chỉ trên staging; chạy các kịch bản của spec bằng tài khoản QA admin có TOTP. Thiếu tài khoản QA → PR ghi "chờ anh Andy kiểm tay trên staging".
 
+### Phạm vi môn của học viên
+
+Giữ `mock_exam_audiences_learner` tắt trong khi thực hiện các bước 445, backend tương thích và 446. Trước khi mở cho học viên, kiểm sổ migration của đúng môi trường và định nghĩa đang cài của cả `public.fn_mock_section_valid(text,jsonb,jsonb)` và `public.fn_guard_owned_mock_attempt(text,jsonb,text)`. Cả hai phải giới hạn theo môn được giao cho từng học viên. Nếu sổ đã ghi 446 nhưng một trong hai hàm còn định nghĩa cũ, bổ sung migration mới theo thứ tự tăng và xin duyệt cho môi trường đó. Giữ nguyên dòng 446 trong sổ.
+
+Dùng hai học viên QA trong cùng kỳ live, một người chỉ được giao Reading, người kia chỉ được giao Listening. Với từng người, kiểm đường chọn đề và đường bắt đầu lượt làm đều cho phép môn được giao và từ chối môn còn lại. Ghi kết quả cho cả hai tài khoản trước khi mở cờ cho học viên.
+
 ## Production
 
 - Chỉ qua PR `staging → main`; migration production cần anh Andy duyệt bằng lời, chạy dưới khoá advisory trước khi mã phụ thuộc lên. Cờ khung mới tắt ở production tới khi anh dùng thử trên staging ≥ 1 ngày làm việc (Q6).
