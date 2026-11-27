@@ -52,6 +52,7 @@ const patch = vi.fn(async (path: string, body: unknown) => {
   return {};
 });
 
+import { LoginEventsBlock } from '@/app/(authed)/profile/login-events-block';
 import ProfileV2 from '@/app/(authed)/profile/profile-v2';
 import { ProfileTreeSwitch } from '@/app/(authed)/profile/profile-tree-switch';
 
@@ -102,6 +103,25 @@ describe('/profile new tree', () => {
     expect(screen.getAllByText('09:05, 23/11/2026').length).toBe(3);
     expect(document.body.textContent).not.toMatch(/Nơi|vị trí|địa chỉ mạng/);
     expect(urls).toContain('/api/account/login-events?limit=3');
+  });
+
+  it('ignores a late login-history response after switching to a new account with no history route', async () => {
+    let finishFirst!: (value: unknown) => void;
+    const firstRead = new Promise((resolve) => { finishFirst = resolve; });
+    const read = vi.fn()
+      .mockReturnValueOnce(firstRead)
+      .mockRejectedValueOnce(Object.assign(new Error('HTTP 404'), { status: 404 }));
+    window.api.getWith = read;
+    const { rerender } = render(<LoginEventsBlock key="A" />);
+    const firstSignal: AbortSignal = read.mock.calls[0][2].signal;
+    rerender(<LoginEventsBlock key="B" />);
+    expect(firstSignal.aborted).toBe(true);
+    await act(async () => {
+      finishFirst({ enabled: true, items: [event({ device_label: 'First account browser' })] });
+      await firstRead;
+    });
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('heading', { name: 'Lần đăng nhập gần đây' })).toBeNull();
   });
 
   it('enabled=false or a 500 hides only the recent sign-ins; the rest of Hồ sơ stays', async () => {
