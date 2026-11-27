@@ -129,8 +129,8 @@ def wire(monkeypatch):
             raise state["total"]
         return {"total": state["total"], "items": []}
 
-    def assigned(user_id, account_name, now, *, reconcile_student_only):
-        assert user_id == UID and reconcile_student_only is True
+    def assigned(user_id, account_name, now, *, read_only):
+        assert user_id == UID and read_only is True
         if isinstance(state["assigned"], Exception):
             raise state["assigned"]
         return state["assigned"]
@@ -500,7 +500,7 @@ def test_one_failing_part_degrades_only_its_block(wire):
     assert out["degraded"] == ["suggestions"] and out["catalog"]
 
 
-def test_hub_get_repairs_only_the_signed_in_learners_ledger(monkeypatch):
+def test_hub_get_shows_only_unsubmitted_homework_without_writing_ledgers(monkeypatch):
     from fastapi import FastAPI
     import database
     from routers import class_student, student_home
@@ -508,6 +508,11 @@ def test_hub_get_repairs_only_the_signed_in_learners_ledger(monkeypatch):
     from test_student_assigned import _two_student_ledger_db
 
     db, _ = _two_student_ledger_db()
+    assignment = db.tables["class_assignments"][0]
+    db.tables["class_assignments"].append({**assignment, "id": "unstarted", "title": "Still open"})
+    item = db.tables["class_assignment_items"][0]
+    db.tables["class_assignment_items"].append({**item, "id": "unstarted-s1", "assignment_id": "unstarted"})
+
     async def authenticate(_authorization):
         return {"id": "u-1", "email": "a@example.com"}
 
@@ -521,11 +526,11 @@ def test_hub_get_repairs_only_the_signed_in_learners_ledger(monkeypatch):
     response = TestClient(app).get("/api/student/skill-hub?skill=reading",
                                    headers={"Authorization": "Bearer learner-a"})
     assert response.status_code == 200
-    assert db.writes == [("class_assignment_items", "reading-s1"),
-                         ("class_assignment_items", "course-s1")]
+    assert db.writes == []
+    assigned = [s["title"] for s in response.json()["suggestions"] if s["kind"] == "assigned"]
+    assert assigned == ["Still open"]
     for item in db.tables["class_assignment_items"]:
-        if item["student_id"] == "s2":
-            assert item["state"] == "assigned" and item["submitted_at"] is None
+        assert item["state"] == "assigned" and item["submitted_at"] is None
 
 
 def test_unknown_skill_is_422(monkeypatch):
