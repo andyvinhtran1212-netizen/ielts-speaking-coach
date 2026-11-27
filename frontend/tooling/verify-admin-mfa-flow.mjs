@@ -166,9 +166,11 @@ await scenario('Enforced AAL1 → /admin/mfa → enroll', {
   factors: [factor('factor-abandoned', 'unverified')],
   verify: ['wrong', 'ok'],
 }, async (page, state) => {
-  await page.goto(`${BASE}/admin/users?tab=codes`, { waitUntil: 'domcontentloaded' });
+  // A query that no redirect rule matches (ADMINIA-0074 sends ?tab=codes to the
+  // code ledger), so the gate still sees /admin/users with a query to keep.
+  await page.goto(`${BASE}/admin/users?from=mfa`, { waitUntil: 'domcontentloaded' });
   await page.waitForURL((url) => url.pathname === '/admin/mfa');
-  check('gate chuyển admin AAL1 sang /admin/mfa kèm next', pathOf(page) === '/admin/mfa?next=%2Fadmin%2Fusers%3Ftab%3Dcodes', pathOf(page));
+  check('gate chuyển admin AAL1 sang /admin/mfa kèm next', pathOf(page) === '/admin/mfa?next=%2Fadmin%2Fusers%3Ffrom%3Dmfa', pathOf(page));
   check('trang admin không đọc dữ liệu khi chưa AAL2', !state.requests.some((item) => item.path === '/admin/users' || item.path === '/admin/access-codes'));
   const start = page.getByRole('button', { name: 'Bắt đầu thiết lập' });
   await start.waitFor({ state: 'visible' });
@@ -193,7 +195,7 @@ await scenario('Enforced AAL1 → /admin/mfa → enroll', {
   await input.fill('123456');
   await page.getByRole('button', { name: 'Xác nhận' }).click();
   await page.waitForURL((url) => url.pathname === '/admin/users');
-  check('xác thực xong quay về next đã làm sạch', pathOf(page) === '/admin/users?tab=codes', pathOf(page));
+  check('xác thực xong quay về next đã làm sạch', pathOf(page) === '/admin/users?from=mfa', pathOf(page));
   await page.waitForFunction(() => !document.getElementById('state-loading'));
   const statusCalls = state.requests.filter((item) => item.path === '/admin/mfa/status');
   check('phiên mới (AAL2) của client dùng chung được gửi tới backend', statusCalls.at(-1)?.auth === 'Bearer aal2-token', statusCalls.at(-1)?.auth);

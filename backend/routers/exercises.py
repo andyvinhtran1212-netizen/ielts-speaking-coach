@@ -8,6 +8,7 @@ auto-publish — every exercise must be reviewed manually before going public.
 D3 endpoints land in Wave 2 — this file deliberately scopes itself to D1.
 """
 
+import asyncio
 import logging
 import random
 import uuid
@@ -1382,6 +1383,16 @@ async def admin_unpublish_exercise(
     return row
 
 
+def _exercise_status_row(exercise_id: str) -> list:
+    return (
+        supabase_admin.table("vocabulary_exercises")
+        .select("id, status")
+        .eq("id", exercise_id)
+        .limit(1)
+        .execute()
+    ).data or []
+
+
 @admin_router.patch("/{exercise_id}")
 async def admin_edit_exercise(
     exercise_id: str,
@@ -1397,13 +1408,26 @@ async def admin_edit_exercise(
             supabase_admin.table("vocabulary_exercises")
             .update({"content_payload": body.content_payload})
             .eq("id", exercise_id)
+            # Báo cáo săn lỗi B2-03: docstring hứa chỉ sửa khi draft/rejected,
+            # nhưng không có chốt ⇒ bài ĐÃ XUẤT BẢN (kể cả đáp án) bị sửa ngay
+            # trên học viên. Muốn sửa thì gỡ xuất bản trước.
+            .in_("status", ["draft", "rejected"])
             .execute()
         )
     except Exception as e:
         logger.error("[admin/exercises] edit failed: %s", e)
         raise HTTPException(500, "Edit failed.")
     if not res.data:
-        raise HTTPException(404, "Exercise not found.")
+        try:
+            existing = await asyncio.to_thread(_exercise_status_row, exercise_id)
+        except Exception as e:
+            logger.error("[admin/exercises] edit status lookup failed: %s", e)
+            raise HTTPException(500, "Edit failed.")
+        if not existing:
+            raise HTTPException(404, "Exercise not found.")
+        raise HTTPException(
+            409, "Bài tập đã xuất bản — gỡ xuất bản (unpublish) trước khi sửa nội dung.",
+        )
     return res.data[0]
 
 

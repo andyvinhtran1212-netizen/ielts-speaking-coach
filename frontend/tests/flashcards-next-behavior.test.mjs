@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-flashcards)', 'flashcards', 'page.tsx');
+const PAGE = read('app', '(authed-flashcards)', 'vocabulary', 'flashcards', 'page.tsx');
 const BEHAVIOR = read(
-  'app', '(authed-flashcards)', 'flashcards', 'flashcards-behavior.tsx',
+  'app', '(authed-flashcards)', 'vocabulary', 'flashcards', 'flashcards-behavior.tsx',
 );
 const ADAPTER = read('components', 'vocab-module-mount.tsx');
 const MODULE = read('public', 'js', 'vocab-modules', 'flashcards.js');

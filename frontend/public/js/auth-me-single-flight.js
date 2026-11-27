@@ -4,7 +4,7 @@
 // own /auth/me. Since PC-J06 the chrome connects before the runtime, so its
 // request now overlaps the page's opening reads; staging serves requests one
 // at a time (PC-J05), so the duplicate sat in front of the reads that paint
-// /d1-exercise and /vocabulary/hub.
+// /vocabulary/fill-in and /vocabulary/hub.
 //
 // Callers with the SAME access token share one request:
 //   • in flight → every caller awaits the same request;

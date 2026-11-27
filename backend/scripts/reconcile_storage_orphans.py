@@ -13,10 +13,13 @@ Bucket ↔ nguồn tham chiếu:
   listening-images  ← listening_exercises.payload->>map_image_storage_path
   reading-images    ← reading_questions.payload->template->>image_storage_path
 
-Mặc định CHỈ BÁO CÁO (read-only). Xoá thật: thêm --delete (xoá đúng danh
-sách mồ côi vừa liệt kê, theo batch 100).
+CHỈ BÁO CÁO (read-only). `--delete` tạm thời bị TẮT (HOLD trên PR #2699,
+báo cáo săn lỗi #47): danh sách tham chiếu được đọc TRƯỚC khi liệt kê Storage,
+nên một file vừa được nội dung tham chiếu trong lúc quét vẫn có thể bị coi là
+mồ côi. Chỉ bật lại khi có bước xác minh lại tham chiếu ngay trước khi xoá,
+đồng bộ với luồng ghi.
 
-Run:  cd backend && venv/bin/python scripts/reconcile_storage_orphans.py [--delete]
+Run:  cd backend && venv/bin/python scripts/reconcile_storage_orphans.py
 """
 from __future__ import annotations
 
@@ -59,16 +62,23 @@ def _walk_bucket(storage, bucket: str, prefix: str = "") -> list[dict]:
 
 
 def _fetch_all(sb, table: str, cols: str, extra=None):
+    # Báo cáo săn lỗi #47: phân trang range() mà không order thì Postgres
+    # không hứa thứ tự giữa các trang ⇒ có row bị bỏ sót, path của nó bị coi
+    # là mồ côi và --delete xoá file đang dùng. Luôn order theo khoá duy nhất.
+    # PostgREST có thể giới hạn số row mỗi trang (max-rows) thấp hơn `page`,
+    # nên trang ngắn KHÔNG có nghĩa là hết: đi tiếp theo số row thật nhận được
+    # cho đến khi gặp trang rỗng.
     rows, start, page = [], 0, 1000
     while True:
         q = sb.table(table).select(cols)
         if extra:
             q = extra(q)
-        batch = q.range(start, start + page - 1).execute().data
-        rows.extend(batch)
-        if len(batch) < page:
+        q = q.order("id")
+        batch = q.range(start, start + page - 1).execute().data or []
+        if not batch:
             return rows
-        start += page
+        rows.extend(batch)
+        start += len(batch)
 
 
 def _referenced_paths(sb) -> dict[str, set[str]]:
@@ -100,7 +110,10 @@ def _referenced_paths(sb) -> dict[str, set[str]]:
 def main() -> int:
     from database import supabase_admin as sb  # noqa: PLC0415 — cần .env
 
-    delete = "--delete" in sys.argv
+    if "--delete" in sys.argv:
+        print("--delete đang bị TẮT: danh sách tham chiếu có thể cũ hơn Storage "
+              "trong lúc quét, xoá có thể trúng file đang dùng. Chỉ chạy báo cáo.")
+        return 2
     refs = _referenced_paths(sb)
     total_orphans = 0
     for bucket, referenced in refs.items():
@@ -117,12 +130,8 @@ def main() -> int:
         for p in orphans:
             print(f"  - {p} ({by_path[p]['size']/1024:.0f} KB)")
         total_orphans += len(orphans)
-        if delete and orphans:
-            for i in range(0, len(orphans), 100):
-                sb.storage.from_(bucket).remove(orphans[i:i + 100])
-            print(f"  → đã xoá {len(orphans)} file")
-    if not delete and total_orphans:
-        print("\n(Read-only. Xoá thật: chạy lại với --delete)")
+    if total_orphans:
+        print("\n(Read-only. Xoá thật đang tạm tắt; xử lý từng file bằng tay sau khi kiểm lại.)")
     return 0
 
 

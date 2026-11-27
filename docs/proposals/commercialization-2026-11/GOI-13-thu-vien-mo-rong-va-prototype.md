@@ -4,7 +4,7 @@ Lập ngày 18/11/2026 theo `00-QUY-UOC-CHUNG.md` mục 2 điểm 22 và 23 (đi
 
 **Số đề nghị cho sổ cấp số (`01-KE-HOACH-TONG.md` mục 6), người điều phối ghi vào sổ trước khi giao:**
 
-- Spec: 0095 `TESTIMONIAL` (phần A), 0096 `GRAMMAREDIT` (phần B, có phần sửa đổi GRAMMARFIG-0084), 0097 `TOPICKNOW` (phần C), 0098 `CLOSEREAD` (phần D), 0099 `EXAMKIT` (phần E, chỉ giữ số, chưa viết). Số 0088–0094 là của GOI-12 (sổ ở 01 mục 6 đã ghi). Không dồn số.
+- Spec: 0095 `TESTIMONIAL` (phần A), 0096 `GRAMMAREDIT` (phần B, có phần sửa đổi GRAMMARFIG-0084), 0097 `TOPICKNOW` (phần C), 0098 `CLOSEREAD` (phần D), 0099 `EXAMKIT` (phần E, chỉ giữ số, chưa viết). Số 0089–0094 và 0102 là của GOI-12 (sổ ở 01 mục 6 đã ghi; 0088 thuộc WRITINGGPT từ 23/11). Không dồn số.
 - Migration: dải 490–499. Dải 480–489 là của GOI-12 (sổ ở 01 mục 6: dùng đủ 10 số). Dùng 490 (nhận xét và khảo sát), 491 (mở rộng loại thông báo, chỉ cần khi migration 470 đã merge), 492 (Kiến thức nền), 493 (đoạn viết ngắn), 494 (Đọc kỹ). Số 495 và 496 giữ cho phần E và chưa được áp. Số 497–499 là dự phòng của gói.
 
 ## 1. Tóm tắt

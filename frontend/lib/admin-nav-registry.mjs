@@ -36,7 +36,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
       soon('learners', 'Học viên', { plannedHref: '/admin/learners' }),
       item('classes', 'Lớp', '/admin/classes'),
       item('instructors', 'Giáo viên', '/admin/instructors'),
-      soon('activation-codes', 'Mã kích hoạt', { plannedHref: '/admin/activation-codes' }),
+      item('activation-codes', 'Mã kích hoạt', '/admin/activation-codes'),
       soon('notifications', 'Gửi thông báo', { plannedHref: '/admin/notifications' }),
       { ...item('surveys', 'Khảo sát và nhận xét', '/admin/surveys'), available: false }, // GOI-13 part A builds it
     ],
@@ -172,6 +172,7 @@ export const ADMIN_ROUTES = Object.freeze([
   r('/admin/classes/[cohortId]/assignments/[assignmentId]', 'context', 'learners', 'classes'),
   r('/admin/classes/[cohortId]/assignments/[assignmentId]/release', 'context', 'learners', 'classes'),
   r('/admin/activation-codes', 'nav', 'learners', 'activation-codes'),
+  r('/admin/activation-codes/[codeId]', 'context', 'learners', 'activation-codes'),
   r('/admin/notifications', 'nav', 'learners', 'notifications'),
   r('/admin/surveys', 'nav', 'learners', 'surveys'),
   r('/admin/instructors/[id]', 'context', 'learners', 'instructors'),

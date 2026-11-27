@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-speaking)', 'admin', 'speaking', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-speaking)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(speaking)', 'admin', 'speaking', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(speaking)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-speaking-hub-next.css');
 const LEGACY = read('public', 'pages', 'admin', 'speaking', 'index.html');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const ROLLBACK_OVERVIEW = read('public', 'pages', 'admin', 'index.html');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
@@ -25,7 +25,7 @@ describe('/admin/speaking native operations hub', () => {
     assert.match(CHROME, /section: 'speaking'[^\n]+href: '\/admin\/speaking'/);
     assert.match(OVERVIEW, /speaking: '\/admin\/speaking'/);
     assert.match(ROLLBACK_OVERVIEW, /href="\/admin\/speaking"[^>]*data-skill="speaking"/);
-    assert.match(LEDGER, /`\/admin\/speaking`[^\n]+authed-admin-speaking[^\n]+native React ownership/);
+    assert.match(LEDGER, /`\/admin\/speaking`[^\n]+\(authed-admin\)\/\(speaking\)[^\n]+native React ownership/);
   });
 
   test('fails closed on canonical backend-owned admin truth', () => {
@@ -57,7 +57,7 @@ describe('/admin/speaking native operations hub', () => {
     assert.match(CSS, /@media\(max-width:480px\)/);
     assert.match(CSS, /:focus-visible/);
     assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-speaking\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(speaking\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-speaking-flow\.mjs/);
   });
 });

@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { AssignedGrammarLesson } from '@/app/(authed)/grammar-lessons/assigned/workspace';
-import { GrammarLessonReport } from '@/app/(authed-admin-grammar)/admin/grammar-lessons/report';
+import { GrammarLessonReport } from '@/app/(authed-admin)/(grammar)/admin/grammar-lessons/report';
 
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('assignment_item=item-1&attempt=attempt-1') }));
 const auth = vi.hoisted(() => ({

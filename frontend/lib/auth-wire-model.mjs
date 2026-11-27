@@ -60,6 +60,13 @@ export function normalizeAuthMe(value) {
   return record;
 }
 
+// LEARNERCORE-0063 FR-073: soft read of the new learner UI flag. It is NOT in
+// normalizeAuthMe's required list, so a backend without the field (or with a
+// wrong type) means the old UI, never a lost session.
+export function learnerV2Enabled(me) {
+  return recordOf(me)?.learner_v2_enabled === true;
+}
+
 export function normalizeAuthProfile(value) {
   const record = recordOf(value);
   const stats = recordOf(record?.stats);
