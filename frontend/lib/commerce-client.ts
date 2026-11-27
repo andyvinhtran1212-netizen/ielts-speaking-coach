@@ -5,11 +5,11 @@
 // noRedirect: a stale session on a public page shows the guest view, it does
 // not bounce to /login.
 //
-// OpenAPI declares the catalogue path but its response is unknown. Validate
-// the wire payload before letting the page render personal viewer fields.
+// OpenAPI declares the GET paths but their responses are unknown. Validate
+// the wire payload before letting the pages render personal viewer fields.
 
-import { getBrowserJson } from './browser-api';
-import type { CourseCatalog, CourseDetail, CourseItem, MyCourses } from './commerce-types';
+import { getBrowserJson, getBrowserJsonAt } from './browser-api';
+import type { CourseCatalog, CourseDetail, CourseItem } from './commerce-types';
 import { whenGlobalReady } from './when-global-ready.mjs';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -43,6 +43,20 @@ function isCourseItem(item: unknown): item is CourseItem {
     && isNullableString(viewer.open_order_code);
 }
 
+function isCourseDetail(course: unknown): course is CourseDetail {
+  if (!isRecord(course) || !isCourseItem(course)) return false;
+  const { course_code, faq, chapters } = course;
+  return isNullableString(course_code)
+    && (faq === null || (Array.isArray(faq) && faq.every((entry: unknown) =>
+      isRecord(entry) && isNullableString(entry.q) && isNullableString(entry.a))))
+    && (chapters === null || (Array.isArray(chapters) && chapters.every((chapter: unknown) =>
+      isRecord(chapter) && typeof chapter.title === 'string' && Array.isArray(chapter.lessons)
+      && chapter.lessons.every((lesson: unknown) =>
+        isRecord(lesson) && typeof lesson.title === 'string' && typeof lesson.kind === 'string'
+        && isNullableNumber(lesson.duration_min) && typeof lesson.is_preview === 'boolean'
+        && isNullableString(lesson.preview_href)))));
+}
+
 async function transportReady(): Promise<void> {
   if (!await whenGlobalReady(() => !!window.api?.getWith, 'window.api')) {
     throw new Error('window.api unavailable');
@@ -60,11 +74,18 @@ export async function fetchCatalogForViewer(): Promise<CourseCatalog> {
 
 export async function fetchCourseForViewer(slug: string): Promise<CourseDetail> {
   await transportReady();
-  return window.api.getWith<CourseDetail>(`/api/courses/${encodeURIComponent(slug)}`, undefined, { noRedirect: true });
+  const response = await getBrowserJsonAt(
+    '/api/courses/{slug}', `/api/courses/${encodeURIComponent(slug)}`, undefined, { noRedirect: true },
+  );
+  if (!isCourseDetail(response) || response.slug !== slug) throw new Error('Malformed course detail');
+  return response;
 }
 
-/** The caller's own accesses (FR-024: `content_visible_until` on an expired course). */
-export async function fetchMyCourses(): Promise<MyCourses> {
+/** The caller's own content visibility deadline (FR-024). */
+export async function fetchContentVisibleUntil(): Promise<string | null> {
   await transportReady();
-  return window.api.getWith<MyCourses>('/api/me/courses', undefined, { noRedirect: true });
+  const response = await getBrowserJson('/api/me/courses', undefined, undefined, { noRedirect: true });
+  return isRecord(response) && typeof response.content_visible_until === 'string'
+    ? response.content_visible_until
+    : null;
 }

@@ -62,12 +62,6 @@ export interface CourseDetail extends CourseItem {
 }
 
 /** `GET /api/me/courses` (G04 me_access.build_my_courses): only the fields G05 reads. */
-export interface MyCourses {
-  items: { product_slug: string | null; state: string; expires_at: string | null; days_left: number | null }[];
-  /** Until when submitted work stays readable after expiry; null until G04-T10 wires it. */
-  content_visible_until: string | null;
-}
-
 export interface CourseCatalog {
   items: CourseItem[];
 }
