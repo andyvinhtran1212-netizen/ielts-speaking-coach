@@ -10,8 +10,12 @@ const bytes = readFileSync(new URL('../tests/fixtures/grammar-history-public-wir
 const wire = JSON.parse(bytes), results = [], scenarios = [];
 const progress = wire.requests[0], mistakes = wire.requests[1], unavailable = wire.requests[2];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? `: ${detail}` : ''}`); };
+// EXAMDRILL-0073 T002: EXAM_ROOM=drill runs the same journey with the practice
+// room flag on (examRoomSurfaces: ['drill']); unset keeps the old branch.
+const EXAM_ROOM_SURFACES = process.env.EXAM_ROOM ? `,examRoomSurfaces:${JSON.stringify(process.env.EXAM_ROOM.split(','))}` : '';
 let browser;
-try { browser = await chromium.launch(); } catch (error) {
+// CHROMIUM_EXECUTABLE: a preinstalled Chromium when the pinned Playwright build is absent.
+try { browser = await chromium.launch(process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {}); } catch (error) {
   const executablePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   if (process.platform !== 'darwin' || !existsSync(executablePath)) throw error;
   browser = await chromium.launch({ executablePath });
@@ -31,7 +35,7 @@ async function fixture(width, theme, missing = false) {
   await context.route('**/*', async (route) => {
     const request = route.request(), url = new URL(request.url()), method = request.method();
     if (url.origin === BASE) {
-      if (url.pathname === '/js/runtime-config.js') return route.fulfill({ contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});` });
+      if (url.pathname === '/js/runtime-config.js') return route.fulfill({ contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}${EXAM_ROOM_SURFACES}});` });
       return route.continue();
     }
     if (url.origin !== API) return route.abort();

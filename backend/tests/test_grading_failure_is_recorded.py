@@ -125,7 +125,9 @@ def test_the_core_row_fallback_still_clears_the_final_bands():
     src = _src()
     i = src.index("response_id, partial = _persist_response_with_fallback")
     seg = src[i:i + 1400]
-    assert "if partial and response_id and not grading:" in seg, \
+    # Dọn cả khi chấm ĐƯỢC mà không có Azure (báo cáo săn lỗi B2-01): mọi
+    # nhánh đặt `final_overall_band = None` đều phải được dọn lại ở đây.
+    assert 'if partial and response_id and db_row.get("final_overall_band", 0) is None:' in seg, \
         "phải dọn riêng khi đường lùi đã nuốt mất lệnh xoá"
     assert "final_overall_band" in seg and "final_band_p" in seg
     # Và KHÔNG được kéo hai cột ấy vào core set — cả điểm của đường lùi là

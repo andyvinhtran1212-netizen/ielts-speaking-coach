@@ -8,11 +8,11 @@ const read = (...parts) => readFileSync(join(FRONTEND, ...parts), 'utf8');
 const API = read('lib', 'admin-cohorts-api.ts');
 const OPENAPI = read('types', 'api.d.ts');
 const CONSUMERS = [
-  ['app', '(authed-admin-users)', 'admin', 'users', 'admin-users.tsx'],
-  ['app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx'],
-  ['app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx'],
+  ['app', '(authed-admin)/(users)', 'admin', 'users', 'admin-users.tsx'],
+  ['app', '(authed-admin)/(students)', 'admin', 'students', 'admin-students-directory.tsx'],
+  ['app', '(authed-admin)/(classes)', 'admin', 'classes', 'admin-classes-directory.tsx'],
   ['app', '(authed-admin-writing-queue)', 'admin', 'writing', 'queue', 'admin-writing-queue.tsx'],
-  ['app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx'],
+  ['app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx'],
 ];
 
 describe('shared admin cohort read contract', () => {

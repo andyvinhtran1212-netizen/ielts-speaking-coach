@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-writing)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(writing)', 'admin', 'writing', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(writing)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-hub-next.css');
 const LEGACY = read('public', 'pages', 'admin', 'writing', 'index.html');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const GRADE = read('app', '(authed-admin-writing-grade)', 'admin', 'writing', 'grade', 'writing-grade-behavior.tsx');
 const LEGACY_CHILDREN = ['assignments.html', 'new.html', 'grade.html', 'tips.html', 'regrade-requests.html', 'cohorts.html', 'prompts.html']
   .map((name) => read('public', 'pages', 'admin', 'writing', name));
@@ -31,7 +31,7 @@ describe('/admin/writing native operations hub', () => {
       assert.match(child, /href="\/admin\/writing"/);
       assert.doesNotMatch(child, /href="\/pages\/admin\/writing\/index\.html"/);
     }
-    assert.match(LEDGER, /`\/admin\/writing`[^\n]+authed-admin-writing[^\n]+native React ownership/);
+    assert.match(LEDGER, /`\/admin\/writing`[^\n]+\(authed-admin\)\/\(writing\)[^\n]+native React ownership/);
   });
 
   test('fails closed and is a read-only routing surface', () => {
@@ -68,7 +68,7 @@ describe('/admin/writing native operations hub', () => {
     assert.match(CSS, /@media\(max-width:480px\)/);
     assert.match(CSS, /:focus-visible/);
     assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-writing\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(writing\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-writing-flow\.mjs/);
     assert.ok(LEGACY.includes('<aver-admin-chrome active="writing">'));
   });
