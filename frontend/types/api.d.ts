@@ -3183,6 +3183,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class/assignments/{item_id}/self-practice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Self Practice Assignment
+         * @description "Tự luyện bài này" for a closed assignment (LEARNERCORE-0063 FR-100).
+         *
+         *     Returns the public self-practice launch for the same paper; writes nothing
+         *     (no item state, no ledger). 404 not the caller's / not visible / no longer
+         *     in the class, 409 ``assignment_still_open`` or ``homework_attempt_in_progress``
+         *     (a resumable homework attempt on the paper would be resumed instead),
+         *     422 ``self_practice_unsupported``
+         *     (vocab, grammar, course, Writing before G08) or
+         *     ``self_practice_paper_unavailable`` (the paper is not open to public
+         *     self-practice now; the assignment's own access is never borrowed).
+         */
+        post: operations["self_practice_assignment_api_class_assignments__item_id__self_practice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class/assignments/{item_id}/start": {
         parameters: {
             query?: never;
@@ -12579,6 +12608,41 @@ export interface paths {
         head?: never;
         /** Admin Patch Feedback Status */
         patch: operations["admin_patch_feedback_status_api_admin_feedback__feedback_id__patch"];
+        trace?: never;
+    };
+    "/api/courses/{slug}/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subscribe Open Alert */
+        post: operations["subscribe_open_alert_api_courses__slug__open_alerts_post"];
+        /** Unsubscribe Open Alert */
+        delete: operations["unsubscribe_open_alert_api_courses__slug__open_alerts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Open Alerts */
+        get: operations["my_open_alerts_api_me_open_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/kp/microcheck-answers": {
@@ -22604,6 +22668,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** MyOpenAlertsOut */
+        MyOpenAlertsOut: {
+            /** Slugs */
+            slugs: string[];
+        };
         /** NextItemResponse */
         NextItemResponse: {
             /** Complete */
@@ -22756,6 +22825,21 @@ export interface components {
             value: number;
             /** Lowest Cohort Id */
             lowest_cohort_id?: string | null;
+        };
+        /** OpenAlertOkOut */
+        OpenAlertOkOut: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** OpenAlertSubscribeIn */
+        OpenAlertSubscribeIn: {
+            /** Email */
+            email?: string | null;
+        };
+        /** OpenAlertUnsubscribeIn */
+        OpenAlertUnsubscribeIn: {
+            /** Unsubscribe Token */
+            unsubscribe_token?: string | null;
         };
         /** OpenBody */
         OpenBody: {
@@ -24513,6 +24597,30 @@ export interface components {
             reason?: string | null;
             /** Alert Status */
             alert_status?: ("pending" | "sent" | "failed" | "not_recorded") | null;
+        };
+        /** SelfPracticeLaunch */
+        SelfPracticeLaunch: {
+            /** Href */
+            href?: string | null;
+            session_params?: components["schemas"]["SelfPracticeSessionParams"] | null;
+        };
+        /** SelfPracticeResponse */
+        SelfPracticeResponse: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "speaking" | "listening" | "reading";
+            launch: components["schemas"]["SelfPracticeLaunch"];
+        };
+        /** SelfPracticeSessionParams */
+        SelfPracticeSessionParams: {
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
         };
         /** SessionAudioUrl */
         SessionAudioUrl: {
@@ -33057,6 +33165,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    self_practice_assignment_api_class_assignments__item_id__self_practice_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfPracticeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -49565,6 +49706,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminFeedbackStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscribe_open_alert_api_courses__slug__open_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertSubscribeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unsubscribe_open_alert_api_courses__slug__open_alerts_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertUnsubscribeIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_open_alerts_api_me_open_alerts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOpenAlertsOut"];
                 };
             };
             /** @description Validation Error */
