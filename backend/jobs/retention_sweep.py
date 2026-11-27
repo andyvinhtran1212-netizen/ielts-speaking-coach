@@ -303,7 +303,8 @@ async def _sweep_audio(eligible: list[dict]) -> dict:
         engine = None
     if eligible and not DRY_RUN and engine is None:
         logger.warning("[sweep] audio kept=%d reason=erasure_lock_unavailable", len(eligible))
-        return {"op": "audio", "eligible": len(eligible), "purged": 0, "objects": 0, "errors": []}
+        return {"op": "audio", "eligible": len(eligible), "purged": 0, "objects": 0,
+                "errors": [{"error": "erasure_lock_unavailable"}]}
     for s in eligible:
         try:
             count = (await _purge_audio_locked(s, engine) if engine is not None
@@ -445,7 +446,11 @@ def main() -> dict:
     return summary
 
 
-if __name__ == "__main__":
+def cli() -> int:
     result = main()
-    # Non-zero exit if any session errored, so Railway surfaces a failed run.
-    sys.exit(1 if (result["audio"]["errors"] or result["content"]["errors"]) else 0)
+    # Let Railway surface a failed run after both sweeps report their results.
+    return 1 if result["audio"]["errors"] or result["content"]["errors"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(cli())
