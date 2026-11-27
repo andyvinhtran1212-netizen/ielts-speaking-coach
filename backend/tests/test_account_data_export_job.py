@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from services import account_export as ex
+from services import recording_audio
 from tests.account_data_pg import make_engine, pg_database
 
 U1 = "00000000-0000-0000-0000-0000000030a1"
@@ -118,6 +119,54 @@ def test_builds_package_with_only_own_data(env):
     assert [t for t, *_ in env.letters] == ["account_export_ready"]
     assert "https://" not in json.dumps(env.letters[0][2], default=str)
     assert _run(env) is None  # nothing left to claim
+
+
+def test_legacy_recordings_require_both_owned_response_and_storage_owner(env):
+    origin = str(recording_audio.settings.SUPABASE_URL).rstrip("/")
+    env.run(f"""
+        ALTER TABLE public.responses ADD COLUMN audio_storage_path text, ADD COLUMN audio_url text;
+        ALTER TABLE storage.objects ADD COLUMN owner_id text, ADD COLUMN archived_at timestamptz;
+        INSERT INTO public.responses (session_id, transcript, audio_storage_path, audio_url) VALUES
+          ('{SESS}', 'verified', NULL, '{origin}/storage/v1/object/public/audio-responses/legacy/verified.webm'),
+          ('{SESS}', 'other owner', 'legacy/other.webm', NULL),
+          ('{SESS}', 'no owner', 'legacy/no-owner.webm', NULL),
+          ('{SESS}', 'foreign URL', NULL, 'https://other.example.test/private.webm'),
+          ('{SESS2}', 'other response', 'legacy/unowned-response.webm', NULL);
+        INSERT INTO storage.objects (bucket_id, name, owner_id) VALUES
+          ('audio-responses', 'legacy/verified.webm', '{U1}'),
+          ('audio-responses', 'legacy/other.webm', '{U2}'),
+          ('audio-responses', 'legacy/no-owner.webm', NULL),
+          ('audio-responses', 'legacy/unowned-response.webm', '{U1}');
+        INSERT INTO storage.objects (bucket_id, name, owner_id, archived_at)
+        VALUES ('audio-responses', 'legacy/other.webm', '{U1}', now());
+    """)
+    for path in ("verified", "other", "no-owner", "unowned-response"):
+        env.storage.objects[("audio-responses", f"legacy/{path}.webm")] = path.encode()
+    downloads = []
+    download = env.storage.download
+
+    def track_download(bucket, path):
+        downloads.append(path)
+        return download(bucket, path)
+
+    env.storage.download = track_download
+    job = _queue(env)
+    assert _run(env) == "ready"
+    path = env.run(f"SELECT object_path FROM public.account_data_exports WHERE id = '{job}'")
+    with zipfile.ZipFile(io.BytesIO(env.storage.objects[("account-exports", path)])) as zf:
+        assert zf.read("recordings/legacy/verified.webm") == b"verified"
+        assert downloads == sorted([f"{U1}/{SESS}/q1.a.webm", "legacy/verified.webm"])
+        responses = json.loads(zf.read("data/responses.session_id.json"))
+        by_transcript = {row["transcript"]: row for row in responses}
+        assert "other response" not in by_transcript
+        assert by_transcript["verified"]["audio_storage_path"] == "legacy/verified.webm"
+        assert by_transcript["verified"]["audio_url"] is None
+        omitted = [by_transcript[text] for text in ("other owner", "no owner", "foreign URL")]
+        assert all(row["audio_storage_path"] is None and row["audio_url"] is None for row in omitted)
+        manifest = json.loads(zf.read("manifest.json"))
+        assert {item["response_id"] for item in manifest["left_out"]
+                if item.get("reason") == "ownership_unverified"} == {row["id"] for row in omitted}
+        assert not any(item.get("path") for item in manifest["left_out"])
 
 
 def test_over_size_drops_recordings(env):

@@ -34,7 +34,7 @@ from typing import Literal, Optional
 Action = Literal["delete", "anonymize", "keep", "staff_actor", "staff_only"]
 ACTIONS: frozenset[str] = frozenset({"delete", "anonymize", "keep", "staff_actor", "staff_only"})
 
-INVENTORY_VERSION = "2026-11-27.4"
+INVENTORY_VERSION = "2026-11-27.5"
 
 
 @dataclass(frozen=True)
@@ -259,8 +259,9 @@ PRE_MIGRATION: frozenset[tuple[str, str]] = frozenset(
 # Tables reached only through a parent's foreign key (no user column of
 # their own). Erasure deletes them before the parent. Completed from the
 # staging catalog 2026-11-23 (T001 gate 2, every FK into a ``delete`` table).
-# All cascade except ``listening_drill_playback`` (ON DELETE RESTRICT, mig
-# 380): it must go before ``class_assignment_items`` or the delete fails.
+# The exercise-book link and drill playback have RESTRICT foreign keys and
+# must be deleted before their parents. Migration 378 verifies that a link's
+# listening attempt and assignment item belong to the same learner.
 CHILD_TABLES: dict[str, str] = {
     "responses": "sessions",
     "questions": "sessions",
@@ -271,6 +272,7 @@ CHILD_TABLES: dict[str, str] = {
     "writing_jobs": "writing_essays",
     "flashcard_cards": "flashcard_stacks",
     "reading_attempt_answers": "reading_test_attempts",
+    "exercise_book_attempt_links": "listening_test_attempts",
     "listening_programme_feedback_reveals": "listening_test_attempts",
     "mock_exam_reviews": "mock_exam_sittings",
     "listening_drill_playback": "class_assignment_items",

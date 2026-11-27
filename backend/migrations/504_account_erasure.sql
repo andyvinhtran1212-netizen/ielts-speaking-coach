@@ -12,8 +12,7 @@
 --    statement is keyed by that learner's user id or student ids; the plan
 --    only chooses tables and columns. SECURITY DEFINER, EXECUTE for
 --    service_role only (CR nit on #2501).
--- 2. A narrow pass in the guards that refuse DELETE to keep grading evidence
---    (and in the class_action_log append-only guard, for student_name only).
+-- 2. Narrow erasure paths in grading evidence, class log and suspension guards.
 --    fn_account_erasure_row_allowed is true only for a row of the learner
 --    whose request the CURRENT TRANSACTION is erasing: the function stamps
 --    pg_current_xact_id() into the locked request row (erasing_xact), and
@@ -100,12 +99,25 @@ $$;
 
 -- class_action_log is append-only (mig 198). Amendment 1: only student_name
 -- may change, only to NULL, only on the erased learner's rows.
+-- The suspension guard accepts clearing all three markers only when the
+-- transaction is anonymising that learner and leaves the account inactive.
 CREATE OR REPLACE FUNCTION public.fn_account_erasure_scrub_allowed(p_table text, p_old jsonb, p_new jsonb)
 RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+    IF p_table = 'users' THEN
+        RETURN p_old ->> 'id' = public.fn_account_erasure_user()::text
+           AND p_new -> 'id' = p_old -> 'id'
+           AND p_old ->> 'role' NOT IN ('admin', 'instructor')
+           AND p_new -> 'role' = p_old -> 'role'
+           AND p_new ->> 'email' = 'erased-' || (p_old ->> 'id') || '@erased.invalid'
+           AND p_new -> 'is_active' = 'false'::jsonb
+           AND p_new -> 'suspended_at' = 'null'::jsonb
+           AND p_new -> 'suspended_by' = 'null'::jsonb
+           AND p_new -> 'suspension_reason' = 'null'::jsonb;
+    END IF;
     RETURN p_table = 'class_action_log'
        AND public.fn_account_erasure_row_allowed(p_old)
        AND p_new = jsonb_set(p_old, '{student_name}', 'null'::jsonb);
@@ -359,6 +371,10 @@ DECLARE
     scrub_pass CONSTANT text := ' /* ACCOUNTDATA-0100 erasure pass */ IF TG_OP = ''UPDATE'' AND '
         'coalesce(current_setting(''aver.account_erasure_user'', true), '''') <> '''' THEN '
         'IF public.fn_account_erasure_scrub_allowed(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW)) THEN RETURN NEW; END IF; END IF;';
+    exercise_link_pass CONSTANT text := ' /* ACCOUNTDATA-0100 erasure pass */ IF TG_OP = ''DELETE'' AND '
+        'coalesce(current_setting(''aver.account_erasure_user'', true), '''') <> '''' THEN '
+        'IF EXISTS (SELECT 1 FROM public.listening_test_attempts a WHERE a.id = OLD.attempt_id '
+        'AND a.user_id = public.fn_account_erasure_user()) THEN RETURN OLD; END IF; END IF;';
     guards CONSTANT text[] := ARRAY[
         'advanced_vocab_guard_listening_attempt', 'advanced_vocab_guard_selection',
         'advanced_vocab_guard_question_attempt', 'advanced_vocab_guard_stage_progress',
@@ -366,7 +382,8 @@ DECLARE
         'prevent_grammar_evidence_mutation', 'prevent_completed_grammar_session_mutation',
         'protect_full_grammar_lesson_history', 'fn_learner_goal_events_append_only',
         'grammar_quiz_guard_progress', 'grammar_quiz_guard_session',
-        'fn_class_action_log_append_only'];
+        'fn_class_action_log_append_only', 'fn_users_suspension_guard',
+        'fn_eb_link_guard', 'fn_eb_attempt_immutable'];
     g text;
     fn regprocedure;
     def text;
@@ -386,7 +403,10 @@ BEGIN
         -- follows the opening dollar quote), so a comment saying "begin"
         -- is never matched.
         patched := regexp_replace(def, '((\$[A-Za-z_]*\$|\n)\s*)BEGIN\M',
-            '\1BEGIN' || CASE WHEN g = 'fn_class_action_log_append_only' THEN scrub_pass ELSE delete_pass END, 'i');
+            '\1BEGIN' || CASE
+                WHEN g IN ('fn_class_action_log_append_only', 'fn_users_suspension_guard') THEN scrub_pass
+                WHEN g = 'fn_eb_link_guard' THEN exercise_link_pass
+                ELSE delete_pass END, 'i');
         IF patched = def THEN
             RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = format('504: no BEGIN found in guard %s', g);
         END IF;
@@ -434,7 +454,8 @@ BEGIN
                              'prevent_grammar_evidence_mutation', 'prevent_completed_grammar_session_mutation',
                              'protect_full_grammar_lesson_history', 'fn_learner_goal_events_append_only',
                              'grammar_quiz_guard_progress', 'grammar_quiz_guard_session',
-                             'fn_class_action_log_append_only')
+                             'fn_class_action_log_append_only', 'fn_users_suspension_guard',
+                             'fn_eb_link_guard', 'fn_eb_attempt_immutable')
            AND p.pronargs = 0
            AND position('ACCOUNTDATA-0100 erasure pass' IN pg_get_functiondef(p.oid)) = 0
     ) THEN

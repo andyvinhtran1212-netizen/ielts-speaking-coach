@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from services import account_data_inventory as inventory
 from services.account_erasure import AccountDataError, _iso, export_lock_key
+from services.recording_audio import recording_path
 
 logger = logging.getLogger(__name__)
 
@@ -438,6 +439,44 @@ async def speaking_pdfs(data: dict[str, list[dict]], render: Any = None) -> tupl
     return out, failed
 
 
+async def collect_recordings(engine: Any, storage: StorageAdapter, user_id: str,
+                             responses: list[dict]) -> tuple[dict[str, bytes], list[dict]]:
+    """Archive retained objects after verifying their account prefix or Storage owner.
+
+    Responses come from the owned-session query. Outside the account prefix,
+    that association alone does not prove who owns the referenced object.
+    """
+    prefix = f"{user_id}/"
+    paths = {path for path in await asyncio.to_thread(storage.list_prefix, AUDIO_BUCKET, user_id)
+             if path.startswith(prefix) and recording_path({"audio_storage_path": path})}
+    references = [(row, recording_path(row)) for row in responses
+                  if row.get("audio_storage_path") or row.get("audio_url")]
+    legacy_paths = {path for _, path in references if path and not path.startswith(prefix)}
+    if legacy_paths:
+        async with engine.connect() as conn:
+            verified = (await conn.execute(text("""
+                SELECT o.name FROM storage.objects o
+                 WHERE o.bucket_id = :bucket AND o.name = ANY(:paths)
+                   AND to_jsonb(o) ->> 'owner_id' = :uid
+                   AND to_jsonb(o) ->> 'archived_at' IS NULL
+            """), {"bucket": AUDIO_BUCKET, "paths": sorted(legacy_paths), "uid": user_id})).scalars().all()
+        paths.update(verified)
+
+    skipped = []
+    for row, path in references:
+        # Persisted URLs can carry stale tokens and are not needed in the ZIP.
+        if "audio_url" in row:
+            row["audio_url"] = None
+        if "audio_storage_path" in row:
+            row["audio_storage_path"] = path if path in paths else None
+        if path in paths:
+            continue
+        reason = "recording_missing" if path and path.startswith(prefix) else "ownership_unverified"
+        skipped.append({"part": "recording", "response_id": str(row["id"]), "reason": reason})
+    audio = {path: await asyncio.to_thread(storage.download, AUDIO_BUCKET, path) for path in sorted(paths)}
+    return audio, skipped
+
+
 async def run_one(engine: Any, *, owner: str, storage: StorageAdapter, lease_seconds: int, max_bytes: int,
                   link_days: int, send: Any = None, render_pdf: Any = None,
                   now: Optional[datetime] = None) -> Optional[str]:
@@ -451,10 +490,9 @@ async def run_one(engine: Any, *, owner: str, storage: StorageAdapter, lease_sec
     try:
         data, skipped = await collect_rows(engine, claim.user_id)
         pdfs, pdf_skipped = await speaking_pdfs(data, render_pdf)
-        audio: dict[str, bytes] = {}
-        for path in await asyncio.to_thread(storage.list_prefix, AUDIO_BUCKET, claim.user_id):
-            audio[path] = await asyncio.to_thread(storage.download, AUDIO_BUCKET, path)
-        blob = build_zip(data, pdfs, audio, skipped + pdf_skipped, now=now, max_bytes=max_bytes)
+        audio, audio_skipped = await collect_recordings(
+            engine, storage, claim.user_id, data.get("responses.session_id", []))
+        blob = build_zip(data, pdfs, audio, skipped + pdf_skipped + audio_skipped, now=now, max_bytes=max_bytes)
         if len(blob) > max_bytes:
             await fail(engine, claim, "package_too_large")
             return "failed:package_too_large"

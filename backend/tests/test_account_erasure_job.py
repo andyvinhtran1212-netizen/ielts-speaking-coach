@@ -272,6 +272,84 @@ def test_full_erasure_of_one_learner(env):
     assert _erase(env, req) == "skipped"
 
 
+@pytest.mark.parametrize("hardened", [False, True])
+def test_erasure_anonymizes_suspended_learner_with_staff_guards_installed(env, hardened):
+    run = env.run
+    suspension = (MIG / "332_staff_security_audit.sql").read_text(encoding="utf-8")
+    columns_start = suspension.index("ALTER TABLE public.users\n    ADD COLUMN")
+    guard_start = suspension.index("-- SECURITY INVOKER: it reads only OLD/NEW")
+    run(suspension[columns_start:guard_start])
+    run(f"UPDATE public.users SET is_active = false, suspended_at = now(), "
+        f"suspended_by = '{U2}', suspension_reason = 'synthetic reason'")
+    run(suspension[guard_start:suspension.index("-- 3. Admin MFA factor snapshot")])
+    run(suspension[suspension.index("CREATE OR REPLACE FUNCTION public.fn_staff_security_record("):
+                   suspension.index("-- 5. The privilege RPC")])
+    if hardened:
+        guards = (MIG / "341_staff_guc_and_ai_override_hardening.sql").read_text(encoding="utf-8")
+        run(guards[guards.index("CREATE TABLE IF NOT EXISTS public.staff_privilege_evidence"):
+                   guards.index("-- 332 section 5.")])
+    run(SQL_504)
+
+    with pytest.raises(AssertionError, match="account_suspended_marker_protected"):
+        run(f"BEGIN; SET LOCAL aver.account_erasure_user = '{U1}'; "
+            "SET LOCAL aver.account_erasure_owner = 'w1'; "
+            f"UPDATE public.users SET email = 'erased-{U1}@erased.invalid', suspended_at = NULL, "
+            f"suspended_by = NULL, suspension_reason = NULL WHERE id = '{U1}'; COMMIT;")
+    assert _erase(env, _request(env)) == "erased"
+    assert run(f"SELECT email, role, is_active, suspended_at IS NULL, suspended_by IS NULL, "
+               f"suspension_reason IS NULL FROM public.users WHERE id = '{U1}'") == (
+                   f"erased-{U1}@erased.invalid|student|f|t|t|t")
+    assert run(f"SELECT suspended_at IS NOT NULL, suspended_by, suspension_reason "
+               f"FROM public.users WHERE id = '{U2}'") == f"t|{U2}|synthetic reason"
+    assert run(f"SELECT event, before ->> 'is_active', after ->> 'is_active' "
+               f"FROM public.staff_security_audit WHERE target_user_id = '{U1}'") == "active_changed|false|false"
+
+
+def test_sweep_and_erasure_with_exercise_book_restrict_links(env):
+    from jobs import account_data_sweep
+
+    run = env.run
+    run(f"""
+        CREATE TABLE public.class_assignment_activities (id uuid PRIMARY KEY);
+        CREATE TABLE public.listening_test_attempts (id uuid PRIMARY KEY, user_id uuid NOT NULL);
+        CREATE TABLE public.exercise_book_registry (programme_id text PRIMARY KEY);
+        CREATE TABLE public.mock_paper_attempt_snapshots (attempt_id uuid, skill text, paper_row jsonb);
+        INSERT INTO public.listening_test_attempts VALUES ('{SESS1}', '{U1}'), ('{SESS2}', '{U2}');
+        INSERT INTO public.class_assignment_activities VALUES ('{ENT1}');
+    """)
+    migration = (MIG / "378_exercise_book_assignments.sql").read_text(encoding="utf-8")
+    link_table = migration.index("CREATE TABLE public.exercise_book_attempt_links")
+    run(migration[link_table:migration.index("CREATE INDEX exercise_book_link_cell", link_table)])
+    run(f"INSERT INTO public.exercise_book_attempt_links (attempt_id, activity_id, item_id) "
+        f"VALUES ('{SESS1}', '{ENT1}', '{ITEM1}'), ('{SESS2}', '{ENT1}', '{ITEM2}')")
+    link_guard = migration.index("CREATE FUNCTION public.fn_eb_link_guard()")
+    attempt_guard = migration.index("CREATE FUNCTION public.fn_eb_attempt_immutable()")
+    run(migration[link_guard:migration.index("CREATE OR REPLACE FUNCTION public.fn_guard_blackeye_admission", link_guard)])
+    run(migration[attempt_guard:migration.index("-- Q-16", attempt_guard)])
+    run(SQL_504)
+
+    with pytest.raises(AssertionError, match="exercise_book_append_only"):
+        run(f"DELETE FROM public.exercise_book_attempt_links WHERE attempt_id = '{SESS1}'")
+    with pytest.raises(AssertionError, match="attempt_changed"):
+        run(f"DELETE FROM public.listening_test_attempts WHERE id = '{SESS1}'")
+
+    req = _request(env)
+    run(f"UPDATE public.sessions SET status = 'in_progress' WHERE user_id = '{U2}'; "
+        f"INSERT INTO public.account_data_exports (user_id) VALUES ('{U2}')")
+    summary = asyncio.run(account_data_sweep.run_async(erase=False, engine=env.engine,
+                                                      storage=env.storage, send=env.send))
+    assert summary["erasure"][0]["dry_run"]["request_id"] == req
+    assert summary["exports"] == ["ready"]
+    assert run("SELECT count(*) FROM public.exercise_book_attempt_links") == "2"
+    assert _erase(env, req) == "erased"
+    assert run("SELECT attempt_id, item_id FROM public.exercise_book_attempt_links") == f"{SESS2}|{ITEM2}"
+    assert run("SELECT user_id FROM public.listening_test_attempts") == U2
+    assert run("SELECT id FROM public.class_assignment_items") == ITEM2
+    run(DOWN_504)
+    with pytest.raises(AssertionError, match="exercise_book_append_only"):
+        run(f"DELETE FROM public.exercise_book_attempt_links WHERE attempt_id = '{SESS2}'")
+
+
 @pytest.mark.parametrize("verified", [True, False])
 def test_course_alerts_follow_account_and_verified_guest_ownership(env, verified):
     run = env.run

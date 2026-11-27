@@ -15,6 +15,10 @@ DECLARE
     scrub_pass CONSTANT text := ' /* ACCOUNTDATA-0100 erasure pass */ IF TG_OP = ''UPDATE'' AND '
         'coalesce(current_setting(''aver.account_erasure_user'', true), '''') <> '''' THEN '
         'IF public.fn_account_erasure_scrub_allowed(TG_TABLE_NAME, to_jsonb(OLD), to_jsonb(NEW)) THEN RETURN NEW; END IF; END IF;';
+    exercise_link_pass CONSTANT text := ' /* ACCOUNTDATA-0100 erasure pass */ IF TG_OP = ''DELETE'' AND '
+        'coalesce(current_setting(''aver.account_erasure_user'', true), '''') <> '''' THEN '
+        'IF EXISTS (SELECT 1 FROM public.listening_test_attempts a WHERE a.id = OLD.attempt_id '
+        'AND a.user_id = public.fn_account_erasure_user()) THEN RETURN OLD; END IF; END IF;';
 BEGIN
     IF to_regclass('public.account_deletion_requests') IS NOT NULL
        AND EXISTS (SELECT 1 FROM public.account_deletion_requests WHERE status = 'erasing') THEN
@@ -26,7 +30,7 @@ BEGIN
            AND prosrc LIKE '%ACCOUNTDATA-0100 erasure pass%'
     LOOP
         def := pg_get_functiondef(p.oid);
-        def := replace(replace(def, delete_pass, ''), scrub_pass, '');
+        def := replace(replace(replace(def, delete_pass, ''), scrub_pass, ''), exercise_link_pass, '');
         IF position('ACCOUNTDATA-0100 erasure pass' IN def) > 0 THEN
             RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = format('504 rollback could not remove the pass from %s', p.proname);
         END IF;
