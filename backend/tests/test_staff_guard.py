@@ -157,6 +157,10 @@ class _DB:
         # A non-users read or write is recorded (and answers 418) on execute().
         return _Query(self, name)
 
+    def rpc(self, name, _params=None):
+        # An RPC is a handler call too: recorded and answers 418 on execute().
+        return _Query(self, f"rpc:{name}")
+
 
 class _AuthResponse:
     def __init__(self, user):

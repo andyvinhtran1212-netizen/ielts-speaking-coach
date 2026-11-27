@@ -1,8 +1,8 @@
 /**
  * frontend/tests/sprint-17-4-foot-traffic.test.mjs — Sprint 17.4 (Direction D)
  *
- * Source-scan of the page-view beacon, its install sites, the admin dashboard
- * controller, and the nav entry. Both modules are auto-running / DOM-coupled, so
+ * Source-scan of the page-view beacon, its install sites, the Next admin
+ * foot-traffic owner, and the nav entry. Both modules are auto-running / DOM-coupled, so
  * this pins wiring + Pattern #26 (no inline colour/bg) rather than executing them.
  */
 import { describe, test } from 'node:test';
@@ -15,7 +15,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 const BEACON = front('js', 'analytics-beacon.js');
-const DASH = front('js', 'admin-foot-traffic.js');
+// LEGACYJS-0075 W4a: admin-foot-traffic.js is retired; the Next owner below.
+const DASH = front('app', '(authed-admin)', '(foot-traffic)', 'admin', 'foot-traffic', 'admin-foot-traffic.tsx');
 const CHROME = front('js', 'components', 'aver-admin-chrome.js');
 const PAGE_VIEW_BRIDGE = front('components', 'next-page-view-beacon.tsx');
 const AUTHED_SHELL = front('components', 'authed-shell.tsx');
@@ -79,21 +80,22 @@ describe('Sprint 17.4 — beacon installed on native route families', () => {
   });
 });
 
-describe('Sprint 17.4 — admin foot-traffic dashboard', () => {
+describe('Sprint 17.4 — admin foot-traffic dashboard (Next owner)', () => {
   test('fetches the aggregation endpoint', () => {
-    assert.match(DASH, /\/admin\/analytics\/foot-traffic/);
+    assert.match(DASH, /window\.api\.get<unknown>\(`\/admin\/analytics\/foot-traffic\?\$\{params\}`\)/);
   });
   test('renders summary cards + top pages + daily chart', () => {
-    assert.match(DASH, /ft-total/);
-    assert.match(DASH, /ft-unique/);
-    assert.match(DASH, /ft-anon/);
-    assert.match(DASH, /ft-pages-tbody/);
-    assert.match(DASH, /ft-chart/);
+    assert.match(DASH, /formatTrafficCount\(payload\.totalViews, partial\)/);
+    assert.match(DASH, /formatTrafficCount\(payload\.uniqueVisitors, partial\)/);
+    assert.match(DASH, /formatTrafficCount\(payload\.anonymousHits, partial\)/);
+    assert.match(DASH, /payload\.topPages\.map\(/);
+    assert.match(DASH, /<DailyChart rows=\{payload\.daily\}/);
   });
-  test('escapes path; bar height is the only inline style (no colour/bg)', () => {
-    assert.match(DASH, /esc\(p\.path\)/);
-    assert.doesNotMatch(DASH, /style\s*=\s*["'`][^"'`]*color\s*:/);
-    assert.doesNotMatch(DASH, /style\s*=\s*["'`][^"'`]*background/);
+  test('path rendered as React text; only height/width inline styles (no colour/bg)', () => {
+    assert.match(DASH, /<code>\{row\.path\}<\/code>/);
+    assert.doesNotMatch(DASH, /dangerouslySetInnerHTML/);
+    assert.doesNotMatch(DASH, /style=\{\{[^}]*color/);
+    assert.doesNotMatch(DASH, /style=\{\{[^}]*background/);
   });
 });
 
