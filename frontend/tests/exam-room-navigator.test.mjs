@@ -88,3 +88,13 @@ test('FR-008 densities at 1280, 1100, 768 and 390', () => {
   assert.equal(navigatorModel({ ...data, currentQ: 18, strings: EN, width: 768 }).position, 'Q18 of 40 · Passage 2 · 4/13');
   assert.equal(navigatorModel({ ...data, currentQ: 18, strings: EN, width: 390 }).position, 'Q18 of 40');
 });
+
+test('a Part wider than the strip wraps its cells instead of widening the page (1024–1440px)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../components/exam-room/exam-room.module.css', import.meta.url), 'utf8');
+  const rule = css.match(/\n\.section \{([^}]*)\}/);
+  assert.ok(rule, '.section rule');
+  assert.match(rule[1], /flex-wrap: wrap/);
+  assert.match(rule[1], /min-width: 0/);
+  assert.match(rule[1], /max-width: 100%/);
+});

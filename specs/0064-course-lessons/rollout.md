@@ -3,7 +3,7 @@
 ## Preconditions
 
 - Spec đã `approved` trên `staging` (anh Andy duyệt, có `approval-decision.md`).
-- Số migration trong dải 420–439 chưa bị file hay PR nào khác dùng. Dòng `register.tsv` thêm cùng PR T18.
+- Số migration 506 vẫn là dòng `reserved` của COURSELESSON-0064 trong `register.tsv`, chưa file hay PR nào khác dùng. PR T18 đổi dòng đó sang `present`.
 - T19b chỉ merge khi G04-T03 đã ở staging (`services/entitlements.py::has_course_access`, `routers/courses_public.py::_outline_for`) và cờ `learner_v2` của LEARNERCORE-0063 đã có.
 - T29 chỉ merge khi route group `(public-commerce)` của G05 đã có.
 
@@ -30,7 +30,7 @@
 - **Mã:** `git revert` PR lỗi, merge vào `staging`, rồi promote như bình thường. Trang bài giảng biến mất; dữ liệu giữ nguyên.
 - **Muốn ẩn bài ngay mà không revert:** tắt `is_published` các bài bằng route admin. API trả 404 và trang khoá công khai trả `lesson_count: null`.
 - **CSP (T19a):** revert riêng PR đó. Video YouTube bị chặn lại, các trang khác không bị ảnh hưởng.
-- **Migration:** giữ bảng khi revert mã. Chỉ chạy `rollback/<số>_course_lessons.sql` khi anh Andy duyệt. File rollback từ chối khi `course_lesson_progress` có dòng, trừ khi đặt `aver.allow_course_lessons_rollback = 'on'`, vì sẽ mất tiến độ học.
+- **Migration:** giữ bảng khi revert mã. Chỉ chạy `rollback/506_course_lessons.sql` khi anh Andy duyệt. File rollback từ chối khi `course_lesson_progress` có dòng, trừ khi đặt `aver.allow_course_lessons_rollback = 'on'`, vì sẽ mất tiến độ học.
 
 ## Observability
 
