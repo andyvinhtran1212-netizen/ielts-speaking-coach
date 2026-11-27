@@ -18,6 +18,7 @@
 // way legacy pages sequence init() behind DOMContentLoaded.
 import {
   createContext,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -102,6 +103,12 @@ async function probeActivation() {
   }
 }
 
+function InactiveLearnerPage({ children }: { children: ReactNode }) {
+  const routerPath = usePathname();
+  const pathname = routerPath ?? (typeof window === 'undefined' ? '' : window.location.pathname);
+  return requiresActivation(pathname) && !isInactiveOpenPath(pathname) ? <NeedsCourseScreen /> : children;
+}
+
 export function AuthProvider({
   children,
   activationGate = false,
@@ -137,7 +144,6 @@ export function AuthProvider({
   // navigation inside the same layout is covered too. Never remembered.
   const [inactiveOpenAccount, setInactiveOpenAccount] = useState<string | null>(null);
   const inactiveOpenRef = useRef<string | null>(null);
-  const routerPath = usePathname();
 
   // Single transition point: every signal (initial getSession, refresh events,
   // cross-tab storage sync, chrome sign-out) funnels through here, so a null
@@ -358,17 +364,14 @@ export function AuthProvider({
     );
   }, [applySession]);
 
-  const pathname = routerPath ?? (typeof window === 'undefined' ? '' : window.location.pathname);
-  const needsCourse = activationGate
-    && status === 'signed-in'
-    && !!user
-    && inactiveOpenAccount === user.id
-    && requiresActivation(pathname)
-    && !isInactiveOpenPath(pathname);
-
+  const inactiveLearner = activationGate && status === 'signed-in' && user && inactiveOpenAccount === user.id;
   return (
     <AuthContext.Provider value={{ status, user, signOut }}>
-      {needsCourse ? <NeedsCourseScreen /> : children}
+      {inactiveLearner ? (
+        <Suspense fallback={null}>
+          <InactiveLearnerPage>{children}</InactiveLearnerPage>
+        </Suspense>
+      ) : children}
     </AuthContext.Provider>
   );
 }
