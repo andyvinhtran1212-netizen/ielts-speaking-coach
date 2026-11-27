@@ -34,7 +34,7 @@ from typing import Literal, Optional
 Action = Literal["delete", "anonymize", "keep", "staff_actor", "staff_only"]
 ACTIONS: frozenset[str] = frozenset({"delete", "anonymize", "keep", "staff_actor", "staff_only"})
 
-INVENTORY_VERSION = "2026-11-27.3"
+INVENTORY_VERSION = "2026-11-27.6"
 
 
 @dataclass(frozen=True)
@@ -94,7 +94,7 @@ _DELETE_EXPORT = _many(
     grammar_diagnostic_reports.user_id grammar_exposure_events.user_id
     vocabulary_shared_progress.user_id vocabulary_set_receipts.user_id
     vocabulary_set_sessions.user_id
-    article_views.user_id saved_articles.user_id library_marks.user_id
+    article_views.user_id saved_articles.user_id library_marks.user_id review_notes.user_id
     user_feedback.created_by
     learner_goal_events.user_id learner_goal_events.student_id
     """,
