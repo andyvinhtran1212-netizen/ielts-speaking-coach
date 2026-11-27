@@ -4,13 +4,12 @@ amendment 1, FR-030…FR-037).
     GET /api/student/course -> get_course_concurrent(...)
 
 Read-only, apart from the class-ledger reconcile that the shared assignment
-reader performs for every caller (the FR-078 exception, amendment 3, #2484):
+reader performs for the requesting learner (the FR-078 exception, amendment 3, #2484):
 `assigned_open` reuses T13's count so the page and Today can never disagree.
-Every query filters by the caller and runs on the service role, one worker
-thread per part. A part that raises lands in `degraded` and keeps its empty
-default. A source owned by a package that is not merged yet (G04 course
-access and catalogue, COURSELESSON-0064 progress) is a `_..._for` join point
-that returns None; None means "not there yet": an empty value, NOT degraded.
+Private reads are scoped to the caller. The service-role reads run with one
+worker thread per part. A part that raises lands in `degraded` and keeps its
+empty default. Online access and the public catalogue reuse G04. Lesson
+progress remains optional until COURSELESSON-0064 provides it.
 """
 
 from __future__ import annotations
@@ -27,17 +26,22 @@ logger = logging.getLogger(__name__)
 _DEGRADABLE = ("online", "other_products", "class", "assigned_open")
 
 
-# ── join points for other packages (None until wired) ─────────────────────────
+# ── join points for other packages ───────────────────────────────────────────
 
 
-def _courses_for(user_id: str) -> Optional[Dict[str, Any]]:  # G04 GET /api/me/courses
-    """The `GET /api/me/courses` body of G04 (0055 plan 5.9) for this user."""
-    return None
+def _courses_for(user_id: str, now: datetime) -> Dict[str, Any]:
+    """Reuse the authenticated learner’s G04 course reads and response builder."""
+    from routers.me_access import _my_courses_reads, build_my_courses
+
+    items, balance, courses, orders, window = _my_courses_reads(user_id)
+    return build_my_courses(items, balance, courses, orders, now, window)
 
 
-def _catalog_for() -> Optional[List[Dict[str, Any]]]:  # G04 GET /api/courses items
-    """The public catalogue items of G04 (0055 plan 5.9)."""
-    return None
+def _catalog_for() -> List[Dict[str, Any]]:
+    """Use the same public, unarchived online products as G04’s catalogue."""
+    from routers.courses_public import fetch_catalog_products
+
+    return fetch_catalog_products()
 
 
 def _lesson_progress_for(user_id: str, course_code: str) -> Optional[Dict[str, Any]]:
@@ -211,7 +215,7 @@ async def get_course_concurrent(user_id: str, *, account_name: str = "",
                                 now: Optional[datetime] = None) -> Dict[str, Any]:
     now = now or datetime.now(timezone.utc)
     parts: Dict[str, Callable[[], Any]] = {
-        "online": lambda: _courses_for(user_id),
+        "online": lambda: _courses_for(user_id, now),
         "other_products": _catalog_for,
         "class": lambda: _class_for(user_id, account_name),
         "assigned_open": lambda: _assigned_open_for(user_id, account_name, now),

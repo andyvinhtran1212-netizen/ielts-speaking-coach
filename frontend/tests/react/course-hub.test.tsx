@@ -15,6 +15,9 @@ import { documentNavigation } from '@/lib/tree-replace';
 const learnerMe = vi.hoisted(() => ({ current: { status: 'loading', me: null } as { status: string; me: Record<string, unknown> | null } }));
 vi.mock('@/components/learner/learner-frame', () => ({ useLearnerMe: () => learnerMe.current }));
 
+const auth = vi.hoisted(() => ({ status: 'signed-in' }));
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth }));
+
 const replace = vi.hoisted(() => vi.fn());
 const router = vi.hoisted(() => ({ replace, push: () => {} }));
 const search = vi.hoisted(() => ({ value: '' }));
@@ -64,10 +67,12 @@ let docReplace: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   search.value = '';
+  auth.status = 'signed-in';
+  learnerMe.current = { status: 'loading', me: null };
   // `/my-class` is in the legacy tree: a full document replacement (UIBASE-0056 FR-015).
   docReplace = vi.spyOn(documentNavigation, 'replace').mockImplementation(() => {});
 });
-afterEach(() => { cleanup(); replace.mockReset(); docReplace.mockRestore(); });
+afterEach(() => { cleanup(); replace.mockReset(); docReplace.mockRestore(); vi.unstubAllEnvs(); });
 
 it('class only (no online grant at all): replaces to the assigned work and draws no group (FR-035)', async () => {
   mount(payload({ has_class: true, class: { name: 'A1', teacher_name: null, course_title: null, repractice: [] } }));
@@ -146,16 +151,33 @@ it('lessons 500: only the lesson block errors and retries; the groups stay', asy
   expect(await within(lessons).findByText('Bài 2. Thì quá khứ')).toBeTruthy();
 });
 
-it('expired course: "Đã hết hạn", no renew button without the labels module, no lesson list (FR-037)', async () => {
+it('expired course: "Đã hết hạn", no renewal with commerce off, no lesson list (FR-037)', async () => {
+  vi.stubEnv('AVER_PUBLIC_COMMERCE', '');
   search.value = 'course=OLD';
   mount(payload({ online: [online('OLD', { state: 'expired', days_left: null, can_renew: true, progress: { done: 5, total: 20 } })],
     has_online: true, selected: null }));
   const group = await screen.findByRole('region', { name: 'Khoá online của bạn' });
   expect(within(group).getByText('Đã hết hạn · 5/20 bài · Còn 18 lượt chấm AI')).toBeTruthy();
   expect(within(group).getByText('Đăng ký lại để học tiếp từ bài đang dở.')).toBeTruthy();
-  expect(within(group).queryByRole('button', { name: /Đăng ký lại/ })).toBeNull();
+  expect(within(group).queryByRole('link', { name: 'Đăng ký lại' })).toBeNull();
   expect(await screen.findByText('Khoá đã hết hạn. Đăng ký lại để học tiếp từ bài đang dở.')).toBeTruthy();
   expect(getWith).not.toHaveBeenCalledWith('/api/course/OLD/lessons', undefined, expect.anything());
+});
+
+it('eligible expired courses link to the public catalogue when commerce is on (FR-037)', async () => {
+  vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
+  mount(payload({
+    online: [
+      online('OLD', { state: 'expired', can_renew: true }),
+      online('OLDER', { state: 'expired', can_renew: false }),
+    ],
+    other_products: [{ slug: 'unowned-course', title: 'Khoá khác', status: 'coming_soon' }],
+    has_online: true,
+  }));
+
+  expect((await screen.findByRole('link', { name: 'Đăng ký lại' })).getAttribute('href')).toBe('/courses');
+  // The catalogue index is live, but the individual course pages are still planned.
+  expect(screen.queryByRole('link', { name: 'Xem khoá' })).toBeNull();
 });
 
 it('switching to an expired course drops the pending lessons of the previous one (FR-037)', async () => {
@@ -260,4 +282,31 @@ it('flag on: the Lộ trình page loads for this account', async () => {
   expect(await screen.findByRole('region', { name: 'Khoá online của bạn' })).toBeTruthy();
   expect(replace).not.toHaveBeenCalled();
   expect(docReplace).not.toHaveBeenCalled();
+});
+
+it('opening Lộ trình signed out replaces the document with login without reading the course', () => {
+  auth.status = 'signed-out';
+  getWith = vi.fn();
+  Object.defineProperty(window, 'api', { configurable: true, value: { getWith, post: vi.fn() } });
+  render(<CoursePage />);
+
+  expect(docReplace).toHaveBeenCalledExactlyOnceWith('/login');
+  expect(replace).not.toHaveBeenCalled();
+  expect(getWith).not.toHaveBeenCalled();
+});
+
+it('signing out in another tab removes the open learner page and sends this tab to login', async () => {
+  learnerMe.current = { status: 'ready', me: { id: 'learner-1', learner_v2_enabled: true } };
+  getWith = vi.fn(async () => payload());
+  Object.defineProperty(window, 'api', { configurable: true, value: { getWith, post: vi.fn() } });
+  const view = render(<CoursePage />);
+  expect(await screen.findByRole('region', { name: 'Khoá online của bạn' })).toBeTruthy();
+
+  auth.status = 'signed-out';
+  view.rerender(<CoursePage />);
+
+  expect(screen.queryByRole('region', { name: 'Khoá online của bạn' })).toBeNull();
+  expect(docReplace).toHaveBeenCalledExactlyOnceWith('/login');
+  expect(replace).not.toHaveBeenCalled();
+  expect(getWith).toHaveBeenCalledTimes(1);
 });
