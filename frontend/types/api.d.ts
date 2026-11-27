@@ -2407,6 +2407,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/credits/convert-class/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Convert Class Pending */
+        get: operations["convert_class_pending_admin_credits_convert_class_pending_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/credits/convert-class/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Convert Class Preview */
+        get: operations["convert_class_preview_admin_credits_convert_class_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/credits/convert-class": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Convert Class */
+        post: operations["convert_class_admin_credits_convert_class_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/lessons": {
         parameters: {
             query?: never;
@@ -7202,6 +7253,23 @@ export interface paths {
          *         samples: {part1, part2, part3} — each with scores + metadata
          */
         post: operations["assess_full_test_pronunciation_sessions__session_id__pronunciation_full_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/site-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Site Info */
+        get: operations["get_site_info_api_public_site_info_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -14541,6 +14609,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/assigned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assigned
+         * @description "Bài được giao" page payload (LEARNERCORE-0063 amendment 3, FR-095..FR-099,
+         *     FR-102, FR-103): the caller's own /my-assignments rows plus `group`,
+         *     `action`, `accepting` and `self_practice_available`.
+         *
+         *     Writes nothing of its own; the only write is the class-ledger reconcile
+         *     inside `_visible_assignments` (FR-103 exception). A failed list read is
+         *     `degraded: ["items"]`, never an empty "no work" answer. 404 while
+         *     `learner_v2` is off for the caller, before any read or reconcile runs
+         *     (same gate as GET /today).
+         */
+        get: operations["assigned_api_student_assigned_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/student/today/seen": {
         parameters: {
             query?: never;
@@ -17765,6 +17861,20 @@ export interface components {
             created_at?: string | null;
             /** Completed At */
             completed_at?: string | null;
+        };
+        /** ConvertClass */
+        ConvertClass: {
+            /** Cohort Id */
+            cohort_id: string;
+            /** Credits Per Member */
+            credits_per_member: number;
+            /**
+             * Request Key
+             * Format: uuid
+             */
+            request_key: string;
+            /** Product Id */
+            product_id?: string | null;
         };
         /** CorrectionEventBody */
         CorrectionEventBody: {
@@ -24937,6 +25047,35 @@ export interface components {
              */
             audio_example: string;
         };
+        /** SiteContact */
+        SiteContact: {
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Zalo */
+            zalo?: string | null;
+            /** Reply Hours */
+            reply_hours?: string | null;
+        };
+        /** SiteEnroll */
+        SiteEnroll: {
+            /** Office Hours */
+            office_hours?: string | null;
+            /** Confirm Sla */
+            confirm_sla?: string | null;
+            /** Escalate After */
+            escalate_after?: string | null;
+        };
+        /** SiteInfo */
+        SiteInfo: {
+            contact: components["schemas"]["SiteContact"];
+            enroll: components["schemas"]["SiteEnroll"];
+            /** Login Code Enabled */
+            login_code_enabled: boolean;
+            /** Enroll Prelearn Chapter1 */
+            enroll_prelearn_chapter1: boolean;
+        };
         /** SourceAudioResponse */
         SourceAudioResponse: {
             /** Day */
@@ -25744,6 +25883,49 @@ export interface components {
             state: string;
             /** Independent Items */
             independent_items: number;
+        };
+        /**
+         * StudentAssignedItem
+         * @description One element of /api/class/my-assignments, unchanged, plus four fields the
+         *     new page reads instead of deriving them in the browser.
+         */
+        StudentAssignedItem: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "overdue" | "todo" | "awaiting_review" | "returned";
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "start" | "resume" | "review_submitted" | "result" | "self_practice" | "none";
+            /** Accepting */
+            accepting: boolean;
+            /** Self Practice Available */
+            self_practice_available: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** StudentAssignedResponse */
+        StudentAssignedResponse: {
+            /** Has Class */
+            has_class: boolean;
+            /** Items */
+            items?: components["schemas"]["StudentAssignedItem"][];
+            /** Repractice */
+            repractice?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Homework Stale
+             * @default false
+             */
+            homework_stale: boolean;
+            /** Degraded */
+            degraded?: ("items" | "repractice")[];
         };
         /**
          * StudentQuizQuestion
@@ -31573,6 +31755,114 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["GrantExtra"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_class_pending_admin_credits_convert_class_pending_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_class_preview_admin_credits_convert_class_preview_get: {
+        parameters: {
+            query: {
+                cohort_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_class_admin_credits_convert_class_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConvertClass"];
             };
         };
         responses: {
@@ -40106,6 +40396,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_info_api_public_site_info_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInfo"];
                 };
             };
         };
@@ -52623,6 +52933,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentTodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assigned_api_student_assigned_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentAssignedResponse"];
                 };
             };
             /** @description Validation Error */
