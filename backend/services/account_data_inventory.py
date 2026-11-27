@@ -111,6 +111,7 @@ _DELETE_INTERNAL = _many(
     account_data_exports.user_id
     learner_care_notes.student_id learner_care_notes.user_id learner_active_sessions.user_id
     mock_exam_audiences.student_id mock_exam_audiences.user_id
+    course_open_alerts.user_id
     """,
     note="internal operational rows, not part of the download",
 )

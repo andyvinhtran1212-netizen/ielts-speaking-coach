@@ -395,6 +395,7 @@ number	filename	state	owner	spec	note
 387	387_class_credit_conversion.sql	present	G04-T15	COURSEACCESS-0055	Spec label 388: convert a legacy-code class to credit metering (fn_credit_convert_class). Andy 2026-11-20.
 388	388_learner_active_sessions.sql	present	-	COURSEACCESS-0055	G04-T09 (spec label 384): one session per learner account (learner_active_sessions). Andy 2026-11-20.
 389	389_learner_login_events.sql	present	-	COURSEACCESS-0055	G04-T16 (spec label 387): recent sign-ins (learner_login_events). Andy 2026-11-20.
+394	394_course_open_alerts.sql	present	G05-T22	ENROLL-0060	G05 band 390–399 (plan 5.7): course_open_alerts + account/hashed-IP counter + subscribe/unsubscribe/enqueue/rekey/send_check RPCs.
 400	400_public_library.sql	present	G06-T02	LIBRARY-0061	Public Library schema + private library-media bucket; G06 band 400-419.
 401	401_writing_sample_review_signoff.sql	present	G06-T02b	LIBRARY-0061	Writing sample reviewer sign-off (review_status/reviewed_by/reviewed_at) + publish-requires-approved CHECKs; G06 band 400-419.
 420	420_users_today_seen_at.sql	present	G07-T13	LEARNERCORE-0063	Commercialization G07 band 420–439 (01-KE-HOACH-TONG mục 6); users.today_seen_at + today_seen_key (Today last-seen cursor).

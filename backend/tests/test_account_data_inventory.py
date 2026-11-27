@@ -69,6 +69,11 @@ def test_mock_invitations_are_removed_and_settlement_evidence_is_retained():
     assert settlement.action == "keep" and not settlement.export
 
 
+def test_owned_course_alerts_are_deleted_without_exporting_unsubscribe_tokens():
+    alert = inv.entry_for("course_open_alerts", "user_id")
+    assert alert.action == "delete" and not alert.export
+
+
 def test_storage_is_only_audio_and_exports():
     assert inv.BUCKETS == {"audio-responses", "account-exports"}
     assert inv.entry_for("sessions", "user_id").storage == "audio-responses"
