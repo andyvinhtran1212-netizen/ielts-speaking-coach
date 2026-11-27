@@ -174,3 +174,15 @@ test('a private Task 1 chart that could not be signed is surfaced, not silently 
   const runner = readFileSync(new URL('../app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', import.meta.url), 'utf8');
   assert.match(runner, /prompt\?\.promptImageLookupFailed \? <p className="me-prompt-image-failed" role="alert">/);
 });
+
+test('the runner respects live subsets and can open the speaking-only pending card', () => {
+  const live = normalizeMockExamState(payload({ assigned_skills: ['reading'], active_section: 'listening' }));
+  assert.deepEqual(configuredMockSections(live), ['reading']);
+  assert.equal(mockExamView(live), 'waiting');
+  const speaking = normalizeMockExamState(payload({
+    exam_mode: 'retake', assigned_skills: ['speaking'], active_section: 'not_started',
+    sitting: { ...payload().sitting, status: 'speaking_pending' },
+  }));
+  assert.deepEqual(configuredMockSections(speaking), []);
+  assert.equal(mockExamView(speaking), 'submitted');
+});

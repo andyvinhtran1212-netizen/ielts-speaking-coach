@@ -138,7 +138,7 @@ export function normalizeMockExamState(payload, expectedSittingId = null) {
   if (collectedSection && !MOCK_SECTION_ORDER.includes(collectedSection)) {
     throw new Error('invalid-mock-state');
   }
-  if (examMode === 'retake' && (!assignedSkills || !assignedSkills.length)) {
+  if (examMode === 'retake' && (!assignedSkills || (!assignedSkills.length && !root.assigned_skills.includes('speaking')))) {
     throw new Error('invalid-mock-retake-assignment');
   }
   const sectionTimeLeftSeconds = finiteNonNegative(root.section_time_left_seconds);
@@ -265,7 +265,7 @@ export function selfPacedPrevious(state, section) {
 }
 
 export function configuredMockSections(state) {
-  if (state.examMode === 'retake') return [...(state.assignedSkills || [])];
+  if (state.assignedSkills) return [...state.assignedSkills];
   const sections = [];
   if (state.exam.listeningTestId) sections.push('listening');
   if (state.exam.readingTestCode) sections.push('reading');
