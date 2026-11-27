@@ -81,8 +81,9 @@ def _launch(surface: str, **query: str) -> str:
 # ── assigned (FR-020, FR-022) ─────────────────────────────────────────────────
 
 
-def _visible_assignments_for(user_id: str, account_name: str, now: datetime):
-    """Thin wrapper over routers.class_student (unchanged): returns
+def _visible_assignments_for(user_id: str, account_name: str, now: datetime,
+                             *, reconcile_student_only: bool = False):
+    """Thin wrapper over routers.class_student: returns
     (has_class, rows, stale). Imported here to avoid an import cycle. `stale`
     is the router's own flag (a ledger refresh or the Writing lookup failed);
     the page then marks `assigned` degraded, as /api/class/me sets
@@ -100,7 +101,8 @@ def _visible_assignments_for(user_id: str, account_name: str, now: datetime):
     cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
     if not cohort_ids:
         return False, [], False
-    rows, stale = _visible_assignments(student, now, cohort_ids)
+    repair_scope = {"reconcile_student_only": True} if reconcile_student_only else {}
+    rows, stale = _visible_assignments(student, now, cohort_ids, **repair_scope)
     return True, rows, bool(stale)
 
 

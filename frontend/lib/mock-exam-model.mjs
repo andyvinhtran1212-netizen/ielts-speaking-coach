@@ -521,7 +521,8 @@ export function legacyMockWritingKey(sittingId, task) {
  *   learner, and copy it into the new key first; the legacy key goes only
  *   after that write reads back (`legacyRemovable`) or the server acked it.
  *   A task that already has a new-key entry keeps its legacy key untouched
- *   (not migrated, not dropped) unless the two texts are the same.
+ *   (not migrated, not dropped) unless its exact text survives the replay.
+ *   Matching device texts in a keepServer conflict are both kept for recovery.
  * - Section closed (`server.open` false): send nothing and clear the new copy.
  *   A legacy text the server does not hold is kept, never deleted unconfirmed.
  * @param {{
@@ -547,6 +548,7 @@ export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches })
   const dropLegacy = [];
   /** @type {{ q: string, value: string }[]} legacy texts to write into the new key (base unknown) */
   const migrate = [];
+  const retainedCopyTasks = new Set();
   if (ownerMatches) {
     for (const task of MOCK_WRITING_COPY_TASKS) {
       const draft = legacy?.[task];
@@ -556,13 +558,16 @@ export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches })
       const copyText = inCopy ? copy.answers[task]?.value : undefined;
       // FR-010: the legacy key goes only once its exact text is held elsewhere:
       // the server has it, or the new key carries the same text and survives
-      // this plan. A closed section clears the new key (`clearCopy`), so there
-      // only the server's exact text lets the legacy key go (HOLD on #2713).
-      const copyKeepsIt = server.open && typeof copyText === 'string' && draft.text === copyText;
+      // this plan, including keepServer removals in an open section.
+      const sameDeviceText = typeof copyText === 'string' && draft.text === copyText;
+      const copyKeepsIt = server.open && sameDeviceText && !plan.drop.some((entry) => entry.q === task);
       if (draft.text === serverText || copyKeepsIt) {
         dropLegacy.push(task);
         continue;
       }
+      // No server ack for this text: keep both keys rather than silently
+      // deleting the duplicate new copy while retaining only the legacy key.
+      if (server.open && sameDeviceText && plan.keepServer.includes(task)) retainedCopyTasks.add(task);
       // A different text with a new-key entry, or a section the server has
       // closed: keep the legacy key as it is. Never overwrite the new key with
       // it, and never delete it until the text is confirmed (HOLD on #2713).
@@ -575,7 +580,7 @@ export function reconcileMockWritingCopy({ copy, legacy, server, ownerMatches })
     resend: plan.resend.map((r) => ({ task: r.q, value: r.value })),
     keepServer: plan.keepServer,
     ask,
-    dropFromCopy: plan.drop,
+    dropFromCopy: plan.drop.filter((entry) => !retainedCopyTasks.has(entry.q)),
     clearCopy: !server.open,
     dropLegacy,
     migrate,

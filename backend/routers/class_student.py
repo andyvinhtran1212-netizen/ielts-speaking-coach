@@ -491,7 +491,8 @@ def _visible_writing_gives(student_id: str, cohort_ids: list[str],
 
 
 def _visible_assignments(student: Dict[str, Any], now: datetime,
-                         cohort_ids: list[str] | None = None) -> tuple[list, bool]:
+                         cohort_ids: list[str] | None = None, *,
+                         reconcile_student_only: bool = False) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
 
     Shared by /my-assignments and /me so the two can never disagree about what
@@ -503,6 +504,8 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     ahead of one old unsubmitted one. A student must never be shown "nothing to
     do" while an unanswered task exists.
     """
+    if reconcile_student_only and not student.get("id"):
+        raise ValueError("Student ID required for scoped ledger reconciliation")
     cohort_ids = cohort_ids if cohort_ids is not None else (
         [str(student["cohort_id"])] if student.get("cohort_id") else [])
     # Writing gives live in their own table and never produced a ledger item, so
@@ -601,20 +604,21 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     # Một khối riêng cho mỗi bộ đối chiếu: chúng đọc hai nguồn bằng chứng rời
     # nhau, nên gộp chung nghĩa là bộ này hỏng thì bộ kia không được thử.
     stale = False
-    # Course repair reads every classmate's items for the ids it is given.
-    # Speaking and writing assignments are not course ledgers, so they must
-    # not be part of that scan.
+    # The new assigned route repairs only the authenticated student's ledger.
+    # Existing callers keep their original repair scope.
+    repair_scope = {"student_id": student["id"]} if reconcile_student_only else {}
     course_repair_ids = [
         aid for aid, row in by_id.items() if row.get("skill") == "course"
     ]
     for what, fn in (
         ("test-attempts", lambda: reconcile_test_attempts(
-            supabase_admin, list(by_id.values()))),
+            supabase_admin, list(by_id.values()), **repair_scope)),
         # Bài tập theo buổi cũng vậy, và còn nặng hơn: `end_session` ghi sổ
         # best-effort nên một lượt hỏng ở chặng CUỐI để bài nằm mãi ở "Cần nộp"
         # cho tới khi giáo viên tình cờ mở bảng. Em ấy thì thấy bài mình vừa
         # làm xong vẫn đang nợ.
-        ("course", lambda: reconcile_course_items(supabase_admin, course_repair_ids)),
+        ("course", lambda: reconcile_course_items(supabase_admin, course_repair_ids,
+                                                  **repair_scope)),
     ):
         try:
             fn()
