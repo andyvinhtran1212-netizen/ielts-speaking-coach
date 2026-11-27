@@ -20,6 +20,7 @@ from typing import Any, Optional
 from sqlalchemy import text
 
 from services import account_data_inventory as inventory
+from services.recording_audio import recording_path, verified_legacy_recording_paths
 
 logger = logging.getLogger(__name__)
 
@@ -311,21 +312,29 @@ async def revoke_entitlements(engine: Any, user_id: str) -> int:
 
 
 async def audio_paths(engine: Any, user_id: str) -> list[str]:
-    """Recording paths the learner's rows point at outside ``<user_id>/``."""
+    """Verified legacy recordings of this learner outside ``<user_id>/``."""
     async with engine.connect() as conn:
+        await conn.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
         if (await conn.execute(text("SELECT to_regclass('public.responses')"))).scalar() is None:
             return []
         rows = (await conn.execute(text(
-            "SELECT r.audio_storage_path FROM public.responses r JOIN public.sessions s ON s.id = r.session_id "
-            " WHERE s.user_id = CAST(:uid AS uuid) AND r.audio_storage_path IS NOT NULL"), {"uid": user_id})).all()
-    return [r[0] for r in rows if r[0] and not r[0].startswith(f"{user_id}/")]
+            "SELECT r.audio_storage_path, r.audio_url "
+            "  FROM public.responses r JOIN public.sessions s ON s.id = r.session_id "
+            " WHERE s.user_id = CAST(:uid AS uuid) "
+            "   AND (r.audio_storage_path IS NOT NULL OR r.audio_url IS NOT NULL)"),
+            {"uid": user_id})).mappings().all()
+        candidates = {path for row in rows if (path := recording_path(dict(row)))
+                      and not path.startswith(f"{user_id}/")}
+        return sorted(await verified_legacy_recording_paths(conn, user_id, candidates))
 
 
 async def remove_storage(storage: Any, user_id: str, extra_audio: list[str]) -> int:
     """Step 4: the learner's recordings and every export package. A missing
     object counts as removed."""
-    audio = await asyncio.to_thread(storage.list_prefix, AUDIO_BUCKET, user_id)
-    audio = sorted(set(audio) | set(extra_audio))
+    prefix = f"{user_id}/"
+    listed = await asyncio.to_thread(storage.list_prefix, AUDIO_BUCKET, user_id)
+    audio = sorted({path for path in listed if path.startswith(prefix)
+                    and recording_path({"audio_storage_path": path})} | set(extra_audio))
     exports = await asyncio.to_thread(storage.list_prefix, EXPORT_BUCKET, user_id)
     if audio:
         await asyncio.to_thread(storage.remove, AUDIO_BUCKET, audio)

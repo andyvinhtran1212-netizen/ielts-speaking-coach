@@ -20,7 +20,7 @@ from sqlalchemy import text
 
 from services import account_data_inventory as inventory
 from services.account_erasure import AccountDataError, _iso, export_lock_key
-from services.recording_audio import recording_path
+from services.recording_audio import recording_path, verified_legacy_recording_paths
 
 logger = logging.getLogger(__name__)
 
@@ -454,13 +454,7 @@ async def collect_recordings(engine: Any, storage: StorageAdapter, user_id: str,
     legacy_paths = {path for _, path in references if path and not path.startswith(prefix)}
     if legacy_paths:
         async with engine.connect() as conn:
-            verified = (await conn.execute(text("""
-                SELECT o.name FROM storage.objects o
-                 WHERE o.bucket_id = :bucket AND o.name = ANY(:paths)
-                   AND to_jsonb(o) ->> 'owner_id' = :uid
-                   AND to_jsonb(o) ->> 'archived_at' IS NULL
-            """), {"bucket": AUDIO_BUCKET, "paths": sorted(legacy_paths), "uid": user_id})).scalars().all()
-        paths.update(verified)
+            paths.update(await verified_legacy_recording_paths(conn, user_id, legacy_paths))
 
     skipped = []
     for row, path in references:

@@ -22,6 +22,7 @@ from types import SimpleNamespace
 import pytest
 
 from services import account_erasure as er, account_export as ex
+from services import recording_audio
 from tests.account_data_pg import make_engine, pg_database
 from tests.test_account_data_export_job import FakeStorage
 
@@ -51,9 +52,11 @@ INSERT INTO public.students VALUES ('{S1}', 'HV1', 'Nguyễn An', 'thích nói',
 CREATE TABLE public.sessions (id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES public.users(id), status text);
 INSERT INTO public.sessions VALUES ('{SESS1}', '{U1}', 'completed'), ('{SESS2}', '{U2}', 'completed');
 CREATE TABLE public.responses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id uuid REFERENCES public.sessions(id) ON DELETE CASCADE, audio_storage_path text);
+    session_id uuid REFERENCES public.sessions(id) ON DELETE CASCADE, audio_storage_path text, audio_url text);
 INSERT INTO public.responses (session_id, audio_storage_path) VALUES
   ('{SESS1}', '{U1}/{SESS1}/a.webm'), ('{SESS1}', 'legacy/an-old.webm'), ('{SESS2}', '{U2}/{SESS2}/b.webm');
+ALTER TABLE storage.objects ADD COLUMN owner_id text, ADD COLUMN archived_at timestamptz;
+INSERT INTO storage.objects (bucket_id, name, owner_id) VALUES ('audio-responses', 'legacy/an-old.webm', '{U1}');
 CREATE TABLE public.grammar_recommendations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid REFERENCES public.users(id), response_id uuid REFERENCES public.responses(id));
 INSERT INTO public.grammar_recommendations (user_id, response_id) SELECT s.user_id, r.id
@@ -270,6 +273,61 @@ def test_full_erasure_of_one_learner(env):
     assert env.letters == [("account_erased", "an@example.test", f"account-erased-{req}")]
     # Re-running after erasure claims nothing.
     assert _erase(env, req) == "skipped"
+
+
+def test_erasure_removes_only_verified_legacy_recordings_before_deleting_responses(env):
+    origin = str(recording_audio.settings.SUPABASE_URL).rstrip("/")
+    run = env.run
+    run(f"""
+        INSERT INTO public.responses (session_id, audio_storage_path, audio_url) VALUES
+          ('{SESS1}', NULL, '{origin}/storage/v1/object/public/audio-responses/legacy/owned-url.webm'),
+          ('{SESS1}', 'legacy/other-owner.webm', NULL),
+          ('{SESS1}', 'legacy/no-owner.webm', NULL),
+          ('{SESS1}', 'legacy/missing-metadata.webm', NULL),
+          ('{SESS1}', NULL, 'https://other.example.test/legacy/foreign.webm'),
+          ('{SESS2}', 'legacy/other-response.webm', NULL);
+        INSERT INTO storage.objects (bucket_id, name, owner_id) VALUES
+          ('audio-responses', 'legacy/owned-url.webm', '{U1}'),
+          ('audio-responses', 'legacy/other-owner.webm', '{U2}'),
+          ('audio-responses', 'legacy/no-owner.webm', NULL),
+          ('audio-responses', 'legacy/other-response.webm', '{U1}');
+        INSERT INTO storage.objects (bucket_id, name, owner_id, archived_at)
+        VALUES ('audio-responses', 'legacy/other-owner.webm', '{U1}', now());
+    """)
+    for key in ("owned-url", "other-owner", "no-owner", "missing-metadata", "other-response"):
+        env.storage.objects[("audio-responses", f"legacy/{key}.webm")] = b"recording"
+    requested = []
+    remove = env.storage.remove
+
+    def track_remove(bucket, paths):
+        if bucket == "audio-responses":
+            requested.extend(paths)
+        remove(bucket, paths)
+
+    env.storage.remove = track_remove
+    req = _request(env)
+    before = set(env.storage.objects)
+    assert asyncio.run(er.dry_run(env.engine))[0]["request_id"] == req
+    assert set(env.storage.objects) == before and not requested
+
+    soft_delete = env.auth.soft_delete
+
+    def auth_unavailable(_user_id):
+        raise RuntimeError("synthetic auth outage after the database step")
+
+    env.auth.soft_delete = auth_unavailable
+    assert _erase(env, req) == "error:auth:RuntimeError"
+    assert run(f"SELECT count(*) FROM public.responses WHERE session_id = '{SESS1}'") == "0"
+    assert run(f"SELECT count(*) FROM public.responses WHERE session_id = '{SESS2}'") == "2"
+    removed = {f"{U1}/{SESS1}/a.webm", "legacy/an-old.webm", "legacy/owned-url.webm"}
+    assert sorted(requested) == sorted(removed)
+    assert env.storage.list_prefix("audio-responses", "") == sorted(
+        path for bucket, path in before if bucket == "audio-responses" and path not in removed)
+
+    run(f"UPDATE public.account_deletion_requests SET lease_until = now() - interval '1 minute' WHERE id = '{req}'")
+    env.auth.soft_delete = soft_delete
+    assert _erase(env, req) == "erased"
+    assert sorted(requested) == sorted(removed)
 
 
 @pytest.mark.parametrize("hardened", [False, True])

@@ -8,6 +8,9 @@ import asyncio
 import logging
 from urllib.parse import unquote, urlsplit
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
+
 from config import settings
 
 BUCKET = "audio-responses"
@@ -47,6 +50,19 @@ def recording_path(row: dict) -> str | None:
     except ValueError:
         pass
     return None
+
+
+async def verified_legacy_recording_paths(conn: AsyncConnection, user_id: str, paths: set[str]) -> set[str]:
+    """Independently verify candidates from the learner's owned response rows."""
+    if not paths:
+        return set()
+    rows = (await conn.execute(text("""
+        SELECT o.name FROM storage.objects o
+         WHERE o.bucket_id = :bucket AND o.name = ANY(:paths)
+           AND to_jsonb(o) ->> 'owner_id' = :uid
+           AND to_jsonb(o) ->> 'archived_at' IS NULL
+    """), {"bucket": BUCKET, "paths": sorted(paths), "uid": user_id})).scalars().all()
+    return set(rows)
 
 
 async def attach_playback_urls(client, responses: list[dict]) -> bool:
