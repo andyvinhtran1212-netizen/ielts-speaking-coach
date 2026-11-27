@@ -237,10 +237,6 @@ export function CourseCatalog({ initialItems }: { initialItems: CourseItem[] }) 
     fetchCatalogForViewer().then(
       (data) => {
         if (gen !== generation.current) return;
-        if (!Array.isArray(data?.items)) {
-          onError();
-          return;
-        }
         setViewerRead({ accountId: id, status: 'ready', items: data.items });
       },
       onError,

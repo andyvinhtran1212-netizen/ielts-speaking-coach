@@ -25,21 +25,24 @@ function withViewer(items: CourseItem[], states: Record<string, Partial<CourseIt
 }
 
 let calls: string[];
-let catalogs: Record<string, CourseItem[] | Error>;
+let catalogs: Record<string, unknown>;
 let holds: Record<string, Promise<void>>;
+let lastCatalogOptions: unknown;
 
 beforeEach(() => {
   vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
   calls = [];
   catalogs = {};
   holds = {};
+  lastCatalogOptions = undefined;
   auth.status = 'signed-out';
   auth.id = 'learner-a';
   Object.assign(window, { api: {
-    getWith: async (path: string) => {
+    getWith: async (path: string, _headers: unknown, options: unknown) => {
       const who = auth.id;
       calls.push(`GET ${path} as ${who}`);
       if (path === '/api/me/open-alerts') return { slugs: [] };
+      lastCatalogOptions = options;
       if (holds[who]) await holds[who];
       const answer = catalogs[who] ?? GUEST;
       if (answer instanceof Error) throw answer;
@@ -119,6 +122,25 @@ it('a failed session read says so, keeps the general rows, and "Thử lại" rea
   fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
   expect(await list().findByText('Bạn đang học · còn 10 ngày')).toBeTruthy();
   expect(screen.queryByText(/Chưa tải được trạng thái/)).toBeNull();
+});
+
+it.each([
+  { result: 'expired token', payload: Object.assign(new Error('expired'), { status: 401 }) },
+  { result: 'malformed viewer', payload: [{ ...GUEST[0], viewer: { state: 'enrolled', days_left: 77 } }] },
+])('$result after switching accounts keeps the public catalogue without redirecting', async ({ payload }) => {
+  auth.status = 'signed-in';
+  catalogs['learner-a'] = withViewer(GUEST, { 'khoa-a': { state: 'enrolled', days_left: 30 } });
+  catalogs['learner-b'] = payload;
+  const view = render(<CourseCatalog initialItems={GUEST} />);
+  expect(await list().findByText('Bạn đang học · còn 30 ngày')).toBeTruthy();
+
+  auth.id = 'learner-b';
+  view.rerender(<CourseCatalog initialItems={GUEST} />);
+  expect(await screen.findByText(/Chưa tải được trạng thái khoá học của bạn/)).toBeTruthy();
+  expect(lastCatalogOptions).toEqual({ noRedirect: true });
+  expect(screen.queryByText(/Bạn đang học/)).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Vào học' })).toBeNull();
+  expect(rows()).toHaveLength(GUEST.length);
 });
 
 it('A → B: an answer for A that arrives after the switch is dropped; sign-out returns to the guest rows', async () => {
