@@ -31,12 +31,12 @@ vi.mock('@/components/ui/shell/learner-shell', () => ({
 }));
 
 let getWith: ReturnType<typeof vi.fn>;
-let patch: ReturnType<typeof vi.fn>;
+let patchWith: ReturnType<typeof vi.fn>;
 let attachCardFlag: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   auth.value = { status: 'signed-in', user: { id: 'review-owner', email: 'hv@example.test' } };
-  getWith = vi.fn(); patch = vi.fn(); attachCardFlag = vi.fn();
-  Object.defineProperty(window, 'api', { configurable: true, value: { getWith, patch, post: vi.fn() } });
+  getWith = vi.fn(); patchWith = vi.fn(); attachCardFlag = vi.fn();
+  Object.defineProperty(window, 'api', { configurable: true, value: { getWith, patchWith, post: vi.fn() } });
   Object.defineProperty(window, 'renderMarkdown', { configurable: true, value: (text: string) => text });
   Object.defineProperty(window, 'AverFeedback', { configurable: true, value: { attachCardFlag, mountSurvey: vi.fn() } });
   Object.defineProperty(window, 'aver', { configurable: true, value: { reportError: vi.fn() } });
@@ -223,15 +223,15 @@ it('note box: loads once, stops at 500 characters, shows what the server stored,
   expect(within(card(view.container, 1)!).getByText('500/500 ký tự')).toBeTruthy();
 
   fireEvent.change(box, { target: { value: '  nghe lại đoạn 2  ' } });
-  patch.mockResolvedValueOnce({ q_num: 1, body: 'nghe lại đoạn 2', updated_at: '2026-11-23T11:00:00Z' });
+  patchWith.mockResolvedValueOnce({ q_num: 1, body: 'nghe lại đoạn 2', updated_at: '2026-11-23T11:00:00Z' });
   await act(async () => { fireEvent.click(save); });
-  expect(patch).toHaveBeenCalledWith('/api/review-notes',
-    { skill: 'reading', attempt_id: 'att-r1', q_num: 1, body: '  nghe lại đoạn 2  ' });
+  expect(patchWith).toHaveBeenCalledWith('/api/review-notes',
+    { skill: 'reading', attempt_id: 'att-r1', q_num: 1, body: '  nghe lại đoạn 2  ' }, undefined, { noRedirect: true });
   expect(box.value).toBe('nghe lại đoạn 2'); // the server's value, not the typed one
   expect(within(card(view.container, 1)!).getByText('Đã lưu ghi chú.')).toBeTruthy();
 
   fireEvent.change(box, { target: { value: '   ' } });
-  patch.mockResolvedValueOnce({ q_num: 1, body: null, updated_at: null });
+  patchWith.mockResolvedValueOnce({ q_num: 1, body: null, updated_at: null });
   await act(async () => { fireEvent.click(save); });
   expect(box.value).toBe('');
   expect(within(card(view.container, 1)!).getByText('Đã xoá ghi chú.')).toBeTruthy();
@@ -245,14 +245,22 @@ it('a failed save keeps the typed text and says why at the box', async () => {
   const box = await within(card(view.container, 2)!).findByLabelText('Ghi chú của bạn') as HTMLTextAreaElement;
   await waitFor(() => expect(box.disabled).toBe(false));
   fireEvent.change(box, { target: { value: 'ghi chú dài' } });
-  patch.mockRejectedValueOnce(Object.assign(new Error('422'), {
+  patchWith.mockRejectedValueOnce(Object.assign(new Error('422'), {
     status: 422, detail: { error: 'note_too_long', message: 'Ghi chú tối đa 500 ký tự.' },
   }));
   await act(async () => { fireEvent.click(within(card(view.container, 2)!).getByRole('button', { name: 'Lưu ghi chú' })); });
   expect(within(card(view.container, 2)!).getByRole('alert').textContent).toBe('Ghi chú tối đa 500 ký tự.');
   expect(box.value).toBe('ghi chú dài');
 
-  patch.mockRejectedValueOnce(Object.assign(new Error('500'), { status: 500 }));
+  patchWith.mockRejectedValueOnce(Object.assign(new Error('401'), { status: 401 }));
+  await act(async () => { fireEvent.click(within(card(view.container, 2)!).getByRole('button', { name: 'Lưu ghi chú' })); });
+  expect(patchWith).toHaveBeenLastCalledWith('/api/review-notes',
+    { skill: 'reading', attempt_id: 'att-r1', q_num: 2, body: 'ghi chú dài' }, undefined, { noRedirect: true });
+  expect(within(card(view.container, 2)!).getByRole('alert').textContent).toBe('Phiên đăng nhập đã hết. Đăng nhập lại để lưu ghi chú.');
+  expect(window.location.pathname).toBe('/reading/review');
+  expect(box.value).toBe('ghi chú dài');
+
+  patchWith.mockRejectedValueOnce(Object.assign(new Error('500'), { status: 500 }));
   await act(async () => { fireEvent.click(within(card(view.container, 2)!).getByRole('button', { name: 'Lưu ghi chú' })); });
   expect(within(card(view.container, 2)!).getByRole('alert').textContent).toBe('Chưa lưu được ghi chú. Thử lại sau.');
   expect(box.value).toBe('ghi chú dài');
@@ -365,7 +373,7 @@ it('a saved or deleted note is what the card shows after a filter hides and brin
   await waitFor(() => expect(box3().value).toBe('cũ'));
 
   fireEvent.change(box3(), { target: { value: 'mới' } });
-  patch.mockResolvedValueOnce({ q_num: 3, body: 'mới', updated_at: '2026-11-23T12:00:00Z' });
+  patchWith.mockResolvedValueOnce({ q_num: 3, body: 'mới', updated_at: '2026-11-23T12:00:00Z' });
   await act(async () => { fireEvent.click(within(card(view.container, 3)!).getByRole('button', { name: 'Lưu ghi chú' })); });
   const toggle = screen.getByRole('button', { name: 'Chỉ câu sai' });
   fireEvent.click(toggle);                    // question 3 (correct) unmounts
@@ -374,7 +382,7 @@ it('a saved or deleted note is what the card shows after a filter hides and brin
   expect(box3().value).toBe('mới');
 
   fireEvent.change(box3(), { target: { value: '' } });
-  patch.mockResolvedValueOnce({ q_num: 3, body: null, updated_at: null });
+  patchWith.mockResolvedValueOnce({ q_num: 3, body: null, updated_at: null });
   await act(async () => { fireEvent.click(within(card(view.container, 3)!).getByRole('button', { name: 'Lưu ghi chú' })); });
   fireEvent.click(toggle);
   fireEvent.click(toggle);
@@ -391,7 +399,7 @@ it('the box is read-only while a save is in flight', async () => {
   await waitFor(() => expect(box.disabled).toBe(false));
   fireEvent.change(box, { target: { value: 'đang lưu' } });
   let finish: (value: unknown) => void = () => {};
-  patch.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  patchWith.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   fireEvent.click(within(card(view.container, 1)!).getByRole('button', { name: 'Lưu ghi chú' }));
   expect(box.readOnly).toBe(true);
   await act(async () => { finish({ q_num: 1, body: 'đang lưu', updated_at: null }); });

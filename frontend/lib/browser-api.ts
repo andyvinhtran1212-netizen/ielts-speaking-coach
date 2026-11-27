@@ -68,6 +68,10 @@ export function patchBrowserJsonAt<Path extends ApiPatchPath>(
   _contractPath: Path,
   endpoint: string,
   body: unknown = {},
+  options?: { noRedirect?: boolean },
 ): Promise<ApiPatchJson<Path>> {
+  if (options?.noRedirect) {
+    return window.api.patchWith<ApiPatchJson<Path>>(endpoint, body, undefined, options);
+  }
   return window.api.patch<ApiPatchJson<Path>>(endpoint, body);
 }

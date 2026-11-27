@@ -106,7 +106,7 @@ export function ReviewNote({ skill, attemptId, qNum, stored, loading, onSaved }:
     setMessage('');
     try {
       const raw = await patchBrowserJsonAt('/api/review-notes', '/api/review-notes',
-        { skill, attempt_id: attemptId, q_num: qNum, body: draft });
+        { skill, attempt_id: attemptId, q_num: qNum, body: draft }, { noRedirect: true });
       const result = normalizeSavedNote(raw, qNum);
       const body = result.body ?? '';
       setSaved(body);
