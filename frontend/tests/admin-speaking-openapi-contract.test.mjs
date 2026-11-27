@@ -8,7 +8,7 @@ const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');
 const TYPES = read('types', 'api.d.ts');
 const API = read('lib', 'admin-speaking-sessions-api.ts');
-const COMPONENT = read('app', '(authed-admin-speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx');
+const COMPONENT = read('app', '(authed-admin)/(speaking-sessions)', 'admin', 'speaking', 'sessions', 'admin-speaking-sessions.tsx');
 
 const operations = [
   ['admin_list_sessions_admin_sessions_get', 'AdminSpeakingSessionRow'],

@@ -30,7 +30,6 @@ export async function fetchCourseForViewer(slug: string): Promise<CourseDetail> 
   return window.api.getWith<CourseDetail>(`/api/courses/${encodeURIComponent(slug)}`, undefined, { noRedirect: true });
 }
 
-
 /** The caller's own accesses (FR-024: `content_visible_until` on an expired course). */
 export async function fetchMyCourses(): Promise<MyCourses> {
   await transportReady();

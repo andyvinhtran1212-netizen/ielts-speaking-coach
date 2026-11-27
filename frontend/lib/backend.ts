@@ -60,6 +60,12 @@ const SHORT_LIVED_PREFIXES = ['/api/courses'] as const;
  *     chính bảng đo của mình.
  */
 export async function getPublicJson<T = unknown>(path: string): Promise<T | null> {
+  // Site info includes operational switches. Keep the API's own cache window.
+  if (path === '/api/public/site-info') return readPublicJson<T>(path, 'no-store');
+  return getCachedPublicJson<T>(path);
+}
+
+async function getCachedPublicJson<T>(path: string): Promise<T | null> {
   'use cache';
   if (SHORT_LIVED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) cacheLife(COMMERCE_CONTENT_LIFE);
   else cacheLife(PUBLIC_CONTENT_LIFE);
@@ -67,7 +73,12 @@ export async function getPublicJson<T = unknown>(path: string): Promise<T | null
     if (path.startsWith(prefix)) cacheTag(tag);
   }
 
+  return readPublicJson<T>(path);
+}
+
+async function readPublicJson<T>(path: string, cache?: RequestCache): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
+    cache,
     signal: AbortSignal.timeout(ABORT_MS),
   });
   if (res.status === 404) return null;

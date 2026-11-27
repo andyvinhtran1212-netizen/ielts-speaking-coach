@@ -79,6 +79,28 @@ def is_enabled(key: str, default: bool = True, *, on_error: bool | None = None) 
     return default if stored is None else stored
 
 
+class FlagLookupError(RuntimeError):
+    """The flag could not be read. Raised only by :func:`is_enabled_strict`."""
+
+
+def is_enabled_strict(key: str, default: bool = False) -> bool:
+    """:func:`is_enabled` (same cache and TTL) that raises
+    :class:`FlagLookupError` when the lookup fails instead of returning a
+    fallback. For a flag whose "off" must be a deliberate choice, never an
+    outage: COURSEACCESS-0055 plan 5.4 step 1 (``credit_metering``)."""
+    now = time.monotonic()
+    hit = _cache.get(key)
+    if hit is not None and hit[1] > now:
+        return default if hit[0] is None else hit[0]
+    try:
+        stored = _stored(_flag_query(key)(supabase_admin).execute())
+    except Exception as exc:
+        logger.warning("[runtime_flags] lookup failed for %r: %s", key, exc)
+        raise FlagLookupError(key) from exc
+    _cache[key] = (stored, now + _TTL_SECONDS)
+    return default if stored is None else stored
+
+
 async def ais_enabled(key: str, default: bool = True, *, run,
                      on_error: bool | None = None) -> bool:
     """:func:`is_enabled` (same cache, TTL and ``on_error``) with a cache miss

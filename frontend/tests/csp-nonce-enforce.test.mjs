@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
+import * as advancedVocabRewrites from '../tooling/advanced-vocab-legacy-rewrites.mjs';
 import * as csp from '../tooling/content-security-policy.mjs';
 import * as articleIndex from '../lib/grammar-article-index.mjs';
 import * as legacyRedirects from '../tooling/legacy-url-redirects.mjs';
@@ -46,9 +47,9 @@ function loadModule(filename, env) {
   }).outputText;
   const modules = {
     '@/lib/backend': { API_BASE: 'https://unused.invalid' },
-    '@/lib/public-commerce.mjs': { publicCommerceEnabled: () => true },
     '@/lib/grammar-article-index.mjs': articleIndex,
     '@/tooling/content-security-policy.mjs': csp,
+    './tooling/advanced-vocab-legacy-rewrites.mjs': advancedVocabRewrites,
     './tooling/content-security-policy.mjs': csp,
     './tooling/legacy-url-redirects.mjs': legacyRedirects,
     './tooling/nonce-route-table.mjs': routeTable,
@@ -175,8 +176,10 @@ describe('enforced proxy behavior', () => {
     const routes = globSync('app/**/page.tsx', { cwd: FRONTEND }).map((file) => `/${file.split(path.sep)
       .slice(1, -1).filter((part) => !part.startsWith('(')).map((part) => part.startsWith('[') ? 'sample' : part).join('/')}`);
     for (const url of [...routes, ...PUBLIC_PATHS, '/homework', '/vocabulary/', '/vocabulary/hub', '/admin/a/b', '/reading-other']) {
-      // Grammar articles and course pages are matched for their real-404 check, not for a nonce.
-      if (url.startsWith('/grammar/') || url.startsWith('/courses/')) continue;
+      // The 404/308 branches (Grammar articles, Speaking questions, Library
+      // Writing samples) match public pages on purpose and return before the
+      // nonce policy, so they never carry a nonce.
+      if (url.startsWith('/grammar/') || url.startsWith('/courses/') || /^\/library\/speaking\/[^/]+$/.test(url) || url.startsWith('/library/writing-samples/')) continue;
       assert.equal(csp.nonceRouteAllowed(url), matches({ config, url, headers: { host: 'staging.averlearning.com' } }), url);
     }
   });

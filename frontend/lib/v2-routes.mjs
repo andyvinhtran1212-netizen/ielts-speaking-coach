@@ -5,44 +5,43 @@
 // and ChromeNavigationBridge sits in the root layout, so importing it there
 // would ship the whole registry to every page. This list is the slim copy;
 // `tests/v2-routes.test.mjs` fails when it drifts from the registry. Static
-// routes are a Set lookup; the few dynamic v2 routes (`[param]` = one path
-// segment) are listed in V2_DYNAMIC_ROUTES and matched by pattern, so the
-// answer stays the same as `isV2Route`.
+// routes are a Set lookup; a route with a `[param]` segment (one segment, no
+// catch-all) matches any single non-empty segment there, as `isV2Route` does.
 
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
   '/about',
   '/contact',
   '/courses',
+  '/courses/[slug]',
   '/library',
   '/library/speaking',
+  '/library/speaking/[slug]',
   '/library/writing-guides',
+  '/library/writing-guides/[slug]',
   '/library/writing-samples',
+  '/library/writing-samples/[slug]',
   '/privacy',
   '/profile/v2-pilot',
   '/terms',
   '/ui-library',
 ]);
 
-/** Dynamic v2 routes; each `[param]` stands for exactly one path segment. */
-/** @type {readonly string[]} */
-export const V2_DYNAMIC_ROUTES = Object.freeze([
-  '/courses/[slug]',
-]);
-
-const V2_SET = new Set(V2_ROUTES);
-const V2_PATTERNS = V2_DYNAMIC_ROUTES.map(
-  (route) => new RegExp(`^${route.replace(/\[[^\]/]+\]/g, '[^/]+')}$`),
+const V2_SET = new Set(V2_ROUTES.filter((route) => !route.includes('[')));
+const V2_DYNAMIC = V2_ROUTES.filter((route) => route.includes('[')).map(
+  (route) => new RegExp(`^${route.split('/').map((seg) => (/^\[[^.\]]+\]$/.test(seg) ? '[^/]+' : seg.replace(/[.*+?^${}()|\\]/g, '\\$&'))).join('/')}$`),
 );
 
 /**
  * Same answer as `isV2Route` from route-registry.mjs, for a pathname
- * (query/hash and trailing slashes ignored).
+ * (query/hash and trailing slashes ignored). A static v1 route never shares a
+ * prefix-and-length with a v2 pattern today; the drift test checks every
+ * registry route, so a clash would fail there.
  * @param {string} pathname @returns {boolean}
  */
 export function isV2Path(pathname) {
   const raw = String(pathname ?? '').split(/[?#]/, 1)[0];
   const trimmed = raw.replace(/\/+$/, '');
   const path = trimmed === '' ? '/' : trimmed;
-  return V2_SET.has(path) || V2_PATTERNS.some((pattern) => pattern.test(path));
+  return V2_SET.has(path) || V2_DYNAMIC.some((re) => re.test(path));
 }

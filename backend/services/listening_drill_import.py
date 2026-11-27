@@ -329,9 +329,33 @@ def _block_mcq_multi(blk: dict, q_type: str, tk: str) -> dict:
 def _block_map(blk: dict, q_type: str, tk: str, answers: list[dict]) -> dict:
     qs = [{"q_num": _to_int(q.get("qnum")), "prompt": q.get("location", q.get("prompt", ""))}
           for q in blk.get("questions", []) if _to_int(q.get("qnum")) is not None]
-    letters = sorted({a["answer"] for a in answers if a.get("answer")})
-    meta = {"letter_options": letters or ["A", "B", "C", "D", "E", "F", "G", "H"]}
+    meta = {"letter_options": _map_letter_options(blk, answers)}
     return _wrap(q_type, tk, blk, qs, metadata=meta)
+
+
+_MAP_RANGE_RE = re.compile(r"\b([A-Z])\s*[-–—]\s*([A-Z])\b")
+_MAP_SVG_LABEL_RE = re.compile(r">\s*([A-Z])\s*<")
+
+
+def _map_letter_options(blk: dict, answers: list[dict]) -> list[str]:
+    """Mọi chữ đánh trên bản đồ, không chỉ các chữ là đáp án.
+
+    Báo cáo săn lỗi #86: dựng nút chọn từ đáp án thì chữ gây nhiễu (vd. C
+    trong "A-F", năm chữ là đáp án) không bao giờ hiện, nên câu hỏi tự lộ
+    đáp án. Lấy dải chữ từ rubric ("Write the correct letter, A-F"), rồi
+    nhãn chữ trong SVG; hợp thêm đáp án để không đáp án nào thiếu nút.
+    """
+    letters: set[str] = set()
+    m = _MAP_RANGE_RE.search(blk.get("rubric") or "")
+    if m and m.group(1) <= m.group(2):
+        letters.update(chr(c) for c in range(ord(m.group(1)), ord(m.group(2)) + 1))
+    if not letters:
+        letters.update(_MAP_SVG_LABEL_RE.findall(blk.get("map_svg") or ""))
+    if not letters:
+        letters.update("ABCDEFGH")
+    letters.update(str(a["answer"]).strip().upper() for a in answers
+                   if a.get("answer") and len(str(a["answer"]).strip()) == 1)
+    return sorted(letters)
 
 
 def _wrap(q_type: str, tk: str, blk: dict, questions: list[dict],

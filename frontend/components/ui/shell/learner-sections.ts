@@ -63,6 +63,8 @@ export const ACCOUNT_LINKS = Object.freeze(resolve([
 ]));
 
 export const ADMIN_SWITCH = Object.freeze({ label: 'Đổi vai trò: sang Quản trị', href: '/admin' });
+/** LEARNERNAV-0062 FR-003 (T03s): instructors and admins. */
+export const INSTRUCTOR_SWITCH = Object.freeze({ label: 'Đổi vai trò: sang Giáo viên', href: '/instructor' });
 
 export const COMPACT_FOOTER_LINKS = Object.freeze(resolve([
   { label: 'Trợ giúp', href: '/help', today: null },
