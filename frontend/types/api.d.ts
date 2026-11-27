@@ -19257,6 +19257,58 @@ export interface components {
              */
             user_answer: string | null;
         };
+        /** ExamAudiencePatchResponse */
+        ExamAudiencePatchResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+            /** Mirror Failed */
+            mirror_failed?: boolean;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
+        };
+        /** ExamAudienceResponse */
+        ExamAudienceResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+        };
+        /** ExamAudienceRow */
+        ExamAudienceRow: {
+            /** User Id */
+            user_id: string | null;
+            /** Student Id */
+            student_id: string;
+            /** Name */
+            name: string;
+            /** Cohort */
+            cohort: string | null;
+            source: components["schemas"]["ExamAudienceSource"];
+            /** Skills */
+            skills: ("listening" | "reading" | "writing" | "speaking")[];
+            /** Selected */
+            selected: boolean;
+            /** Excluded Reason */
+            excluded_reason: string | null;
+            /** Open From */
+            open_from: string | null;
+            /** Open Until */
+            open_until: string | null;
+        };
+        /** ExamAudienceSource */
+        ExamAudienceSource: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cohort" | "learner" | "group";
+            /** Label */
+            label: string | null;
+        };
         /**
          * ExamContentItem
          * @description Canonical cross-library row returned to the admin catalog.
@@ -19464,6 +19516,39 @@ export interface components {
             draft_state?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * ExamPatchResponse
+         * @description The persisted exam row, with additional columns from the database.
+         */
+        ExamPatchResponse: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+        } & {
+            [key: string]: unknown;
+        };
+        /** ExamScheduleResponse */
+        ExamScheduleResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "published";
+            /** Selected */
+            selected: number;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -51161,7 +51246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamPatchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51338,7 +51423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudienceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51375,7 +51460,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudiencePatchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51408,7 +51493,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamScheduleResponse"];
                 };
             };
             /** @description Validation Error */

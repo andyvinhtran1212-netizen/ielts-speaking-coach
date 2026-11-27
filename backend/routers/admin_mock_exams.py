@@ -39,6 +39,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+from typing_extensions import NotRequired, TypedDict
 
 from routers.admin import require_admin
 from services.cohort_assignment_service import normalize_deadline
@@ -440,7 +441,18 @@ async def create_exam(body: ExamCreate, authorization: str | None = Header(defau
         raise HTTPException(400, str(e))
 
 
-@router.patch("/{exam_id}")
+class ExamPatchResponse(BaseModel):
+    """The persisted exam row, with additional columns from the database."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    code: str
+    title: str
+    status: Literal["draft", "published", "archived"]
+
+
+@router.patch("/{exam_id}", responses={200: {"model": ExamPatchResponse}})
 async def update_exam(
     exam_id: str, body: ExamPatch, authorization: str | None = Header(default=None),
 ):
@@ -610,7 +622,44 @@ class AudiencePatch(BaseModel):
     window: AudienceWindow | None = None
 
 
-@router.get("/{exam_id}/audience")
+class ExamAudienceSource(TypedDict):
+    kind: Literal["cohort", "learner", "group"]
+    label: str | None
+
+
+class ExamAudienceRow(TypedDict):
+    user_id: str | None
+    student_id: str
+    name: str
+    cohort: str | None
+    source: ExamAudienceSource
+    skills: list[_SKILL]
+    selected: bool
+    excluded_reason: str | None
+    open_from: str | None
+    open_until: str | None
+
+
+class ExamAudienceResponse(TypedDict):
+    items: list[ExamAudienceRow]
+    practice_overlap: None
+
+
+class ExamAudiencePatchResponse(ExamAudienceResponse):
+    mirror_failed: NotRequired[bool]
+    mirror_locked: NotRequired[list[str]]
+    mirror_refresh_failed: NotRequired[list[str]]
+
+
+class ExamScheduleResponse(TypedDict):
+    status: Literal["published"]
+    selected: int
+    mirror_locked: NotRequired[list[str]]
+    mirror_refresh_failed: NotRequired[list[str]]
+
+
+# Document the service responses without enabling FastAPI response filtering.
+@router.get("/{exam_id}/audience", responses={200: {"model": ExamAudienceResponse}})
 async def get_audience(exam_id: str, authorization: str | None = Header(default=None)):
     """MOCKORG-0086 FR-142: who sits this exam (flag mock_exam_audiences)."""
     await require_admin(authorization)
@@ -620,7 +669,7 @@ async def get_audience(exam_id: str, authorization: str | None = Header(default=
         raise _audience_error(e)
 
 
-@router.patch("/{exam_id}/audience")
+@router.patch("/{exam_id}/audience", responses={200: {"model": ExamAudiencePatchResponse}})
 async def update_audience(
     exam_id: str, body: AudiencePatch, authorization: str | None = Header(default=None),
 ):
@@ -633,7 +682,7 @@ async def update_audience(
         raise _audience_error(e)
 
 
-@router.post("/{exam_id}/schedule")
+@router.post("/{exam_id}/schedule", responses={200: {"model": ExamScheduleResponse}})
 async def schedule_exam(exam_id: str, authorization: str | None = Header(default=None)):
     """MOCKORG-0086 FR-144: check what is missing, then publish."""
     admin = await require_admin(authorization)
