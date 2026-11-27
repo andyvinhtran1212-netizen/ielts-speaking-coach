@@ -1,4 +1,4 @@
-// Trang "Nhận xét Speaking" trên Next — `/speaking/result`.
+// Trang "Nhận xét Speaking" trên Next — `/tests/mock/speaking-report`.
 //
 // Behavior đã được port sang React trong `speaking-result-behavior.tsx`; route
 // không còn inject `/js/speaking-result.js`, nên có thể vào bằng App Router soft

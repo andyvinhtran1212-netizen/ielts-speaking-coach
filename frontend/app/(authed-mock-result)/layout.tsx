@@ -1,4 +1,4 @@
-// Route-group cần đăng nhập cho `/mock/result`.
+// Route-group cần đăng nhập cho `/tests/mock/result`.
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';

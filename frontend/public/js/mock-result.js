@@ -62,7 +62,7 @@
     // as "[object Object]". It gets its own block; strings keep the old path.
     var notes = data.per_skill_notes || {};
     // Speaking chi tiết KHÔNG còn nằm chen giữa trang — nó là thẻ trong
-    // "Việc tiếp theo" mở route canonical /speaking/result (bản duyệt trf-v2).
+    // "Việc tiếp theo" mở route canonical /tests/mock/speaking-report (bản duyệt trf-v2).
     var spk = (notes.speaking && typeof notes.speaking === 'object') ? notes.speaking : null;
     var keys = Object.keys(notes).filter(function (k) {
       return notes[k] && !(k === 'speaking' && spk);
@@ -110,7 +110,7 @@
 
     if (spk) {
       reviews.push({ icon: '🎙', title: 'Nhận xét Speaking', hint: 'Thi trực tiếp — band 4 tiêu chí + cách luyện',
-        href: '/speaking/result?sitting=' + encodeURIComponent(sitting) });
+        href: '/tests/mock/speaking-report?sitting=' + encodeURIComponent(sitting) });
     }
 
     var cwrap = $('chuabai-wrap');
