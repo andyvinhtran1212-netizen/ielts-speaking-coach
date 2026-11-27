@@ -491,8 +491,9 @@ export const LISTENING_ABANDONED_MESSAGE = 'This attempt was abandoned and was n
  * - 'results': show the result (or the sealed MockHook path when `sealed`);
  * - 'reread': re-read the attempt, then call this again with `reread`;
  * - 'retry': re-read and resubmit automatically once `waitFor` is met
- *   ('online', 'signin' or null = after the usual backoff);
- * - 'manual': stop retrying; "Try again" resubmits;
+ *   ('online' or null = after the usual backoff);
+ * - 'manual': stop retrying; "Try again" resubmits (`waitFor: 'signin'` on a
+ *   401, while the shell asks the learner to sign in again);
  * - 'resubmit': the attempt is still open; unlock and let the learner submit;
  * - 'back': terminal, show `message` with "Back".
  *
@@ -504,7 +505,7 @@ export const LISTENING_ABANDONED_MESSAGE = 'This attempt was abandoned and was n
  *   attemptId: string,
  *   reply?: any,
  *   error?: any,
- *   reread?: { status?: string } | null,
+ *   reread?: { status?: string, signin?: boolean } | null,
  *   autoRetries?: number,
  *   online?: boolean,
  * }} input
@@ -515,6 +516,13 @@ export function listeningSubmitOutcome({ attemptId, reply, error, reread = null,
   const hasStatus = !!error && error.status !== undefined && error.status !== null;
 
   if (reread && typeof reread === 'object') {
+    if (reread.status === 'unknown') {
+      // The re-read itself failed, so it is no answer about the attempt (CR
+      // #2557 F4): keep the automatic tries while they last; signed out, wait
+      // for the learner.
+      if (reread.signin) return submitState('unconfirmed_manual', 'manual', { waitFor: 'signin' });
+      return transient(autoRetries, online === false ? 'online' : null);
+    }
     if (reread.status === 'submitted') return submitState('confirmed', 'results');
     if (reread.status === 'abandoned') {
       return submitState('abandoned', 'back', { message: LISTENING_ABANDONED_MESSAGE, clearLocalCopy: true });
@@ -540,8 +548,12 @@ export function listeningSubmitOutcome({ attemptId, reply, error, reread = null,
   // Already submitted (422 replay) or changed under us (409): read the truth.
   if (hasStatus && (status === 409 || status === 422) && !reread) return submitState('unconfirmed', 'reread');
   if (status === 410) return submitState('expired', 'back', { message: errorMessage(error) });
-  if (!hasStatus || online === false) return transient(autoRetries, 'online');
-  if (status === 401) return transient(autoRetries, 'signin');
+  // Wait for the `online` event only while offline: a POST cut off on a live
+  // connection may never see one (CR #2557), so it backs off and re-reads.
+  if (!hasStatus || online === false) return transient(autoRetries, online === false ? 'online' : null);
+  // Signed out: no automatic retry can succeed, so "Try again" stays on screen
+  // while the shell asks the learner to sign in again (CR #2557 F1).
+  if (status === 401) return submitState('unconfirmed_manual', 'manual', { waitFor: 'signin' });
   if ([408, 425, 429].includes(status) || status >= 500) return transient(autoRetries, null);
   // Any other refusal is deterministic: no automatic retry, no full-page error.
   return submitState('unconfirmed_manual', 'manual', { message: errorMessage(error) });
