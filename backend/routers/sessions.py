@@ -51,7 +51,8 @@ from services.access_code_permissions import (
     get_user_session_quota,
     has_permission,
 )
-from services.retention import compute_expiry, content_purge_cutoff, should_touch
+from services.retention import RetentionPolicy, compute_expiry, content_purge_cutoff, should_touch
+from services import retention_policy
 from services.active_player_lifecycle import (
     is_active_player_expired_error,
     require_resume_active,
@@ -321,11 +322,30 @@ def _require_permission(user_id: str, mode: str) -> None:
 
     if has_permission(perms, required):
         return
+    if _course_speaking_entitlement(user_id):
+        return
 
     raise HTTPException(
         status_code=403,
         detail=f"Tài khoản không có quyền sử dụng chế độ này (cần: {required})",
     )
+
+
+def _course_speaking_entitlement(user_id: str) -> bool:
+    """COURSEACCESS-0055 G04-T07 (plan 5.6): while ``credit_metering`` is on,
+    a course entitlement whose product has ``speaking`` admits every Speaking
+    mode; its gradings are then metered (credits.charge_plan → 'entitlement').
+    Checked only after the access-code scope failed, so a code holder's path
+    and query count are unchanged. Fail-closed: a flag or entitlement read
+    error never admits (the caller's 403 stands) and is logged."""
+    from services import credits, entitlements
+    try:
+        if not credits._metering_on():
+            return False
+        return entitlements.has_feature_entitlement(user_id, "speaking")
+    except Exception as e:  # CreditUnavailable included
+        logger.warning("[sessions] course speaking entitlement lookup failed user=%s: %s", user_id, e)
+        return False
 
 
 def _require_active(user_id: str) -> None:
@@ -367,7 +387,8 @@ def require_speaking_entitlement(user_id: str, session: dict | None) -> None:
         except Exception as e:
             logger.error("[sessions] speaking entitlement lookup failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra quyền. Vui lòng thử lại.") from None
-        if not any(has_permission(perms, scope) for scope in sorted(SPEAKING_PERMISSIONS)):
+        if not any(has_permission(perms, scope) for scope in sorted(SPEAKING_PERMISSIONS)) \
+                and not _course_speaking_entitlement(user_id):
             raise HTTPException(
                 status_code=403,
                 detail="Tài khoản không có quyền sử dụng Speaking",
@@ -876,6 +897,13 @@ async def list_sessions(
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+    # COURSEACCESS-0055 plan 5.14: the caller's content window (one lookup per
+    # request; flag off or lookup error → today's 60-day rule).
+    window = await asyncio.to_thread(retention_policy.content_window, user_id)
+    policy = RetentionPolicy(window=window)
+    now = datetime.now(timezone.utc)
+    window_closed = window.mode == "until" and window.visible_until is not None \
+        and now >= window.visible_until
 
     paginated = (
         page is not None
@@ -920,10 +948,15 @@ async def list_sessions(
         # deleted; ?include_hidden=true returns everything. content_purged_at IS
         # NULL until the Sprint 16.4 sweep starts writing it.
         if not include_hidden:
-            cutoff = content_purge_cutoff()
-            q = q.is_("content_purged_at", "null").or_(
-                f"started_at.gte.{cutoff},last_accessed_at.gte.{cutoff}"
-            )
+            q = q.is_("content_purged_at", "null")
+            if window.mode == "default":
+                cutoff = content_purge_cutoff()
+                q = q.or_(f"started_at.gte.{cutoff},last_accessed_at.gte.{cutoff}")
+            elif window_closed:
+                # Past the window after the last course: nothing is listed
+                # (FR-048). Ruled out in the query so `total` agrees.
+                q = q.is_("id", "null")
+            # open, or until and still inside the window: no age cut-off.
 
         sort_col, sort_desc = _SORT_FIELD[sort]
         # nullsfirst=False keeps NULL bands (in-progress sessions) at the
@@ -949,7 +982,7 @@ async def list_sessions(
     # is_hidden) so the warning UI can render countdowns without recomputing
     # policy client-side.
     for row in rows:
-        row["retention"] = compute_expiry(row)
+        row["retention"] = compute_expiry(row, now, policy)
     if not paginated:
         return rows
 
@@ -1221,7 +1254,9 @@ async def get_session(
     out = {
         **session,
         "session_id": session["id"],   # alias so frontend can use either field
-        "retention":  compute_expiry(session),
+        "retention":  compute_expiry(
+            session, policy=RetentionPolicy(window=await asyncio.to_thread(
+                retention_policy.content_window, session.get("user_id") or user_id))),
         "questions":  questions,
         "responses":  responses,
         "response_receipts": response_receipts,

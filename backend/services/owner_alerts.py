@@ -139,6 +139,7 @@ def transport_config(env: dict[str, str] | None = None) -> TransportConfig:
 class Email:
     subject: str
     text: str
+    html: str | None = None   # learner mail only (COURSEACCESS-0055 plan 5.11)
 
 
 def _uuid(value: Any) -> str | None:
@@ -268,16 +269,25 @@ Sender = Callable[..., Awaitable[SendResult]]
 
 
 async def send_via_resend(email: Email, *, config: TransportConfig, idempotency_key: str,
-                          client: Any = None) -> SendResult:
-    """POST one e-mail to Resend. Never raises; never returns the key or a body."""
+                          client: Any = None, sender: str | None = None, reply_to: str | None = None,
+                          recipients: tuple[str, ...] | None = None) -> SendResult:
+    """POST one e-mail to Resend. Never raises; never returns the key or a body.
+
+    ``sender``, ``reply_to`` and ``recipients`` default to the owner-alert
+    values; learner mail (``services.learner_email``) passes its own sender and
+    exactly one recipient."""
     import httpx
 
     request = {
-        "from": SENDER,
-        "to": list(config.recipients),
+        "from": sender or SENDER,
+        "to": list(config.recipients if recipients is None else recipients),
         "subject": email.subject,
         "text": email.text,
     }
+    if email.html is not None:
+        request["html"] = email.html
+    if reply_to:
+        request["reply_to"] = reply_to
     headers = {
         "Authorization": f"Bearer {config.api_key}",
         "Idempotency-Key": idempotency_key,

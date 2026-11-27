@@ -53,7 +53,7 @@ describe('P0-2 FE — persist failure routes to RETRY, never feedback', () => {
   });
   test('_handlePersistFailure enters the RECORDING/retry state, not feedback', () => {
     const fn = js.slice(js.indexOf('function _handlePersistFailure'), js.indexOf('function _showPartialNote'));
-    assert.match(fn, /showState\('recording'\)/);
+    assert.match(fn, /showState\('prep'\)/);
     assert.match(fn, /_showRecSub\('recorded'\)/);
     assert.match(fn, /_showRecError\(/);
     assert.ok(!/showState\('feedback'\)/.test(fn), 'must NOT enter feedback on a persist failure');

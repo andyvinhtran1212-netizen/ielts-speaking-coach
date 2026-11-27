@@ -9,8 +9,9 @@
 | `main` | `www.averlearning.com` + Railway production | Supabase production |
 
 `staging` is the integration branch. `main` is the production branch and may
-only receive a promotion PR whose head is the repository `staging` branch.
-Do not merge the same feature independently into both branches.
+only receive a promotion PR whose head is the repository `staging` branch or a
+pinned release cut `release/<sha>` (see "Pinned release cut" below). Do not
+merge the same feature independently into both branches.
 
 ## Normal release
 
@@ -30,6 +31,30 @@ Do not merge the same feature independently into both branches.
    checks.
 7. Merge the promotion PR. Vercel/Railway production deploy from `main`; verify
    the production release marker and the affected user journey.
+
+## Pinned release cut (cadence approved 25/11/2026)
+
+Daily staging lots keep moving `staging`, so a scheduled promotion (Tuesday and
+Friday) is cut from a fixed commit instead of the moving branch:
+
+1. Pick a commit `S` that was a staging tip and has green exact-SHA staging
+   evidence (all integrated push checks and a live Staging release smoke that
+   really ran, not one that finished as superseded).
+2. Push `release/<S>` from this repository, naming the commit (7 to 40 lower-case
+   hex characters; the head must start with that prefix). Never move the branch.
+3. Open the promotion PR with head `release/<S>` and base `main`. The **Staging
+   promotion gate** checks that the name pins the head, that `S` is contained in
+   `staging`, that the branch does not move while the gate waits, and that every
+   integrated staging push run for `S` passed. `Spec and PR metadata` treats this
+   PR like a `staging` promotion.
+   For every promotion head the gate also merges `S` into current `main` with
+   `git merge-tree` and requires the result to be exactly `S`'s tree. A hotfix
+   that main has on its own (not already in `S` with the same content) or a
+   conflict fails the gate: bring that change into staging, cut a new release
+   and verify staging again. A hotfix with identical content (other SHA, same
+   tree, like #2674 under #2672) passes.
+4. Any other `release/...` name (for example `release/<sha>-hotfix-N`) is not a
+   promotion head: it is validated and gated like a normal PR.
 
 The merge commit created on `main` can make the branch SHAs differ even when
 their deployed trees are identical. That is normal release metadata. New work

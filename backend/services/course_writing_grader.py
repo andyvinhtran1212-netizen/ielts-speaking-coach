@@ -289,8 +289,12 @@ def _build_results(
             out.append(_fallback([it], "Bộ chấm bỏ sót câu này.")[0])
             failure_kind = _BATCH_RESPONSE_FAILURE
             continue
-        issues = [{**x, "type": _classify(x)}
-                  for x in (r.get("issues") or []) if isinstance(x, dict)][:6]
+        # `ok` tính trên ĐỦ danh sách; chỉ phần hiển thị cắt còn 6. Cắt trước
+        # thì lỗi ngữ pháp thứ 7 trở đi (sau 6 lỗi hình thức) bị bỏ qua và câu
+        # sai được chấm đúng (báo cáo săn lỗi #67).
+        all_issues = [{**x, "type": _classify(x)}
+                      for x in (r.get("issues") or []) if isinstance(x, dict)]
+        issues = all_issues[:6]
         corrected = (r.get("corrected") or "").strip() or it.get("answer", "")
         if not _keeps_all_answer_lines(it.get("answer"), corrected):
             logger.error("[course-writing] corrected làm mất dòng qid=%s", it["qid"])
@@ -312,7 +316,7 @@ def _build_results(
             # Lỗi HÌNH THỨC không vào phép đếm này — xem `_classify`. Câu vẫn
             # hiện đủ lời nhắc, chỉ là ô đúng/sai nói về ngữ pháp, đúng thứ bài
             # tập này dạy.
-            "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
+            "ok":        not any(x["type"] in _COUNTED_TYPES for x in all_issues),
         })
     return out, failure_kind
 
