@@ -20,7 +20,6 @@ const COMPONENT = read('app', '(authed-admin-writing-status)', 'admin', 'writing
 const LAYOUT = read('app', '(authed-admin-writing-status)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-status-next.css');
 const QUEUE_MODEL = read('lib', 'admin-writing-queue-model.mjs');
-const LEGACY_QUEUE = read('public', 'js', 'admin-writing-queue.js');
 const LEGACY_NEW = read('public', 'pages', 'admin', 'writing', 'new.html');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
@@ -90,12 +89,15 @@ describe('Admin Writing Status native model', () => {
 });
 
 describe('/admin/writing/status native ownership and UX contract', () => {
-  test('owns clean route while direct legacy HTML remains rollback', () => {
+  test('owns clean route while direct legacy HTML remains rollback', async () => {
     assert.match(PAGE, /function AdminWritingStatusPage/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/status['"]/);
     assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'status.html')));
     assert.match(QUEUE_MODEL, /writingNavigationHref\(path/);
-    assert.match(LEGACY_QUEUE, /\/admin\/writing\/status\?essay_id=/);
+    // LEGACYJS-0075 W4b: admin-writing-queue.js is deleted; the Next queue model
+    // sends a pending essay to the status page.
+    const { writingQueueDestination } = await import('../lib/admin-writing-queue-model.mjs');
+    assert.match(writingQueueDestination({ id: 'e1', status: 'pending' }, { lane: 'all' }), /^\/admin\/writing\/status\?essay_id=e1&/);
     assert.match(LEGACY_NEW, /\/admin\/writing\/status\?essay_id=/);
     assert.match(LEDGER, /`\/admin\/writing\/status`[^\n]+authed-admin-writing-status[^\n]+native React ownership/);
   });

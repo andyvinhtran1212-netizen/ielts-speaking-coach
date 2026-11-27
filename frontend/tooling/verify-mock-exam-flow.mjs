@@ -70,6 +70,7 @@ async function fixturePage(browser, initialState, {
   deferFlushAck = false, readingFlushFailsOnce = false, localDraftWritesFail = false,
   viewport = { width: 1280, height: 900 },
   theme = null,
+  examRoom = false,
 } = {}) {
   const context = await browser.newContext({ viewport });
   await context.addInitScript(([key, value, sittingId, seededDrafts, failDraftWrites, selectedTheme]) => {
@@ -111,7 +112,7 @@ async function fixturePage(browser, initialState, {
   const egress = [];
   const calls = [];
   const state = {
-    current: structuredClone(initialState), creates: 0, stateGets: 0,
+    current: structuredClone(initialState), creates: 0, stateGets: 0, dialogs: 0,
     writingDrafts: [], writingFinals: [], flushAcks: [], collectionOrder: [],
   };
   let markDeferredReady;
@@ -128,7 +129,7 @@ async function fixturePage(browser, initialState, {
   state.flushAckReady = new Promise((resolve) => { markFlushAckReady = resolve; });
   state.embedAnswerBodies = [];
   page.on('pageerror', (error) => errors.push(String(error)));
-  page.on('dialog', async (dialog) => dialog.dismiss());
+  page.on('dialog', async (dialog) => { state.dialogs += 1; await dialog.dismiss(); });
   await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -166,6 +167,13 @@ async function fixturePage(browser, initialState, {
       state.collectionOrder.push('embed-save');
       markEmbedSavePersisted();
       return;
+    }
+    // EXAMMOCK-0071 T003: the flag-on branch, through the same runtime config the
+    // build writes (FR-022 option A), without touching the environment.
+    if (examRoom && url.origin === BASE && url.pathname === '/js/runtime-config.js') {
+      const real = await route.fetch();
+      const body = `${await real.text()}\nwindow.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...(window.__AVER_RUNTIME_CONFIG__ || {}), examRoomSurfaces: ['mock'] });\n`;
+      return route.fulfill({ response: real, body, headers: { ...real.headers(), 'content-type': 'application/javascript' } });
     }
     if (request.url().startsWith(BASE)) return route.continue();
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
@@ -674,6 +682,100 @@ check('successful canonical poll recovery may start one new submit attempt',
     && pollRecovery.state.stateGets === 2
     && await pollRecovery.page.evaluate(() => Date.now()) === beforePoll,
   String(pollRecovery.state.writingFinals.length));
+// ---- EXAMMOCK-0071 T003: the exam-room branch (flag on) -----------------
+// FR-001: same requests and order as the flag-off runs above; FR-004: no
+// manual submit; FR-017: no browser dialog; FR-003/005/009/016: the frame.
+const flagOnRuns = [];
+const onWaiting = await fixturePage(browser, mockState(), { examRoom: true });
+flagOnRuns.push(onWaiting);
+await onWaiting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await onWaiting.page.getByText(/Waiting for the invigilator to start the test/).waitFor();
+check('flag on: waiting room keeps the invigilator flow, with the section strip and a Vietnamese line',
+  await onWaiting.page.getByRole('list', { name: 'Test sections' }).isVisible()
+    && await onWaiting.page.getByText('Đang chờ giám thị bắt đầu bài thi…').isVisible()
+    && await onWaiting.page.getByRole('button', { name: /Start/ }).count() === 0
+    && await onWaiting.page.locator('main script').count() === 0);
+await onWaiting.context.close();
+
+const onListeningState = mockState({
+  active_section: 'listening', section_time_left_seconds: 3, section_duration_seconds: 60,
+});
+onListeningState.sitting.listening_attempt_id = 'listening-attempt-1';
+const onListening = await fixturePage(browser, onListeningState, { examRoom: true });
+flagOnRuns.push(onListening);
+await onListening.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await onListening.page.locator('[data-exam-room][data-surface="mock"] iframe').waitFor();
+check('flag on: the section runs in the exam room with the runner clock and no manual submit',
+  await onListening.page.getByText(/Mock test · /).first().isVisible()
+    && await onListening.page.getByText(/Section 1 of 3: Listening/).isVisible()
+    && await onListening.page.getByRole('button', { name: /^Submit/ }).count() === 0
+    && await onListening.page.getByRole('button', { name: /Abandon/ }).count() === 0
+    && (await onListening.page.locator('iframe').getAttribute('src'))?.startsWith('/core-player/launch?') === true);
+await onListening.page.getByText(/Section submitted/).waitFor({ timeout: 10_000 });
+check('flag on: timed Listening submit makes the same calls in the same order as flag off',
+  onListening.calls.join(',') === listening.calls.join(',') && onListening.calls.join(',') === 'domain-listening,stamp-listening',
+  onListening.calls.join(','));
+await onListening.context.close();
+
+const onCollectedState = mockState({
+  active_section: 'listening', section_time_left_seconds: 600, section_duration_seconds: 600,
+});
+onCollectedState.sitting.listening_attempt_id = 'listening-attempt-1';
+const onCollected = await fixturePage(browser, onCollectedState, { examRoom: true, deferEmbedSave: true, deferFlushAck: true });
+flagOnRuns.push(onCollected);
+await onCollected.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+const onCollectedFrame = onCollected.page.locator('iframe');
+await onCollectedFrame.waitFor();
+await onCollectedFrame.contentFrame().locator('body').waitFor();
+onCollected.state.current.collected_section = 'listening';
+await onCollected.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await onCollected.state.embedSaveReady;
+check('flag on: collection shows "Saving your final answers…" and keeps the paper mounted',
+  await onCollectedFrame.count() === 1 && await onCollected.page.getByText(/Saving your final answers/).isVisible());
+onCollected.state.releaseEmbedSave();
+await onCollected.state.embedSavePersisted;
+await onCollected.state.flushAckReady;
+check('flag on: collection freezes the paper before the ACK returns', await onCollectedFrame.evaluate((element) => element.inert === true));
+onCollected.state.releaseFlushAck();
+await onCollected.page.getByText(/Section submitted/).waitFor();
+check('flag on: mock-flush → flush-ack order and writes equal the flag-off collection',
+  onCollected.state.collectionOrder.join(',') === 'embed-save,flush-ack:listening'
+    && onCollected.state.embedAnswerBodies.join(',') === 'latest-answer'
+    && onCollected.state.flushAcks.join(',') === 'listening'
+    && await onCollectedFrame.count() === 0,
+  onCollected.state.collectionOrder.join(','));
+await onCollected.context.close();
+
+const onRetake = await fixturePage(browser, mockState({ exam_mode: 'retake', assigned_skills: ['writing'], active_section: 'not_started' }), { examRoom: true });
+flagOnRuns.push(onRetake);
+await onRetake.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await onRetake.page.getByRole('button', { name: 'Start Writing' }).click();
+await onRetake.page.getByLabel('Answer for Task 1').waitFor();
+await onRetake.page.getByLabel('Answer for Task 1').fill('Server draft and two more words.');
+check('flag on: retake starts only the assigned section; Writing shows "Words: n · minimum m" and no draft-save button',
+  onRetake.calls.join(',') === 'start-writing'
+    && await onRetake.page.getByRole('tab', { name: /Task 1.*Words: 6 · minimum 150/ }).isVisible()
+    && await onRetake.page.getByRole('tab', { name: /Task 2.*Words: 0 · minimum 250/ }).isVisible()
+    && await onRetake.page.getByRole('button', { name: /save/i }).count() === 0);
+check('flag on: the Writing copy is bound to the account and sitting, with the acked text as base',
+  await onRetake.page.evaluate(([owner, sitting]) => {
+    const raw = localStorage.getItem(`exam-room:local-copy:mock:${owner}:${sitting}`);
+    const copy = raw ? JSON.parse(raw) : null;
+    return copy?.answers?.task1?.value === 'Server draft and two more words.' && copy.answers.task1.baseValue === 'Server draft'
+      && !Object.keys(localStorage).some((key) => key.startsWith(`mock-writing:${sitting}:`));
+  }, [USER_ID, SITTING_ID]));
+await onRetake.page.getByRole('button', { name: 'Leave test' }).click();
+await onRetake.page.getByRole('alertdialog').waitFor();
+check('flag on: "Leave test" opens the frame box, with no Abandon and no browser dialog',
+  await onRetake.page.getByRole('alertdialog').getByRole('button', { name: /Abandon/ }).count() === 0);
+await onRetake.context.close();
+
+check('flag on: no window.confirm, alert or prompt (dialog events = 0)',
+  flagOnRuns.every((run) => run.state.dialogs === 0), flagOnRuns.map((run) => run.state.dialogs).join(','));
+check('flag on: no production egress or browser error',
+  flagOnRuns.every((run) => run.egress.length === 0 && run.errors.length === 0),
+  flagOnRuns.flatMap((run) => [...run.egress, ...run.errors])[0] || '');
+
 check('fixture flows have no production egress or browser error',
   [waiting, retake, narrowWriting, darkWriting, staleRead, listening, collectedListening, collectedWriting, noLocalBackup, writing, forceCollected, pausedRetry, boundedFailure, pollRecovery]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),

@@ -1,0 +1,218 @@
+/* Article HTML from the backend (Markdown + Grammar Lab blocks) on the "Bản in"
+   tokens (LIBRARY-0061 T014 PR (c2); replaces the `.article-body` and
+   `.gw-*` rules of grammar-wiki.css, which left the layout). The HTML keeps its
+   own class names (`article-body`, `gw-lab`, `gw-check-option`, …): they are
+   written by `grammar_learning_blocks.py`, so they are reached with :global
+   under the `.prose` wrapper. Only var(--av2-*). No shadow, no gradient. */
+
+.prose {
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-ink);
+  overflow-wrap: anywhere;
+}
+
+.prose :global(p) { margin: 0 0 var(--av2-space-5); }
+
+.prose :global(h2),
+.prose :global(h3),
+.prose :global(h4),
+.prose :global(h5) {
+  color: var(--av2-ink);
+  line-height: var(--av2-lh-tight);
+  scroll-margin-top: var(--av2-space-10);
+}
+.prose :global(h2) {
+  margin: var(--av2-space-10) 0 var(--av2-space-4);
+  padding-top: var(--av2-space-5);
+  border-top: var(--av2-rule-w) solid var(--av2-ink);
+  font-size: var(--av2-fs-24);
+  font-weight: var(--av2-fw-strong);
+}
+.prose > :global(h2:first-child) { margin-top: 0; }
+.prose :global(h3) { margin: var(--av2-space-8) 0 var(--av2-space-3); font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); }
+.prose :global(h4) { margin: var(--av2-space-6) 0 var(--av2-space-2); font-size: var(--av2-fs-18); font-weight: var(--av2-fw-strong); }
+.prose :global(h5) {
+  margin: var(--av2-space-5) 0 var(--av2-space-2);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-15);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-muted);
+}
+
+.prose :global(ul),
+.prose :global(ol) { margin: 0 0 var(--av2-space-5); padding-left: var(--av2-space-6); }
+.prose :global(ul > li) { list-style: disc; }
+.prose :global(ol > li) { list-style: decimal; }
+.prose :global(li) { margin-bottom: var(--av2-space-2); }
+
+.prose :global(strong) { font-weight: var(--av2-fw-strong); }
+/* Examples are set in italics in the authored Markdown. */
+.prose :global(em) { font-style: italic; }
+
+.prose :global(a) { color: var(--av2-link); text-decoration: underline; text-underline-offset: 3px; }
+.prose :global(a:focus-visible) { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+.prose :global(code) {
+  padding: 0 var(--av2-space-1);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-off);
+  font-family: var(--av2-font-sans);
+  font-size: 0.9em;
+}
+.prose :global(pre) {
+  margin: 0 0 var(--av2-space-5);
+  padding: var(--av2-space-4);
+  overflow-x: auto;
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-off);
+}
+.prose :global(pre code) { padding: 0; border: 0; background: none; }
+
+/* Tables scroll inside their own box on phones, never the page. */
+.prose :global(table) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 var(--av2-space-6);
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-15);
+  line-height: var(--av2-lh-tight);
+}
+.prose :global(th),
+.prose :global(td) {
+  padding: var(--av2-space-2) var(--av2-space-3);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+  text-align: left;
+  vertical-align: top;
+}
+.prose :global(th) {
+  border-bottom: var(--av2-rule-strong-w) solid var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+  white-space: nowrap;
+}
+
+.prose :global(blockquote) {
+  margin: var(--av2-space-6) 0;
+  padding: var(--av2-space-1) 0 var(--av2-space-1) var(--av2-space-5);
+  border-left: var(--av2-rule-strong-w) solid var(--av2-ink);
+  color: var(--av2-ink);
+  font-style: italic;
+}
+
+/* Deep link from a feedback recommendation: anchor offset + a short mark. */
+.prose :global(.grammar-anchor) { scroll-margin-top: var(--av2-space-10); }
+.prose :global(.grammar-anchor-pulse) { animation: proseAnchorPulse 3s ease-out; }
+@keyframes proseAnchorPulse {
+  0% { background-color: transparent; }
+  15% { background-color: var(--av2-highlight); }
+  100% { background-color: transparent; }
+}
+
+/* ── Grammar Lab blocks (grammar_learning_blocks.py) ── */
+.prose :global(.gw-lab) {
+  margin: var(--av2-space-8) 0;
+  padding: var(--av2-space-5);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-16);
+}
+.prose :global(.gw-lab-heading h3) { margin: var(--av2-space-1) 0 var(--av2-space-2); font-family: var(--av2-font-serif); }
+.prose :global(.gw-lab-eyebrow),
+.prose :global(.gw-transfer-context),
+.prose :global(.gw-repair-grid span) {
+  display: block;
+  font-size: var(--av2-fs-13);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+.prose :global(.gw-lab-intro) { margin: 0; color: var(--av2-muted); }
+
+.prose :global(.gw-visual) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--av2-space-3);
+  margin: var(--av2-space-4) 0 0;
+  padding: 0;
+}
+.prose :global(.gw-visual-item) {
+  display: flex;
+  gap: var(--av2-space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--av2-space-3);
+  list-style: none;
+  border: var(--av2-rule-w) solid var(--av2-rule);
+}
+.prose :global(.gw-visual-item div) { min-width: 0; }
+.prose :global(.gw-visual-item strong),
+.prose :global(.gw-visual-item span),
+.prose :global(.gw-visual-item small) { display: block; }
+.prose :global(.gw-visual-item div > span) { color: var(--av2-ink); font-size: var(--av2-fs-15); }
+.prose :global(.gw-visual-item small) { margin-top: var(--av2-space-1); color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.prose :global(.gw-visual-index) {
+  flex: 0 0 auto;
+  min-width: var(--av2-space-6);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  color: var(--av2-muted);
+}
+.prose :global(.gw-visual--sentence-xray .gw-visual-item) { border-top: var(--av2-rule-strong-w) solid var(--av2-ink); }
+
+.prose :global(.gw-check-prompt) { margin: var(--av2-space-4) 0 var(--av2-space-3); font-weight: var(--av2-fw-strong); }
+.prose :global(.gw-check-options) { display: grid; gap: var(--av2-space-2); }
+.prose :global(.gw-check-option) {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-3);
+  width: 100%;
+  min-height: var(--av2-control-md);
+  padding: var(--av2-space-2) var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.prose :global(.gw-check-option:hover:not(:disabled)) { border-color: var(--av2-ink); }
+.prose :global(.gw-check-option:focus-visible) { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.prose :global(.gw-check-option:disabled) { cursor: default; }
+.prose :global(.gw-check-option.is-correct) { border-color: var(--av2-ok); background: var(--av2-ok-bg); }
+.prose :global(.gw-check-option.is-incorrect) { border-color: var(--av2-danger); background: var(--av2-error-bg); }
+.prose :global(.gw-check-key) { flex: 0 0 auto; min-width: var(--av2-space-6); font-weight: var(--av2-fw-strong); color: var(--av2-muted); }
+.prose :global(.gw-check-feedback) { min-height: 1.5em; margin: var(--av2-space-3) 0 0; font-weight: var(--av2-fw-strong); }
+.prose :global(.gw-check-feedback.is-correct) { color: var(--av2-ok); }
+.prose :global(.gw-check-feedback.is-incorrect) { color: var(--av2-danger); }
+
+.prose :global(.gw-repair-grid) { display: grid; gap: var(--av2-space-3); margin-top: var(--av2-space-4); }
+.prose :global(.gw-repair-grid > div) { padding: var(--av2-space-2) var(--av2-space-4); border-left: var(--av2-rule-strong-w) solid var(--av2-rule); }
+.prose :global(.gw-repair-grid p) { margin: 0; }
+.prose :global(.gw-repair-before) { border-left-color: var(--av2-danger); }
+.prose :global(.gw-repair-after) { border-left-color: var(--av2-ok); }
+.prose :global(.gw-repair-reason) { border-left-color: var(--av2-ink); }
+
+.prose :global(.gw-transfer) { margin-top: var(--av2-space-4); padding: var(--av2-space-4); background: var(--av2-off); }
+.prose :global(.gw-transfer-before) { margin: 0 0 var(--av2-space-2); color: var(--av2-muted); text-decoration: line-through; }
+.prose :global(.gw-transfer-after) { margin: 0; font-weight: var(--av2-fw-strong); }
+.prose :global(.gw-transfer-tip) { margin: var(--av2-space-3) 0 0; color: var(--av2-muted); font-size: var(--av2-fs-15); }
+.prose :global(.gw-takeaways) { display: grid; gap: var(--av2-space-2); margin: var(--av2-space-4) 0 0; padding: 0; }
+.prose :global(.gw-takeaways li) { position: relative; margin: 0; padding-left: var(--av2-space-6); list-style: none; }
+.prose :global(.gw-takeaways li::before) { content: '✓'; position: absolute; left: 0; font-weight: var(--av2-fw-strong); }
+
+@media (max-width: 767px) {
+  .prose { font-size: var(--av2-fs-16); }
+  .prose :global(h2) { font-size: var(--av2-fs-20); }
+  .prose :global(.gw-visual) { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prose :global(.grammar-anchor-pulse) { animation: none; }
+}

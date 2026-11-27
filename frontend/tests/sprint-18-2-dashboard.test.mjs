@@ -2,8 +2,8 @@
  * frontend/tests/sprint-18-2-dashboard.test.mjs — Sprint 18.2 (Direction B)
  *
  * Source-scan of the new admin Dashboard page + controller + nav consolidation
- * (admin-dashboard.js is auto-running / DOM-coupled, so we pin DOM ids, the
- * endpoint contract, drill-downs, graceful NULL handling, and the nav delta).
+ * (the retired page fixture keeps its DOM-id and drill-down pins; the endpoint
+ * contract and NULL handling are pinned on the Next overview owner).
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
@@ -17,7 +17,10 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 // dashboard-consolidation — the ops Dashboard was merged INTO Tổng quan; its
 // markup (KPI tiles, trends, "Cần chú ý") now lives on the unified index page.
 const DASH_HTML = front('pages', 'admin', 'index.html');
-const DASH_JS   = front('js', 'admin-dashboard.js');
+// LEGACYJS-0075 W4a — admin-dashboard.js is retired; the Next Tổng quan owner
+// paints the tiles now.
+const DASH_TSX  = front('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
+const MODEL     = await import(join(__dirname, '..', 'lib', 'admin-overview-model.mjs'));
 const CHROME    = front('js', 'components', 'aver-admin-chrome.js');
 
 
@@ -27,9 +30,9 @@ describe('Sprint 18.2 — dashboard page renders 6 metric cards', () => {
       assert.match(DASH_HTML, new RegExp(`id="${id}"`));
     });
   }
-  test('controller paints all 6 slots', () => {
-    for (const id of ['m-users', 'm-codes', 'm-visitors', 'm-practices', 'm-grading', 'm-tokens']) {
-      assert.match(DASH_JS, new RegExp(`'${id}'`));
+  test('Next owner paints all 6 metric cards', () => {
+    for (const value of ['ops?.totalUsers', 'ops?.activeCodes', 'ops?.visitors?.count', 'ops?.totalPractices', 'ops?.gradingMinutes', 'ops?.tokens?.count']) {
+      assert.ok(DASH_TSX.includes(`(${value})}`), `${value} must be rendered`);
     }
   });
 });
@@ -44,9 +47,10 @@ describe('Sprint 18.2 — visitors window selector', () => {
   test('selector + refresh re-fetch immediately; endpoint carries visitors_window', () => {
     // dashboard-tweaks: window switch reloads only the windowed tiles ('windowed'),
     // refresh reloads everything ('all'); both call load() immediately.
-    assert.match(DASH_JS, /db-window'\)\.addEventListener\('change',\s*\(\)\s*=>\s*load\(/);
-    assert.match(DASH_JS, /db-refresh'\)\.addEventListener\('click',\s*\(\)\s*=>\s*load\(/);
-    assert.match(DASH_JS, /\/admin\/dashboard\/overview\?visitors_window=/);
+    assert.match(DASH_TSX, /<option value=\{7\}>7 ngày<\/option>[\s\S]{0,80}value=\{30\}[\s\S]{0,80}value=\{90\}/);
+    assert.match(DASH_TSX, /void loadOps\(windowDays, 'windowed'\)/);
+    assert.match(DASH_TSX, /onClick=\{\(\) => loadAll\('all'\)\}/);
+    assert.match(DASH_TSX, /getAdminDashboardOverview\(days\)/);
   });
 });
 
@@ -66,13 +70,15 @@ describe('Sprint 18.2 — drill-down links to detail pages', () => {
 
 describe('Sprint 18.2 — graceful NULL + Pattern #26', () => {
   test('NULL metric renders as "—" placeholder', () => {
-    assert.match(DASH_JS, /if \(v == null\) return '—'/);
-    assert.match(DASH_JS, /v == null \? '—'/);
+    assert.equal(MODEL.formatInteger(null), '—');
+    assert.equal(MODEL.formatTokens(undefined), '—');
+    assert.match(DASH_TSX, /value=\{formatInteger\(ops\?\.totalUsers\)\}/);
+    assert.match(DASH_TSX, /value=\{formatTokens\(ops\?\.tokens\?\.count\)\}/);
   });
-  test('no inline colour/bg in admin-dashboard.js', () => {
-    assert.doesNotMatch(DASH_JS, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(DASH_JS, /style\s*=\s*["'][^"']*background/);
-    assert.doesNotMatch(DASH_JS, /rgba\(\s*\d+\s*,/);
+  test('no inline colour/bg in the Next overview owner', () => {
+    assert.doesNotMatch(DASH_TSX, /style=\{\{[^}]*color/);
+    assert.doesNotMatch(DASH_TSX, /style=\{\{[^}]*background/);
+    assert.doesNotMatch(DASH_TSX, /rgba\(\s*\d+\s*,/);
   });
 });
 

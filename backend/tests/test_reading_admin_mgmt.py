@@ -4,7 +4,7 @@ Covers:
   * GET    /admin/reading/content/tests/{test_id} — admin preview returns
     full bundle with answer keys + explanations + any-status filter
   * DELETE /admin/reading/content/tests/{test_id} — attempt-safe semantics
-    (0 attempts → hard delete; >0 attempts → soft `status='archived'`)
+    (always soft `status='archived'`, never a hard delete — HOLD #2702)
   * 404 on missing test_id; auth-gated
 
 Supabase is fully mocked (no real DB). Pattern matches the existing
@@ -230,12 +230,15 @@ def test_admin_preview_accepts_any_status():
 # ── DELETE /admin/reading/content/tests/{test_id} — attempt-safe ─────
 
 
-def test_delete_hard_when_no_attempts():
-    """0 attempts → action='deleted', the delete chain fires on
-    reading_tests, the FK cascade handles passages + questions."""
+def test_delete_archives_even_when_no_attempts():
+    """0 attempts → still action='archived' and NO delete chain call.
+    HOLD #2702: an attempt start that passed its `published` read but has
+    not INSERTed yet is invisible to the count, and a hard delete would
+    cascade it away (mig 087), so the route only archives."""
     delete_chain = _mk_delete_chain()
+    router = _RouterDeleteChain(delete_chain)
     def table_router(name):
-        if name == "reading_tests":          return _RouterDeleteChain(delete_chain)
+        if name == "reading_tests":          return router
         if name == "reading_test_attempts":  return _mk_attempts_count_chain(0)
         return MagicMock()
     with patch("routers.admin_reading.require_admin") as req_admin, \
@@ -249,10 +252,10 @@ def test_delete_hard_when_no_attempts():
         )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["action"] == "deleted"
+    assert body["action"] == "archived"
     assert body["attempts_preserved"] == 0
-    # The chain was called via .delete().eq().execute().
-    delete_chain.delete.return_value.eq.return_value.execute.assert_called_once()
+    delete_chain.delete.assert_not_called()
+    assert router.update_chain.update.call_args[0][0] == {"status": "archived"}
 
 
 def test_delete_soft_when_attempts_exist():
@@ -312,12 +315,15 @@ def test_preview_requires_admin_auth():
 
 
 class _RouterDeleteChain:
-    """Supports both `.select(...).eq(...).limit(1).execute()` and
+    """Supports `.select(...).eq(...).limit(1).execute()`,
+    `.update(...).eq(...).execute()` (archive-first, HOLD #2702) and
     `.delete().eq(...).execute()` on the same `table()` return."""
     def __init__(self, delete_chain):
         self._select_chain = _mk_test_select_chain(_TEST_ROW)
         self._delete_chain = delete_chain
+        self.update_chain = _mk_update_chain()
         self.delete = delete_chain.delete
+        self.update = self.update_chain.update
         self.select = self._select_chain.select
 
 

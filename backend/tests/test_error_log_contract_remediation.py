@@ -61,6 +61,44 @@ def test_invalid_uuid_path_is_422_before_database_or_auth(
     assert response.json()["detail"][0]["type"] == "uuid_parsing"
 
 
+_SLUG = "pkg-compatibility-proc-photosynthesis-pr-d476e7bb872c"
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        # Staging 25/11: this slug reached .eq("id", test_id), Postgres raised
+        # 22P02 and the start endpoint answered 500.
+        ("POST", f"/api/listening/tests/{_SLUG}/attempts"),
+        ("GET", f"/api/listening/tests/{_SLUG}/attempts/in-progress"),
+        ("GET", f"/api/listening/tests/{_SLUG}/practice-windows"),
+        ("GET", f"/api/listening/tests/{_SLUG}/dictation"),
+        ("GET", f"/api/listening/tests/{_SLUG}/dictation/attempts/in-progress"),
+        ("POST", f"/api/listening/tests/{_SLUG}/dictation/attempts"),
+        ("GET", "/api/listening/tests/attempts/demo"),
+        ("PATCH", "/api/listening/tests/attempts/demo/answers"),
+        ("POST", "/api/listening/tests/attempts/demo/check"),
+        ("POST", "/api/listening/tests/attempts/demo/submit"),
+    ],
+)
+def test_listening_non_uuid_test_or_attempt_id_is_422_not_500(monkeypatch, method, path):
+    monkeypatch.setattr(
+        listening,
+        "_require_auth",
+        AsyncMock(side_effect=AssertionError("invalid UUID reached route logic")),
+    )
+    app = FastAPI()
+    app.include_router(listening.user_router)
+    response = TestClient(app, raise_server_exceptions=False).request(method, path, json={})
+
+    assert response.status_code == 422
+    assert any(
+        err["type"] == "uuid_parsing" and err["loc"][0] == "path"
+        and err["loc"][1] in ("test_id", "attempt_id")
+        for err in response.json()["detail"]
+    )
+
+
 class _PostgrestError(Exception):
     def __init__(self, code: str):
         self.code = code
