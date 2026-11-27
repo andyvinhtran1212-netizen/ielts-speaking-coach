@@ -264,6 +264,31 @@ export function initialBandDraft(detail) {
   return result;
 }
 
+// The caption under each band box (restored from the retired console). A box
+// says where a pre-filled band came from; a blankable box says WHY it may stay
+// empty (L/R fell off the published table, Writing has no two graded essays),
+// and that Overall goes blank with it; a box with no draft that must be typed
+// says so (Speaking is the real case, Codex review #782). A confirmed band gets
+// no caption.
+export const BAND_SOURCE = Object.freeze({
+  listening: 'Tự tính từ số câu đúng',
+  reading: 'Tự tính từ số câu đúng',
+  writing: 'Gợi ý từ hai bài đã chấm',
+  speaking: 'Bài chấm trực tiếp',
+});
+
+export function bandCaption(detail, skill) {
+  if (!detail) return '';
+  const saved = detail.review.finalBands[skill] != null;
+  if (!saved && draftBandOf(detail.review.aiDraft, skill) != null) return BAND_SOURCE[skill] || 'Tự tính';
+  if (detail.blankableSkills.includes(skill)) {
+    return skill === 'writing'
+      ? 'Chưa chấm đủ 2 bài nên không tính được band — có thể để trống (overall sẽ để trống theo).'
+      : 'Điểm thô không có band trong bảng IELTS — có thể để trống (overall sẽ để trống theo).';
+  }
+  return saved ? '' : 'Chưa có band tự tính — cần bạn nhập.';
+}
+
 export function buildFinalBandsPayload(detail, draft, flags, comment) {
   if (!detail) return { ok: false, error: 'Chưa có hồ sơ canonical.' };
   const finalBands = {};

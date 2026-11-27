@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AdminTodo } from '@/app/(authed-admin-overview)/admin/admin-todo';
+import { AdminTodo } from '@/app/(authed-admin)/(overview)/admin/admin-todo';
 import { QUEUE_ROWS } from '@/lib/admin-todo-model.mjs';
 
 const ok = (count: number | null, extra: Record<string, unknown> = {}) => ({

@@ -3717,7 +3717,8 @@ class ReconcileIncomplete(Exception):
     """
 
 
-def reconcile_course_items(db, assignment_ids: list[str]) -> int:
+def reconcile_course_items(db, assignment_ids: list[str], *,
+                           student_id: str | None = None) -> int:
     """Vá sổ cho bài tập THEO BUỔI. Trả về số mục đã vá.
 
     ── Vì sao cần ──────────────────────────────────────────────────────────
@@ -3792,12 +3793,18 @@ def reconcile_course_items(db, assignment_ids: list[str]) -> int:
             raise ReconcileIncomplete("; ".join(hurt))
         return 0
 
+    def assignment_items(query, assignment_ids):
+        query = query.in_("assignment_id", assignment_ids)
+        if student_id is not None:
+            query = query.eq("student_id", student_id)
+        return query
+
     items: list[dict] = []
     for c in _chunks(list(course)):
         _try(f"đọc mục bài giao ({len(c)} bài)", lambda c=c: items.extend(
             _report_pages("class_assignment_items",
                           "id, assignment_id, submitted_at",
-                          lambda q, c=c: q.in_("assignment_id", c), db=db)))
+                          lambda q, c=c: assignment_items(q, c), db=db)))
     pending = {i["id"]: i for i in items if not i.get("submitted_at")}
     if not pending:
         if hurt:
@@ -3827,6 +3834,7 @@ def reconcile_course_items(db, assignment_ids: list[str]) -> int:
         return 0
 
     fixed = 0
+    repair_scope = {"student_id": student_id} if student_id is not None else {}
 
     def _stamp(item_id, kind, art, done_at, score):
         """Đóng dấu thời điểm LÀM XONG, không phải thời điểm vá: bài xong lúc
@@ -3835,7 +3843,7 @@ def reconcile_course_items(db, assignment_ids: list[str]) -> int:
         nonlocal fixed
         try:
             if mark_item_submitted(db, item_id=item_id, artifact_kind=kind,
-                                   artifact_id=art, score=score, now=done_at):
+                                   artifact_id=art, score=score, now=done_at, **repair_scope):
                 fixed += 1
         except Exception as exc:  # noqa: BLE001
             # Thử tiếp những mục còn lại: một mục hỏng không được cản cả lớp.

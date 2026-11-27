@@ -1,0 +1,224 @@
+/* LIBRARY-0061 T013 `/library/speaking` and `/library/speaking/[slug]`
+   (tờ DeSpeakingDanhSach, DeSpeaking). Only var(--av2-*).
+   PublicShell's <main> owns the width and side padding. */
+.page { padding-top: var(--av2-space-8); padding-bottom: var(--av2-space-10); }
+
+.intro { max-width: 720px; margin: var(--av2-space-4) 0 var(--av2-space-8); }
+.intro h1 { margin: 0 0 var(--av2-space-3); }
+.intro p { margin: 0; font-size: var(--av2-fs-16); }
+
+/* ── list ─────────────────────────────────────────────────────────────── */
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: var(--av2-space-8); align-items: start; }
+.side { display: grid; gap: var(--av2-space-8); }
+.main { min-width: 0; }
+
+.page .asideTitle {
+  margin: 0 0 var(--av2-space-3);
+  font-family: var(--av2-font-sans);
+  font-size: var(--av2-fs-13);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+.topics ul { margin: 0; padding: 0; list-style: none; }
+.page .topics a {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--av2-space-2);
+  min-height: var(--av2-control-sm);
+  align-items: center;
+  padding: 0 var(--av2-space-2);
+  border-left: var(--av2-rule-strong-w) solid transparent;
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+.page .topics a[aria-current='true'] { border-left-color: var(--av2-ink); font-weight: var(--av2-fw-strong); }
+.count { color: var(--av2-muted); font-size: var(--av2-fs-13); font-weight: var(--av2-fw-regular); }
+.partsAside dl { margin: 0; font-size: var(--av2-fs-14); }
+.partsAside dt { font-weight: var(--av2-fw-strong); }
+.partsAside dd { margin: 0 0 var(--av2-space-3); color: var(--av2-muted); }
+
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-3) var(--av2-space-5); margin-bottom: var(--av2-space-4); }
+.parts { display: inline-flex; border: var(--av2-rule-w) solid var(--av2-ink); border-radius: var(--av2-radius); overflow: hidden; }
+.page .partLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-3);
+  color: var(--av2-ink);
+  text-decoration: none;
+  font-size: var(--av2-fs-15);
+}
+.page .partLink + .partLink { border-left: var(--av2-rule-w) solid var(--av2-ink); }
+.page .partOn { background: var(--av2-ink); color: var(--av2-paper); font-weight: var(--av2-fw-strong); }
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av2-space-2);
+  min-height: var(--av2-control-md);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--av2-ink);
+  font: inherit;
+  font-size: var(--av2-fs-15);
+  cursor: pointer;
+}
+.knob {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: 10px;
+  background: var(--av2-paper);
+}
+.knob::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--av2-ink);
+}
+.knobOn { background: var(--av2-ink); }
+.knobOn::after { left: 18px; background: var(--av2-paper); }
+
+.search { display: flex; align-items: center; gap: var(--av2-space-2); flex: 1 1 220px; }
+.searchLabel { font-weight: var(--av2-fw-strong); font-size: var(--av2-fs-15); }
+.search input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  border-radius: var(--av2-radius);
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  font: inherit;
+}
+
+.result { margin: 0 0 var(--av2-space-4); color: var(--av2-muted); font-size: var(--av2-fs-14); }
+
+.group { margin-bottom: var(--av2-space-8); }
+.page .groupTitle { margin: 0 0 var(--av2-space-2); font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); }
+.rows { margin: 0; padding: 0; list-style: none; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.rows li { border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+.page .row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 220px);
+  gap: var(--av2-space-1) var(--av2-space-4);
+  align-items: baseline;
+  padding: var(--av2-space-3) 0;
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+.page .row:hover .rowEn { text-decoration: underline; }
+.rowPart { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.rowTitle { display: grid; }
+.rowEn { font-weight: var(--av2-fw-strong); }
+.rowVi { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.rowStatus { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+
+/* ── question page ───────────────────────────────────────────────────── */
+.eyebrow { margin: var(--av2-space-4) 0 var(--av2-space-2); color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.title { margin: 0 0 var(--av2-space-2); }
+.titleVi { margin: 0 0 var(--av2-space-3); font-size: var(--av2-fs-18); }
+.byline { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--av2-space-1) var(--av2-space-3); margin: 0; font-size: var(--av2-fs-13); }
+.facts dt { color: var(--av2-muted); }
+.facts dd { margin: 0; }
+
+.page .sectionHeading { margin: 0 0 var(--av2-space-3); font-size: var(--av2-fs-20); }
+.sectionNum { color: var(--av2-muted); margin-right: var(--av2-space-1); }
+.sectionLead { margin: 0 0 var(--av2-space-3); color: var(--av2-muted); font-family: var(--av2-font-sans); font-size: var(--av2-fs-14); }
+
+.cueCard {
+  padding: var(--av2-space-4) var(--av2-space-5);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: var(--av2-radius);
+}
+.cueCard p { margin: 0 0 var(--av2-space-2); }
+.page .cueCard ul { margin: 0 0 var(--av2-space-2); padding-left: var(--av2-space-5); }
+.cuePrompt { font-weight: var(--av2-fw-strong); }
+.cueRule { margin-top: var(--av2-space-3); color: var(--av2-muted); font-size: var(--av2-fs-15); }
+.page .questions, .page .outline { margin: 0; padding-left: var(--av2-space-6); }
+.page .questions li, .page .outline li { margin-bottom: var(--av2-space-2); }
+
+/* transcript: one ReadingBlock per line, so each note sits beside its line */
+.transcript { display: grid; row-gap: var(--av2-space-1); margin: 0; padding: 0; list-style: none; }
+.line { border-left: var(--av2-rule-strong-w) solid transparent; }
+.lineOn { border-left-color: var(--av2-ink); background: var(--av2-tint); }
+.lineButton, .linePlain {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: var(--av2-space-3);
+  width: 100%;
+  margin: 0;
+  padding: var(--av2-space-1) var(--av2-space-2);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.lineButton { cursor: pointer; }
+.lineButton:hover .lineText { text-decoration: underline; text-decoration-color: var(--av2-rule); }
+.lineTime { color: var(--av2-muted); font-family: var(--av2-font-sans); font-size: var(--av2-fs-13); font-variant-numeric: tabular-nums; padding-top: var(--av2-space-1); }
+.linePlain .lineTime { color: var(--av2-muted); }
+.lineText { grid-column: 2; }
+.linePlain .lineText:first-child { grid-column: 1 / -1; }
+
+/* FR-034: never colour alone — vocab = tint + double underline, structure = solid underline, both numbered */
+.markVocab { background: var(--av2-highlight); color: inherit; text-decoration: underline double; text-underline-offset: 3px; }
+.markStructure { background: none; color: inherit; text-decoration: underline solid; text-underline-offset: 3px; }
+.markNum { margin-left: 1px; font-family: var(--av2-font-sans); font-size: var(--av2-fs-12); color: var(--av2-muted); }
+.noteKind { font-weight: var(--av2-fw-strong); }
+
+.vocab { margin: 0; }
+.vocabRow { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: var(--av2-space-3); padding: var(--av2-space-2) 0; border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+.vocabRow dt { font-weight: var(--av2-fw-strong); }
+.vocabRow dd { margin: 0; }
+.vocabNote { color: var(--av2-muted); }
+
+.practiceActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-3) var(--av2-space-6); }
+.page .primaryLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-4);
+  border-radius: var(--av2-radius);
+  background: var(--av2-accent);
+  color: var(--av2-on-accent);
+  font-family: var(--av2-font-sans);
+  font-weight: var(--av2-fw-strong);
+  text-decoration: none;
+}
+.page .primaryLink:hover { background: var(--av2-accent-hover); }
+
+.neighbours { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av2-space-4); padding-top: var(--av2-space-6); border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.page .neighbours a { display: grid; gap: var(--av2-space-1); color: var(--av2-ink); text-decoration: none; }
+.neighbourNext { text-align: right; }
+.neighbourLabel { color: var(--av2-muted); font-family: var(--av2-font-sans); font-size: var(--av2-fs-13); }
+
+@media (max-width: 1023px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .side { order: 2; }
+}
+
+@media (max-width: 640px) {
+  .page .row { grid-template-columns: minmax(0, 1fr); }
+  .rowPart, .rowStatus { font-size: var(--av2-fs-13); }
+  .vocabRow { grid-template-columns: minmax(0, 1fr); gap: var(--av2-space-1); }
+  .neighbours { grid-template-columns: minmax(0, 1fr); }
+  .neighbourNext { text-align: left; }
+}
+
+/* "Bỏ …" lines of an empty result (tờ DeSpeakingDanhSach). */
+.page .relax { display: grid; gap: var(--av2-space-2); justify-items: start; }
+.page .relax p { margin: 0; }
+.page .relax ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--av2-space-1); }
+.page .relaxCount { color: var(--av2-muted); }

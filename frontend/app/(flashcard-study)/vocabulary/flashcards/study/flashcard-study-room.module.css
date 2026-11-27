@@ -1,0 +1,107 @@
+/*
+ * EXAMDRILL-0073 flashcards in the practice room (FR-003, FR-004, FR-015).
+ * Only var(--av2-*), no hex. The card fills what the window leaves under the
+ * room's bar and scrolls inside; flip and rating buttons stay below it, so at
+ * 1280x800 and 390x844 they are on the first screen whatever the back holds
+ * (the height is measured in the room; see useFitStage).
+ * No 3D turn: the faces swap, with a short fade unless motion is reduced.
+ */
+.body { max-width: 880px; width: 100%; margin-inline: auto; }
+.panel { display: flex; flex-direction: column; gap: var(--av2-space-7); }
+/* .body raises these above base.css's .av2-root h1/h2/h3 (LegacyRoomRoot). */
+.body .heading { margin: 0; font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); }
+.heading:focus { outline: none; }
+.muted { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-6); }
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av2-space-6);
+  /* height is set by useFitStage to what the window leaves under the bars */
+  min-height: 360px;
+}
+.card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+}
+.front, .back { flex: 1 1 auto; min-width: 0; animation: face-in 160ms ease-out; }
+.front {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--av2-space-6);
+  padding: var(--av2-space-9);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.front:focus-visible, .back:focus-visible { outline: var(--av2-focus); outline-offset: calc(-1 * var(--av2-rule-strong-w)); }
+.back {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av2-space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--av2-space-8);
+}
+.back p, .body .back h2, .body .back h3 { margin: 0; }
+.pill { font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.memory { font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong); }
+.word { font-size: var(--av2-fs-40); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); overflow-wrap: anywhere; }
+.ipa { color: var(--av2-muted); font-size: var(--av2-fs-15); }
+.hint { color: var(--av2-muted); font-size: var(--av2-fs-13); }
+.backHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-6); }
+.body .backHead h2 { font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); }
+.definition { font-size: var(--av2-fs-18); font-weight: var(--av2-fw-strong); }
+.example { padding-left: var(--av2-space-6); border-left: var(--av2-rule-strong-w) solid var(--av2-rule); }
+.body .example h3, .body .relation h3 { display: flex; font-family: var(--av2-font-sans); line-height: var(--av2-lh-body); align-items: center; gap: var(--av2-space-4); font-size: var(--av2-fs-13); color: var(--av2-muted); font-weight: var(--av2-fw-strong); }
+.relation ul { display: flex; flex-wrap: wrap; gap: var(--av2-space-4); margin: var(--av2-space-3) 0 0; padding: 0; list-style: none; }
+.relation li { padding: var(--av2-space-2) var(--av2-space-5); border: var(--av2-rule-w) solid var(--av2-rule); font-size: var(--av2-fs-14); }
+
+.controls { flex: 0 0 auto; display: flex; flex-direction: column; gap: var(--av2-space-4); }
+.lockNote { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-13); text-align: center; }
+.ratings, .ratingsTwo { display: grid; gap: var(--av2-space-4); }
+.ratings { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ratingsTwo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rate {
+  position: relative;
+  min-height: var(--av2-control-md);
+  padding: var(--av2-space-4) var(--av2-space-6);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.rate span { display: block; font-size: var(--av2-fs-15); font-weight: var(--av2-fw-strong); }
+.rate small { display: block; color: var(--av2-muted); font-size: var(--av2-fs-12); }
+.rate kbd { position: absolute; top: var(--av2-space-2); right: var(--av2-space-3); color: var(--av2-muted); font-size: var(--av2-fs-12); font-family: inherit; }
+.rate:hover:not(:disabled) { background: var(--av2-tint); }
+.rate:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.rate:disabled { cursor: not-allowed; color: var(--av2-muted); border-color: var(--av2-rule); }
+.breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--av2-space-6); margin: 0; }
+.breakdown div { padding: var(--av2-space-6); border: var(--av2-rule-w) solid var(--av2-rule); background: var(--av2-surface); }
+.breakdown dt { color: var(--av2-muted); font-size: var(--av2-fs-13); }
+.breakdown dd { margin: var(--av2-space-2) 0 0; font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 767px) {
+  .ratings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .word { font-size: var(--av2-fs-24); }
+  .back { padding: var(--av2-space-7); }
+  .rate kbd { display: none; }
+  .stage { gap: var(--av2-space-4); }
+  .rate { padding: var(--av2-space-3) var(--av2-space-4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .front, .back { animation: none; }
+}
+@keyframes face-in { from { opacity: 0; } to { opacity: 1; } }
