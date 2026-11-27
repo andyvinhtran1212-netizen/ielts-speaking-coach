@@ -409,6 +409,26 @@ export function quizResultModel(summary, durationSeconds, saved) {
   });
 }
 
+/**
+ * Running total for a Quick Check reopened after earlier answers (FR-02-006).
+ * `resume` is the word_stats list the session STARTED with (saved answers from
+ * earlier runs of this bank); `summary` is this run's engine summary. Returns
+ * null when nothing had been answered before, so a first run shows no total.
+ */
+export function quizCumulativeModel(resume, summary) {
+  let priorCorrect = 0;
+  let priorWrong = 0;
+  for (const row of Array.isArray(resume) ? resume : []) {
+    priorCorrect += Math.max(0, Number(row?.correct_count) || 0);
+    priorWrong += Math.max(0, Number(row?.wrong_count) || 0);
+  }
+  if (priorCorrect + priorWrong <= 0) return null;
+  return Object.freeze({
+    correct: priorCorrect + Math.max(0, Number(summary?.total_correct) || 0),
+    wrong: priorWrong + Math.max(0, Number(summary?.total_wrong) || 0),
+  });
+}
+
 /** @returns {import('../types/api').paths['/api/quiz/sessions/{session_id}']['patch']['requestBody']['content']['application/json']} */
 export function quizEndPayload(summary, durationSeconds, saved) {
   return Object.freeze({

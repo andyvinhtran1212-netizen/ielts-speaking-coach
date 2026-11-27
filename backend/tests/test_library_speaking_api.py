@@ -276,3 +276,19 @@ def test_db_failure_is_503_no_store(client, db, path):
     assert r.status_code == 503
     assert r.json() == {"detail": "library_unavailable"}
     assert r.headers["cache-control"] == "no-store"
+
+def test_list_counts_what_dropping_each_active_filter_would_show(client):
+    body = client.get("/api/library/speaking?part=3&video=true&q=zoo").json()
+    assert body["total"] == 0
+    # Only the active conditions are counted, each over the other filters.
+    assert set(body["relaxed"]) == {"part", "video", "q"}
+    assert body["relaxed"]["q"] == client.get("/api/library/speaking?part=3&video=true").json()["total"]
+    assert body["relaxed"]["video"] == client.get("/api/library/speaking?part=3&q=zoo").json()["total"]
+    assert body["relaxed"]["part"] == client.get("/api/library/speaking?video=true&q=zoo").json()["total"]
+
+    body = client.get("/api/library/speaking?part=2&video=true").json()
+    assert body["relaxed"] == {
+        "part": 2,  # the two video answers, both Part 2
+        "video": client.get("/api/library/speaking?part=2").json()["total"],
+    }
+    assert client.get("/api/library/speaking").json()["relaxed"] == {}

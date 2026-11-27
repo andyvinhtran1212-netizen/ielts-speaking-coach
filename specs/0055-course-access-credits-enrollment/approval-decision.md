@@ -62,6 +62,15 @@ number (for the 381/382 overflow), this table supersedes it: 389 is G04-T16. Eac
 first one (G04-T01) reserves all seven. The order of application keeps the
 rule that a lower number never depends on a higher one.
 
+## Amendment 1 (2026-11-23): Q13 for convert-class
+
+Andy, 2026-11-23 11:39Z, in the project chat: "duyệt sửa Q13: mọi lần chuyển
+lớp đều cần step-up MFA". `POST /admin/credits/convert-class` now always
+requires step-up MFA right after `require_admin`, including
+`credits_per_member = 0`; it moves from `CONDITIONAL_STEP_UP_ROUTES` to
+`STEP_UP_ROUTES`. The other three Q13 conditions above are unchanged. No FR
+text changes.
+
 ## What it does not authorize
 
 It authorizes implementation PRs to `staging` only. It does not authorize

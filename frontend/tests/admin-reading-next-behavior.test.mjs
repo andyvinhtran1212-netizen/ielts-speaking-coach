@@ -6,13 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-reading)', 'admin', 'reading', 'page.tsx');
-const LAYOUT = read('app', '(authed-admin-reading)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(reading)', 'admin', 'reading', 'page.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(reading)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-reading-hub-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const ROLLBACK_OVERVIEW = read('public', 'pages', 'admin', 'index.html');
-const ROLLBACK_CONTROLLER = read('public', 'js', 'admin-overview.js');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -27,7 +26,7 @@ describe('/admin/reading native operations hub', () => {
     assert.match(CHROME, /slug: 'content'[^\n]+href: '\/admin\/reading\/content'/);
     assert.match(OVERVIEW, /reading: '\/admin\/reading'/);
     assert.match(ROLLBACK_OVERVIEW, /href="\/admin\/reading"[^>]*data-skill="reading"/);
-    assert.match(LEDGER, /`\/admin\/reading`[^\n]+authed-admin-reading[^\n]+native React ownership/);
+    assert.match(LEDGER, /`\/admin\/reading`[^\n]+\(authed-admin\)\/\(reading\)[^\n]+native React ownership/);
   });
 
   test('fails closed on canonical backend-owned admin truth', () => {
@@ -56,7 +55,9 @@ describe('/admin/reading native operations hub', () => {
     for (const slot of ['data-skill-7d="reading"', 'data-skill-total="reading"', 'data-skill-extra="reading"']) {
       assert.ok(ROLLBACK_OVERVIEW.includes(slot), slot);
     }
-    assert.match(ROLLBACK_CONTROLLER, /skills\.reading\?\.avg_score_7d/);
+    // LEGACYJS-0075 W4a: the rollback controller admin-overview.js is deleted;
+    // the Next card formats the accuracy as a percentage.
+    assert.match(OVERVIEW, /value=\{skills\.reading\?\.avg_score_7d\} format=\{\(value\) => `\$\{Math\.round\(value \* 100\)\}%`\}/);
   });
 
   test('uses the governed responsive and accessible visual contract', () => {
@@ -68,7 +69,7 @@ describe('/admin/reading native operations hub', () => {
     assert.match(CSS, /@media\(max-width:480px\)/);
     assert.match(CSS, /:focus-visible/);
     assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-reading\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(reading\)\/\*\*/);
     assert.match(WORKFLOW, /verify-admin-reading-flow\.mjs/);
   });
 });

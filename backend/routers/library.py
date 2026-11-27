@@ -12,6 +12,9 @@ Routes in this task:
 * ``GET /writing-samples/index``       ``[{slug, updated_at}]`` for the sitemap
 * ``GET /writing-samples/{slug}``      one published set; old slug -> 308; else 404
 * ``GET /media/{shelf}/{key}/{asset}`` figure/audio bytes, only while published (FR-064)
+* ``GET /writing-guides``               Kiến thức Writing in four groups (T011, FR-020)
+* ``GET /writing-guides/index``         ``[{slug, updated_at}]`` for the sitemap
+* ``GET /writing-guides/{slug}``        one guide, Markdown rendered on the server; else 404
 
 Added by T013 (G06-T13), Speaking questions with a synthetic-voice model answer:
 
@@ -58,7 +61,7 @@ from starlette.concurrency import run_in_threadpool
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services import library_media
+from services import library_guides, library_media
 from services.public_cache import cacheable_json
 
 logger = logging.getLogger(__name__)
@@ -554,6 +557,136 @@ def get_writing_sample(slug: str, request: Request):
     return _json(data, request, last_modified=_http_date([row.get("updated_at")]))
 
 
+# ── Kiến thức Writing (T011, FR-020–FR-023) ─────────────────────────────────
+
+_GUIDE_COLUMNS = (
+    "id, slug, title, body_markdown, task_type, category, display_order, updated_at"
+)
+_GUIDE_TYPES = ["knowledge", "tip"]
+
+
+def _guide_order_key(row: dict) -> tuple:
+    order = row.get("display_order")
+    return (
+        order if isinstance(order, (int, float)) else 0,
+        str(row.get("title") or "").casefold(),
+        str(row.get("slug") or ""),
+    )
+
+
+def _published_guides() -> list[dict]:
+    """Published Writing guides (``content_type`` knowledge or tip) with a slug,
+    in admin order (``display_order``, then title)."""
+    rows = (
+        supabase_admin.table("writing_tips")
+        .select(_GUIDE_COLUMNS)
+        .eq("published", True)
+        .in_("content_type", _GUIDE_TYPES)
+        .execute()
+        .data
+        or []
+    )
+    return sorted((r for r in rows if isinstance(r, dict) and r.get("slug")), key=_guide_order_key)
+
+
+def _guide_item(row: dict) -> dict:
+    body = row.get("body_markdown") or ""
+    return {
+        "slug": row.get("slug"),
+        "title": row.get("title"),
+        "summary": library_guides.plain_summary(body),
+        "reading_minutes": library_guides.reading_minutes(body),
+        "groups": library_guides.guide_groups(row),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _cited_samples(body: str) -> dict[str, dict]:
+    slugs = library_guides.cited_slugs(body)
+    if not slugs:
+        return {}
+    rows = (
+        supabase_admin.table("writing_samples")
+        .select("slug, title_en, essays")
+        .eq("published", True)
+        .in_("slug", slugs)
+        .execute()
+        .data
+        or []
+    )
+    return {r["slug"]: r for r in rows if isinstance(r, dict) and r.get("slug")}
+
+
+def _guide_not_found() -> JSONResponse:
+    return JSONResponse(
+        status_code=404, content={"detail": "guide_not_found"}, headers={"Cache-Control": NO_STORE}
+    )
+
+
+@router.get("/writing-guides")
+@_db_guard
+def list_writing_guides(request: Request):
+    """Published guides in the four fixed groups (FR-020). A guide in two groups
+    appears in both with the same slug; a group with no guide is still listed
+    with ``items: []`` and the page hides it."""
+    rows = _published_guides()
+    items = [_guide_item(r) for r in rows]
+    groups = [
+        {"id": gid, "label": label, "items": [i for i in items if gid in i["groups"]]}
+        for gid, label in library_guides.GROUPS
+    ]
+    data = {"total": len(items), "groups": groups}
+    return _json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+
+
+@router.get("/writing-guides/index")
+@_db_guard
+def writing_guides_index(request: Request):
+    """``[{slug, updated_at}]`` of every published guide, for the sitemap."""
+    rows = _published_guides()
+    data = [{"slug": r.get("slug"), "updated_at": r.get("updated_at")} for r in rows]
+    return _json(data, request, last_modified=_http_date([r.get("updated_at") for r in rows]))
+
+
+@router.get("/writing-guides/{slug}")
+@_db_guard
+def get_writing_guide(slug: str, request: Request):
+    """One published guide: server-rendered HTML (raw HTML in the body is shown
+    as text), its table of contents, its groups, and prev/next within its first
+    group. ``updated_at`` is the last content edit (FR-023)."""
+    rows = _published_guides()
+    index = next((i for i, r in enumerate(rows) if r.get("slug") == slug), None)
+    if index is None:
+        return _guide_not_found()
+    row = rows[index]
+    body = row.get("body_markdown") or ""
+    rendered = library_guides.render_guide(body, _cited_samples(body))
+    group_ids = library_guides.guide_groups(row)
+
+    prev_row = next_row = None
+    if group_ids:
+        peers = [r for r in rows if group_ids[0] in library_guides.guide_groups(r)]
+        at = next(i for i, r in enumerate(peers) if r.get("slug") == slug)
+        prev_row = peers[at - 1] if at > 0 else None
+        next_row = peers[at + 1] if at + 1 < len(peers) else None
+
+    def neighbour(r: Optional[dict]) -> Optional[dict]:
+        return {"slug": r.get("slug"), "title": r.get("title")} if r else None
+
+    data = {
+        "slug": row.get("slug"),
+        "title": row.get("title"),
+        "groups": [{"id": g, "label": library_guides.GROUP_LABELS[g]} for g in group_ids],
+        "html": rendered["html"],
+        "toc": rendered["toc"],
+        "reading_minutes": rendered["reading_minutes"],
+        "updated_at": row.get("updated_at"),
+        "prev": neighbour(prev_row),
+        "next": neighbour(next_row),
+    }
+    return _json(data, request, last_modified=_http_date([row.get("updated_at")]))
+
+
 # ── speaking (T013: FR-030–FR-036) ─────────────────────────────────────────
 
 SPEAKING_PARTS = (1, 2, 3)
@@ -714,10 +847,23 @@ def list_speaking(
         if _speaking_matches(r, **{**filters, "video": False}) and _answer_kind(r) == "video"
     )
 
+    # How many questions dropping ONE active condition would show: the "Bỏ …"
+    # suggestions of an empty result. Only active conditions get a count.
+    relax_off = {"part": None, "chude": None, "video": False, "q": None}
+    relaxed = {
+        name: sum(
+            1 for r in rows
+            if _speaking_matches(r, **{**filters, ("needle" if name == "q" else name): relax_off[name]})
+        )
+        for name, active in (("part", part), ("chude", chude), ("video", video), ("q", needle))
+        if active
+    }
+
     data = {
         "items": [_speaking_item(r, topics) for r in matched],
         "total": len(matched),
         "facets": {"part": facet_part, "topic": facet_topic, "video": with_video},
+        "relaxed": relaxed,
         "topics": [
             {"slug": t["slug"], "label_vi": t.get("label_vi")}
             for t in sorted(topics.values(), key=lambda t: (t.get("display_order") or 0, t["slug"]))

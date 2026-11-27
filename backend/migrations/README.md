@@ -22,14 +22,18 @@ and must not be "filled in" by tooling:
 Take the next number after the highest `present` or `reserved` row in
 [`register.tsv`](register.tsv), add your row (`reserved`, owner = your PR or
 task ID) in the same PR as the file, and change it to `present` when the file
-lands. Do **not** assume the sequence is dense. As of 2026-11-23 the highest is `502`
+lands. Do **not** assume the sequence is dense. As of 2026-11-26 the highest is `509`
+(course-give idempotency hotfix, #2693/#2694); `505` is COURSEACCESS-0055 FR-048
+(retention purge RPC, G04-T10b) and `503` is COURSEACCESS-0055 G04-T07
+per-attempt credit settlement (Andy 2026-11-23); 504, 506 and 507 are reserved; before them `502`
 (COURSEACCESS-0055 G04-T13 pronunciation sample; before it `501`, GRAMMARAUDIT-0019
 FR-008 service_role EXECUTE on `grammar_quiz_allowed_code`, both from the reserve
 band 501+ of the commercialization register); 381 and 382 are reserved for FU-2281
 (Leader decision, 2026-11-18), and 383–389 plus 502 belong to COURSEACCESS-0055
-(383, 384, 385, 388, 389 and 502 present; 387 reserved; 386 abandoned; Andy,
+(383, 384, 385, 387, 388, 389 and 502 present; 386 abandoned; Andy,
 2026-11-20, `specs/0055-course-access-credits-enrollment/approval-decision.md`),
-so the next new migration is `503`. The free numbers below 501 (bands 401–499
+504 is reserved for #2600 and 505 for COURSEACCESS-0055 G04-T10b,
+so the next new migration is `510`. The free numbers below 501 (bands 401–499
 and 500) are assigned only by the Leader from the commercialization register;
 the PR that takes one adds its row.
 `383` is `pending_feature course_commerce` (COURSEACCESS-0055 T001, spec label
@@ -66,6 +70,13 @@ renewal (`carry_over`, `CREDIT_CARRY_PERCENT`) and lapses a carry after its hold
 entitlement with an open reservation and, in the sweep, a learner whose credit lock
 is busy. `fn_credit_grant_extra` writes one `grant_extra` row per request key and
 learner (the same key with other credits or reason is `request_key_conflict`). The rollback drops the two RPCs and keeps every row.
+`387` is `pending_feature class_credit_conversion` (COURSEACCESS-0055 T013 / G04-T15,
+spec label "388"), a group of its own, applied only after 383 and 384. One
+service_role-only RPC of plan 5.18, `fn_credit_convert_class`: it gives each active
+member of a legacy-code class one `class_conversion` entitlement (expiring with the
+live legacy code of that class the member holds) plus the credits the admin typed;
+no table or column, and access codes, assignments and memberships are only read.
+The rollback drops the RPC and keeps every row. `386` is left empty on purpose.
 `388` is `pending_feature single_session` (COURSEACCESS-0055 T009, spec label
 "384"): backend-only `learner_active_sessions` (one row per learner account: the
 Supabase Auth `session_id` in use, the session the last claim displaced, and a
@@ -84,6 +95,22 @@ spec label "387"): backend-only `learner_login_events`, one row per (session,
 outcome) with the derived device kind/label and sign-in method; no IP, location
 or raw User-Agent column. service_role may SELECT, INSERT and DELETE (expiry);
 apply after 388. The rollback drops the table.
+`503` is `pending_feature credit_attempt_settle` (COURSEACCESS-0055 T007,
+G04-T07, FR-015): append-only `credit_attempt_outcomes` (one row per hold and
+request key, graded | failed) and the service_role-only
+`fn_credit_settle_attempt`, which, under the user's credit lock, commits a
+Speaking hold on the first saved grade and releases it only when every answer
+the hold covers has failed. Needs 384; apply it before `credit_metering` is
+turned on with the G04-T07 backend. The rollback drops the RPC and keeps the
+table and its rows.
+`505` is `pending_feature retention_purge` (COURSEACCESS-0055 FR-048, G04-T10b,
+follow-up of #2550): `fn_retention_purge_content(session, after_expiry_days)`,
+service_role only. Under the session row, the learner's credit lock and row
+locks on the learner's user, students, memberships, assignments, entitlements
+and codes, it re-checks live course access and the 45-day window, then scrubs
+the session's content columns and stamps `content_purged_at`. With
+`retention_by_entitlement` on, the sweep purges only through it. Needs 383 and
+384; apply before turning that flag on. The rollback drops the function only.
 `380` is Skill Drill homework, #2294.
 `502` is `pending_feature pron_sample` (COURSEACCESS-0055 T012 / G04-T13, spec
 label "385"): three nullable `responses` columns, `pronunciation_sample_start_s`,
@@ -92,6 +119,19 @@ label "385"): three nullable `responses` columns, `pronunciation_sample_start_s`
 scopes carry no seconds). Existing rows and table privileges are unchanged. Apply it
 before turning the runtime flag `pron_sample_window` on; the rollback drops the three
 columns (turn the flag off first).
+`509` is `pending_feature course_give_request` (owner hotfix 2026-11-25, PRs #2693/#2694):
+one partial unique index `uq_course_give_request` on `class_assignments (cohort_id,
+content_config->>'give_request_id') WHERE skill='course'`, so two simultaneous course
+gives with the same request id create one assignment (the loser replays its receipt).
+No data or privilege change; the rollback drops the index. 503–507 are held by open PRs.
+`394` is `pending_feature course_open_alerts` (ENROLL-0060 T22, G05 band 390–399,
+plan 5.7): `course_open_alerts` (one row per product and lower(email), single-use
+unsubscribe token) and the counter `course_open_alert_attempts` (per account
+when signed in, per hashed IP for a guest; stale rows removed as calls arrive), both
+RLS-on with SELECT only for service_role, plus the service_role-only RPCs
+subscribe, unsubscribe, for_user, enqueue (G04 sweep), rekey (email change) and
+send_check (G04 dispatcher). Needs 383. It is not part of the #2450
+`course_commerce` run. The rollback drops the functions, then both tables.
 `400` is `pending_feature public_library` (LIBRARY-0061 T002, G06 band 400–419):
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
@@ -105,6 +145,12 @@ The rollback refuses while any row is signed or published.
 `420` is `pending_feature learner_today` (LEARNERCORE-0063 T13, G07 band 420–439):
 two nullable `users` columns, `today_seen_at` and `today_seen_key`, the forward-only
 seen cursor of the Today page; no apply on merge, staging first with Andy's typed approval.
+`445` is `pending_feature mock_exam_audiences` (MOCKORG-0086 G09-T31, G09 band 440–459):
+backend-only `mock_exam_audiences` (RLS on, no policy, service_role only), new
+`mock_exams` columns, and the mode CHECK widened to `live`/`self_paced` without
+renaming data (446 does that, after the backend that reads both names). The
+rollback refuses once any exam uses a new name, any audience row exists or a new
+column holds data.
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

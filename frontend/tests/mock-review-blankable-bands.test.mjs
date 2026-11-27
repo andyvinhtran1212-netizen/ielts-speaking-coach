@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { bandCaption, buildFinalBandsPayload, normalizeReviewDetail } from '../lib/admin-mock-reviews-model.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin-mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
+const TSX = readFileSync(join(__dirname, '..', 'app', '(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'), 'utf8');
 
 const REQUIRED = ['listening', 'reading', 'writing'];
 

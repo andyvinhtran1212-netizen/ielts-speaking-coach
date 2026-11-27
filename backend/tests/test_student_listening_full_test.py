@@ -1246,9 +1246,12 @@ def test_get_attempt_returns_grading(monkeypatch):
         "started_at":   "2026-05-21T00:00:00Z",
         "submitted_at": "2026-05-21T00:30:00Z",
     })
-    out = _run(listening_router.get_listening_test_attempt(
+    response = _run(listening_router.get_listening_test_attempt(
         attempt_id="att", authorization=authz,
     ))
+    # EXAMLISTENP-0069 FR-012: the room re-reads this under the write lock; never cached.
+    assert response.headers["cache-control"] == "private, no-store"
+    out = json.loads(response.body)
     assert out["score"] == 33
     assert out["band_estimate"] == 7.5
     assert out["trap_analytics"]["paraphrase_t0"]["caught"] == 5

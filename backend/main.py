@@ -68,6 +68,7 @@ from routers.admin_flags import router as admin_flags_router
 from routers.admin_settings import router as admin_settings_router
 from routers.admin_library import router as admin_library_router
 from routers.admin_learners import router as admin_learners_router
+from routers.admin_speaking_mock_queue import router as admin_speaking_mock_queue_router
 from routers.admin_search import router as admin_search_router
 from routers.admin_attention import router as admin_attention_router
 from routers.admin_incidents import router as admin_incidents_router
@@ -94,6 +95,7 @@ from routers.grammar_lesson import router as grammar_lesson_router
 from routers.admin_grammar_lesson import router as admin_grammar_lesson_router
 from routers.pronunciation import router as pronunciation_router
 from routers.sitemap import router as sitemap_router
+from routers.site_info import router as site_info_router
 from routers.vocabulary import router as vocabulary_router
 from routers.vocab_units import router as vocab_units_router
 from routers.analytics import router as analytics_router
@@ -121,6 +123,7 @@ from routers.quiz import router as quiz_player_router
 from routers.course_pronunciation import router as course_pronunciation_router
 from routers.reading_student import router as reading_student_router
 from routers.feedback import router as feedback_router
+from routers.course_open_alerts import router as course_open_alerts_router
 from routers.kp import router as kp_router
 from routers.exams import router as exams_router
 from routers.admin_exams import router as admin_exams_router
@@ -309,6 +312,7 @@ app.include_router(admin_flags_router)
 app.include_router(admin_settings_router)
 app.include_router(admin_library_router)  # LIBRARY-0061 T020 (G06-T20)
 app.include_router(admin_learners_router)
+app.include_router(admin_speaking_mock_queue_router)
 app.include_router(admin_search_router)
 app.include_router(admin_attention_router)
 app.include_router(admin_incidents_router)
@@ -336,6 +340,7 @@ app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)
 app.include_router(pronunciation_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(sitemap_router)
+app.include_router(site_info_router)
 app.include_router(vocabulary_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(vocab_units_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(analytics_router, dependencies=_ACTIVE_LEARNER)
@@ -358,6 +363,7 @@ app.include_router(course_pronunciation_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(reading_student_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(mock_attempt_flags_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(feedback_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(course_open_alerts_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(kp_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exams_router)

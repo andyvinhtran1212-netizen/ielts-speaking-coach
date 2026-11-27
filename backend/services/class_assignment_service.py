@@ -418,6 +418,7 @@ def mark_item_submitted(
     artifact_id: str,
     score: Optional[float] = None,
     now: Optional[datetime] = None,
+    student_id: Optional[str] = None,
 ) -> bool:
     """Record that the student handed this item in. True when a row was written.
 
@@ -435,13 +436,11 @@ def mark_item_submitted(
         patch["score"] = score
 
     try:
-        r = (
-            db.table("class_assignment_items")
-            .update(patch)
-            .eq("id", item_id)
-            .is_("submitted_at", "null")
-            .execute()
-        )
+        query = (db.table("class_assignment_items").update(patch)
+                 .eq("id", item_id).is_("submitted_at", "null"))
+        if student_id is not None:
+            query = query.eq("student_id", student_id)
+        r = query.execute()
     except Exception as exc:
         # RAISE, do not return False. Callers that must survive this (a graded
         # session has to complete either way) already catch — and catching is a
@@ -1180,7 +1179,9 @@ def attach_session_to_class_item(db, session_id: str, user_id: str, item_id: str
         "p_item_id":    item_id,
         "p_user_id":    user_id,
     }).execute().data
-    return rows is True or rows == [True] or bool(rows)
+    # RPC trả boolean. `bool([False])` là True ⇒ lời từ chối bị đọc thành "đã
+    # gắn" (báo cáo săn lỗi #54). Chỉ True thật mới là đã gắn.
+    return rows is True or rows == [True]
 
 
 # Reading/Listening have no completion hook of their own: the student submits on
@@ -1301,7 +1302,8 @@ def _archived_class_by_item(db, assignments: List[Dict[str, Any]],
 
 
 def test_attempt_handins(db, assignments: List[Dict[str, Any]],
-                         items: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Dict[str, Any]]:
+                         items: Optional[List[Dict[str, Any]]] = None, *,
+                         student_id: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
     """The Reading/Listening hand-ins the ledger repair would record, without
     writing: ``{item_id: {attempt, when, artifact_kind}}``. Every rule of the
     repair is here (the attempt's item link, the earliest submitted attempt,
@@ -1309,7 +1311,7 @@ def test_attempt_handins(db, assignments: List[Dict[str, Any]],
     archive), so a read-only caller (the learner directory) and the repair
     decide the same way. ``items`` (``{id, assignment_id}`` rows with an empty
     ledger) narrows the read to those items; by default every empty item of
-    ``assignments`` is read. A DB error propagates.
+    ``assignments`` is read, optionally scoped to one student. A DB error propagates.
     """
     from services.listening_drill_homework import completed_at, drill_config, evidence_by_item
 
@@ -1324,12 +1326,18 @@ def test_attempt_handins(db, assignments: List[Dict[str, Any]],
         return {}
 
     if items is None:
+        def pending_items(query, assignment_ids):
+            query = query.in_("assignment_id", assignment_ids).is_("submitted_at", "null")
+            if student_id is not None:
+                query = query.eq("student_id", student_id)
+            return query
+
         items = []
         for chunk in (item_ids[i:i + _ID_CHUNK]
                       for i in range(0, len(item_ids), _ID_CHUNK)):
             items.extend(_paged(
                 db, "class_assignment_items", "id, assignment_id",
-                lambda q, c=chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
+                lambda q, c=chunk: pending_items(q, c),
             ))
     else:
         wanted = set(item_ids)
@@ -1398,7 +1406,8 @@ def test_attempt_handins(db, assignments: List[Dict[str, Any]],
     return found
 
 
-def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
+def reconcile_test_attempts(db, assignments: List[Dict[str, Any]], *,
+                            student_id: Optional[str] = None) -> int:
     """Repair Reading/Listening hand-ins whose ledger write failed.
 
     Reading and Listening have no completion hook of their own the way Speaking
@@ -1420,17 +1429,20 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     Idempotent: `mark_item_submitted` only writes while `submitted_at IS NULL`.
     """
     fixed = 0
-    for item_id, hit in test_attempt_handins(db, assignments).items():
+    repair_scope = {"student_id": student_id} if student_id is not None else {}
+    for item_id, hit in test_attempt_handins(db, assignments, **repair_scope).items():
         at, when_value, artifact_kind = hit["attempt"], hit["when"], hit["artifact_kind"]
-        try:
-            when = datetime.fromisoformat(when_value)
-        except (ValueError, TypeError):
+        when = _at(when_value)
+        if when is None:
             # Stamp nothing rather than stamping now: "now" would make a
-            # hand-in that met the deadline read as late.
-            when = None
+            # hand-in that met the deadline read as late. `now=None` used to
+            # fall through to now() inside mark_item_submitted (báo cáo săn lỗi
+            # #56); leave the item for a later pass instead.
+            logger.warning("[class] unreadable hand-in time item=%s", item_id)
+            continue
         if mark_item_submitted(
             db, item_id=item_id, artifact_kind=artifact_kind,
-            artifact_id=at["id"], score=at.get("band_estimate"), now=when,
+            artifact_id=at["id"], score=at.get("band_estimate"), now=when, **repair_scope,
         ):
             fixed += 1
 
@@ -1503,13 +1515,7 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     # first hand-in with a different score AND a different on-time verdict. Keep
     # the earliest actual completion.
     def _completed_key(row):
-        raw = row.get("completed_at")
-        if not raw:
-            return None
-        try:
-            return datetime.fromisoformat(raw)
-        except ValueError:
-            return None
+        return _at(row.get("completed_at"))
 
     earliest: Dict[str, Dict[str, Any]] = {}
     for s in sessions:
@@ -1532,15 +1538,19 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
         # late — the repair would manufacture the very verdict it exists to
         # correct. Falls back to now() only when completed_at is somehow absent.
         completed_at = s.get("completed_at")
-        submitted_at = None
-        if completed_at:
-            try:
-                submitted_at = datetime.fromisoformat(completed_at)
-            except ValueError:
-                logger.warning("[class] unparseable completed_at on session=%s", s["id"])
+        # `_at` đọc giờ thiếu múi giờ là UTC: so naive với `due` (aware) từng
+        # ném TypeError và làm hỏng cả trang lớp (báo cáo săn lỗi #64).
+        submitted_at = _at(completed_at)
         due = due_by_item.get(s.get("class_assignment_item_id"))
-        if due and submitted_at and submitted_at > due:
-            logger.info("[class] repair skipped, past deadline item=%s", item_id)
+        if due and submitted_at is None:
+            # Không biết giờ nộp thì không xét được hạn; ghi "now" có thể biến
+            # bài nộp đúng hạn thành trễ. Để lượt sau.
+            logger.warning("[class] repair skipped, unreadable completed_at session=%s",
+                           s["id"])
+            continue
+        if due and submitted_at > due:
+            logger.info("[class] repair skipped, past deadline item=%s",
+                        s.get("class_assignment_item_id"))
             continue
         # CLASSARCHIVE-0030 FR-004, the rule of `_record_class_submission`: no
         # credit for a session completed at or after the archive. A Full Test
