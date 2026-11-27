@@ -129,7 +129,8 @@ def wire(monkeypatch):
             raise state["total"]
         return {"total": state["total"], "items": []}
 
-    def assigned(*_a, **_k):
+    def assigned(user_id, account_name, now, *, reconcile_student_only):
+        assert user_id == UID and reconcile_student_only is True
         if isinstance(state["assigned"], Exception):
             raise state["assigned"]
         return state["assigned"]

@@ -590,7 +590,9 @@ async def get_skill_hub_concurrent(
     parts: Dict[str, Callable[[], Any]] = {
         "credits": lambda: _credits_for(user_id, skill),
         "resume": lambda: _resume_for(make_sb(), user_id, skill, now),
-        "assigned": lambda: today._visible_assignments_for(user_id, account_name, now),
+        "assigned": lambda: today._visible_assignments_for(
+            user_id, account_name, now, reconcile_student_only=True
+        ),
         "groups": lambda: _catalog_groups(make_sb(), skill),
         "attempts": lambda: _attempts_for(make_sb(), user_id, skill),
         "history": lambda: _history_for(make_sb(), user_id, skill),
