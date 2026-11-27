@@ -24,6 +24,7 @@ export type FocusLeaveCopy = {
 export const FOCUS_WORDS = {
   practice: {
     exit: 'Thoát',
+    leaving: 'Đang lưu…',
     skip: 'Bỏ qua tới nội dung',
     close: 'Đóng',
     leave: {
@@ -35,6 +36,7 @@ export const FOCUS_WORDS = {
   },
   exam: {
     exit: 'Leave test',
+    leaving: 'Saving…',
     skip: 'Skip to test content',
     close: 'Close',
     abandon: 'Abandon test',

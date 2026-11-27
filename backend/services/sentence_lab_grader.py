@@ -383,13 +383,20 @@ def _reveals(text: Any, targets: Any, learner: Any = ()) -> bool:
         tw = ref.split()
         if len(tw) < 4:
             continue
-        if ref in " ".join(words):
+        # Gợi ý trích lại nguyên câu của học viên (đã đúng sẵn) không phải là
+        # lộ đáp án (báo cáo săn lỗi #94).
+        if ref in " ".join(words) and not any(ref in " ".join(o) for o in own):
             return True
         # Đánh vần từng chữ ("T-h-e c-a-t …") lọt qua so khớp theo từ: so cả
         # chuỗi chỉ còn chữ và số, trừ khi câu của học viên/đề đã chứa nó.
         ref_flat = _letters(ref)
         if ref_flat and ref_flat in flat and not any(ref_flat in o for o in own_flat):
             return True
+        # Câu của học viên đã chứa trọn lời giải (kể cả khi câu đó dài hơn nên
+        # điểm giống "câu của em" thấp hơn): nhắc lại gần đúng lời giải không
+        # lộ thêm điều gì em ấy chưa viết (CR #2701).
+        if any(f" {ref} " in f" {' '.join(o)} " for o in own):
+            continue
         n = len(tw)
         for lo in range(max(1, len(words) - n + 1)):
             for size in (n - 1, n, n + 1):

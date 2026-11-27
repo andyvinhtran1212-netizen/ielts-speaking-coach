@@ -24,13 +24,16 @@ from __future__ import annotations
 
 import logging
 import json
+import os
 import math
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from config import settings
 from database import supabase_admin
+from services.cors_policy import resolve_tier
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 
@@ -1119,6 +1122,17 @@ async def generate_test_error(
         (verifies only the table + admin list, not the handler).
     """
     await require_admin(authorization)
+
+    # ADMINIA-0074 FR-073: the button lives on /admin/qa-tools outside
+    # Production only, and the server refuses it too, so a test row can never
+    # land in the Production inbox from a stale tab or a direct call. Railway
+    # production sets no ENVIRONMENT, so the tier also reads
+    # RAILWAY_ENVIRONMENT_NAME (same rule as CORS and Sentry). Fail closed:
+    # only staging and development may create one; production and an unknown
+    # tier are refused.
+    tier = resolve_tier(settings.ENVIRONMENT, os.environ.get("RAILWAY_ENVIRONMENT_NAME"))
+    if tier not in ("staging", "development"):
+        raise HTTPException(403, "Không tạo lỗi thử trên Production hoặc môi trường chưa xác định.")
 
     if error_type == "exception":
         raise ValueError("Test exception from /admin/error-logs/test endpoint")
