@@ -117,7 +117,8 @@ class _CreditUnavailable(Exception):
 def wire(monkeypatch):
     """Fake G04 modules (services.credits, routers.me_access: #2485) and the
     T13 assigned reader; returns a setter for plan/balance/assigned."""
-    state = {"plan": _ChargePlan(True, "entitlement"), "total": 0, "assigned": (False, [], False)}
+    state = {"plan": _ChargePlan(True, "entitlement"), "total": 0, "assigned": (False, [], False),
+             "starters": {"speaking": None, "writing": None, "listening": None, "reading": None}}
 
     def plan(user_id, feature, **_k):
         if isinstance(state["plan"], Exception):
@@ -141,6 +142,13 @@ def wire(monkeypatch):
     monkeypatch.setitem(sys.modules, "services.credits", credits)
     monkeypatch.setitem(sys.modules, "routers.me_access", me)
     monkeypatch.setattr(st, "_visible_assignments_for", assigned)
+
+    async def starter_values():
+        if isinstance(state["starters"], Exception):
+            raise state["starters"]
+        return state["starters"]
+
+    monkeypatch.setattr(hub, "_starter_values", starter_values)
     from config import settings
     monkeypatch.setattr(settings, "WRITING_PROMPT_BANK_ENABLED", True, raising=False)
     return state
@@ -273,12 +281,86 @@ def test_writing_resume_is_the_newest_unsubmitted_draft(wire):
                               "updated_at": _ts(hours=1)}]
 
 
-# ── starter (FR-112, FR-126): null until T25s ────────────────────────────────
+# ── starter (FR-112, FR-126; T25s) ───────────────────────────────────────────
+
+RT = "11111111-2222-3333-4444-555555555555"
+ST = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
 
-def test_starter_is_null_until_t25s_even_for_a_first_visit(wire):
+def _reading_paper(**over):
+    row = {"id": RT, "test_id": "R-01", "title": "Cambridge 19 Test 1", "status": "published",
+           "exam_only": False, "is_public": True, "public_practice_enabled": True}
+    return {**row, **over}
+
+
+def _with_starter_papers(tables):
+    tables["reading_public_practice_catalog"] = [_reading_paper()]
+    tables["topics"].append({"id": ST, "title": "Hometown", "is_active": True, "part": 2})
+    return tables
+
+
+def test_starter_is_null_when_unset_even_for_a_first_visit(wire):
     out = _run(_DB(_base_tables()), "reading")
     assert out["resume"] == [] and out["history"] == [] and out["starter"] is None
+
+
+def test_reading_starter_shows_for_a_first_visit(wire):
+    wire["starters"] = {**wire["starters"], "reading": {"test_uuid": RT}}
+    out = _run(_DB(_with_starter_papers(_base_tables())), "reading")
+    assert out["starter"] == {
+        "title": "Cambridge 19 Test 1", "meta": "Reading · đề đầy đủ", "uses_credit": False,
+        "href": "/core-player/launch?surface=reading_exam&test_id=R-01"}
+
+
+def test_starter_is_null_after_the_paper_closes(wire):
+    wire["starters"] = {**wire["starters"], "reading": {"test_uuid": RT}}
+    tables = _with_starter_papers(_base_tables())
+    for closed in (_reading_paper(status="draft"), _reading_paper(is_public=False)):
+        tables["reading_public_practice_catalog"] = [closed]
+        assert _run(_DB(tables), "reading")["starter"] is None
+    # Held for an exam (or exam_only): the catalog view (mig 306) leaves it out.
+    tables["reading_public_practice_catalog"] = []
+    assert _run(_DB(tables), "reading")["starter"] is None
+
+
+def test_speaking_starter_carries_session_params(wire):
+    wire["starters"] = {**wire["starters"], "speaking": {"topic_id": ST}}
+    out = _run(_DB(_with_starter_papers(_base_tables())), "speaking")
+    assert out["starter"] == {
+        "title": "Hometown", "meta": "Speaking Part 2", "uses_credit": True,
+        "href": "/speaking?view=all",
+        "session_params": {"mode": "practice", "part": 2, "topic": "Hometown"}}
+
+
+def test_speaking_starter_hidden_when_topic_inactive(wire):
+    wire["starters"] = {**wire["starters"], "speaking": {"topic_id": ST}}
+    tables = _with_starter_papers(_base_tables())
+    tables["topics"][-1]["is_active"] = False
+    assert _run(_DB(tables), "speaking")["starter"] is None
+
+
+def test_starter_is_not_read_when_the_hub_will_not_show_it(wire, monkeypatch):
+    calls = []
+
+    async def starter_values():
+        calls.append(1)
+        return {**wire["starters"], "reading": {"test_uuid": RT}}
+
+    monkeypatch.setattr(hub, "_starter_values", starter_values)
+    tables = _with_starter_papers(_base_tables())
+    tables["reading_test_attempts"] = [
+        {"id": "r1", "user_id": UID, "status": "submitted", "test_id": "R1", "submitted_at": _ts(days=1)}]
+    out = _run(_DB(tables), "reading")
+    assert out["starter"] is None and calls == []
+    assert _run(_DB(_with_starter_papers(_base_tables())), "reading")["starter"] is not None
+    assert calls == [1]
+
+
+def test_starter_read_failure_hides_only_the_starter(wire):
+    wire["starters"] = RuntimeError("down")
+    out = _run(_DB(_with_starter_papers(_base_tables())), "reading")
+    assert out["starter"] is None and "starter" not in out["degraded"]
+    assert out["degraded"] == []
 
 
 # ── suggestions (FR-113) ──────────────────────────────────────────────────────
