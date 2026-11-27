@@ -12,7 +12,6 @@ const CSS = read('public', 'css', 'admin-reading-hub-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 const ROLLBACK_OVERVIEW = read('public', 'pages', 'admin', 'index.html');
-const ROLLBACK_CONTROLLER = read('public', 'js', 'admin-overview.js');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -56,7 +55,9 @@ describe('/admin/reading native operations hub', () => {
     for (const slot of ['data-skill-7d="reading"', 'data-skill-total="reading"', 'data-skill-extra="reading"']) {
       assert.ok(ROLLBACK_OVERVIEW.includes(slot), slot);
     }
-    assert.match(ROLLBACK_CONTROLLER, /skills\.reading\?\.avg_score_7d/);
+    // LEGACYJS-0075 W4a: the rollback controller admin-overview.js is deleted;
+    // the Next card formats the accuracy as a percentage.
+    assert.match(OVERVIEW, /value=\{skills\.reading\?\.avg_score_7d\} format=\{\(value\) => `\$\{Math\.round\(value \* 100\)\}%`\}/);
   });
 
   test('uses the governed responsive and accessible visual contract', () => {

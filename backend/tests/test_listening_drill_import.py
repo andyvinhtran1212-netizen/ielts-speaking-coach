@@ -769,3 +769,18 @@ def test_drill_commit_audio_without_timings_rejected(monkeypatch):
             authorization="x"))
     assert e.value.status_code == 422
     assert "timings" in str(e.value.detail).lower()
+
+
+def test_map_letter_options_include_the_unused_distractor():
+    """Báo cáo săn lỗi #86: nút chọn dựng từ đáp án thì chữ gây nhiễu (C ở
+    block 1, D ở block 2 — fixture ghi rõ) không bao giờ hiện, câu hỏi tự lộ
+    đáp án. Rubric ghi "letter, A-F" ⇒ phải đủ sáu chữ."""
+    res = imp.parse_drill(_load("MAP"), None)
+    for ex in res.exercise_rows[:2]:
+        assert ex["payload"]["metadata"]["letter_options"] == ["A", "B", "C", "D", "E", "F"]
+
+
+def test_map_letter_options_fall_back_to_svg_labels_then_a_to_h():
+    blk = {"rubric": "Label the plan below.", "map_svg": "<svg><text>A</text><text> B </text><text>C</text></svg>"}
+    assert imp._map_letter_options(blk, [{"answer": "B"}]) == ["A", "B", "C"]
+    assert imp._map_letter_options({"rubric": ""}, [{"answer": "J"}]) == list("ABCDEFGHJ")

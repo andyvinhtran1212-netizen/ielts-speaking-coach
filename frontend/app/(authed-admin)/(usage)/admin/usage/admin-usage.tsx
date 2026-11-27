@@ -124,7 +124,7 @@ export function AdminUsage() {
             ? 'Tổng hợp những tài khoản đang gắn với mã này; lịch sử kích hoạt đã gỡ không được tính vào roster hiện tại.'
             : 'Đối chiếu số phiên Speaking, lần hoạt động gần nhất và chi phí AI đã ghi nhận theo từng tài khoản.'}</p>
         </div>
-        <div className="aus-header-actions">{codeId && <a className="btn-secondary" href="/admin/users?tab=codes">← Mã kích hoạt</a>}<button className="btn-secondary" type="button" onClick={() => void load()} disabled={loading}>{loading ? 'Đang làm mới…' : 'Làm mới'}</button></div>
+        <div className="aus-header-actions">{codeId && <a className="btn-secondary" href="/admin/activation-codes">← Mã kích hoạt</a>}<button className="btn-secondary" type="button" onClick={() => void load()} disabled={loading}>{loading ? 'Đang làm mới…' : 'Làm mới'}</button></div>
       </header>
 
       {error && <div className="aus-banner is-error" role="alert"><div><strong>{payload ? 'Không thể làm mới — đang giữ dữ liệu cũ.' : 'Không tải được hoạt động người dùng.'}</strong><span>{error}</span></div><button className="btn-secondary" type="button" disabled={loading} onClick={() => void load()}>Thử lại</button></div>}

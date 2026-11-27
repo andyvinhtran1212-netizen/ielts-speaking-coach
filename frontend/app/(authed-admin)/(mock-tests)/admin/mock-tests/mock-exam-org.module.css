@@ -59,7 +59,7 @@
 .chip:focus-visible,
 .stepButton:focus-visible,
 .skill:focus-visible {
-  outline: var(--av2-rule-strong-w) solid var(--av2-focus);
+  outline: var(--av2-focus);
   outline-offset: var(--av2-focus-offset);
 }
 

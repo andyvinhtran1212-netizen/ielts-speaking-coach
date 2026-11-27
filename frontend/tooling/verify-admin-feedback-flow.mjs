@@ -6,7 +6,6 @@ import { storageKey } from './supabase-session.mjs';
 import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
-const NEXT_ONLY = process.argv.includes('--next-only');
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000096';
 const fakeSession = JSON.stringify({ access_token: 'admin-feedback-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-feedback@local' } });
@@ -24,7 +23,6 @@ let resolved = false;
 let delayNextPatch = true;
 let releasePatch;
 const patchGate = new Promise((resolve) => { releasePatch = resolve; });
-let rollbackReadMode = 'complete';
 let reads = 0;
 const requests = [];
 const unexpectedWrites = [];
@@ -46,8 +44,6 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/api/admin/feedback' && method === 'GET') {
     reads += 1;
     const type = parsed.searchParams.get('type'); const skill = parsed.searchParams.get('skill'); const status = parsed.searchParams.get('status');
-    if (rollbackReadMode === 'unavailable') return json({ data_status: 'unavailable', snapshot_to: '2026-08-12T08:00:00Z', skill: null, feedback_type: null, status: null, test_id: null, count: null, truncated: false, malformed_count: 0, items: [], groups: [] });
-    if (rollbackReadMode === 'partial') return json({ data_status: 'partial', snapshot_to: '2026-08-12T08:00:00Z', skill: null, feedback_type: null, status: null, test_id: null, count: 1, truncated: true, malformed_count: 0, items: [sourceRows[0]], groups: [] });
     if (skill === 'vocabulary') return json({ data_status: 'unavailable', snapshot_to: '2026-08-12T08:00:00Z', skill, feedback_type: type, status, test_id: null, count: null, truncated: false, malformed_count: 0, items: [], groups: [] });
     let rows = sourceRows.map((row) => row.id === sourceRows[0].id && resolved ? { ...row, status: 'resolved' } : row);
     if (type) rows = rows.filter((row) => row.type === type);
@@ -140,21 +136,8 @@ const desktopLayout = await page.evaluate(() => {
 });
 check('desktop giữ hierarchy nhóm và không tràn ngang', desktopLayout.hasHeader && desktopLayout.display === 'grid' && desktopLayout.scrollWidth <= desktopLayout.viewportWidth, JSON.stringify(desktopLayout));
 
-if (!NEXT_ONLY) {
-  rollbackReadMode = 'unavailable';
-  await page.goto(`${BASE}/pages/admin/feedback/index.html`, { waitUntil: 'domcontentloaded' });
-  await page.getByText(/không thể kết luận hộp thư đang trống/).waitFor({ state: 'visible' });
-  check('rollback first-page failure không giả thành hộp thư rỗng', await page.getByText('Chưa có feedback nào khớp bộ lọc.', { exact: true }).isHidden());
-
-  rollbackReadMode = 'partial';
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByText(/chỉ là cận dưới/).waitFor({ state: 'visible' });
-  const rollbackRows = page.locator('.fbx-row');
-  const rollbackRowCount = await rollbackRows.count();
-  const rollbackCountText = await page.locator('#fbx-count-n').textContent();
-  const rollbackRowText = rollbackRowCount ? await rollbackRows.first().textContent() : '';
-  check('rollback later-page failure giữ row và đánh dấu cận dưới', rollbackRowCount === 1 && rollbackRowText.includes(dangerous) && rollbackCountText === '≥ 1', `rows=${rollbackRowCount} count=${rollbackCountText}`);
-}
+// LEGACYJS-0075 W4a: the rollback page's script admin-feedback.js is deleted,
+// so the rollback checks are gone; `--next-only` is accepted as a no-op.
 
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));

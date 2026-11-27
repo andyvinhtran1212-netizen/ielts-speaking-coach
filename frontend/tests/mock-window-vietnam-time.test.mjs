@@ -1,7 +1,7 @@
 /**
  * A-MOCK — retake windows are Vietnam wall time on every admin surface.
  *
- * Both the Next dialog and the compatibility script used to turn the
+ * The Next dialog (and the compatibility script, retired in LEGACYJS-0075 W2) used to turn the
  * datetime-local value into an instant with the BROWSER's zone
  * (`new Date(local).toISOString()`), so an admin abroad shifted the window by
  * their offset, and the dialog displayed the deadline in that zone too. The
@@ -18,7 +18,6 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIALOG = readFileSync(join(ROOT, 'app', '(authed-admin)/(mock-exams)', 'admin', 'mock-exams',
   'retake-assignment-dialog.tsx'), 'utf8');
-const LEGACY = readFileSync(join(ROOT, 'public', 'js', 'admin-mock-exams.js'), 'utf8');
 
 describe('mock retake window timezone', () => {
   test('the Next dialog sends and shows Vietnam time', () => {
@@ -29,10 +28,4 @@ describe('mock retake window timezone', () => {
     assert.doesNotMatch(DIALOG, /localToIso\(|localDateTimeIn\(|toLocaleString\(/);
   });
 
-  test('the compatibility script no longer uses the browser zone', () => {
-    assert.doesNotMatch(LEGACY, /new Date\(localVal\)\.toISOString\(\)/);
-    assert.match(LEGACY, /'\+07:00'/);
-    assert.match(LEGACY, /timeZone: 'Asia\/Ho_Chi_Minh'/);
-    assert.doesNotMatch(LEGACY, /d\.getHours\(\)/);
-  });
 });

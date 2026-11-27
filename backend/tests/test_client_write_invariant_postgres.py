@@ -259,7 +259,10 @@ def _pre_320() -> str:
             band_lr double precision, band_gra double precision, band_p double precision,
             completed_at timestamptz, error_code text, error_message text, failed_step text,
             last_error_at timestamptz, last_regraded_at timestamptz, last_regraded_by text,
-            regrade_count integer DEFAULT 0, class_assignment_item_id uuid);
+            regrade_count integer DEFAULT 0, class_assignment_item_id uuid,
+            -- 079's retention columns (read by 505's precondition and purge).
+            started_at timestamptz DEFAULT now(), last_accessed_at timestamptz,
+            audio_purged_at timestamptz, content_purged_at timestamptz);
         CREATE TABLE responses (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             session_id uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -461,12 +464,18 @@ def _pre_320() -> str:
         {mock_tables}
         {mock_columns}
         {mock_functions}
+        -- 388's timed-start triggers read these (087, 146, 151/154, 280 columns).
+        ALTER TABLE class_assignment_items ADD COLUMN timed_expires_at timestamptz;
+        CREATE TABLE reading_test_attempts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status text NOT NULL DEFAULT 'in_progress');
         {admin_helpers}
         {helper_revokes}
         {"".join(f'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;'
                  for table in ("access_codes", "cohorts", "students", "writing_assignments",
                                "writing_drafts", "writing_essays", "writing_feedback",
                                "class_assignments", "class_assignment_items",
+                               "reading_test_attempts", "mock_exam_sittings",
                                *(table for _, table in drill_tables),
                                *(table for _, table in admin_tables)))}
     """

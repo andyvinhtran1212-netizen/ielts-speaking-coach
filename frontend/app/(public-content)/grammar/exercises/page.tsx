@@ -3,8 +3,7 @@
 // Behavior đã được port sang React trong `grammar-exercises-behavior.tsx`;
 // route công khai không còn inject module legacy hay phụ thuộc DOMContentLoaded.
 import type { Metadata } from 'next';
-import Link from 'next/link';
-
+import { SubpageFrame, SubpageHeader, frameStyles as styles } from '../subpage-frame';
 import { GrammarExercisesBehavior } from './grammar-exercises-behavior';
 
 export const metadata: Metadata = {
@@ -15,26 +14,16 @@ export const metadata: Metadata = {
 
 export default function GrammarExercisesPage() {
   return (
-    <>
-      {/* @ts-ignore — Aver chrome là Web Component dùng chung với legacy. */}
-      <aver-chrome active="grammar" />
-
-      <main className="av-w-page py-8">
-        <header className="mb-8">
-          <nav className="text-sm text-white/40 mb-3">
-            <Link href="/grammar" className="hover:text-white/70">Grammar Wiki</Link>{' '}
-            <span className="mx-1">/</span>{' '}
-            <span className="text-white/60">Bài tập</span>
-          </nav>
-          <p className="eyebrow">Practice directory</p>
-          <h1 className="text-3xl font-extrabold text-white mb-2">Chọn đúng bài cần luyện</h1>
-          <p className="text-white/45">
-            Tìm theo chủ đề và trình độ; khi đăng nhập, trạng thái mastery thật sẽ giúp bạn ưu tiên bài phù hợp.
-          </p>
-        </header>
-
+    <SubpageFrame crumbs={[{ label: 'Bài tập' }]}>
+      <main id="exercises-container" tabIndex={-1} className={styles.main}>
+        <SubpageHeader
+          eyebrow="Grammar Wiki · Bài tập"
+          title="Chọn đúng bài cần luyện"
+          intro="Tìm theo chủ đề và trình độ; khi đăng nhập, trạng thái mastery thật sẽ giúp bạn ưu tiên bài phù hợp."
+          introId="exercises-intro"
+        />
         <GrammarExercisesBehavior />
       </main>
-    </>
+    </SubpageFrame>
   );
 }

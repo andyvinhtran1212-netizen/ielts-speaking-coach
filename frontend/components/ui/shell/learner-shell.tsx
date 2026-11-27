@@ -19,6 +19,8 @@ export type LearnerShellProps = {
   user: LearnerUser;
   /** From the server profile (`/auth/me`); true only for admins. */
   canSwitchToAdmin: boolean;
+  /** From the server profile; true for instructors and admins (LEARNERNAV-0062 FR-003). */
+  canSwitchToInstructor?: boolean;
   /** One shared AI credit count; `remaining: null` → PendingValue; not passed → hidden. */
   credits?: AiCredits | null;
   /** Account without a course (FR-016): "Chấm thử hôm nay còn N bài". */

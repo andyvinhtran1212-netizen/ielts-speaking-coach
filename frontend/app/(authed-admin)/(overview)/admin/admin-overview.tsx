@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 
-import { AdminAiPanel } from './admin-ai-panel';
 import {
   getAdminContentOverview,
   getAdminDashboardOverview,
@@ -509,7 +508,7 @@ export function AdminOverview() {
       >
         <section className="db-grid" aria-label="Số liệu vận hành">
           <MetricCard label="Tổng người dùng" scope="toàn thời gian" value={formatInteger(ops?.totalUsers)} href="/admin/users" loading={loadingScope === 'all'} />
-          <MetricCard label="Mã đã kích hoạt" scope="toàn thời gian" value={formatInteger(ops?.activeCodes)} href="/admin/users?tab=codes" loading={loadingScope === 'all'} />
+          <MetricCard label="Mã đã kích hoạt" scope="toàn thời gian" value={formatInteger(ops?.activeCodes)} href="/admin/activation-codes" loading={loadingScope === 'all'} />
           <MetricCard
             label={`Người xem (${ops?.visitors?.windowDays ?? windowDays} ngày)`}
             value={formatInteger(ops?.visitors?.count)}
@@ -602,7 +601,7 @@ export function AdminOverview() {
             <span className="value">{failed('errors.undismissed') ? <Unavailable /> : formatInteger(errors.undismissed)}</span>
             <span className="delta">{failed('errors.last_24h') ? <Unavailable /> : finiteNumber(errors.last_24h) == null ? '—' : `${formatInteger(errors.last_24h)} trong 24h qua`}</span>
           </Link>
-          <Link className="stat-tile is-clickable" href="/admin/users?tab=codes">
+          <Link className="stat-tile is-clickable" href="/admin/activation-codes">
             <span className="label">Mã đang dùng</span>
             <span className="value">{failed('access_codes.active') ? <Unavailable /> : formatInteger(accessCodes.active)}</span>
             <span className="delta">{failed('access_codes.active') ? <Unavailable /> : <>Đại trà {formatInteger(codeMix.mass || 0)} · Trực tiếp {formatInteger(codeMix.direct || 0)} · NV {formatInteger(codeMix.staff || 0)}</>}</span>
@@ -664,11 +663,12 @@ export function AdminOverview() {
             <Link href="/admin/dashboard/reading-attempts">Reading — Lượt làm bài · LIVE</Link>
             <Link href="/admin/classes">Lớp &amp; Học viên · LIVE</Link>
             <Link href="/admin/usage">Hoạt động người dùng</Link>
+            {/* ADMINIA-0074 FR-074: the model table lives on its own page now. */}
+            <Link href="/admin/ai-models">AI và mô hình</Link>
+            <Link href="/admin/qa-tools">Công cụ QA</Link>
           </div>
         </div>
       </section>
-
-      <AdminAiPanel />
     </main>
   );
 }
