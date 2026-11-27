@@ -173,6 +173,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/library/speaking` | all | Speaking questions grouped by topic (Part 1–3), filterable by Part, topic, video and search; each shows whether its model answer is a video, audio or text. |
 | `/library/speaking/[slug]` | all | One Speaking question: cue card or questions, the model answer (synthetic voice, labelled) with a transcript that follows the video/audio, outline, vocabulary, related Part 3 questions. |
 | `/library/writing-samples` | all | Writing sample list, no login: filter by Task, Task 2 question type, topic and search (all kept in the URL), 12 per page, from `/api/library/writing-samples`. |
+| `/library/writing-guides` | all | Kiến thức Writing, no login: guides in four groups (Task 1, Task 2, Tiêu chí chấm, Dạng đề) from `/api/library/writing-guides`. |
+| `/library/writing-guides/[slug]` | all | One Writing guide, no login: reading layout with contents, quotes from published Writing samples, prev/next within its group. |
 
 ### 4.7b Student — classes and course work
 

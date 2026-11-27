@@ -282,7 +282,7 @@ def test_assigned_mini_submit_and_roster_reconciliation_complete_without_a_score
     assert result["score_mode"] == ("self_check_only" if all_self_check else "mixed")
     assert result["self_check_count"] == (3 if all_self_check else 2)
     assert result["band_estimate"] is None
-    read = _run(listening.get_listening_test_attempt("self-check-attempt", authorization=authz))
+    read = json.loads(_run(listening.get_listening_test_attempt("self-check-attempt", authorization=authz)).body)
     for field in ("score", "max_score", "score_mode", "self_check_count"):
         assert read[field] == result[field]
     stored = fake.tables["listening_test_attempts"][0]

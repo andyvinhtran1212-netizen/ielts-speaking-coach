@@ -16,7 +16,7 @@ const COMPONENT = read('app', '(authed-admin-writing-assignments)', 'admin', 'wr
 const LAYOUT = read('app', '(authed-admin-writing-assignments)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-assignments-next.css');
 const CONFIG = read('next.config.ts'); const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
+const HUB = read('app', '(authed-admin)/(writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 
 const raw = { id: 'a1', status: 'pending', prompt_id: 'p1', student_id: 's1', assignment_group_id: 'g1', name: 'Buổi 2', created_at: '2026-08-13T00:00:00Z', deadline: null, essay_id: null, is_timed: true, time_limit_minutes: 40, writing_prompts: { id: 'p1', title: '<img onerror=x>', task_type: 'task2', difficulty: 'intermediate' }, students: { id: 's1', student_code: 'S001', full_name: 'Lan' } };
 
