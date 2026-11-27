@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { normalizeRegradeDecision, normalizeRegradeList, normalizeRegradeRequest, regradeFilters, regradeHref, regradeMatches, regradeSort } from '../lib/admin-writing-regrade-model.mjs';
+import { KEEP_MIN_CHARS, keepExplanationError, normalizeRegradeDecision, normalizeRegradeList, normalizeRegradeRequest, regradeFilters, regradeHref, regradeLane, regradeMatches, regradeSort, regradeWait, waitLabel } from '../lib/admin-writing-regrade-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -14,7 +14,7 @@ const LAYOUT = read('app', '(authed-admin-writing-regrade)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-regrade-next.css');
 const CONFIG = read('next.config.ts');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(writing)', 'admin', 'writing', 'page.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const MIGRATION = read('..', 'backend', 'migrations', '205_writing_regrade_atomic_transitions.sql');
 
@@ -36,16 +36,55 @@ describe('Admin Writing Regrade native model', () => {
     assert.equal(normalizeRegradeList({ requests: [raw], capped: 'yes' }), null);
     assert.equal(normalizeRegradeDecision({ ...raw, status: 'accepted' }, 'r1', 'accepted').id, 'r1');
     assert.equal(normalizeRegradeDecision({ ...raw, status: 'accepted' }, 'other', 'accepted'), null);
-    assert.deepEqual(regradeFilters({ status: 'bad', q: ' student ' }), { status: 'pending', q: 'student' });
-    assert.equal(regradeHref({ status: 'fulfilled', q: 'S001' }), '/admin/writing/regrade-requests?status=fulfilled&q=S001');
-    assert.equal(regradeMatches(normalizeRegradeRequest(raw), { status: 'pending', q: 's001' }), true);
+    assert.deepEqual(regradeFilters({ status: 'bad', q: ' student ' }), { status: 'new', q: 'student' });
+    // Old ?status= links land on the FR-062 lane that holds them.
+    assert.deepEqual(regradeFilters({ status: 'fulfilled' }), { status: 'answered', q: '' });
+    assert.deepEqual(regradeFilters({ status: 'accepted' }), { status: 'regrading', q: '' });
+    assert.equal(regradeHref({ status: 'fulfilled', q: 'S001' }), '/admin/writing/regrade-requests?status=answered&q=S001');
+    assert.equal(regradeHref({ status: 'new', q: '' }), '/admin/writing/regrade-requests');
+    assert.equal(regradeMatches(normalizeRegradeRequest(raw), { status: 'new', q: 's001' }), true);
   });
 
   test('prioritizes oldest pending requests while keeping history newest first', () => {
     const older = normalizeRegradeRequest({ ...raw, id: 'older', created_at: '2026-08-11T00:00:00Z' });
     const newer = normalizeRegradeRequest({ ...raw, id: 'newer', created_at: '2026-08-13T00:00:00Z' });
-    assert.deepEqual(regradeSort([newer, older], 'pending').map((row) => row.id), ['older', 'newer']);
-    assert.deepEqual(regradeSort([older, newer], 'accepted').map((row) => row.id), ['newer', 'older']);
+    assert.deepEqual(regradeSort([newer, older], 'new').map((row) => row.id), ['older', 'newer']);
+    assert.deepEqual(regradeSort([older, newer], 'answered').map((row) => row.id), ['newer', 'older']);
+  });
+
+  test('FR-062 lanes: Mới, Đang chấm lại, Đã trả lời (rejected and fulfilled)', () => {
+    assert.deepEqual(['pending', 'accepted', 'rejected', 'fulfilled'].map(regradeLane), ['new', 'regrading', 'answered', 'answered']);
+    const rejected = normalizeRegradeRequest({ ...raw, status: 'rejected' });
+    assert.equal(regradeMatches(rejected, { status: 'answered', q: '' }), true);
+    assert.equal(regradeMatches(rejected, { status: 'new', q: '' }), false);
+  });
+
+  test('wait counts from the request and is overdue only for open requests past regrade_hours', () => {
+    const sent = Date.parse('2026-08-13T00:00:00Z');
+    const row = normalizeRegradeRequest(raw);
+    assert.deepEqual(regradeWait(row, sent + 49 * 3_600_000, 48), { hours: 49, open: true, overdue: true });
+    assert.deepEqual(regradeWait(row, sent + 47 * 3_600_000, 48), { hours: 47, open: true, overdue: false });
+    // Unknown threshold: never shown as on time.
+    assert.equal(regradeWait(row, sent + 49 * 3_600_000, null).overdue, null);
+    const answered = normalizeRegradeRequest({ ...raw, status: 'rejected' });
+    assert.equal(regradeWait(answered, sent + 99 * 3_600_000, 48).overdue, false);
+    assert.equal(waitLabel(0), 'dưới 1 giờ'); assert.equal(waitLabel(5), '5 giờ'); assert.equal(waitLabel(73), '3 ngày');
+  });
+
+  test('list envelope carries regrade_hours; a missing or failed threshold is reported', () => {
+    assert.deepEqual(
+      (({ regradeHours, thresholdsFailed }) => ({ regradeHours, thresholdsFailed }))(normalizeRegradeList({ requests: [raw], capped: false, regrade_hours: 48, thresholds_failed: false })),
+      { regradeHours: 48, thresholdsFailed: false });
+    assert.equal(normalizeRegradeList({ requests: [raw], capped: false, regrade_hours: null, thresholds_failed: true }).thresholdsFailed, true);
+    assert.equal(normalizeRegradeList({ requests: [raw], capped: false }).thresholdsFailed, true);
+    assert.equal(normalizeRegradeList({ requests: [raw], capped: false, regrade_hours: 0 }).regradeHours, null);
+  });
+
+  test('"Giữ nguyên điểm" needs at least 40 characters after trimming', () => {
+    assert.equal(KEEP_MIN_CHARS, 40);
+    assert.match(keepExplanationError('   '), /Viết giải thích/);
+    assert.match(keepExplanationError(`  ${'x'.repeat(39)}  `), /ít nhất 40 ký tự \(đang có 39\)/);
+    assert.equal(keepExplanationError('x'.repeat(40)), null);
   });
 });
 
@@ -72,6 +111,20 @@ describe('/admin/writing/regrade-requests native ownership and safety', () => {
     assert.match(COMPONENT, /detailRequestId !== detailSequence\.current/);
     assert.match(COMPONENT, /mutationLock\.current/);
     assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
+  });
+
+  test('FR-062 decision screen: three decisions, the no-deduct line always, answered is read-only', () => {
+    for (const label of ['Giữ nguyên điểm', 'Điều chỉnh điểm', 'Chấm lại bằng AI']) assert.ok(COMPONENT.includes(`label: '${label}'`));
+    assert.match(COMPONENT, /const NO_DEDUCT = 'Không trừ lượt chấm AI của học viên\.'/);
+    // The line sits outside every status/decision condition of the dialog.
+    assert.match(COMPONENT, /\n {8}<p className="awr-no-deduct" role="note"><strong>\{NO_DEDUCT\}<\/strong>/);
+    assert.match(COMPONENT, /keepExplanationError\(trimmed\)/);
+    assert.match(COMPONENT, /Cảnh báo · tốn chi phí AI/);
+    assert.match(COMPONENT, /\/admin\/writing\/essays\/\$\{encodeURIComponent\(essayId\)\}\/regrade/);
+    assert.match(COMPONENT, /Đã nhận yêu cầu nhưng chưa gửi được bài cho AI/);
+    // Decisions render only for a pending request; others get Đóng (+ Mở màn chấm while regrading).
+    assert.match(COMPONENT, /selected\.status === 'pending' && !pendingDecision\.current && <fieldset className="awr-decisions"/);
+    assert.match(COMPONENT, /Chưa đọc được ngưỡng/);
   });
 
   test('renders contract failures, cap truth and accessible responsive UI', () => {

@@ -35,12 +35,15 @@ import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from database import supabase_admin
 from services.speaking_submission import submission_id
+from services import retention_policy
 from services.retention import (
     RETENTION_AUDIO_DAYS,
     RETENTION_CONTENT_DAYS,
+    RetentionPolicy,
     compute_expiry,
 )
 
@@ -65,21 +68,64 @@ def _cutoff_iso(days: int) -> str:
 
 # ── Eligibility (DB pre-filter narrows; compute_expiry is authoritative) ───────
 
-def _eligible(purged_col: str, days: int, expiry_key: str) -> list[dict]:
+_PAGE = 1000  # PostgREST's default max-rows; every page is read until a short one.
+
+
+def _candidate_pages(purged_col: str, cutoff: str):
+    """Every pre-filtered session, one page at a time in a stable order (id).
+    A single capped read would let sessions the sweep keeps fill the first
+    page on every run, so later candidates were never reached. The reads all
+    finish before any purge (the caller collects the list first). The offset
+    moves by the rows actually returned and only an empty page ends the
+    read, so a PostgREST max-rows below ``_PAGE`` cannot end it early."""
+    offset = 0
+    while True:
+        page = (
+            supabase_admin.table("sessions")
+            .select(
+                "id, user_id, status, started_at, resume_expires_at, "
+                "last_accessed_at, audio_purged_at, content_purged_at"
+            )
+            .is_(purged_col, "null")
+            .lt("started_at", cutoff)
+            .order("id")
+            .range(offset, offset + _PAGE - 1)
+            .execute()
+            .data
+        ) or []
+        if not page:
+            return
+        yield page
+        offset += len(page)
+
+
+def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = False) -> list[dict]:
+    """``per_user`` (content only, plan 5.14): after the default pre-filter,
+    each row's owner window comes from ``retention_policy.content_windows``.
+    ``open`` owners are never purged; ``default`` owners follow today's rule;
+    ``until`` owners are eligible once their window has closed (the same
+    ``compute_expiry`` the UI uses). An owner whose window could not be read
+    is skipped. With the flag on, the purge itself goes through the 505 RPC,
+    which checks again under the learner's locks (G04-T10b). Audio never
+    uses it (FR-029)."""
     cutoff = _cutoff_iso(days)
-    rows = (
-        supabase_admin.table("sessions")
-        .select(
-            "id, user_id, status, started_at, resume_expires_at, "
-            "last_accessed_at, audio_purged_at, content_purged_at"
-        )
-        .is_(purged_col, "null")
-        .lt("started_at", cutoff)
-        .execute()
-        .data
-    ) or []
-    # Confirm with the SAME policy the UI uses — never purge what the UI shows safe.
-    return [r for r in rows if compute_expiry(r)[expiry_key]]
+    out, skipped = [], 0
+    for rows in _candidate_pages(purged_col, cutoff):
+        # Confirm with the SAME policy the UI uses — never purge what the UI shows safe.
+        if not per_user:
+            out.extend(r for r in rows if compute_expiry(r)[expiry_key])
+            continue
+        windows = retention_policy.content_windows((r.get("user_id") for r in rows), db=supabase_admin)
+        for r in rows:
+            window = windows.get(str(r.get("user_id")))
+            if window is None:
+                skipped += 1
+                continue
+            if compute_expiry(r, policy=RetentionPolicy(window=window))[expiry_key]:
+                out.append(r)
+    if skipped:
+        logger.warning("[sweep] content skipped=%d sessions (retention window unknown)", skipped)
+    return out
 
 
 def _audio_paths(session_id: str, user_id: str | None = None) -> list[str]:
@@ -203,17 +249,113 @@ def sweep_audio() -> dict:
             "objects": objects, "errors": errors}
 
 
+def _still_purgeable(session: dict, *, default_only: bool = False) -> bool:
+    """Guard at the purge itself (FR-048): the batch decision in ``_eligible``
+    may be stale once a course is granted or renewed while the run goes on.
+    Re-read this session and its owner's window now, through the same client
+    and rule, and purge only if both still say so. Unreadable → keep.
+    ``default_only`` (the unlocked path): any window other than today's rule
+    keeps the content, so a flag that turns on mid-run never sends a
+    course-window learner to the unlocked purge."""
+    sid = session["id"]
+    fresh = (
+        supabase_admin.table("sessions")
+        .select(
+            "id, user_id, status, started_at, resume_expires_at, "
+            "last_accessed_at, audio_purged_at, content_purged_at"
+        )
+        .eq("id", sid)
+        .execute()
+        .data
+    ) or []
+    if not fresh or fresh[0].get("content_purged_at"):
+        return False
+    row = fresh[0]
+    window = retention_policy.content_windows([row.get("user_id")], db=supabase_admin).get(
+        str(row.get("user_id")))
+    if window is None or (default_only and window.mode != "default"):
+        return False
+    return bool(compute_expiry(row, policy=RetentionPolicy(window=window))["is_content_purged"])
+
+
+_PURGE_RPC = "fn_retention_purge_content"
+
+
+class _NoPurgeFunction(Exception):
+    """505 is not applied on this database: nothing can be purged by window."""
+
+
+def _purge_content_locked(session: dict) -> str:
+    """Flag on (G04-T10b): purge through the 505 RPC, which re-checks the
+    learner's course access and window under their locks and scrubs in the
+    same transaction. Returns the RPC status (``purged``, ``kept``,
+    ``already_purged``, ``not_found``)."""
+    if DRY_RUN:
+        return "purged"
+    _retire_expired_open_session(session)
+    try:
+        result = supabase_admin.rpc(_PURGE_RPC, {
+            "p_session_id": session["id"],
+            "p_after_expiry_days": retention_policy.after_expiry_days(),
+        }).execute().data
+    except Exception as exc:  # noqa: BLE001
+        text = str(exc)
+        if _PURGE_RPC in text and ("PGRST202" in text or "does not exist" in text or "Could not find" in text):
+            raise _NoPurgeFunction() from exc
+        raise
+    status = (result or {}).get("status") if isinstance(result, dict) else None
+    if status is None:
+        raise RuntimeError(f"{_PURGE_RPC} answered {result!r}")
+    if status == "kept":
+        logger.info("[sweep] content kept session=%s reason=%s", session["id"], result.get("reason"))
+    return status
+
+
+def _window_purge_on() -> Optional[bool]:
+    """The flag read straight from the DB once per run: True (on), False
+    (confirmed off) or None (unreadable). This one answer picks the purge
+    path for the whole run; only a confirmed off allows the unlocked one."""
+    try:
+        return retention_policy._flag_from(supabase_admin)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[sweep] content flag read failed: %s", exc)
+        return None
+
+
 def sweep_content() -> dict:
-    eligible = _eligible("content_purged_at", RETENTION_CONTENT_DAYS, "is_content_purged")
-    purged, errors = 0, []
-    for s in eligible:
+    eligible = _eligible("content_purged_at", RETENTION_CONTENT_DAYS, "is_content_purged", per_user=True)
+    purged, kept, errors = 0, 0, []
+    mode = _window_purge_on() if eligible else False
+    if mode is None:
+        # Not knowing the flag, neither path is safe: keep everything this run.
+        logger.warning("[sweep] content skipped=flag_unreadable kept=%d sessions", len(eligible))
+        return {"op": "content", "eligible": len(eligible), "purged": 0, "kept": len(eligible), "errors": []}
+    locked = mode is True
+    for n, s in enumerate(eligible):
         try:
-            _purge_content(s)
-            purged += 1
+            if not _still_purgeable(s, default_only=not locked):
+                kept += 1
+                continue
+            if not locked:
+                _purge_content(s)
+                purged += 1
+            elif _purge_content_locked(s) == "purged":
+                purged += 1
+            else:
+                kept += 1
+        except _NoPurgeFunction:
+            # Flag on without 505: keep everything (never fall back to an
+            # unlocked purge); the rollout applies 505 before the flag.
+            kept += len(eligible) - n
+            logger.warning("[sweep] content skipped=no_function kept=%d sessions (%s missing)",
+                           len(eligible) - n, _PURGE_RPC)
+            break
         except Exception as exc:  # noqa: BLE001
             errors.append({"session_id": s["id"], "error": str(exc)})
             logger.warning("[sweep] content purge failed session=%s: %s", s["id"], exc)
-    return {"op": "content", "eligible": len(eligible), "purged": purged, "errors": errors}
+    if kept:
+        logger.warning("[sweep] content kept=%d sessions (window changed or unreadable at purge time)", kept)
+    return {"op": "content", "eligible": len(eligible), "purged": purged, "kept": kept, "errors": errors}
 
 
 def main() -> dict:

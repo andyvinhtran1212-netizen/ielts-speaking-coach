@@ -3,8 +3,8 @@
  *
  * Pins the admin Feedback page: nav registration, the box-sizing-safe link set,
  * filter + group-by-test + status-PATCH + deep-link contract, and the
- * token-mapped CSS. The pure helpers (filter/group/deepLink/avg) are EXECUTED
- * by extracting them from source; the rest are source-assertion sentinels.
+ * token-mapped CSS. The pure helpers are EXECUTED from
+ * lib/admin-feedback-model.mjs; the rest are source-assertion sentinels.
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
@@ -16,7 +16,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 
 const HTML = read('pages', 'admin', 'feedback', 'index.html');
-const JS = read('js', 'admin-feedback.js');
+// LEGACYJS-0075 W4a — admin-feedback.js is retired; the Next inbox owner and its
+// model hold the endpoint + helper contract.
+const TSX = read('app', '(authed-admin)', '(feedback)', 'admin', 'feedback', 'admin-feedback.tsx');
+const M = await import(join(__dirname, '..', 'lib', 'admin-feedback-model.mjs'));
 const CSS = read('css', 'admin-feedback.css');
 const CHROME = read('js', 'components', 'aver-admin-chrome.js');
 
@@ -50,111 +53,81 @@ describe('Admin feedback — page shell (box-sizing-safe)', () => {
 });
 
 
-describe('Admin feedback — endpoint contract (#458)', () => {
+describe('Admin feedback — endpoint contract (#458), Next owner', () => {
   it('GETs the grouped list + PATCHes status', () => {
-    assert.match(JS, /window\.api\.get\('\/api\/admin\/feedback'\)/);
-    assert.match(JS, /window\.api\.patch\('\/api\/admin\/feedback\/'\s*\+\s*encodeURIComponent\(id\),\s*\{\s*status:\s*next\s*\}\)/);
+    assert.match(TSX, /window\.api\.get<unknown>\(`\/api\/admin\/feedback\$\{suffix\}`\)/);
+    assert.match(TSX, /window\.api\.patch<[^>]+>\(`\/api\/admin\/feedback\/\$\{encodeURIComponent\(item\.id\)\}`, \{ status: nextStatus \}\)/);
   });
-  it('status toggle is optimistic + reverts on error', () => {
-    assert.match(JS, /row\.status = next;\s*\/\/ optimistic/);
-    assert.match(JS, /row\.status = prev;\s*\/\/ revert/);
+  it('status toggle waits for the server and re-reads canonical state (no optimistic flip)', () => {
+    assert.match(TSX, /if \(result\?\.id !== item\.id \|\| result\?\.status !== nextStatus\) throw/);
+    assert.match(TSX, /const verified = await load\(latestFilters\.current\)/);
+    assert.doesNotMatch(TSX, /\/\/ optimistic/);
   });
-  it('rollback page preserves unavailable and partial read truth', () => {
-    assert.match(JS, /_coverage === 'unavailable'/);
-    assert.match(JS, /không thể kết luận hộp thư đang trống/);
-    assert.match(JS, /_coverage === 'partial'/);
-    assert.match(JS, /chỉ là cận dưới/);
-    assert.match(JS, /renderReadState\(d \|\| \{\}\)/);
-    assert.match(JS, /fbx-count-n'\)\.textContent = '≥ '/);
-    assert.match(JS, /if \(!_all\.length\) \$\('fbx-empty'\)\.hidden = true/);
-    assert.match(CSS, /\.adm-banner\.is-warning/);
+  it('preserves unavailable and partial read truth', () => {
+    assert.match(TSX, /inbox\?\.status === 'unavailable' &&[^\n]*Không hiển thị số 0/);
+    assert.match(TSX, /inbox\?\.status === 'partial' &&[^\n]*cận dưới/);
+    assert.match(TSX, /const lowerBound = inbox\?\.status === 'partial' \? '≥ ' : ''/);
+    assert.match(TSX, /inbox && inbox\.status !== 'unavailable' && </);
+    assert.match(CSS, /\.adm-banner\.is-warning/);   // retired page style kept
   });
-  it('rollback page consumes privacy-minimized identity_kind, not removed user UUIDs', () => {
-    assert.match(JS, /r\.identity_kind === 'user'/);
-    assert.match(JS, /r\.identity_kind === 'anonymous'/);
-    assert.doesNotMatch(JS, /học viên #' \+ String\(r\.created_by\)/);
+  it('consumes privacy-minimized identity_kind, not removed user UUIDs', () => {
+    assert.match(TSX, /item\.identityKind === 'anonymous'/);
+    assert.doesNotMatch(TSX, /created_by/);
+    const inbox = M.normalizeFeedbackInbox({
+      data_status: 'complete', snapshot_to: '2026-11-23T00:00:00Z', count: 1, groups: [],
+      items: [{ id: 'f1', type: 'flag', skill: 'reading', status: 'new', identity_kind: 'user', created_by: 'uuid-x' }],
+    });
+    assert.equal(inbox.items[0].identityKind, 'user');
+    assert.equal('createdBy' in inbox.items[0], false);
   });
 });
 
 
-describe('Admin feedback — pure helpers (executed)', () => {
-  // extract the self-contained helpers + the DEEP_LINK map from source and run them
-  function loadHelpers() {
-    const dl = JS.match(/var DEEP_LINK = \{[\s\S]*?\};/)[0];
-    const rmf = JS.match(/function rowMatchesFilters\(r, f\) \{[\s\S]*?\n  \}/)[0];
-    const grp = JS.match(/function groupByTest\(rows\) \{[\s\S]*?\n  \}/)[0];
-    const dlf = JS.match(/function deepLink\(r\) \{[\s\S]*?\n  \}/)[0];
-    const avg = JS.match(/function avg\(nums\) \{[\s\S]*?\n  \}/)[0];
-    return new Function(
-      dl + '\n' + rmf + '\n' + grp + '\n' + dlf + '\n' + avg +
-      '\nreturn { rowMatchesFilters, groupByTest, deepLink, avg };'
-    )();
-  }
-  const H = loadHelpers();
+describe('Admin feedback — pure helpers (executed from the model)', () => {
+  const base = { snapshot_to: '2026-11-23T00:00:00Z', groups: [] };
 
-  function loadReadState() {
-    const body = JS.match(/function renderReadState\(d\) \{[\s\S]*?\n  \}/)[0];
-    const nodes = {
-      'fbx-loading': { hidden: false }, 'fbx-empty': { hidden: true },
-      'fbx-groups': { hidden: false, innerHTML: 'stale' },
-      'fbx-count-n': { textContent: '0' },
-    };
-    const calls = [];
-    return new Function(
-      'nodes', 'calls',
-      'var _all = []; var _coverage = "complete";' +
-      'function $(id) { return nodes[id]; }' +
-      'function banner(msg, isErr, isWarning) { calls.push({ msg, isErr, isWarning }); }' +
-      'function render() { nodes["fbx-empty"].hidden = _all.length !== 0; nodes["fbx-count-n"].textContent = String(_all.length); }' +
-      body +
-      '; return { run: renderReadState, nodes, calls };',
-    )(nodes, calls);
-  }
-
-  it('rowMatchesFilters honours type + status + skill', () => {
-    const r = { type: 'flag', status: 'new', skill: 'listening' };
-    assert.equal(H.rowMatchesFilters(r, { type: '', status: '', skill: '' }), true);
-    assert.equal(H.rowMatchesFilters(r, { type: 'flag', status: '', skill: '' }), true);
-    assert.equal(H.rowMatchesFilters(r, { type: 'report', status: '', skill: '' }), false);
-    assert.equal(H.rowMatchesFilters(r, { type: '', status: 'resolved', skill: '' }), false);
-    assert.equal(H.rowMatchesFilters(r, { type: '', status: '', skill: 'reading' }), false);
+  it('filters normalize type + status + skill (default status "new")', () => {
+    assert.deepEqual(M.normalizeFeedbackFilters({}), { type: '', skill: '', status: 'new' });
+    assert.deepEqual(M.normalizeFeedbackFilters({ type: 'flag', skill: 'listening', status: 'all' }), { type: 'flag', skill: 'listening', status: '' });
+    assert.deepEqual(M.normalizeFeedbackFilters({ type: 'x', skill: 'y', status: 'resolved' }), { type: '', skill: '', status: 'resolved' });
   });
-  it('groupByTest groups rows under their test_id', () => {
-    const groups = H.groupByTest([
-      { test_id: 'A', skill: 'listening', type: 'rating' },
-      { test_id: 'A', skill: 'listening', type: 'flag' },
-      { test_id: 'B', skill: 'reading', type: 'report' },
+  it('groups rows under skill + test_id', () => {
+    const groups = M.groupFeedbackItems([
+      { testId: 'A', skill: 'listening', type: 'rating', status: 'new' },
+      { testId: 'A', skill: 'listening', type: 'flag', status: 'resolved' },
+      { testId: 'B', skill: 'reading', type: 'report', status: 'new' },
     ]);
     assert.equal(groups.length, 2);
-    const a = groups.find((g) => g.test_id === 'A');
+    const a = groups.find((g) => g.testId === 'A');
     assert.equal(a.items.length, 2);
+    assert.equal(a.newCount, 1);
   });
-  it('deepLink targets the right admin page per skill (+ #q anchor)', () => {
-    assert.equal(H.deepLink({ skill: 'reading', test_id: 'RD-1', q_num: 3 }),
-      '/pages/admin/reading/content.html?test=RD-1#q3');
-    assert.equal(H.deepLink({ skill: 'listening', test_id: 'LIS-1' }),
-      '/pages/admin/listening/tests.html?test=LIS-1');
-    assert.equal(H.deepLink({ skill: 'vocabulary', test_id: 'vocabulary:work/career-path' }),
+  it('deep link targets the right admin page per skill', () => {
+    assert.equal(M.feedbackDeepLink({ skill: 'reading', testId: 'RD-1', questionNumber: 3 }), '/admin/reading/preview?test_id=RD-1#q3');
+    assert.equal(M.feedbackDeepLink({ skill: 'listening', testId: 'LIS-1' }), '/admin/listening/tests');
+    assert.equal(M.feedbackDeepLink({ skill: 'vocabulary', testId: 'vocabulary:work/career-path' }),
       '/vocabulary?cat=work&slug=career-path');
-    assert.equal(H.deepLink({ skill: 'listening' }), null);   // no test_id → no link
+    assert.equal(M.feedbackDeepLink({ skill: 'listening', testId: null }), null);   // no test_id → no link
   });
-  it('avg ignores nulls', () => {
-    assert.equal(H.avg([5, null, 4]), 4.5);
-    assert.equal(H.avg([null, null]), null);
+  it('average ignores nulls and out-of-range values', () => {
+    assert.equal(M.averageRating([5, null, 4]), 4.5);
+    assert.equal(M.averageRating([null, null]), null);
+    assert.equal(M.averageRating([9, 0]), null);
   });
   it('first-page failure is unavailable, never a canonical empty inbox', () => {
-    const state = loadReadState();
-    assert.equal(state.run({ data_status: 'unavailable', items: [] }), false);
-    assert.equal(state.nodes['fbx-empty'].hidden, true);
-    assert.equal(state.nodes['fbx-groups'].hidden, true);
-    assert.match(state.calls.at(-1).msg, /không thể kết luận hộp thư đang trống/);
+    const inbox = M.normalizeFeedbackInbox({ ...base, data_status: 'unavailable', count: null, items: [] });
+    assert.equal(inbox.status, 'unavailable');
+    assert.equal(inbox.count, null);
+    assert.equal(M.normalizeFeedbackInbox({ ...base, data_status: 'unavailable', count: 0, items: [] }), null);
   });
-  it('later-page failure keeps rows but marks every count as a lower bound', () => {
-    const state = loadReadState();
-    assert.equal(state.run({ data_status: 'partial', items: [{ id: 'f1' }] }), true);
-    assert.equal(state.nodes['fbx-count-n'].textContent, '≥ 1');
-    assert.equal(state.nodes['fbx-empty'].hidden, true);
-    assert.equal(state.calls.at(-1).isWarning, true);
+  it('later-page failure keeps rows but is marked partial (lower bound)', () => {
+    const inbox = M.normalizeFeedbackInbox({
+      ...base, data_status: 'partial', truncated: true, count: 1,
+      items: [{ id: 'f1', type: 'flag', skill: 'reading', status: 'new' }],
+    });
+    assert.equal(inbox.status, 'partial');
+    assert.equal(inbox.items.length, 1);
+    assert.equal(M.normalizeFeedbackInbox({ ...base, data_status: 'partial', truncated: false, count: 0, items: [] }), null);
   });
 });
 

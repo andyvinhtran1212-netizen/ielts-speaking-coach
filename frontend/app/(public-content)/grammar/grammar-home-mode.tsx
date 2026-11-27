@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { grammarMode, grammarModeHref } from '@/lib/grammar-navigation-context.mjs';
 import { articleUrl } from './grammar-cards';
+import s from './grammar-learning.module.css';
 
 type DashboardArticle = { slug: string; title: string; category: string };
 // Wire shape of `GET /api/grammar/dashboard-data` → `weak_areas[]`
@@ -97,27 +98,27 @@ export function GrammarModeSwitcher({ reference, learning }: { reference: ReactN
   };
   return (
     <div>
-      <div className="gw-mode-switch" role="tablist" aria-label="Chế độ Grammar Wiki">
-        <button id="grammar-mode-reference" type="button" role="tab" aria-controls="grammar-panel-reference" aria-selected={mode === 'reference'} tabIndex={mode === 'reference' ? 0 : -1} onKeyDown={handleKeyDown} onClick={() => setMode('reference')}>
+      <div className={`gw-mode-switch ${s.modeSwitch}`} role="tablist" aria-label="Chế độ Grammar Wiki">
+        <button id="grammar-mode-reference" type="button" role="tab" aria-controls="grammar-panel-reference" className={s.modeTab} aria-selected={mode === 'reference'} tabIndex={mode === 'reference' ? 0 : -1} onKeyDown={handleKeyDown} onClick={() => setMode('reference')}>
           <span aria-hidden="true">⌕</span><strong>Tra cứu</strong><small>Tìm câu trả lời ngay</small>
         </button>
-        <button id="grammar-mode-learning" type="button" role="tab" aria-controls="grammar-panel-learning" aria-selected={mode === 'learning'} tabIndex={mode === 'learning' ? 0 : -1} onKeyDown={handleKeyDown} onClick={() => setMode('learning')}>
+        <button id="grammar-mode-learning" type="button" role="tab" aria-controls="grammar-panel-learning" className={s.modeTab} aria-selected={mode === 'learning'} tabIndex={mode === 'learning' ? 0 : -1} onKeyDown={handleKeyDown} onClick={() => setMode('learning')}>
           <span aria-hidden="true">↗</span><strong>Học &amp; luyện</strong><small>Đi theo lộ trình của bạn</small>
         </button>
       </div>
-      <div id="grammar-panel-reference" role="tabpanel" aria-labelledby="grammar-mode-reference" className="gw-mode-panel" hidden={mode !== 'reference'}>{reference}</div>
-      <div id="grammar-panel-learning" role="tabpanel" aria-labelledby="grammar-mode-learning" className="gw-mode-panel" hidden={mode !== 'learning'}>{learning}</div>
+      <div id="grammar-panel-reference" role="tabpanel" aria-labelledby="grammar-mode-reference" className={`gw-mode-panel ${s.panel}`} hidden={mode !== 'reference'}>{reference}</div>
+      <div id="grammar-panel-learning" role="tabpanel" aria-labelledby="grammar-mode-learning" className={`gw-mode-panel ${s.panel}`} hidden={mode !== 'learning'}>{learning}</div>
     </div>
   );
 }
 
 function ArticleList({ title, items, empty }: { title: string; items?: DashboardArticle[]; empty: string }) {
   return (
-    <section className="gw-learning-card">
-      <h3>{title}</h3>
+    <section className={`gw-learning-card ${s.card}`}>
+      <h3 className={s.cardTitle}>{title}</h3>
       {items?.length ? <ul>{items.slice(0, 4).map((item) => (
         <li key={item.slug}><Link href={articleUrl(item.category, item.slug, 'learning')}>{item.title}<span>→</span></Link></li>
-      ))}</ul> : <p>{empty}</p>}
+      ))}</ul> : <p className={s.cardEmpty}>{empty}</p>}
     </section>
   );
 }
@@ -144,25 +145,25 @@ export function GrammarLearningDashboard() {
     return () => { disposed = true; };
   }, []);
 
-  if (state === 'loading') return <div className="skeleton h-56 rounded-2xl" aria-label="Đang tải lộ trình" />;
+  if (state === 'loading') return <div className={s.loading} role="status" aria-label="Đang tải lộ trình" />;
   if (state === 'guest') return (
-    <div className="gw-personal-empty">
-      <span className="gw-personal-orbit" aria-hidden="true">◎</span>
-      <div><h3>Mở lộ trình cá nhân</h3><p>Đăng nhập để tiếp tục bài vừa đọc, xem bài đã lưu và ưu tiên đúng điểm ngữ pháp còn yếu.</p></div>
-      <Link href="/login">Đăng nhập →</Link>
+    <div className={`gw-personal-empty ${s.callout}`}>
+      <span className={`gw-personal-orbit ${s.orbit}`} aria-hidden="true">◎</span>
+      <div><h3 className={s.calloutTitle}>Mở lộ trình cá nhân</h3><p className={s.calloutText}>Đăng nhập để tiếp tục bài vừa đọc, xem bài đã lưu và ưu tiên đúng điểm ngữ pháp còn yếu.</p></div>
+      <Link href="/login" className={s.calloutAction}>Đăng nhập →</Link>
     </div>
   );
-  if (state === 'error') return <p className="gw-state-card">Không tải được dữ liệu cá nhân. Nội dung Grammar Wiki vẫn có thể tra cứu bình thường.</p>;
+  if (state === 'error') return <p className={`gw-state-card ${s.state}`} role="alert">Không tải được dữ liệu cá nhân. Nội dung Grammar Wiki vẫn có thể tra cứu bình thường.</p>;
 
   const nextNodes = roadmap.mode === 'personal' ? roadmap.nodes || [] : [];
   return (
     <div className="gw-learning-dashboard">
-      <section className="gw-next-step">
-        <div><span className="gw-lab-eyebrow">Bước tiếp theo</span><h3>{nextNodes[0]?.title || 'Làm một bài kiểm tra để dựng lộ trình'}</h3>
-          <p>{nextNodes[0] ? (nextNodes[0].is_weak ? 'Điểm yếu được phát hiện từ kết quả luyện tập.' : 'Nền tảng cần củng cố trước điểm yếu tiếp theo.') : 'Hệ thống chỉ cá nhân hóa khi có evidence thật từ bài luyện.'}</p></div>
-        <Link href={nextNodes[0] ? articleUrl(nextNodes[0].category, nextNodes[0].slug, 'learning') : '/grammar/exercises'}>{nextNodes[0] ? 'Học tiếp →' : 'Chọn bài luyện →'}</Link>
+      <section className={`gw-next-step ${s.callout}`}>
+        <div><span className={`gw-lab-eyebrow ${s.eyebrow}`}>Bước tiếp theo</span><h3 className={s.calloutTitle}>{nextNodes[0]?.title || 'Làm một bài kiểm tra để dựng lộ trình'}</h3>
+          <p className={s.calloutText}>{nextNodes[0] ? (nextNodes[0].is_weak ? 'Điểm yếu được phát hiện từ kết quả luyện tập.' : 'Nền tảng cần củng cố trước điểm yếu tiếp theo.') : 'Hệ thống chỉ cá nhân hóa khi có evidence thật từ bài luyện.'}</p></div>
+        <Link className={s.calloutAction} href={nextNodes[0] ? articleUrl(nextNodes[0].category, nextNodes[0].slug, 'learning') : '/grammar/exercises'}>{nextNodes[0] ? 'Học tiếp →' : 'Chọn bài luyện →'}</Link>
       </section>
-      <div className="gw-learning-grid">
+      <div className={`gw-learning-grid ${s.grid}`}>
         <ArticleList title="Vừa xem" items={dashboard.recently_viewed} empty="Chưa có lịch sử đọc." />
         <ArticleList title="Đã lưu" items={dashboard.saved_articles} empty="Lưu bài để quay lại nhanh." />
         <ArticleList title="Điểm cần củng cố" items={normalizeWeakAreas(dashboard.weak_areas)} empty="Chưa có lỗi lặp lại đủ để kết luận." />

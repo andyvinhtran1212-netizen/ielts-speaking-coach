@@ -7,7 +7,7 @@ import { useDialogFocus } from '@/lib/use-dialog-focus';
 
 import { ThemeChoiceGroup } from '../theme-choice';
 import { useLearnerShellPanel } from './learner-panel';
-import { ACCOUNT_LINKS, ADMIN_SWITCH } from './learner-sections';
+import { ACCOUNT_LINKS, ADMIN_SWITCH, INSTRUCTOR_SWITCH } from './learner-sections';
 import styles from './learner-shell.module.css';
 
 export type LearnerUser = { name: string; email: string; initials: string };
@@ -16,12 +16,18 @@ export type AccountMenuProps = {
   user: LearnerUser;
   /** True only when the server profile (`/auth/me`) says admin. Never inferred on the client. */
   canSwitchToAdmin: boolean;
+  /**
+   * True only when the server profile says instructor or admin (LEARNERNAV-0062
+   * FR-003). Not passed, an unconfirmed role or an expired session: no switch.
+   */
+  canSwitchToInstructor?: boolean;
 };
 
 /**
  * Account button and menu (UIBASE-0056 FR-008, KhungTrang §1, §3): name and
  * email on top, then Tiến độ · Khoá học và lượt AI · Hồ sơ · Trợ giúp ·
- * (Đổi vai trò, admins only, no gap otherwise) · theme · Đăng xuất below a rule.
+ * (Đổi vai trò: sang Quản trị for admins, sang Giáo viên for instructors and
+ * admins; no gap otherwise) · theme · Đăng xuất below a rule.
  * A 288px popover from 768px; a bottom sheet with "Đóng" on a phone. Closes on
  * the button, a click outside or Esc, and focus returns to the button. The
  * phone sheet is modal (focus trap, Esc from anywhere, no page scroll).
@@ -42,7 +48,7 @@ function usePhoneSheet() {
   return phone;
 }
 
-export function AccountMenu({ user, canSwitchToAdmin }: AccountMenuProps) {
+export function AccountMenu({ user, canSwitchToAdmin, canSwitchToInstructor = false }: AccountMenuProps) {
   const [open, setOpen] = useLearnerShellPanel('account');
   const [signingOut, setSigningOut] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -123,6 +129,9 @@ export function AccountMenu({ user, canSwitchToAdmin }: AccountMenuProps) {
               ))}
               {canSwitchToAdmin ? (
                 <li><a href={ADMIN_SWITCH.href} className={styles.accountItem}>{ADMIN_SWITCH.label}</a></li>
+              ) : null}
+              {canSwitchToInstructor ? (
+                <li><a href={INSTRUCTOR_SWITCH.href} className={styles.accountItem}>{INSTRUCTOR_SWITCH.label}</a></li>
               ) : null}
             </ul>
             <ThemeChoiceGroup className={styles.accountTheme} />

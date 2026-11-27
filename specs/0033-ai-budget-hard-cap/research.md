@@ -34,7 +34,7 @@ unreserved billable request. Only `services/ai_router.py:223` and
 | `services/d1_question_generator.py:479,558` | Haiku `D1_QUESTION_MODEL` (sync, SDK retries=2) → `D1_GENERATION_MODEL` | `d1_question_generation` | background job after vocabulary confirm (`routers/vocabulary_bank.py:464,510,565,605`) | learner | `_call_with_retry` ×3 per provider | none |
 | `services/d1_content_gen.py:170` | `gemini-2.5-flash` | `d1_content_generation` | `POST /admin/exercises/d1/generate-batch` (`routers/exercises.py:1530`) | admin | per chunk | none |
 | `services/vocab_enrichment.py:226` | `gemini-2.5-flash` | `vocab_enrichment` | `POST /admin/vocab/backfill-enrichment` (`routers/admin.py:4961`) | admin | per chunk | none |
-| Operator scripts | various | — | `audit_listening`, `backfill_d1_questions(_mcq)`, `backfill_quiz_why_wrong`, `gen_quiz_why_wrong`, `gen_reading_solutions`, `gen_d1_distractor_review`, `calibration_harness`/`multimodel_router`, `pregen_course_question_audio`, `pregen_vocab_audio`, `setup_course_pronunciation`, `regrade_failed_course_writing` (under `backend/scripts/`) | script | — | — |
+| Operator scripts | various | — | `audit_listening` (removed G01-T12), `backfill_d1_questions(_mcq)`, `backfill_quiz_why_wrong`, `gen_quiz_why_wrong`, `gen_reading_solutions`, `gen_d1_distractor_review`, `calibration_harness`/`multimodel_router`, `pregen_course_question_audio`, `pregen_vocab_audio`, `setup_course_pronunciation`, `regrade_failed_course_writing` (under `backend/scripts/`) | script | — | — |
 
 The following have no live caller. The FR-001 gate must still cover them
 or they must be deleted, which is a separate `small` change:

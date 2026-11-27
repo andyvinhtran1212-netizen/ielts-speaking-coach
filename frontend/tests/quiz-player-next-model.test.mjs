@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 
 import {
   correctAnswerText,
+  displayItemKey,
+  displayPointLabel,
   normalizeQuizBank,
   normalizeQuizQuery,
   quizAreaModel,
+  quizCounterText,
   quizEndPayload,
   quizResultModel,
   resolveQuizBank,
@@ -112,5 +115,41 @@ describe('Quiz progress outbox', () => {
     assert.equal(outbox.keepalivePayload(), null);
     assert.ok(drains >= 1);
     assert.equal(posts, 0);
+  });
+});
+
+// EXAMDRILL-0073 FR-008, FR-011.
+describe('Quick Check in the practice room: counter and labels', () => {
+  const grammarBank = (meta = {}) => ({
+    bank: { id: 'g1', skill_area: 'grammar', meta },
+    questions: [
+      { qid: 'a1', item_key: 'present-perfect-vs-past-simple' },
+      { qid: 'a2', item_key: 'present-perfect-vs-past-simple' },
+      { qid: 'b1', item_key: 'since-for' },
+    ],
+  });
+
+  test('a grammar point shows the bank name when it has one, else "Điểm ngữ pháp N", never the key', () => {
+    assert.equal(displayPointLabel(grammarBank(), 'since-for'), 'Điểm ngữ pháp 2');
+    assert.equal(displayPointLabel(grammarBank(), 'present-perfect-vs-past-simple'), 'Điểm ngữ pháp 1');
+    assert.equal(displayPointLabel(grammarBank(), 'unknown-key'), 'Điểm ngữ pháp');
+    assert.equal(displayPointLabel(grammarBank({ item_labels: { 'since-for': 'Since và for' } }), 'since-for'), 'Since và for');
+    assert.equal(displayPointLabel(grammarBank({ point_labels: { 'since-for': { title: 'Since / for' } } }), 'since-for'), 'Since / for');
+    assert.equal(displayPointLabel(grammarBank({ item_labels: { 'since-for': '  ' } }), 'since-for'), 'Điểm ngữ pháp 2');
+    assert.equal(displayPointLabel(grammarBank({ item_labels: {} }), 'constructor'), 'Điểm ngữ pháp');
+    // The old branch still renders the key as before.
+    assert.equal(displayItemKey('since-for', true), 'since for');
+  });
+
+  test('a vocabulary key is the word itself and stays', () => {
+    const bank = { bank: { id: 'v1', skill_area: 'vocab' }, questions: [{ qid: 'q', item_key: 'resilient' }] };
+    assert.equal(displayPointLabel(bank, 'resilient'), 'resilient');
+  });
+
+  test('the counter says "Câu N" with the mastery count and never "trên M"', () => {
+    assert.equal(quizCounterText(5, { mastered: 3, total: 10 }, false), 'Câu 5 · Đã thuộc 3/10');
+    assert.equal(quizCounterText(2, { mastered: 0, total: 4 }, true), 'Câu 2 · Đã nắm 0/4');
+    assert.equal(quizCounterText(0, { mastered: 0, total: 4 }, false), 'Câu 1 · Đã thuộc 0/4');
+    assert.doesNotMatch(quizCounterText(7, { mastered: 1, total: 4 }, false), /trên/);
   });
 });
