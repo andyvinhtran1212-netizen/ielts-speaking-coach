@@ -15,9 +15,11 @@ import { useSearchParams } from 'next/navigation';
 import { MockPostTestCapture, type CaptureEnvelope } from '@/components/mock-post-test-capture';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
+import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
 import {
   MOCK_LIVE_STATUSES,
   MOCK_SECTION_LABELS,
+  MOCK_SUBMIT_AUTO_RETRIES,
   MOCK_WRITING_GUIDANCE,
   MOCK_WRITING_TIME_SHARE_TOTAL,
   canDiscardWritingDrafts,
@@ -30,6 +32,7 @@ import {
   mockPlayerHref,
   mockSpeakingHref,
   mockSpeakingTopic,
+  mockSubmitOutcome,
   mockWordCount,
   mockWritingTimeAllocation,
   normalizeIntegrity,
@@ -40,8 +43,10 @@ import {
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
-type Section = 'listening' | 'reading' | 'writing';
-type ConnectionState = null | 'offline' | 'submitting' | 'submit_failed';
+import { MockExamRoom, type MockSubmitTrack } from './mock-exam-room';
+
+export type Section = 'listening' | 'reading' | 'writing';
+export type ConnectionState = null | 'offline' | 'submitting' | 'submit_failed';
 type SaveCue = 'idle' | 'saving' | 'saved' | 'failed';
 type Layout = 'left' | 'right' | 'top' | 'bottom';
 type PendingCapture = {
@@ -49,7 +54,7 @@ type PendingCapture = {
   envelope: CaptureEnvelope;
 };
 
-interface MockState {
+export interface MockState {
   sitting: {
     id: string;
     userId: string | null;
@@ -170,7 +175,7 @@ export function MockExamRunnerLoading() {
   return <LoadingCard>Đang tải bài thi…</LoadingCard>;
 }
 
-function ErrorCard({ message, retry, back }: { message: string; retry?: () => void; back?: { href: string; label: string } }) {
+export function ErrorCard({ message, retry, back }: { message: string; retry?: () => void; back?: { href: string; label: string } }) {
   return (
     <main className="me-center">
       <section className="me-card me-status-card" role="alert">
@@ -682,6 +687,9 @@ export function MockExamRunner() {
   const pollFailuresRef = useRef(0);
   const submittingRef = useRef(false);
   const owedSubmitRef = useRef<Section | null>(null);
+  // FR-007: the exam-room branch stops after its 3 automatic retries and waits
+  // for "Try again"; a poll or an `online` event must not restart the ladder.
+  const manualRetryRef = useRef<Section | null>(null);
   const submitTimersRef = useRef<Set<number>>(new Set());
   const activeSectionRef = useRef<Section | null>(null);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
@@ -694,6 +702,17 @@ export function MockExamRunner() {
   const hiddenAtRef = useRef<number | null>(null);
   const currentSittingRef = useRef<string | null>(null);
   const captureResolveRef = useRef<(() => void) | null>(null);
+  // EXAMMOCK-0071 FR-001: the flag is read on the client once window.api is
+  // ready (see the boot effect), so the first paint is the old loading card in
+  // both branches; the one render branch is below the hooks.
+  const [examRoom, setExamRoom] = useState(false);
+  const examRoomRef = useRef(false);
+  // FR-007: what this tab saw of a submit, for mockSubmitOutcome. Sections whose
+  // submit or collection this tab started (observed), and whose last flush
+  // reported nothing unsaved before that submit (flush secured).
+  const observedSubmitRef = useRef<Set<Section>>(new Set());
+  const flushSecuredRef = useRef<Set<Section>>(new Set());
+  const [submitTrack, setSubmitTrack] = useState<MockSubmitTrack | null>(null);
 
   stateRef.current = state;
   const view = state ? mockExamView(state) : 'loading';
@@ -788,6 +807,24 @@ export function MockExamRunner() {
     ).catch(() => {});
   }, [loadIntegrity]);
 
+  // FR-016: a link error never reaches the boot effect below, so read the flag
+  // here too (same point: once window.api is ready) and show the room's link
+  // error while the page leaves for /full-test (G02-T11). No request is made.
+  useEffect(() => {
+    if (!params.error) return undefined;
+    let disposed = false;
+    void whenGlobalReady(
+      () => typeof window.api?.getWith === 'function' && typeof window.api?.postWith === 'function',
+      'window.api (mock exam)',
+    ).then((ready) => {
+      if (!ready || disposed) return;
+      const on = examRoomEnabled('mock');
+      examRoomRef.current = on;
+      setExamRoom(on);
+    });
+    return () => { disposed = true; };
+  }, [params.error]);
+
   useEffect(() => {
     if (status !== 'signed-in' || !user?.id || !params.value) return undefined;
     const boot = ++bootRef.current;
@@ -807,6 +844,12 @@ export function MockExamRunner() {
         'window.api (mock exam)',
       );
       if (!ready || controller.signal.aborted || boot !== bootRef.current) return;
+      // FR-001: decide the branch once window.api is ready. The route script
+      // chain loads runtime-config.js before the client and api.js, so the
+      // config is there now; reading it at mount could run before it loads.
+      const on = examRoomEnabled('mock');
+      examRoomRef.current = on;
+      setExamRoom(on);
       try {
         let sittingId = params.value.sittingId;
         let createdNow = false;
@@ -848,7 +891,10 @@ export function MockExamRunner() {
         if (owed && !submittingRef.current) {
           if (isMockSubmitSettled(stateRef.current, owed)) {
             owedSubmitRef.current = null;
+            manualRetryRef.current = null;
             setConnection(null);
+          } else if (examRoomRef.current && manualRetryRef.current === owed) {
+            // Exhausted in the exam room: only "Try again" submits again.
           } else {
             owedSubmitRef.current = null;
             void submitRef.current(owed);
@@ -897,7 +943,10 @@ export function MockExamRunner() {
         if (owed && !submittingRef.current) {
           if (isMockSubmitSettled(stateRef.current, owed)) {
             owedSubmitRef.current = null;
+            manualRetryRef.current = null;
             setConnection(null);
+          } else if (examRoomRef.current && manualRetryRef.current === owed) {
+            // Exhausted in the exam room: only "Try again" submits again.
           } else {
             owedSubmitRef.current = null;
             void submitRef.current(owed);
@@ -918,17 +967,19 @@ export function MockExamRunner() {
     };
   }, [bumpIntegrity, closeHiddenInterval, loadState, reportIntegrity]);
 
-  const flushEmbed = useCallback((section: Section) => new Promise<void>((resolve, reject) => {
+  // Resolves with the child's `unsaved` count (a finite number ≥ 0); anything
+  // else, a timeout or no frame rejects (FR-004 `mock-flushed` contract).
+  const requestEmbedFlush = useCallback((section: Section) => new Promise<number>((resolve, reject) => {
     const frame = frameRef.current;
     if (!frame?.contentWindow) { reject(new Error('mock-embed-not-ready')); return; }
     let settled = false;
     let timeout: number | null = null;
-    const finish = (error?: Error) => {
+    const finish = (error?: Error, unsaved = 0) => {
       if (settled) return;
       settled = true;
       if (timeout != null) window.clearTimeout(timeout);
       window.removeEventListener('message', message);
-      if (error) reject(error); else resolve();
+      if (error) reject(error); else resolve(unsaved);
     };
     const message = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
@@ -938,7 +989,7 @@ export function MockExamRunner() {
         finish(new Error('mock-embed-invalid-flush-response'));
         return;
       }
-      finish(unsaved > 0 ? new Error('mock-embed-unsaved-answers') : undefined);
+      finish(undefined, unsaved);
     };
     window.addEventListener('message', message);
     try {
@@ -952,6 +1003,13 @@ export function MockExamRunner() {
       EMBED_FLUSH_TIMEOUT_MS,
     );
   }), []);
+
+  const flushEmbed = useCallback(async (section: Section) => {
+    const unsaved = await requestEmbedFlush(section);
+    if (unsaved > 0) throw new Error('mock-embed-unsaved-answers');
+    // FR-007 (2): the child reported nothing unsaved before this submit or collection.
+    flushSecuredRef.current.add(section);
+  }, [requestEmbedFlush]);
 
   const acknowledgeCollectionFlush = useCallback(async (section: Section) => {
     const sittingId = currentSittingRef.current;
@@ -980,6 +1038,15 @@ export function MockExamRunner() {
     if (!collectionKey || !pendingCollectionSection || !awaitingCollectionFlush) return undefined;
     let disposed = false;
     let retryTimer: number | null = null;
+    // FR-007: an invigilator collection is a submit this tab saw. Track it from
+    // the collection signal, before the final flush, so the outcome reads
+    // `submitting` while the flush retries; if the server then closes the
+    // section without a secured flush, the outcome is `closed_unconfirmed`.
+    observedSubmitRef.current.add(pendingCollectionSection);
+    // A secured flush from an earlier failed submit must not make this
+    // collection read `confirmed`: only this collection's flush counts.
+    flushSecuredRef.current.delete(pendingCollectionSection);
+    if (examRoomRef.current) setSubmitTrack({ section: pendingCollectionSection, retries: 0, error: null });
     const drain = async () => {
       try {
         if (pendingCollectionSection === 'writing') {
@@ -989,6 +1056,8 @@ export function MockExamRunner() {
         } else {
           await flushEmbed(pendingCollectionSection);
         }
+        // Writing: bridge.flush resolved with the boxes saved (it throws while dirty).
+        if (pendingCollectionSection === 'writing') flushSecuredRef.current.add('writing');
         await acknowledgeCollectionFlush(pendingCollectionSection);
         if (!disposed) setFlushedCollectionKey(collectionKey);
       } catch {
@@ -1019,6 +1088,9 @@ export function MockExamRunner() {
         `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/writing/submit`,
         finalWritingBodyRef.current,
       );
+      // FR-007 (2): the exact text reached the server. A lost reply leaves this
+      // unset, so the outcome stays closed_unconfirmed instead of "submitted".
+      if (examRoomRef.current) flushSecuredRef.current.add('writing');
       clearLocalDrafts(sittingId);
       return;
     }
@@ -1062,6 +1134,16 @@ export function MockExamRunner() {
       return;
     }
     submittingRef.current = true;
+    if (attempt === 0) manualRetryRef.current = null;
+    const track = examRoomRef.current;
+    if (track) {
+      observedSubmitRef.current.add(section);
+      // A new submit needs a new flush. Writing's submit body carries the exact
+      // text of both boxes, so it is its own final save, but only once the
+      // server has taken it: doSubmit marks it after the POST succeeds (FR-007).
+      if (attempt === 0) flushSecuredRef.current.delete(section);
+      setSubmitTrack({ section, retries: attempt, error: null });
+    }
     try {
       await doSubmit(section);
       owedSubmitRef.current = null;
@@ -1069,6 +1151,7 @@ export function MockExamRunner() {
       finalWritingBodyRef.current = null;
       await loadState().catch(() => {});
       submittingRef.current = false;
+      if (track) setSubmitTrack({ section, retries: attempt, error: null });
     } catch (caught) {
       const statusCode = statusOf(caught);
       if (statusCode === 403 || statusCode === 404) {
@@ -1086,17 +1169,21 @@ export function MockExamRunner() {
           return;
         }
       }
-      if (attempt < SUBMIT_RETRY_DELAYS.length) {
+      // FR-007: the exam-room branch retries 3 times (0066 FR-034); the old branch keeps 4.
+      const delays = track ? SUBMIT_RETRY_DELAYS.slice(0, MOCK_SUBMIT_AUTO_RETRIES) : SUBMIT_RETRY_DELAYS;
+      if (track) setSubmitTrack({ section, retries: attempt, error: { status: statusCode } });
+      if (attempt < delays.length) {
         setConnection('submitting');
         const handle = window.setTimeout(() => {
           submitTimersRef.current.delete(handle);
           void submitSection(section, attempt + 1);
-        }, SUBMIT_RETRY_DELAYS[attempt]);
+        }, delays[attempt]);
         submitTimersRef.current.add(handle);
         return;
       }
       submittingRef.current = false;
       owedSubmitRef.current = section;
+      if (track) manualRetryRef.current = section;
       setConnection('submit_failed');
     }
   }, [doSubmit, loadState]);
@@ -1183,6 +1270,86 @@ export function MockExamRunner() {
     if (!state || !renderedSection || renderedSection === 'writing') return null;
     try { return mockPlayerHref(state, renderedSection); } catch { return null; }
   }, [renderedSection, state?.exam.listeningTestId, state?.exam.readingTestCode, state?.sitting.id]);
+
+  // EXAMMOCK-0071 FR-008: "Leave test" flushes the open section first and
+  // reports what is still unsaved; never while the invigilator collects (FR-009).
+  const awaitingCollectionRef = useRef(false);
+  awaitingCollectionRef.current = awaitingCollectionFlush;
+  const flushForExit = useCallback(async (): Promise<{ unsaved: number }> => {
+    if (awaitingCollectionRef.current) throw new Error('mock-collection-in-progress');
+    const section = activeSectionRef.current;
+    if (!section) return { unsaved: 0 };
+    let result: { unsaved: number };
+    if (section === 'writing') {
+      const bridge = writingBridgeRef.current;
+      if (!bridge) return { unsaved: 1 };
+      try { await bridge.flush(); result = { unsaved: 0 }; } catch { result = { unsaved: 1 }; }
+    } else {
+      result = { unsaved: await requestEmbedFlush(section) };
+    }
+    // FR-009 (HOLD on #2714): a collection that began while this flush was
+    // waiting still refuses the exit, even when the flush itself succeeded.
+    if (awaitingCollectionRef.current) throw new Error('mock-collection-in-progress');
+    return result;
+  }, [requestEmbedFlush]);
+  const submitOutcome = useMemo(() => (submitTrack ? {
+    section: submitTrack.section,
+    ...mockSubmitOutcome({
+      state,
+      section: submitTrack.section,
+      observed: observedSubmitRef.current.has(submitTrack.section),
+      finalFlushSecured: flushSecuredRef.current.has(submitTrack.section),
+      retries: submitTrack.retries,
+      error: submitTrack.error,
+    }),
+  } : null), [state, submitTrack]);
+  const retrySubmit = useCallback(() => {
+    const section = submitTrack?.section;
+    if (section && !submittingRef.current) void submitSection(section);
+  }, [submitSection, submitTrack?.section]);
+
+  // FR-001: the one branch, after every hook. Flag off: the code below is unchanged.
+  if (examRoom) {
+    return (
+      <MockExamRoom
+        loading={status === 'initial-loading' || (!state && !fatal)}
+        fatal={fatal}
+        linkError={Boolean(params.error)}
+        onReload={() => setReloadNonce((value) => value + 1)}
+        state={state}
+        view={view}
+        code={params.value?.code || null}
+        ownerKey={user?.id || ''}
+        connection={connection}
+        collecting={awaitingCollectionFlush}
+        section={renderedSection}
+        remaining={remaining}
+        timerLive={Boolean(activeSection) && state?.sectionTimeLeftSeconds != null}
+        frameSrc={frameSrc}
+        frameRef={frameRef}
+        writing={state && renderedSection === 'writing'
+          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} remaining={remaining} locked={awaitingCollectionFlush} />
+          : null}
+        capture={pendingCapture ? (
+          <MockPostTestCapture
+            skill={pendingCapture.section}
+            envelope={pendingCapture.envelope}
+            context="mock"
+            completionLabel="Save confidence ratings and submit section"
+            onComplete={completePostTestCapture}
+          />
+        ) : null}
+        starting={starting}
+        startError={startError}
+        onStart={startRetake}
+        onSpeaking={startSpeaking}
+        openingSpeaking={openingSpeaking}
+        outcome={submitOutcome}
+        onRetrySubmit={retrySubmit}
+        flushForExit={flushForExit}
+      />
+    );
+  }
 
   if (status === 'initial-loading' || (!state && !fatal)) return <MockExamRunnerLoading />;
   if (fatal) {
