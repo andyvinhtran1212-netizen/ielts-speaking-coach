@@ -137,6 +137,10 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("PATCH", "/api/library/me/marks/{shelf}/{kind}"): "own library marks; no paid work (LIBRARY-0061 FR-061)",
     ("DELETE", "/api/library/me/marks/{shelf}/{kind}"): "own library marks; no paid work (LIBRARY-0061 FR-061)",
     ("POST", "/api/feedback"): "content-error reports; anonymous Reading/Vocabulary reports allowed by design",
+    # ── Course open alerts (ENROLL-0060 T22) ─────────────────────────────
+    ("POST", "/api/courses/{slug}/open-alerts"): "\"Báo cho tôi khi mở\": guests subscribe by email; rate limited per hashed IP",
+    ("DELETE", "/api/courses/{slug}/open-alerts"): "unsubscribe by mail token (no session) or by the caller's own session",
+    ("GET", "/api/me/open-alerts"): "caller's own subscriptions; an inactive account may still follow a course",
     # ── Reading share links (anonymous capability, X-Reading-Anon) ───────
     # These accept an anonymous share-link attempt OR the caller's own attempt.
     # An inactive account cannot create an owned attempt (start is gated), so
