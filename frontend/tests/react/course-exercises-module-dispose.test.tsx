@@ -27,8 +27,8 @@ vi.mock('@/lib/when-global-ready.mjs', () => ({
   whenGlobalReady: vi.fn(async () => true),
 }));
 
-import { CourseBehavior } from '@/app/(authed)/course-exercises/course-behavior';
-import { CourseShell } from '@/app/(authed)/course-exercises/page-shell';
+import { CourseBehavior } from '@/app/(authed)/course/exercises/course-behavior';
+import { CourseShell } from '@/app/(authed)/course/exercises/page-shell';
 import { createWriting, draftKey, PUSH_DELAY_MS } from '@/public/js/course-writing.js';
 import { createPronunciation } from '@/public/js/course-pronunciation.js';
 import { createReading, readingDraftKey } from '@/public/js/course-reading.js';

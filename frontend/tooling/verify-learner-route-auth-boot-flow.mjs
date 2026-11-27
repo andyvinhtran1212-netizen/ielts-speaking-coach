@@ -124,8 +124,8 @@ try {
     '/grammar-checkup',
     '/grammar-checkup/review/R1',
     '/vocabulary/exam',
-    '/advanced-vocabulary',
-    '/course-exercises',
+    '/course/vocabulary',
+    '/course/exercises',
   ]) {
     const { context, requests } = await newContext(browser, { signedIn: false });
     const page = await context.newPage();

@@ -50,9 +50,15 @@ const payload = (overrides = {}) => ({
 });
 
 test('opens only the canonical assigned Bxx route', () => {
-  const correct = '/grammar-lessons/assigned?assignment_item=grammar-item';
-  assert.deepEqual(normalizeClassStartResponse({ item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
-    grammar_lesson_path: correct }, 'grammar-item'), { kind: 'grammar-lesson', url: correct });
+  // LEARNERNAV-0062 FR-012: the new path and the pre-move backend path both
+  // open the page at its new URL; anything else is refused.
+  const correct = '/course/grammar-lesson?assignment_item=grammar-item';
+  for (const sent of [correct, '/grammar-lessons/assigned?assignment_item=grammar-item']) {
+    assert.deepEqual(normalizeClassStartResponse({ item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
+      grammar_lesson_path: sent }, 'grammar-item'), { kind: 'grammar-lesson', url: correct });
+  }
+  assert.equal(normalizeClassStartResponse({ item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
+    grammar_lesson_path: '/course/grammar-lesson?assignment_item=other-item' }, 'grammar-item'), null);
   assert.equal(normalizeClassStartResponse({ item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
     grammar_lesson_path: 'https://other.example/bad' }, 'grammar-item'), null);
 });
@@ -636,7 +642,7 @@ describe('native route ownership', () => {
   const layout = readFileSync(new URL('../app/(authed-my-class)/layout.tsx', import.meta.url), 'utf8');
   const chrome = readFileSync(new URL('../public/js/components/aver-chrome.js', import.meta.url), 'utf8');
   const home = readFileSync(new URL('../app/(authed-home)/home/page-shell.tsx', import.meta.url), 'utf8');
-  const course = readFileSync(new URL('../app/(authed)/course-exercises/page-shell.tsx', import.meta.url), 'utf8');
+  const course = readFileSync(new URL('../app/(authed)/course/exercises/page-shell.tsx', import.meta.url), 'utf8');
   const ledger = readFileSync(new URL('../../docs/ROUTE_LEDGER.md', import.meta.url), 'utf8');
 
   test('React owns the route behavior; rollback JS is not mounted', () => {

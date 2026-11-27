@@ -54,7 +54,7 @@ for (let i = 0; i < STAGE; i += 1) {
 
 export default {
   name: 'course-exercises — xét đạt phải gom ĐỦ phiên các chặng',
-  route: `/course-exercises?bank=${BANK}`,
+  route: `/course/exercises?bank=${BANK}`,
   settleMs: 1000,
   drainMs: 2000,
 

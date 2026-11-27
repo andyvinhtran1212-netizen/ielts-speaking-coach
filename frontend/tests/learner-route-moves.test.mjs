@@ -27,6 +27,10 @@ const MOVES = [
   { from: '/flashcard-study', to: '/vocabulary/flashcards/study', legacy: '/pages/flashcard-study.html' },
   // Batch 2 (G07-T07)
   { from: '/d1-exercise', to: '/vocabulary/fill-in', legacy: '/pages/d1-exercise.html' },
+  // Batch 3 (G07-T08): no /pages/*.html existed for these three.
+  { from: '/course-exercises', to: '/course/exercises', legacy: null },
+  { from: '/advanced-vocabulary', to: '/course/vocabulary', legacy: null },
+  { from: '/grammar-lessons/assigned', to: '/course/grammar-lesson', legacy: null },
   // Batch 8 (G07-T15u)
   { from: '/my-class', to: '/course/assigned', legacy: '/pages/my-class.html' },
 ];
@@ -86,7 +90,7 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
       assert.equal(follow(redirects, move.to), null, 'the new path is not redirected again');
     });
 
-    test(`${move.legacy} goes straight to ${move.to}`, () => {
+    if (move.legacy) test(`${move.legacy} goes straight to ${move.to}`, () => {
       assert.equal(canonicalNextRouteForLegacy(move.legacy), move.to);
     });
 
@@ -117,7 +121,7 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
     assert.match(read('components', 'ui', 'shell', 'learner-sections.ts'),
       /\{ id: 'course', label: 'Lộ trình', href: '\/course', today: null, icon: 'route' \}/);
     assert.match(read('app', '(authed-v2-course)', 'course', 'page.tsx'), /const COURSE_STAND_IN = '\/course\/assigned';/);
-    for (const route of ['/exercises', '/listening/exercise-book', '/course-exercises', '/grammar-lessons/assigned']) {
+    for (const route of ['/exercises', '/listening/exercise-book', '/course/exercises', '/course/grammar-lesson', '/course/vocabulary']) {
       assert.equal(routeFor(route)?.parent, '/course/assigned', `${route} parent`);
     }
     assert.equal(routeFor('/course/assigned')?.parent, '/course');
@@ -127,6 +131,14 @@ describe('learner route moves (LEARNERNAV-0062)', async () => {
     assert.equal(readingReviewBackTarget(readingReviewParams('?from=my-class')).href, '/course/assigned');
     assert.deepEqual(follow(redirects, '/my-class?notice=assignment-missing'),
       { status: 307, location: '/course/assigned?notice=assignment-missing' });
+  });
+
+  // Batch 3: a page opened without its query goes back to the parent the
+  // registry names for that case, not to its pre-move parent.
+  test('/course/vocabulary without bank/item leaves for /course/assigned', () => {
+    assert.equal(routeFor('/course/vocabulary')?.parentOnMissing, '/course/assigned');
+    assert.match(read('app', '(authed-advanced-vocab)', 'course', 'vocabulary', 'advanced-vocabulary-lesson.tsx'),
+      /if \(!bank \|\| !item\) \{ leaveForParent\('\/course\/assigned'\); return; \}/);
   });
 
   test('robots hides /course/ pages without hiding the public /courses catalogue', () => {
