@@ -408,7 +408,7 @@ number	filename	state	owner	spec	note
 502	502_response_pronunciation_sample.sql	present	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window (responses.pronunciation_sample_*). Andy 2026-11-20.
 503	503_credit_attempt_settle.sql	present	G04-T07	COURSEACCESS-0055	Per-attempt settlement of Speaking credit holds (credit_attempt_outcomes + fn_credit_settle_attempt), FR-015 BLOCKER on #2554; Andy approved 2026-11-23.
 504	-	reserved	#2600	-	Held for #2600 (coordinator, 2026-11-23).
-505	-	reserved	G04-T10b	COURSEACCESS-0055	Held for G04-T10b (coordinator, 2026-11-23).
+505	505_retention_purge_content.sql	present	G04-T10b	COURSEACCESS-0055	FR-048 follow-up of #2550: purge content by course-access window under the learner locks.
 506	-	reserved	G07-T18	COURSELESSON-0064	course_lessons + course_lesson_progress (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.1).
 507	-	reserved	G07-T21	RESULTSHEET-0065	essay_regrade_requests reason_code + note (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.2).
 509	509_course_give_request_unique.sql	present	REGIVE-HOTFIX	-	Course-bank give idempotency: partial unique index uq_course_give_request (cohort_id, give_request_id) WHERE skill=course (anh Andy 2026-11-25, thread "Cho giao lại bài đã giao, chỉ ghi chú"). 503–507 are held by open PRs.
