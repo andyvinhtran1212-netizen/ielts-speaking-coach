@@ -79,7 +79,8 @@ The 11 error-log, grammar, speaking, vocab and writing-queue scripts in `fronten
 - FR-004: no Non-goals file in the diff. Retired HTML fixtures are kept.
 - FR-003 deployed check (2026-11-25 ~02:50Z, Mac mini in-app browser, Chromium, read-only, not signed in): Vercel preview of `1e484978` (`[preview]` commit; `ielts-speaking-coach-lx7mexvh5.vercel.app`): the 11 W4b files → 404; the W2, W3a, W3b and W4a files stay 404; `/js/api.js` → 200; `/` → 200. The signed-in console check cannot run on the preview (redirect to `/login`, preview origin not in staging CORS).
 - Merge with staging after W4a #2657: the conflicts in `next-native-browser.yml` (keep staging's `(authed-admin)/(grammar-analytics)/**`, still drop the deleted `admin-grammar-articles.js`) and `admin-grammar-recommend-next-behavior.test.mjs` (keep this wave's assertions without the deleted script, at staging's `(authed-admin)/(grammar|grammar-recommend)/` paths and ROUTE_LEDGER pattern) are resolved. Six more of this wave's tests read the Next owners at their ADMINGROUP-0077 paths. Only paths changed; no assertion changed.
-- Not checked yet: staging console after merge (`/admin/error-logs`, `/admin/grammar/analytics`, `/admin/grammar/articles`, `/admin/grammar/recommend-test`, `/admin/speaking/sessions`, `/admin/speaking/topics`, the vocab pages, `/admin/writing/queue`, on the merged SHA), WebKit (Q40).
+- FR-003 staging after [#2668](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/2668) merged: the release handover of 2026-11-26 (07:55Z update, “Nghiệm thu trên staging”) records that 26 retired script URLs returned 404 and the 12 admin pages checked had no new errors. The handover gives aggregate results and does not identify the tested deployment SHA or browser.
+- WebKit coverage (Q40) remains open.
 
 ## W4a (T005, G10-T07-W4a) — 2026-11-23, base W3b `19f0ea2f`
 

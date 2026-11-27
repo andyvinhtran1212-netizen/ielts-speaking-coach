@@ -1,5 +1,6 @@
 import logging
 from functools import lru_cache
+from typing import Optional
 import ipaddress
 
 from pydantic import Field, field_validator
@@ -141,6 +142,17 @@ class Settings(BaseSettings):
     # is sent as ``x-vercel-protection-bypass`` on the invalidation call so the
     # signed request reaches the route instead of the SSO wall.
     VERCEL_AUTOMATION_BYPASS_SECRET: str = ""
+
+    # PUBLICSITE-0059 FR-026 (G05-T23): public contact block and enrolment
+    # texts served by GET /api/public/site-info. Empty → null (the line is
+    # hidden). Never put bank account details here (they belong to an order).
+    SITE_CONTACT_EMAIL: str = ""
+    SITE_CONTACT_PHONE: str = ""
+    SITE_CONTACT_ZALO: str = ""
+    SITE_CONTACT_REPLY_HOURS: str = ""
+    ENROLL_OFFICE_HOURS_TEXT: str = ""
+    ENROLL_CONFIRM_SLA_TEXT: str = ""
+    ENROLL_ESCALATE_AFTER_TEXT: str = ""
 
     # Supabase
     SUPABASE_URL: str = ""
@@ -590,6 +602,9 @@ class Settings(BaseSettings):
     CREDIT_SPEAKING_CLUSTER_SIZE: int = 3
     CREDIT_CARRY_PERCENT: int = 100
     CREDIT_CARRY_VALID_DAYS: int = 60
+    # Plan 5.18 / Q4: credits pre-filled in the convert-class box; empty = the
+    # admin types the number (default). Only a suggestion, never applied alone.
+    LEGACY_CLASS_INITIAL_CREDITS: Optional[int] = None
     CREDIT_HOLD_TTL_SPEAKING_SECONDS: int = 600
     CREDIT_HOLD_TTL_WRITING_SECONDS: int = 86400
     # Enrollment orders (plan 5.10, G04-T04). No pay hours or bank account →
@@ -648,6 +663,13 @@ class Settings(BaseSettings):
     @classmethod
     def _strict_carry_percent(cls, value):
         return _bounded_int_or_default("CREDIT_CARRY_PERCENT", value, 0, 100, 100)
+
+    @field_validator("LEGACY_CLASS_INITIAL_CREDITS", mode="before")
+    @classmethod
+    def _legacy_class_initial_credits(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return _bounded_int_or_default("LEGACY_CLASS_INITIAL_CREDITS", value, 0, 100_000, None)
 
     @field_validator("CREDIT_CARRY_VALID_DAYS", mode="before")
     @classmethod

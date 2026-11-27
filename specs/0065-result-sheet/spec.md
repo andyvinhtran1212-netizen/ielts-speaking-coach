@@ -29,6 +29,7 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
   - Route `POST/GET /api/writing/essays/{essay_id}/regrade-request` (`writing_student.py` ~L2770–2830). Thông điệp 409 đã xưng "Bạn".
   - `band_source` ∈ `ai|teacher|unknown` trên phiếu Writing.
   - `course_products.review_mode` và `entitlements.review_mode` (mig 383).
+  - `writing_essays.review_mode` (mig 384, `ai_instant | teacher_review | NULL`), nguồn của FR-051.
   - `mock_exam_service.overall_readiness` với `MOCK_OVERALL_MIN_SKILLS = 4` (G02-T05).
   - `mock_exams.cohort_id` (mig 145, kỳ được giao) và `mock_exam_sittings.assigned_skills` (mig 154).
 - Chưa có:
@@ -41,7 +42,7 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
 
 - Khung phiếu dùng chung: "Làm gì tiếp", "Nguồn chấm", trạng thái chờ giáo viên duyệt. Áp lên phiếu Writing, phiếu Speaking và phiếu thi thử.
 - Quy tắc hiện band (gói 5.6) và Overall chỉ ở mock test được giao.
-- Yêu cầu chấm lại Writing có 5 lý do và ghi chú. Gồm một migration trong dải 420–439, API nhận hai dạng body, màn học viên và màn admin.
+- Yêu cầu chấm lại Writing có 5 lý do và ghi chú. Gồm một migration (số 507 đã giữ chỗ), API nhận hai dạng body, màn học viên và màn admin.
 - Khối "Hết lượt chấm" dùng chung (`CreditsEmptyNotice`) và liên kết học cho "việc nên sửa" (`fixLink`).
 - Dòng đoạn được chấm phát âm trên phiếu Speaking (khi G04-T13 đã có dữ liệu) và dòng lượt ở lối "làm lại".
 
@@ -102,7 +103,7 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
   - Đủ bốn kỹ năng nhưng còn phần đang chấm: hiện "Chưa có Overall: còn chờ chấm <kỹ năng>", và phần đó hiện "Đang chấm" (component của G08).
   - Full test từng kỹ năng và mini test (đề tự chọn): không bao giờ có Overall, kể cả khi backend trả `overall`.
   - Đề gọi bằng tên, không dùng mã nội bộ.
-- **FR-055:** Khối "Hết lượt chấm" dùng chung `CreditsEmptyNotice`, theo tờ GiaHanThemLuot, hiện ở mọi nơi nhận 402 `insufficient_credits` hoặc số dư 0: phiếu kết quả, Hôm nay, `/tests`, màn nộp bài của G08. Nội dung theo `credit_source`:
+- **FR-055:** Khối "Hết lượt chấm" dùng chung `CreditsEmptyNotice`, theo tờ GiaHanThemLuot, hiện ở mọi nơi nhận 402 `insufficient_credits` hoặc số dư 0: phiếu kết quả, Hôm nay, `/tests`, màn nộp bài của G08. Nội dung theo `credit_source` (từ 402); `can_renew` đọc từ `GET /api/me/courses`, `ai_credits` từ sản phẩm công khai của khoá; cả hai không có trong 402:
   - `class`: "Liên hệ giáo viên để được cấp thêm", không có nút đăng ký.
   - `online` và `can_renew = true`: nút "Đăng ký lại khoá · kèm N lượt", với N là `ai_credits` của sản phẩm.
   - `online` và `can_renew = false`: "Liên hệ Aver để được cấp thêm lượt" kèm khối liên hệ của G05 (phương án B, câu hỏi mở 3).
@@ -181,8 +182,9 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
 ## Dependencies
 
 - COURSEACCESS-0055 (G04):
-  - 402 `insufficient_credits` có `credit_source`, `can_renew`, `ai_credits`, số dư (G04-T05/T08).
-  - `review_mode` (mig 383).
+  - 402 `insufficient_credits` mang `credit_source` và số dư (`CreditRefused` của G04-T05). Ngày 23/11, chưa route nào đổi lỗi này thành thân 402; tên trường trong thân chốt ở G04-T08.
+  - `can_renew` và `ai_credits` không nằm trong 402: `can_renew` và `product_slug` lấy từ `GET /api/me/courses` (`me_access.py`), `ai_credits` lấy từ trang sản phẩm công khai theo `product_slug` (`courses_public.py`).
+  - `writing_essays.review_mode` (mig 384) cho FR-051; `course_products`/`entitlements.review_mode` (mig 383).
   - Đoạn chấm phát âm (G04-T13, mig 502).
   - Chưa có thì khối hoặc dòng tương ứng ẩn.
 - COURSELESSON-0064 `next_lesson` cho lối "Bài tiếp". LEARNERCORE-0063 cờ `learner_v2`: cây phiếu mới vẽ khi cờ bật, cây cũ giữ nguyên khi tắt.
@@ -208,9 +210,11 @@ Yêu cầu chấm lại Writing hiện là một ô chữ 50–500 ký tự, xư
 
 ## Open questions
 
+Cả 4 câu đã chốt theo đề xuất: anh Andy gõ "duyệt … 0065 Q1–Q4 theo đề xuất" lúc 23/11 13:21Z. Cột cuối giữ đúng giá trị người thực thi dùng.
+
 | # | Câu hỏi | Đề xuất | Mặc định tạm |
 |---|---|---|---|
-| 1 | (gói câu 7) Dùng 5 lý do + ghi chú ≤ 300 ký tự thay ô chữ 50–500 ký tự? Bao giờ gỡ dạng cũ? | Có. Giữ dạng cũ song song tới khi log 14 ngày không còn request dạng cũ, rồi gỡ ở một PR riêng | Hai dạng cùng chạy |
-| 2 | (gói câu 8) Chấm lại Speaking làm trong G07 hay sau? | Sau, spec riêng (backend chưa có) | Ẩn nút ở phiếu Speaking |
-| 3 | Khối "Hết lượt chấm" khi khoá online còn hạn lâu (`can_renew = false`): phương án B "Liên hệ Aver để được cấp thêm lượt" kèm khối liên hệ | Phương án B tới khi G04 mở bán lượt lẻ (GOI-04 Q14) | Phương án B |
-| 4 | Bảng `fix-link-map.json` bắt đầu với bao nhiêu mã lỗi? | Chỉ các mã đã có bài Grammar Wiki chữa đúng lỗi đó; mã khác để trống (không liên kết sai) | Như đề xuất |
+| 1 | (gói câu 7) Dùng 5 lý do + ghi chú ≤ 300 ký tự thay ô chữ 50–500 ký tự? Bao giờ gỡ dạng cũ? | Có. Giữ dạng cũ song song tới khi log 14 ngày không còn request dạng cũ, rồi gỡ ở một PR riêng | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Hai dạng cùng chạy |
+| 2 | (gói câu 8) Chấm lại Speaking làm trong G07 hay sau? | Sau, spec riêng (backend chưa có) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Ẩn nút ở phiếu Speaking |
+| 3 | Khối "Hết lượt chấm" khi khoá online còn hạn lâu (`can_renew = false`): phương án B "Liên hệ Aver để được cấp thêm lượt" kèm khối liên hệ | Phương án B tới khi G04 mở bán lượt lẻ (GOI-04 Q14) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Phương án B |
+| 4 | Bảng `fix-link-map.json` bắt đầu với bao nhiêu mã lỗi? | Chỉ các mã đã có bài Grammar Wiki chữa đúng lỗi đó; mã khác để trống (không liên kết sai) | **Đã chốt 23/11 13:21Z** (anh Andy duyệt theo đề xuất): Như đề xuất |

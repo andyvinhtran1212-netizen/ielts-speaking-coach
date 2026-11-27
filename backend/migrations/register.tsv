@@ -392,7 +392,7 @@ number	filename	state	owner	spec	note
 384	384_credit_ledger_enrollment_rpcs.sql	present	-	COURSEACCESS-0055	G04-T02 (spec label M2/382): credit ledger, reservations, RPCs. Andy 2026-11-20.
 385	385_credit_lifecycle.sql	present	-	COURSEACCESS-0055	G04-T12 (spec label 383): credit lifecycle (expire, carry-over, grant extra). Andy 2026-11-20.
 386	-	abandoned	-	COURSEACCESS-0055	Left empty on purpose (G04-T14 dropped 2026-11-18); do not reuse without asking Andy.
-387	-	reserved	G04-T15	COURSEACCESS-0055	Spec label 388: convert a legacy-code class to credit metering. Andy 2026-11-20.
+387	387_class_credit_conversion.sql	present	G04-T15	COURSEACCESS-0055	Spec label 388: convert a legacy-code class to credit metering (fn_credit_convert_class). Andy 2026-11-20.
 388	388_learner_active_sessions.sql	present	-	COURSEACCESS-0055	G04-T09 (spec label 384): one session per learner account (learner_active_sessions). Andy 2026-11-20.
 389	389_learner_login_events.sql	present	-	COURSEACCESS-0055	G04-T16 (spec label 387): recent sign-ins (learner_login_events). Andy 2026-11-20.
 400	400_public_library.sql	present	G06-T02	LIBRARY-0061	Public Library schema + private library-media bucket; G06 band 400-419.
@@ -408,7 +408,7 @@ number	filename	state	owner	spec	note
 502	502_response_pronunciation_sample.sql	present	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window (responses.pronunciation_sample_*). Andy 2026-11-20.
 503	503_credit_attempt_settle.sql	present	G04-T07	COURSEACCESS-0055	Per-attempt settlement of Speaking credit holds (credit_attempt_outcomes + fn_credit_settle_attempt), FR-015 BLOCKER on #2554; Andy approved 2026-11-23.
 504	-	reserved	#2600	-	Held for #2600 (coordinator, 2026-11-23).
-505	-	reserved	G04-T10b	COURSEACCESS-0055	Held for G04-T10b (coordinator, 2026-11-23).
+505	505_retention_purge_content.sql	present	G04-T10b	COURSEACCESS-0055	FR-048 follow-up of #2550: purge content by course-access window under the learner locks.
 506	-	reserved	G07-T18	COURSELESSON-0064	course_lessons + course_lesson_progress (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.1).
 507	-	reserved	G07-T21	RESULTSHEET-0065	essay_regrade_requests reason_code + note (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.2).
 509	509_course_give_request_unique.sql	present	REGIVE-HOTFIX	-	Course-bank give idempotency: partial unique index uq_course_give_request (cohort_id, give_request_id) WHERE skill=course (anh Andy 2026-11-25, thread "Cho giao lại bài đã giao, chỉ ghi chú"). 503–507 are held by open PRs.
