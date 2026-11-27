@@ -248,7 +248,7 @@ def _required_skills_for(exam: dict, sitting: dict) -> tuple:
     # sitting's snapshot), not the exam's full config — a writing-only retake on
     # a full mock must not force Listening/Reading/Speaking bands with no work,
     # which would make the retake result impossible to save/release.
-    if mock_exam_service.is_retake(exam):
+    if sitting.get("assigned_skills") is not None or mock_exam_service.is_retake(exam):
         assigned = set(sitting.get("assigned_skills") or [])
         return tuple(s for s in _SKILLS if s in assigned)   # order-stable
     skills = tuple(mock_exam_service._configured_sections(exam))  # ('listening'?, 'reading'?, 'writing')

@@ -213,7 +213,9 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
     else:
         active = (exam or {}).get("active_section") or "not_started"
         time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
-        assigned = None
+        assigned = sitting.get("assigned_skills")
+        if assigned is not None and active in svc._LRW_ORDER and active not in assigned:
+            active, time_left = "not_started", None
         # THE PAUSE APPLIES TO THE STUDENT TOO. `/collect` sets
         # collected_section synchronously and sweeps the sittings in the
         # BACKGROUND, and it deliberately leaves active_section alone — so
