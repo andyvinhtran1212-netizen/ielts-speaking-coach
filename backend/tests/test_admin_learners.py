@@ -17,7 +17,7 @@ from fastapi import HTTPException
 
 from routers import admin_learners as mod
 from services import admin_learner_directory as directory
-from services import learner_attention, ops_thresholds, staff_scope, test_data_visibility
+from services import learner_attention, learner_care_notes, ops_thresholds, staff_scope, test_data_visibility
 
 NOW = datetime.now(timezone.utc)
 U_LAN, U_MINH, U_ONLY, U_TEACH, U_ADMIN, U_E2E = (f"10000000-0000-0000-0000-00000000000{i}" for i in range(1, 7))
@@ -34,6 +34,31 @@ def _ago(**kw) -> str:
 class _Resp:
     def __init__(self, data):
         self.data = data
+
+
+def _cmp_key(value):
+    """Compare like PostgreSQL: two offset-bearing timestamps by instant (a
+    +07:00 bound and a UTC value are the same timestamptz), anything else as
+    text. Without this the fake orders ISO strings lexically, which is wrong
+    whenever the two offsets differ (G09-T06, VN midnight vs UTC)."""
+    text = str(value)
+    if "T" in text:
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return (0, text)
+        if parsed.tzinfo is not None:
+            return (1, parsed)
+    return (0, text)
+
+
+def _get(row, column):
+    """A column, or a JSON key read as PostgREST's ``col->>key``."""
+    if "->>" in column:
+        col, key = column.split("->>", 1)
+        value = row.get(col)
+        return value.get(key) if isinstance(value, dict) else None
+    return row.get(column)
 
 
 class _Query:
@@ -63,14 +88,17 @@ class _Query:
     update = property(lambda self: self._write("update"))
     upsert = property(lambda self: self._write("upsert"))
     delete = property(lambda self: self._write("delete"))
-    def eq(self, c, v): return self._add(lambda r: str(r.get(c)) == str(v) if not isinstance(v, bool) else r.get(c) is v)
+    def eq(self, c, v): return self._add(lambda r: str(_get(r, c)) == str(v) if not isinstance(v, bool) else r.get(c) is v)
+    def neq(self, c, v): return self._add(lambda r: str(r.get(c)) != str(v))
     def in_(self, c, vs):
         if c == "class_assignment_item_id":
             self.db.evidence_queries.append(",".join(str(v) for v in vs))
         return self._add(lambda r: str(r.get(c)) in {str(v) for v in vs})
     def is_(self, c, v): return self._add(lambda r: r.get(c) is None)
-    def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) >= str(v))
-    def lt(self, c, v): return self._add(lambda r: r.get(c) is not None and str(r.get(c)) < str(v))
+    def gte(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) >= _cmp_key(v))
+    def lt(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) < _cmp_key(v))
+    def gt(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) > _cmp_key(v))
+    def lte(self, c, v): return self._add(lambda r: r.get(c) is not None and _cmp_key(r.get(c)) <= _cmp_key(v))
     # Only the blackeye hidden-test filter uses or_; no fixture holds such a
     # test, so it keeps every row.
     def or_(self, *_a, **_k): return self
@@ -173,7 +201,7 @@ class _DB:
 @pytest.fixture
 def db(monkeypatch):
     fake = _DB()
-    for module in (directory, learner_attention, staff_scope):
+    for module in (directory, learner_attention, staff_scope, learner_care_notes):
         monkeypatch.setattr(module, "supabase_admin", fake)
     monkeypatch.setattr(ops_thresholds, "get", AsyncMock(return_value=dict(DEFAULTS)))
     monkeypatch.setattr(test_data_visibility, "hide_for", lambda **_k: False)

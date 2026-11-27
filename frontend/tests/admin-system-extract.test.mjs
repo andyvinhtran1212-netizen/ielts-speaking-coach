@@ -25,10 +25,15 @@ const SYS_AIUSAGE  = read('pages', 'admin', 'system', 'ai-usage.html');
 const SYS_ALERTS   = read('pages', 'admin', 'system', 'alerts.html');
 const VEX          = read('pages', 'admin', 'vocab', 'exercises.html');
 const USERS        = read('pages', 'admin', 'users', 'index.html');
-const JS_AIUSAGE   = read('js', 'admin-ai-usage.js');
-const JS_ALERTS    = read('js', 'admin-alerts.js');
-const JS_VEX       = read('js', 'admin-vocab-exercises.js');
-const JS_USERS     = read('js', 'admin-users.js');
+// LEGACYJS-0075 W4a: admin-ai-usage.js + admin-alerts.js are deleted; the Next
+// /admin/system owners hold the endpoint wiring.
+const JS_AIUSAGE   = read('app', '(authed-admin-system)', 'admin', 'system', 'ai-usage', 'admin-ai-usage.tsx');
+const JS_ALERTS    = read('app', '(authed-admin-system)', 'admin', 'system', 'alerts', 'admin-alerts.tsx');
+// LEGACYJS-0075 W4b: admin-vocab-exercises.js is deleted; the Next owner below.
+const JS_VEX       = read('app', '(authed-admin)', '(vocab)', 'admin', 'vocab', 'exercises', 'admin-vocab-exercises.tsx');
+// LEGACYJS-0075 W3a: admin-users.js is deleted; /admin/users is the Next panel.
+const JS_USERS     = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
+const USERS_API    = read('lib', 'admin-users-api.ts');
 const ADMIN_LEGACY = read('admin.html');
 
 
@@ -180,26 +185,25 @@ describe('Sprint 12.8 — Users page (promoted from placeholder)', () => {
 /* ── JS controllers ───────────────────────────────────────────── */
 
 describe('Sprint 12.8 — system + vocab-exercises JS controllers', () => {
-  it('admin-ai-usage.js wires /admin/ai-usage with optional days', () => {
-    assert.match(JS_AIUSAGE, /['"]\/admin\/ai-usage['"]/);
-    assert.match(JS_AIUSAGE, /\?days=/);
+  it('the Next AI-usage owner wires /admin/ai-usage with optional days', () => {
+    assert.match(JS_AIUSAGE, /`\/admin\/ai-usage\$\{period === 'all' \? '' : `\?days=\$\{encodeURIComponent\(period\)\}`\}`/);
   });
 
-  it('admin-alerts.js wires /admin/alerts', () => {
-    assert.match(JS_ALERTS, /\/admin\/alerts/);
+  it('the Next alerts owner wires /admin/alerts', () => {
+    assert.match(JS_ALERTS, /window\.api\.get<unknown>\('\/admin\/alerts\?limit=30'\)/);
   });
 
-  it('admin-vocab-exercises.js wires the 5 monolith endpoints', () => {
-    assert.match(JS_VEX, /\/admin\/exercises\?/);
-    assert.match(JS_VEX, /\/admin\/exercises\/[^'"]*\/' \+ action|exercises\/[^'"]+\/' \+ action|\/' \+ action/);
+  it('the Next vocab-exercises owner wires the 5 monolith endpoints', () => {
+    assert.match(JS_VEX, /`\/admin\/exercises\?status=\$\{item\}/);
+    assert.match(JS_VEX, /`\/admin\/exercises\/\$\{encodeURIComponent\(ids\[0\]\)\}\/\$\{target\.action\}`/);
     assert.match(JS_VEX, /\/admin\/exercises\/bulk/);
     assert.match(JS_VEX, /\/admin\/exercises\/d1\/generate-batch/);
   });
 
-  it('admin-users.js wires GET /admin/users + PATCH /admin/users/{id}/role', () => {
-    assert.match(JS_USERS, /['"]\/admin\/users['"]/);
-    assert.match(JS_USERS, /api\.patch\(\s*['"]\/admin\/users\//);
-    assert.match(JS_USERS, /\/role/);
+  it('the Next users panel reads GET /admin/users + changes role on /admin/users/{id}/role', () => {
+    assert.match(USERS_API, /getBrowserJson\('\/admin\/users'\)/);
+    assert.match(JS_USERS, /getAdminUsers\(\)/);
+    assert.match(JS_USERS, /`\/admin\/users\/\$\{encodeURIComponent\(user\.id\)\}\/role`,\s*\{ role: nextRole \}/);
   });
 });
 
