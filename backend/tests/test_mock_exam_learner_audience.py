@@ -20,7 +20,8 @@ import pytest
 from config import settings
 from routers import mock_exams as mock_router
 from tests.test_mock_exam_workflow import (  # noqa: F401 — fixtures
-    _seed_exam, _seed_retake, fake_db, svc,
+    _attach_domain_submitted, _do_speaking, _expire_section, _seed_exam, _seed_retake,
+    fake_db, svc, wf,
 )
 
 
@@ -517,3 +518,44 @@ def test_reaper_skips_the_sweep_when_the_flag_cannot_be_read(fake_db, svc, flag_
 
     row = svc.get_sitting(sitting["id"])
     assert not row.get("reading_submitted_at") and not row.get("writing_started_at")
+
+def test_speaking_only_self_paced_goes_straight_to_speaking_and_review(fake_db, svc, wf, flag_on):
+    user = uuid4()
+    exam = _self_paced_exam(fake_db, user, skills=["speaking"])
+    exam["speaking_topic_set"] = {"part1": ["Travel"]}
+    sitting = svc.create_sitting(user, exam["code"])
+    assert sitting["status"] == "speaking_pending"
+    state = mock_router._sitting_state_sync(sitting["id"], str(user))
+    assert state["assigned_skills"] == ["speaking"]
+    assert state["exam"]["speaking_topic_set"] == exam["speaking_topic_set"]
+    assert state["exam"]["reading_test_code"] is None
+    _set(fake_db, sitting["id"], status="registered")
+    assert svc.create_sitting(user, exam["code"])["status"] == "speaking_pending"
+    assert _do_speaking(svc, fake_db, sitting["id"], user)["status"] == "all_submitted"
+    assert wf._required_skills_for(exam, sitting) == ("speaking",)
+    assert len(fake_db.rows("mock_exam_reviews")) == 1
+    assert svc.live_sitting_for_user(user) is None
+
+
+def test_live_reading_only_is_scoped_to_learner_at_delivery_and_review(fake_db, svc, wf, flag_on):
+    exam = _seed_exam(fake_db, speaking=True)
+    user, other = uuid4(), uuid4()
+    _audience(fake_db, exam, user, skills=["reading"])
+    _audience(fake_db, exam, other, skills=["listening", "speaking"])
+    learner = svc.create_sitting(user, exam["code"])
+    peer = svc.create_sitting(other, exam["code"])
+    assert svc.pending_in_section(exam["id"], "writing") == 0
+    exam["active_section"] = "listening"
+    state = mock_router._sitting_state_sync(learner["id"], str(user))
+    assert state["assigned_skills"] == ["reading"] and state["active_section"] == "not_started"
+    assert not state["exam"]["speaking_topic_set"] and state["exam"]["listening_test_id"] is None
+    assert not svc._sitting_may_open_section(learner, exam, "listening")
+    assert svc._sitting_may_open_section(peer, exam, "listening")
+    assert wf._required_skills_for(exam, learner) == ("reading",)
+    assert set(wf._required_skills_for(exam, peer)) == {"listening", "speaking"}
+    exam["active_section"] = "reading"
+    assert svc._sitting_may_open_section(learner, exam, "reading")
+    _expire_section(fake_db, exam["id"], "reading")
+    _attach_domain_submitted(svc, fake_db, exam, learner["id"], user, "reading")
+    assert svc.submit_section(learner["id"], user, "reading")["status"] == "all_submitted"
+    assert svc.get_sitting(peer["id"])["status"] == "registered"
