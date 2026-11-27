@@ -41,7 +41,13 @@ const state = {
   rendererAffinity: null,
   starts: 0, claims: 0, patches: [], submits: 0, rejectQ2: true,
   selfCheck: null,
+  abandons: 0,
 };
+// EXAMLISTENT-0070 T003: the second half runs the same fixture with the exam
+// room on (runtime config `examRoomSurfaces: ['listening']`, the production
+// path; the `?exam_room=` override is ignored in production).
+let examRoomOn = false;
+let roomDialogs = 0;
 let audioReady = false;
 function silentWav() {
   const sampleRate = 8000;
@@ -94,7 +100,7 @@ const pageErrors = [];
 const unhandledProductionRequests = [];
 let interceptedApiRequests = 0;
 page.on('pageerror', (error) => pageErrors.push(String(error)));
-page.on('dialog', async (dialog) => dialog.accept());
+page.on('dialog', async (dialog) => { if (examRoomOn) roomDialogs += 1; await dialog.accept(); });
 
 await page.route('**/*', async (route) => {
   const request = route.request();
@@ -110,8 +116,14 @@ await page.route('**/*', async (route) => {
       body: `window.__AVER_RUNTIME_CONFIG__ = Object.freeze(${JSON.stringify({
         environment: 'production', apiBase: PRODUCTION_BACKEND,
         supabaseUrl: SB, supabaseAnonKey: null, release: null, gitRef: null,
+        ...(examRoomOn ? { examRoomSurfaces: ['listening'] } : {}),
       })});`,
     });
+  }
+  if (examRoomOn && request.method() === 'GET' && url.origin === new URL(BASE).origin && url.pathname === '/js/runtime-config.js') {
+    const original = await route.fetch();
+    const body = `${await original.text()}\nwindow.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...(window.__AVER_RUNTIME_CONFIG__ || {}), examRoomSurfaces: ['listening'] });\n`;
+    return route.fulfill({ response: original, body });
   }
   if (request.url().startsWith(BASE) || request.url().startsWith('data:')) return route.continue();
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
@@ -121,6 +133,9 @@ await page.route('**/*', async (route) => {
   // URL still falls through to the fail-closed branch below.
   if (request.method() === 'POST' && url.pathname === '/api/analytics/events') {
     return route.fulfill({ status: 204, headers: cors });
+  }
+  if (request.method() === 'GET' && url.pathname === '/auth/check-active') {
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ is_active: true }), headers: cors });
   }
   if (request.method() === 'GET' && url.pathname === '/auth/me') {
     return route.fulfill({
@@ -181,6 +196,14 @@ await page.route('**/*', async (route) => {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
       attempt_id: ATTEMPT_ID, protocol: 'question-cas-v1', review_flags: [],
     }), headers: cors });
+  }
+  if (request.method() === 'POST' && url.pathname === `/api/listening/tests/attempts/${ATTEMPT_ID}/abandon`) {
+    interceptedApiRequests += 1;
+    if (state.status !== 'in_progress') {
+      return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ detail: { reason: 'already_submitted' } }), headers: cors });
+    }
+    state.abandons += 1; state.status = 'abandoned';
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ attempt_id: ATTEMPT_ID, status: 'abandoned' }), headers: cors });
   }
   if (request.method() === 'POST' && url.pathname === `/api/listening/tests/attempts/${ATTEMPT_ID}/submit`) {
     interceptedApiRequests += 1;
@@ -279,6 +302,67 @@ for (const mode of ['mixed', 'all']) {
       && await selfCheckSlots.count() === (mode === 'all' ? 2 : 1)
       && await selfCheckSlots.evaluateAll(slots => slots.every(slot => !/is-wrong|is-correct|is-empty/.test(slot.className))));
 }
+// ---- EXAMLISTENT-0070 T003: the same journey with the exam room on ------
+examRoomOn = true;
+Object.assign(state, { status: 'not_started', rendererAffinity: null, starts: 0, claims: 0, submits: 0, rejectQ2: false, selfCheck: null, abandons: 0 });
+state.answers.clear(); state.patches.length = 0;
+const roomUrl = `${BASE}/listening/test/session?id=${TEST_ID}`;
+await page.goto(roomUrl, { waitUntil: 'domcontentloaded' });
+await page.locator('[data-exam-room-prestart]').waitFor();
+check('exam room: English pre-start screen with the existing rules',
+  await page.getByText('Your answers are saved automatically.').isVisible()
+    && await page.getByText('The recording plays once. You cannot rewind or restart it.').isVisible());
+await page.getByRole('button', { name: 'Start test' }).click();
+await page.locator('[data-exam-room-listening]').waitFor();
+const roomText = await page.locator('body').innerText();
+check('exam room: "Listening · <title>" and "Part 1 of 1", no email, no countdown',
+  roomText.includes('Listening · Native Listening fixture') && /Part 1 of 1/.test(roomText)
+    && !roomText.includes('listening-player@local') && await page.locator('.exam-topbar__candidate').count() === 0
+    && await page.getByRole('timer').count() === 0);
+check('exam room: no "Check your headphones" modal; the player owns Play',
+  await page.getByRole('dialog', { name: 'Check your headphones' }).count() === 0
+    && await page.getByRole('region', { name: 'Audio controls' }).getByRole('button', { name: /Play/ }).first().isVisible());
+await page.getByRole('region', { name: 'Audio controls' }).getByRole('button', { name: /Play/ }).first().click();
+await page.getByLabel('Answer 1').fill('library');
+await page.waitForTimeout(900);
+check('exam room: autosave reaches canonical state and shows "Saved at"',
+  state.starts === 1 && state.claims === 1 && state.answers.get(1) === 'library'
+    && await page.getByText(/Saved at \d/).first().isVisible());
+
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.locator('[data-exam-room-prestart]').waitFor();
+await page.getByRole('button', { name: 'Start a new attempt' }).click();
+const newAttempt = page.getByRole('alertdialog', { name: 'Start a new attempt?' });
+await newAttempt.waitFor();
+await newAttempt.getByRole('button', { name: 'Keep current attempt' }).click();
+check('exam room: "Start a new attempt" asks in the page and "Keep" keeps the attempt',
+  state.starts === 1 && await page.getByRole('button', { name: 'Resume test' }).isVisible());
+await page.getByRole('button', { name: 'Resume test' }).click();
+await page.locator('[data-exam-room-listening]').waitFor();
+check('exam room: resume keeps the saved answer', await page.getByLabel('Answer 1').inputValue() === 'library');
+
+await page.getByLabel('Answer 2').fill('blue');
+await page.waitForTimeout(900);
+await page.getByRole('button', { name: 'Submit answers' }).first().click();
+const submitBox = page.getByRole('alertdialog', { name: 'Submit test?' });
+await submitBox.getByRole('button', { name: 'Submit answers' }).click();
+await page.getByRole('heading', { name: 'Test results' }).waitFor();
+check('exam room: submit through the frame renders the canonical result once', state.submits === 1);
+
+state.status = 'not_started';
+await page.goto(roomUrl, { waitUntil: 'domcontentloaded' });
+await page.getByRole('button', { name: 'Start test' }).click();
+await page.locator('[data-exam-room-listening]').waitFor();
+await page.getByRole('button', { name: 'Abandon test' }).first().click();
+const abandonBox = page.getByRole('alertdialog', { name: 'Abandon this test?' });
+await abandonBox.waitFor();
+await Promise.all([
+  page.waitForURL((target) => !target.pathname.startsWith('/listening/test/session'), { timeout: 10000 }),
+  abandonBox.getByRole('button', { name: 'Abandon test' }).click(),
+]);
+check('exam room: "Abandon test" calls the route once and leaves the test', state.abandons === 1 && state.status === 'abandoned');
+check('exam room: no window.confirm, alert or prompt (dialog events = 0)', roomDialogs === 0, String(roomDialogs));
+
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check(
   'fixture handles APIs with zero production-backend egress',

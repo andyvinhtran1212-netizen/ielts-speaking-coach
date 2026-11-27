@@ -199,8 +199,14 @@ async function launchChromium() {
   }
 }
 
+// EXAMLISTENT-0070 T003: the same matrix runs a second time with the exam
+// room on (runtime config `examRoomSurfaces: ['listening']`). The room has
+// its own bars (drawn by FocusShell around the room), so its fixed controls
+// are those buttons by name.
+const ROOM_CONTROL_NAMES = ['Submit answers', 'Leave test', 'Abandon test', 'Previous question', 'Next question', 'Review'];
+
 // Runs in the page. Returns human-readable offences for the active Part.
-function measureLayout() {
+function measureLayout(roomControlNames = null) {
   const offences = [];
   const vw = document.documentElement.clientWidth;
   const vh = document.documentElement.clientHeight;
@@ -234,8 +240,16 @@ function measureLayout() {
     for (const el of clipped.slice(0, 5)) offences.push(`clipped past paper edge by ${Math.round(el.getBoundingClientRect().right - edge)}px: ${label(el)}`);
     if (clipped.length > 5) offences.push(`…and ${clipped.length - 5} more clipped elements`);
   }
-  const controls = [...document.querySelectorAll('.listening-next-palette-label, .listening-next-nav-btn, .listening-next-review, .listening-next-palette .btn-submit-final, .listening-next-topbar button')];
-  if (!controls.length) offences.push('no fixed palette controls rendered');
+  const controls = Array.isArray(roomControlNames)
+    ? [...document.querySelectorAll('button')].filter((el) => {
+      const name = (el.getAttribute('aria-label') || el.innerText || '').replace(/[‹›▶]/g, '').trim();
+      const style = getComputedStyle(el);
+      return roomControlNames.includes(name) && el.getClientRects().length > 0 && style.visibility !== 'hidden'
+        && !el.closest('dialog:not([open])') && !el.closest('#listening-paper');
+    })
+    : roomControlNames === 'embedded' ? [] : [...document.querySelectorAll('.listening-next-palette-label, .listening-next-nav-btn, .listening-next-review, .listening-next-palette .btn-submit-final, .listening-next-topbar button')];
+  // Embedded, the room draws no bars (0066 FR-023), so it has no fixed controls.
+  if (!controls.length && roomControlNames !== 'embedded') offences.push('no fixed palette controls rendered');
   for (const el of controls) {
     const rect = el.getBoundingClientRect();
     if (rect.left < -1 || rect.top < -1 || rect.right > vw + 1 || rect.bottom > vh + 1 || !rect.width) {
@@ -255,7 +269,7 @@ const pageErrors = [];
 const unhandledProductionRequests = [];
 const unstubbedRequests = [];
 
-for (const viewport of VIEWPORTS) {
+for (const examRoom of [false, true]) for (const viewport of VIEWPORTS) {
   const context = await browser.newContext({ viewport });
   await context.addInitScript(([key, value]) => {
     try { localStorage.setItem(key, value); } catch (_) {}
@@ -270,6 +284,11 @@ for (const viewport of VIEWPORTS) {
     const url = new URL(request.url());
     if (url.origin === 'https://audio.fixture') return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() });
     if (url.origin === 'https://img.fixture') return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: fixtureImage() });
+    if (examRoom && request.method() === 'GET' && request.url().startsWith(BASE) && url.pathname === '/js/runtime-config.js') {
+      const original = await route.fetch();
+      const body = `${await original.text()}\nwindow.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...(window.__AVER_RUNTIME_CONFIG__ || {}), examRoomSurfaces: ['listening'] });\n`;
+      return route.fulfill({ response: original, body });
+    }
     if (request.url().startsWith(BASE) || request.url().startsWith('data:')) return route.continue();
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(request.url())) return route.continue();
@@ -317,17 +336,40 @@ for (const viewport of VIEWPORTS) {
     };
     // The mock embed enters its attempt automatically; the other modes start explicitly.
     if (mode.name === 'student') await page.getByRole('button', { name: 'Start test' }).click().catch(bootFailure);
-    await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click().catch(bootFailure);
-    await page.locator('#listening-paper .ielts-section').waitFor();
+    if (!examRoom) await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click().catch(bootFailure);
+    else if (mode.name !== 'mock embed') await page.locator('[data-exam-room-listening]').waitFor().catch(bootFailure);
+    await page.locator('#listening-paper .ielts-section').waitFor().catch(bootFailure);
+    const room = examRoom ? ' exam room' : '';
     for (const section of fixture.sections) {
       const partNum = Number(section.section_num);
-      await page.locator('.listening-next-palette-label', { hasText: `Part ${partNum}` }).click();
-      await page.locator('.listening-next-part-strip strong', { hasText: `Part ${partNum}` }).waitFor();
+      // Embedded, the room has no bars and no question strip (0066 FR-023): Parts
+      // follow the audio cues, so only the Part on screen is measured.
+      if (examRoom && mode.name === 'mock embed' && partNum !== Number(fixture.sections[0]?.section_num)) continue;
+      if (examRoom) {
+        // The frame's question strip jumps by question; the first question of a Part switches to it.
+        const firstQ = Number((section.exercises || []).flatMap((exercise) => exercise.payload?.questions || exercise.payload?.items || [])[0]?.q_num || 0);
+        const jumped = firstQ ? await page.evaluate((q) => {
+          const cell = document.querySelector(`button[data-q="${q}"]`);
+          cell?.click();
+          return !!cell;
+        }, firstQ) : false;
+        // Desktop shows the active Part's cells and one button per other Part.
+        const partButton = page.locator(`button[aria-label^="Part ${partNum}:"]`);
+        if (!jumped && await partButton.count()) await partButton.first().click();
+        // Compact density (phones) shows only ‹ › until the list is opened.
+        for (let step = 0; !jumped && step < 80; step += 1) {
+          if (await page.locator('#listening-paper .ielts-section-label', { hasText: `PART ${partNum}` }).count()) break;
+          await page.locator('button[aria-label="Next question"]').first().click();
+        }
+      } else {
+        await page.locator('.listening-next-palette-label', { hasText: `Part ${partNum}` }).click();
+        await page.locator('.listening-next-part-strip strong', { hasText: `Part ${partNum}` }).waitFor();
+      }
       await page.locator('#listening-paper .ielts-section-label', { hasText: `PART ${partNum}` }).waitFor();
       await page.waitForFunction(() => [...document.images].every((image) => image.complete));
-      const offences = await page.evaluate(measureLayout);
-      if (SHOT_DIR) await page.screenshot({ path: join(SHOT_DIR, `${fixture.id}-${mode.name.replace(' ', '-')}-${viewport.width}-part${partNum}.png`) });
-      check(`${fixture.test_id || fixture.id} ${mode.name} Part ${partNum} @${viewport.width}px has no clipped or covered layout`,
+      const offences = await page.evaluate(measureLayout, examRoom ? (mode.name === 'mock embed' ? 'embedded' : ROOM_CONTROL_NAMES) : null);
+      if (SHOT_DIR) await page.screenshot({ path: join(SHOT_DIR, `${fixture.id}-${mode.name.replace(' ', '-')}${examRoom ? '-room' : ''}-${viewport.width}-part${partNum}.png`) });
+      check(`${fixture.test_id || fixture.id} ${mode.name}${room} Part ${partNum} @${viewport.width}px has no clipped or covered layout`,
         offences.length === 0, offences.join('; '));
     }
     await page.close();
