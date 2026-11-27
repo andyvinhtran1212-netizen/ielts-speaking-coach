@@ -176,7 +176,7 @@ export function nonceHostAllowed(hostname) {
 // Next requires a literal matcher in proxy.ts. The route inventory tests keep
 // this runtime guard aligned with that matcher and every AuthedShell layout.
 export function nonceRouteAllowed(pathname) {
-  return /^\/(?:account|admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)(?:\/|$)/.test(pathname)
+  return /^\/(?:account|admin|advanced-vocabulary|course-exercises|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)(?:\/|$)/.test(pathname)
     || /^\/vocabulary\/.+/.test(pathname);
 }
 
@@ -236,4 +236,37 @@ export const NONCE_SAME_ORIGIN_FRAME_ROUTES = Object.freeze([
 /** Same policy for the allow-listed same-origin embeddable workspaces. */
 export function sameOriginFramePolicy(policy) {
   return policy.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
+}
+
+// LIBRARY-0061 T013 (FR-032): a Speaking question page embeds its model-answer
+// video from YouTube in privacy-enhanced mode and reads the position through
+// the IFrame API (https://www.youtube.com/iframe_api, which loads
+// https://www.youtube.com/s/player/...). Only `/library/speaking/:slug` gets
+// these two sources (next.config.ts `headers()`); every other route keeps the
+// baseline. Self-hosted video needs nothing extra (media-src already has https:).
+export const SPEAKING_VIDEO_ROUTE = '/library/speaking/:slug';
+// Path sources, not the whole origin (SA M1): the API loader, and the player
+// scripts it adds under /s/player/ (a path ending in `/` matches its subtree).
+export const YOUTUBE_SCRIPT_SOURCES = Object.freeze([
+  'https://www.youtube.com/iframe_api',
+  'https://www.youtube.com/s/player/',
+]);
+export const YOUTUBE_FRAME_SOURCE = 'https://www.youtube-nocookie.com';
+
+/** The baseline policy plus the YouTube script and frame sources. */
+export function youtubeEmbedPolicy(policy) {
+  const entries = policy.split('; ').map((entry) => entry.split(' '));
+  const add = (name, sources, base) => {
+    let entry = entries.find(([directive]) => directive === name);
+    if (!entry) {
+      // Insert before form-action, so the directive order stays stable.
+      entry = [name, ...base];
+      const at = entries.findIndex(([directive]) => directive === 'form-action');
+      entries.splice(at < 0 ? entries.length : at, 0, entry);
+    }
+    for (const source of sources) if (!entry.includes(source)) entry.push(source);
+  };
+  add('script-src', YOUTUBE_SCRIPT_SOURCES, ["'self'"]);
+  add('frame-src', [YOUTUBE_FRAME_SOURCE], ["'self'"]);
+  return entries.map((entry) => entry.join(' ')).join('; ');
 }

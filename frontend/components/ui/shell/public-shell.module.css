@@ -18,6 +18,11 @@
   left: var(--av2-space-7);
   top: calc(-1 * var(--av2-control-lg));
   z-index: var(--av2-z-toast);
+  /* WCAG 2.5.8 / house 44px target: the focused skip link was 42px tall. */
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-control-md);
+  box-sizing: border-box;
   padding: var(--av2-space-4) var(--av2-space-7);
   background: var(--av2-surface);
 }
@@ -139,7 +144,8 @@
   width: 100%;
   margin-top: var(--av2-space-7);
 }
-.menuTheme { margin-top: var(--av2-space-9); }
+/* Doubled: theme-menu.module.css `.group { margin: 0 }` has the same weight and its chunk order is not fixed. */
+.menuTheme.menuTheme { margin-top: var(--av2-space-9); }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */
 
