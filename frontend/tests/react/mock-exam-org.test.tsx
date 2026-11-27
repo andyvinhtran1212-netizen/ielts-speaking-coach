@@ -1,6 +1,6 @@
 // MOCKORG-0086 T032 (G09-T32): Kỳ thi list and "Tổ chức kỳ thi". The pages
 // draw what the API returns and read it back after every write.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MockExamList } from '@/app/(authed-admin)/(mock-tests)/admin/mock-tests/mock-exam-list';
@@ -146,6 +146,58 @@ describe('Tổ chức kỳ thi (FR-141…FR-144)', () => {
     render(<MockExamSetup examId={idFromUrl} />);
     expect(await screen.findByRole('heading', { name: /Tổ chức kỳ thi · Kỳ thi mới/ })).toBeTruthy();
     expect(await screen.findByRole('heading', { name: 'Người thi' })).toBeTruthy();
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows only one draft POST while saving and keeps the first requested step', async () => {
+    routes({
+      '/admin/mock-exams/picker': { items: [], total: 0, limit: 25, offset: 0 },
+      '/admin/mock-exams/e1/audience': audience(),
+      '/admin/mock-exams': { exams: [exam({ title: 'Một bản nháp', draft_state: { step: 'audience' } })] },
+    });
+    let finishCreate!: (result: { id: string }) => void;
+    post.mockImplementation(() => new Promise((resolve) => { finishCreate = resolve; }));
+    window.history.replaceState(null, '', '/admin/mock-tests/new');
+    render(<MockExamSetup examId={null} />);
+    fireEvent.change(screen.getByLabelText('Tên kỳ thi'), { target: { value: 'Một bản nháp' } });
+    const next = screen.getByRole('button', { name: 'Tiếp tục' });
+    const saveDraft = screen.getByRole('button', { name: 'Lưu nháp' });
+    const mode = screen.getByRole('button', { name: /Cách thi/ });
+
+    act(() => {
+      fireEvent.click(next);
+      fireEvent.click(saveDraft);
+      fireEvent.click(mode);
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith('/admin/mock-exams', expect.objectContaining({ draft_state: { step: 'audience' } }));
+    expect(next.hasAttribute('disabled')).toBe(true);
+    expect(mode.hasAttribute('disabled')).toBe(true);
+    expect(window.location.pathname).toBe('/admin/mock-tests/new');
+
+    await act(async () => { finishCreate({ id: 'e1' }); });
+    expect(await screen.findByRole('heading', { name: 'Người thi' })).toBeTruthy();
+    expect(window.location.pathname + window.location.search).toBe('/admin/mock-tests/e1/setup?step=audience');
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(mode.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('allows an explicit retry after a failed create releases the save lock', async () => {
+    routes({
+      '/admin/mock-exams/picker': { items: [], total: 0, limit: 25, offset: 0 },
+      '/admin/mock-exams/e1/audience': audience(),
+      '/admin/mock-exams': { exams: [exam({ title: 'Kỳ thi thử lại' })] },
+    });
+    post.mockRejectedValueOnce(new Error('Mất kết nối')).mockResolvedValueOnce({ id: 'e1' });
+    render(<MockExamSetup examId={null} />);
+    fireEvent.change(screen.getByLabelText('Tên kỳ thi'), { target: { value: 'Kỳ thi thử lại' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
+    expect(await screen.findByText('Lưu nháp không thành công')).toBeTruthy();
+    expect(post).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lại' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/admin/mock-tests/e1/setup'));
+    expect(await screen.findByText(/đã lưu lúc/)).toBeTruthy();
     expect(post).toHaveBeenCalledTimes(2);
   });
 

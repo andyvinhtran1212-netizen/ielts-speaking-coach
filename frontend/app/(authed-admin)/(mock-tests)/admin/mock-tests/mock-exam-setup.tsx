@@ -104,7 +104,7 @@ function PaperPicker({ kind, label, value, onChange }: { kind: PickerKind; label
 }
 
 export function MockExamSetup({ examId: initialId }: { examId: string | null }) {
-  const [examId, setExamId] = useState<string | null>(initialId);
+  const examId = useRef(initialId);
   const [exam, setExam] = useState<OrgExam | null>(null);
   const [form, setForm] = useState<Form>(() => formFromExam(null));
   const [audience, setAudience] = useState<Audience | null>(null);
@@ -118,6 +118,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
   // and must never be taken for an empty one (CR #2640).
   const [audienceError, setAudienceError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const saveInProgress = useRef(false);
   const [saveError, setSaveError] = useState<{ at: string; message: string } | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -171,19 +172,18 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
     return () => { request.current += 1; };
   }, [initialId, reload]);
 
-  const goTo = (next: StepId, targetId = examId) => {
+  const goTo = (next: StepId, targetId = examId.current) => {
     setStep(next);
     window.history.replaceState(window.history.state, '', stepHref(targetId, next));
   };
 
   /** Return the stored exam ID, including when nothing needs to be written. */
-  const save = useCallback(async (nextStep: StepId): Promise<string | null> => {
+  const saveExam = async (nextStep: StepId): Promise<string | null> => {
     setActionError(null);
     const at = hhmm(new Date());
-    if (!examId) {
+    if (!examId.current) {
       const built = buildCreateBody(form, newExamCode(), nextStep);
       if (!built.ok) { setSaveError({ at, message: built.error }); return null; }
-      setSaving(true);
       try {
         let created: ApiPostJson<typeof EXAMS_PATH>;
         try {
@@ -194,7 +194,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
           created = await postBrowserJsonAt(EXAMS_PATH, EXAMS_PATH, { ...built.value, code: newExamCode() });
         }
         if (!created?.id) throw new Error('Máy chủ không trả mã kỳ thi vừa tạo.');
-        setExamId(created.id);
+        examId.current = created.id;
         window.history.replaceState(window.history.state, '', stepHref(created.id, nextStep));
         await reload(created.id, true);
         setSaveError(null);
@@ -203,8 +203,6 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
       } catch (caught) {
         setSaveError({ at, message: messageOf(caught) });
         return null;
-      } finally {
-        setSaving(false);
       }
     }
     if (!exam) return null;
@@ -212,7 +210,6 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
     if (!built.ok) { setSaveError({ at, message: built.error }); return null; }
     const windowChanged = form.mode === 'self_paced' && ('open_from' in built.value || 'open_until' in built.value);
     if (!Object.keys(built.value).length) { setSaveError(null); return exam.id; }
-    setSaving(true);
     try {
       // Self-paced windows live on each person's row: read the list first and
       // refuse to change the window while it cannot be read (CR #2640).
@@ -239,16 +236,26 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
     } catch (caught) {
       setSaveError({ at, message: messageOf(caught) });
       return null;
+    }
+  };
+
+  const save = async (nextStep: StepId): Promise<string | null> => {
+    if (saveInProgress.current) return null;
+    saveInProgress.current = true;
+    setSaving(true);
+    try {
+      return await saveExam(nextStep);
     } finally {
+      saveInProgress.current = false;
       setSaving(false);
     }
-  }, [disabled, exam, examId, form, readAudience, reload]);
+  };
 
   const changeStep = async (next: StepId) => {
-    if (next === step) return;
+    if (next === step || saveInProgress.current) return;
     // Auto-save on every step change; a failed save keeps the edits on the page.
     const savedId = form.title.trim() ? await save(next) : null;
-    goTo(next, savedId ?? examId);
+    goTo(next, savedId ?? examId.current);
   };
 
   const patchAudience = async (body: AudiencePatch) => {
@@ -302,7 +309,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
   const visibleSavedAt = saveError ? null : savedAt;
 
   if (loadState === 'loading') return <main className={styles.page}><PageState kind="loading" title="Đang mở kỳ thi…" /></main>;
-  if (loadState === 'error') return <main className={styles.page}><PageState kind="error" title="Chưa mở được kỳ thi" body={loadError} action={<Button variant="secondary" onClick={() => examId && void reload(examId, true)}>Thử lại</Button>} /></main>;
+  if (loadState === 'error') return <main className={styles.page}><PageState kind="error" title="Chưa mở được kỳ thi" body={loadError} action={<Button variant="secondary" onClick={() => examId.current && void reload(examId.current, true)}>Thử lại</Button>} /></main>;
   if (loadState === 'missing') return <main className={styles.page}><PageState kind="error" title="Không tìm thấy kỳ thi" body="Kỳ thi này không còn trong danh sách." action={<Button href="/admin/mock-tests">Về danh sách kỳ thi</Button>} /></main>;
   if (loadState === 'not-draft') return <main className={styles.page}><PageState kind="locked" title="Kỳ thi đã lên lịch" body="Trang này chỉ soạn kỳ thi ở Nháp. Kỳ thi đã lên lịch được theo dõi ở trang kỳ thi." action={<Button href={`/admin/mock-tests?view=console&tab=live&exam_id=${encodeURIComponent(exam?.id || '')}`}>Mở kỳ thi</Button>} /></main>;
 
@@ -329,7 +336,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
       </header>
 
       {saveError && (
-        <Notice kind="warning" title="Lưu nháp không thành công" action={<Button size="sm" variant="secondary" onClick={() => void save(step)}>Lưu lại</Button>}>
+        <Notice kind="warning" title="Lưu nháp không thành công" action={<Button size="sm" variant="secondary" disabled={saving} onClick={() => void save(step)}>Lưu lại</Button>}>
           Chưa lưu được nháp lúc {saveError.at}: {saveError.message.replace(/[.\s]+$/, '')}. Thay đổi vẫn còn trên trang này; đừng đóng tab.
         </Notice>
       )}
@@ -340,7 +347,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         <ol className={styles.steps}>
           {SETUP_STEPS.map((s, i) => (
             <li key={s.id}>
-              <button type="button" className={styles.stepButton} aria-current={step === s.id ? 'step' : undefined} onClick={() => void changeStep(s.id)}>
+              <button type="button" className={styles.stepButton} aria-current={step === s.id ? 'step' : undefined} disabled={saving} onClick={() => void changeStep(s.id)}>
                 <strong>{i + 1} · {s.label}</strong>
                 <small>{STEP_NOTE[s.id]}</small>
               </button>
@@ -381,7 +388,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         <section className={styles.section} aria-labelledby="mts-audience">
           <h2 id="mts-audience">Người thi</h2>
           {!exam ? (
-            <PageState kind="empty" title="Lưu nháp trước khi thêm người thi" body="Nhập tên kỳ thi ở bước Đề rồi bấm Lưu nháp." action={<Button onClick={() => void save('audience')}>Lưu nháp</Button>} />
+            <PageState kind="empty" title="Lưu nháp trước khi thêm người thi" body="Nhập tên kỳ thi ở bước Đề rồi bấm Lưu nháp." action={<Button disabled={saving} onClick={() => void save('audience')}>Lưu nháp</Button>} />
           ) : (
             <>
               <div className={styles.row}>
@@ -470,10 +477,10 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         <section className={styles.section} aria-labelledby="mts-review">
           <h2 id="mts-review">Xem lại</h2>
           <dl className={styles.summary}>
-            <div><dt>Kỳ thi</dt><dd>{form.title.trim() || 'Chưa có tên'}</dd><Button size="sm" variant="text" onClick={() => void changeStep('papers')}>Sửa</Button></div>
-            <div><dt>Kỹ năng và đề</dt><dd>{skillsOn.map((s) => SKILL_NAMES[s]).join(', ') || 'Chưa chọn'}</dd><Button size="sm" variant="text" onClick={() => void changeStep('papers')}>Sửa</Button></div>
-            <div><dt>Người thi</dt><dd>{audienceError ? 'Chưa đọc được danh sách' : audience ? `${summary.selected} người${summary.unselected ? ` · ${summary.unselected} người không chọn` : ''}` : 'Chưa có'}</dd><Button size="sm" variant="text" onClick={() => void changeStep('audience')}>Sửa</Button></div>
-            <div><dt>Cách thi</dt><dd>{MODE_LABELS[form.mode as keyof typeof MODE_LABELS]} · {form.mode === 'live' ? (vnDateTime(vnLocalToIso(form.startsAt)) || 'chưa có ngày giờ') : `${vnDateTime(vnLocalToIso(form.openFrom)) || 'chưa có giờ mở'} – ${vnDateTime(vnLocalToIso(form.openUntil)) || 'chưa có giờ đóng'}`}</dd><Button size="sm" variant="text" onClick={() => void changeStep('mode')}>Sửa</Button></div>
+            <div><dt>Kỳ thi</dt><dd>{form.title.trim() || 'Chưa có tên'}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('papers')}>Sửa</Button></div>
+            <div><dt>Kỹ năng và đề</dt><dd>{skillsOn.map((s) => SKILL_NAMES[s]).join(', ') || 'Chưa chọn'}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('papers')}>Sửa</Button></div>
+            <div><dt>Người thi</dt><dd>{audienceError ? 'Chưa đọc được danh sách' : audience ? `${summary.selected} người${summary.unselected ? ` · ${summary.unselected} người không chọn` : ''}` : 'Chưa có'}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('audience')}>Sửa</Button></div>
+            <div><dt>Cách thi</dt><dd>{MODE_LABELS[form.mode as keyof typeof MODE_LABELS]} · {form.mode === 'live' ? (vnDateTime(vnLocalToIso(form.startsAt)) || 'chưa có ngày giờ') : `${vnDateTime(vnLocalToIso(form.openFrom)) || 'chưa có giờ mở'} – ${vnDateTime(vnLocalToIso(form.openUntil)) || 'chưa có giờ đóng'}`}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('mode')}>Sửa</Button></div>
             <div><dt>Trả kết quả</dt><dd>Giáo viên công bố</dd><span /></div>
           </dl>
           {dirty && <Notice kind="info">Còn thay đổi chưa lưu; bấm Lên lịch sẽ lưu trước.</Notice>}
@@ -485,14 +492,14 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
           )}
           <p className={styles.help}>Bấm xong, {summary.selected} người được chọn thấy kỳ thi trong mục Thi thử.</p>
           <div className={styles.actions}>
-            <Button loading={scheduling} loadingLabel="Đang lên lịch…" disabled={missing.length > 0 || disabled || !exam || Boolean(audienceError)} onClick={() => void schedule()}>Lên lịch</Button>
+            <Button loading={scheduling} loadingLabel="Đang lên lịch…" disabled={saving || missing.length > 0 || disabled || !exam || Boolean(audienceError)} onClick={() => void schedule()}>Lên lịch</Button>
           </div>
         </section>
       )}
 
       <div className={styles.actions}>
-        {step !== 'papers' && <Button variant="secondary" onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) - 1].id)}>Quay lại</Button>}
-        {step !== 'review' && <Button onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) + 1].id)}>Tiếp tục</Button>}
+        {step !== 'papers' && <Button variant="secondary" disabled={saving} onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) - 1].id)}>Quay lại</Button>}
+        {step !== 'review' && <Button disabled={saving} onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) + 1].id)}>Tiếp tục</Button>}
         {visibleSavedAt && <span className={styles.saved}>Đã lưu lúc {visibleSavedAt}</span>}
       </div>
 
