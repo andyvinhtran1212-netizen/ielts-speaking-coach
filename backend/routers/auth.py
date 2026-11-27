@@ -330,12 +330,32 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     from services.access_code_permissions import (  # local — avoid import cycle
         aget_user_access_code_permissions_cached,
         get_user_access_code_permissions_cached,
+        has_permission,
     )
     if settings.USE_ASYNC_DB:
         live_permissions = await aget_user_access_code_permissions_cached(user_id)
     else:
         live_permissions = await asyncio.to_thread(
             get_user_access_code_permissions_cached, user_id,
+        )
+    # COURSEACCESS-0055 FR-019 (G04-T07b): while ``credit_metering`` is on, a
+    # course entitlement with ``speaking`` admits every Speaking mode
+    # (sessions._require_permission). Expose it so the Speaking page opens the
+    # tabs the backend already admits. ``permissions`` stays the live
+    # access-code list (single source with /api/student/permissions); this is
+    # a separate field. Read only for an active account still missing a
+    # Speaking scope, so a code holder's /auth/me does no extra read.
+    # Fail-closed: a flag or entitlement read error gives False.
+    from routers.sessions import (  # local — avoid import cycle
+        _MODE_SCOPE,
+        _course_speaking_entitlement,
+    )
+    speaking_course_access = False
+    if user.get("is_active") and not user.get("suspended_at") and not all(
+        has_permission(live_permissions, scope) for scope in _MODE_SCOPE.values()
+    ):
+        speaking_course_access = await asyncio.to_thread(
+            _course_speaking_entitlement, user_id,
         )
     # Phase D Wave 2 — strict default-deny via the canonical helper so
     # frontends can rely on `=== true` without re-implementing the rule.
@@ -382,6 +402,7 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "flashcard_enabled": flashcard_enabled,
         "vocab_curated_enabled": vocab_curated_enabled,
         "learner_v2_enabled": learner_v2_enabled,
+        "speaking_course_access": speaking_course_access,
     }
 
 
