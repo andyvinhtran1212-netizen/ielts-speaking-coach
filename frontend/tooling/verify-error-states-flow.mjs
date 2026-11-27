@@ -217,14 +217,14 @@ try {
           'GET /api/grammar/diagnostics/availability': () => ({ assigned_only: false }),
         },
       });
-      await page.goto(`${BASE}/grammar-checkup?session=session-a`, { waitUntil: 'networkidle' });
+      await page.goto(`${BASE}/course/grammar-checkup?session=session-a`, { waitUntil: 'networkidle' });
       await page.getByText('Question owned by account A').waitFor({ timeout: 15_000 });
       await page.evaluate((id) => window.__q85.switchTo(id), USER_B);
       await page.getByRole('heading', { name: 'Chọn độ sâu phù hợp' }).waitFor({ timeout: 15_000 }).catch(() => {});
-      check(`${tag} /grammar-checkup drops account A's question after the switch`, await page.getByText('Question owned by account A').count() === 0);
-      check(`${tag} /grammar-checkup drops A's session from the URL`, new URL(page.url()).search === '', page.url());
+      check(`${tag} /course/grammar-checkup drops account A's question after the switch`, await page.getByText('Question owned by account A').count() === 0);
+      check(`${tag} /course/grammar-checkup drops A's session from the URL`, new URL(page.url()).search === '', page.url());
       const afterSwitch = requests.slice(requests.findIndex((row) => row.includes(`token-${USER_B}`)));
-      check(`${tag} /grammar-checkup boots for account B`,
+      check(`${tag} /course/grammar-checkup boots for account B`,
         afterSwitch.some((row) => row.startsWith('GET /api/grammar/diagnostics/availability') && row.includes(`token-${USER_B}`))
         && !afterSwitch.some((row) => row.includes('session-a')), afterSwitch.join(' | '));
       await page.context().close();

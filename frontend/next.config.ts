@@ -157,7 +157,8 @@ const nextConfig: NextConfig = {
       { source: '/writing', destination: '/writing/dashboard', permanent: false },
       // The review route needs a routeId + session from a report; the bare
       // prefix goes back to the checkup, whose report links each review route.
-      { source: '/grammar-checkup/review', destination: '/grammar-checkup', permanent: false },
+      { source: '/grammar-checkup/review', destination: '/course/grammar-checkup', permanent: false },
+      { source: '/course/grammar-checkup/review', destination: '/course/grammar-checkup', permanent: false },
       // C-05 / U-09: there is no separate sign-up page; /login is the sign-up
       // entry (the landing's "Đăng ký" links there). Temporary, as above.
       { source: '/signup', destination: '/login', permanent: false },
@@ -169,6 +170,8 @@ const nextConfig: NextConfig = {
       { source: '/course-exercises', destination: '/course/exercises', permanent: false },
       { source: '/advanced-vocabulary', destination: '/course/vocabulary', permanent: false },
       { source: '/grammar-lessons/assigned', destination: '/course/grammar-lesson', permanent: false },
+      { source: '/grammar-checkup', destination: '/course/grammar-checkup', permanent: false },
+      { source: '/grammar-checkup/review/:routeId', destination: '/course/grammar-checkup/review/:routeId', permanent: false },
     ];
   },
 

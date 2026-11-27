@@ -1,8 +1,8 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import { GrammarCheckup } from '@/app/(authed)/grammar-checkup/grammar-checkup';
-import { ReviewRoute } from '@/app/(authed)/grammar-checkup/review/[routeId]/review-route';
+import { GrammarCheckup } from '@/app/(authed)/course/grammar-checkup/grammar-checkup';
+import { ReviewRoute } from '@/app/(authed)/course/grammar-checkup/review/[routeId]/review-route';
 import { AdvancedVocabularyLesson } from '@/app/(authed-advanced-vocab)/course/vocabulary/advanced-vocabulary-lesson';
 import { VocabExamBehavior } from '@/app/(authed-vocab-exam)/vocabulary/exam/vocab-exam-behavior';
 

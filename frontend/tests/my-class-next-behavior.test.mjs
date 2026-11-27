@@ -198,17 +198,24 @@ describe('deadline helpers', () => {
 
 describe('assignment start contract', () => {
   test('Grammar assignments open the authenticated diagnostic and completed reports', () => {
-    assert.deepEqual(normalizeClassStartResponse({
+    // LEARNERNAV-0062 FR-012: the pre-move and the new grammar_path both open
+    // the checkup at its new URL; a path for another item is refused.
+    for (const sent of ['/grammar-checkup?assignment_item=grammar-item', '/course/grammar-checkup?assignment_item=grammar-item']) {
+      assert.deepEqual(normalizeClassStartResponse({
+        item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar', grammar_path: sent,
+      }, 'grammar-item'), {
+        kind: 'grammar', url: '/course/grammar-checkup?assignment_item=grammar-item',
+      });
+    }
+    assert.equal(normalizeClassStartResponse({
       item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
-      grammar_path: '/grammar-checkup?assignment_item=grammar-item',
-    }, 'grammar-item'), {
-      kind: 'grammar', url: '/grammar-checkup?assignment_item=grammar-item',
-    });
+      grammar_path: '/course/grammar-checkup?assignment_item=other-item',
+    }, 'grammar-item'), null);
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
       grammar_report_session_id: 'session/1',
     }, 'grammar-item'), {
-      kind: 'grammar-report', url: '/grammar-checkup?session=session%2F1&view=report',
+      kind: 'grammar-report', url: '/course/grammar-checkup?session=session%2F1&view=report',
     });
   });
 
