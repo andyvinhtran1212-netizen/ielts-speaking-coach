@@ -48,6 +48,7 @@ function loadModule(filename, env) {
   const modules = {
     '@/lib/backend': { API_BASE: 'https://unused.invalid' },
     '@/lib/grammar-article-index.mjs': articleIndex,
+    '@/lib/public-commerce.mjs': { publicCommerceEnabled: () => false },
     '@/tooling/content-security-policy.mjs': csp,
     './tooling/advanced-vocab-legacy-rewrites.mjs': advancedVocabRewrites,
     './tooling/content-security-policy.mjs': csp,
