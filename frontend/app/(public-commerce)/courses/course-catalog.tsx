@@ -28,7 +28,9 @@ import styles from './courses.module.css';
 const LEARN_HREF = '/home';
 const ACTIVATE_PATH = '/activate';
 
-type ViewerRead = 'none' | 'loading' | 'ready' | 'error';
+type ViewerRead =
+  | { accountId: string; status: 'loading' | 'error' }
+  | { accountId: string; status: 'ready'; items: CourseItem[] };
 type RowState = ReturnType<typeof courseRowState>;
 
 function formatDate(iso: string | null): string | null {
@@ -223,31 +225,39 @@ function CourseChooser({ items }: { items: CourseItem[] }) {
 export function CourseCatalog({ initialItems }: { initialItems: CourseItem[] }) {
   const { status, user } = useAuth();
   const signedIn = status === 'signed-in';
-  const viewerKey = signedIn ? `user:${user?.id ?? ''}` : status;
-  const [items, setItems] = useState<CourseItem[]>(initialItems);
-  const [read, setRead] = useState<ViewerRead>('none');
+  const accountId = signedIn ? user?.id ?? null : null;
+  const [viewerRead, setViewerRead] = useState<ViewerRead | null>(null);
   const generation = useRef(0);
 
-  const loadViewer = useCallback((gen: number) => {
-    setRead('loading');
+  const loadViewer = useCallback((id: string, gen: number) => {
+    setViewerRead({ accountId: id, status: 'loading' });
+    const onError = () => {
+      if (gen === generation.current) setViewerRead({ accountId: id, status: 'error' });
+    };
     fetchCatalogForViewer().then(
       (data) => {
         if (gen !== generation.current) return;
-        if (!Array.isArray(data?.items)) { setRead('error'); return; }
-        setItems(data.items);
-        setRead('ready');
+        if (!Array.isArray(data?.items)) {
+          onError();
+          return;
+        }
+        setViewerRead({ accountId: id, status: 'ready', items: data.items });
       },
-      () => { if (gen === generation.current) setRead('error'); },
+      onError,
     );
   }, []);
 
   useEffect(() => {
     const gen = ++generation.current;
-    setItems(initialItems);
-    if (signedIn) loadViewer(gen); else setRead('none');
+    if (accountId) loadViewer(accountId, gen);
+    else setViewerRead(null);
     return () => { generation.current += 1; };
-  }, [viewerKey, signedIn, initialItems, loadViewer]);
+  }, [accountId, initialItems, loadViewer]);
 
+  // Never render the previous viewer's result, even before the effect runs.
+  const ownRead = viewerRead?.accountId === accountId ? viewerRead : null;
+  const items = ownRead?.status === 'ready' ? ownRead.items : initialItems;
+  const isLoading = accountId !== null && (!ownRead || ownRead.status === 'loading');
   const counts = catalogCounts(items);
   const primary = primaryLearningSlug(items);
   const activateHref = signedIn ? ACTIVATE_PATH : `/login?next=${encodeURIComponent(ACTIVATE_PATH)}`;
@@ -258,11 +268,11 @@ export function CourseCatalog({ initialItems }: { initialItems: CourseItem[] }) 
 
   return (
     <>
-      {read === 'error' ? (
+      {ownRead?.status === 'error' ? (
         <Notice
           kind="warning"
           live="alert"
-          action={<Button variant="secondary" onClick={() => loadViewer(generation.current)}>Thử lại</Button>}
+          action={<Button variant="secondary" onClick={() => loadViewer(ownRead.accountId, generation.current)}>Thử lại</Button>}
         >
           Chưa tải được trạng thái khoá học của bạn. Danh sách dưới đây là thông tin chung.
         </Notice>
@@ -280,7 +290,7 @@ export function CourseCatalog({ initialItems }: { initialItems: CourseItem[] }) 
           <p>Có mã kích hoạt từ lớp?</p>
           <a href={activateHref}>Nhập mã</a>
         </aside>
-        <ol className={styles.list} aria-busy={read === 'loading' || undefined}>
+        <ol className={styles.list} aria-busy={isLoading || undefined}>
           {items.map((item) => <CourseRow key={item.slug} item={item} primary={item.slug === primary} />)}
         </ol>
       </section>
