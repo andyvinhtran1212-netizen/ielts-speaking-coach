@@ -410,6 +410,21 @@ def _students_without_account(db, student_ids) -> set:
     return out
 
 
+def item_submission_patch(
+    *, artifact_kind: str, artifact_id: str, score: Optional[float], now: Optional[datetime],
+) -> Dict[str, Any]:
+    """Fields common to a ledger write and its read-only projection."""
+    patch: Dict[str, Any] = {
+        "state":         "graded" if score is not None else "submitted",
+        "submitted_at":  (now or datetime.now(timezone.utc)).isoformat(),
+        "artifact_kind": artifact_kind,
+        "artifact_id":   artifact_id,
+    }
+    if score is not None:
+        patch["score"] = score
+    return patch
+
+
 def mark_item_submitted(
     db,
     *,
@@ -426,14 +441,9 @@ def mark_item_submitted(
     re-completing a session (or a retry) cannot move the submission time later
     and turn an on-time hand-in into a late one.
     """
-    patch: Dict[str, Any] = {
-        "state":         "graded" if score is not None else "submitted",
-        "submitted_at":  (now or datetime.now(timezone.utc)).isoformat(),
-        "artifact_kind": artifact_kind,
-        "artifact_id":   artifact_id,
-    }
-    if score is not None:
-        patch["score"] = score
+    patch = item_submission_patch(
+        artifact_kind=artifact_kind, artifact_id=artifact_id, score=score, now=now,
+    )
 
     try:
         query = (db.table("class_assignment_items").update(patch)

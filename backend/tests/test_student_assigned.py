@@ -419,6 +419,33 @@ def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
     ]
 
 
+def test_read_only_assignment_view_projects_both_ledgers_without_writing():
+    import database
+    from routers import class_student
+    from services import quiz_service
+
+    db, finished = _two_student_ledger_db()
+    # The quiz is already passed; the assignment is waiting for its writing receipt.
+    next(row for row in db.tables["class_assignment_items"] if row["id"] == "course-s1")["passed_at"] = finished
+    # The other learner has pending work without evidence of a hand-in.
+    db.tables["reading_test_attempts"] = db.tables["reading_test_attempts"][:1]
+    db.tables["course_writing_submissions"] = db.tables["course_writing_submissions"][:1]
+    with patch.object(class_student, "supabase_admin", db), \
+         patch.object(quiz_service, "supabase_admin", db), \
+         patch.object(database, "supabase_admin", db):
+        has_a, a, stale_a = st._visible_assignments_for("u-1", "A", NOW, read_only=True)
+        has_b, b, stale_b = st._visible_assignments_for("u-2", "B", NOW, read_only=True)
+
+    assert has_a and has_b and not stale_a and not stale_b
+    assert {row["item_id"] for row in a} == {"reading-s1", "course-s1"}
+    assert {row["item_id"] for row in b} == {"reading-s2", "course-s2"}
+    assert {row["submitted_at"] for row in a} == {finished}
+    assert st.build_assigned(a, NOW)["assigned_total_open"] == 0
+    assert st.build_assigned(b, NOW)["assigned_total_open"] == 2
+    assert db.writes == []
+    assert all(row["submitted_at"] is None for row in db.tables["class_assignment_items"])
+
+
 # ── route ─────────────────────────────────────────────────────────────────────
 
 
