@@ -61,15 +61,37 @@ describe('/account/orders', () => {
     expect(screen.queryByRole('button', { name: 'Xem thêm' })).toBeNull();
   });
 
-  it('one next step per row, linked only to a live page: /enroll is planned, "Vào học" goes to /home', async () => {
-    pages.first = { items: [order(), order({ order_code: 'AV-0002', status: 'confirmed' })], next_cursor: null };
+  it('exactly one next step link per row, by status (FR-041); "Vào học" goes to /home until /course is live', async () => {
+    pages.first = {
+      items: [
+        order({ order_code: 'AV-0001', status: 'awaiting_transfer' }),
+        order({ order_code: 'AV-0002', status: 'transfer_reported' }),
+        order({ order_code: 'AV-0003', status: 'needs_info' }),
+        order({ order_code: 'AV-0004', status: 'confirmed' }),
+        order({ order_code: 'AV-0005', status: 'expired' }),
+        order({ order_code: 'AV-0006', status: 'cancelled' }),
+      ],
+      next_cursor: null,
+    };
     await mount();
     const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
-    expect(within(rows[0]).queryByRole('link')).toBeNull();
-    const links = within(rows[1]).getAllByRole('link');
-    expect(links).toHaveLength(1);
-    expect(links[0].textContent).toBe('Vào học');
-    expect(links[0].getAttribute('href')).toBe('/home');
+    const links = rows.map((row) => within(row).getAllByRole('link'));
+    expect(links.map((l) => l.length)).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(links.map((l) => l[0].textContent)).toEqual(['Tiếp tục thanh toán', 'Xem trạng thái', 'Xem hướng dẫn', 'Vào học', 'Xem chi tiết', 'Xem chi tiết']);
+    expect(links[0][0].getAttribute('href')).toBe('/enroll/AV-0001');
+    expect(links[3][0].getAttribute('href')).toBe('/home');
+  });
+
+  it('?khong-tim-thay (from /enroll) shows "Không tìm thấy đơn đăng ký này."', async () => {
+    const original = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, search: '?khong-tim-thay' } });
+    try {
+      pages.first = { items: [], next_cursor: null };
+      await mount();
+      expect(screen.getByText('Không tìm thấy đơn đăng ký này.')).toBeTruthy();
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
   });
 
   it('empty: the message, no table, and no link to a page that is not live', async () => {

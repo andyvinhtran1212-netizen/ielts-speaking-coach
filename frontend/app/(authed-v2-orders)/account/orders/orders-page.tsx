@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -72,8 +73,14 @@ export function OrdersPage() {
   return <OrdersContent key={accountId} />;
 }
 
+/** ui-states.md: /enroll/[orderCode] sends an order that is not the viewer's here. */
+function missingOrder() {
+  try { return new URLSearchParams(window.location.search).has('khong-tim-thay'); } catch { return false; }
+}
+
 function OrdersContent() {
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [missing] = useState(missingOrder);
   const [attempt, setAttempt] = useState(0);
   const alive = useRef<AbortController | null>(null);
 
@@ -108,6 +115,7 @@ function OrdersContent() {
         <p className={styles.eyebrow}>Tài khoản</p>
         <h1 className={styles.title}>Đơn đăng ký của tôi</h1>
       </header>
+      {missing ? <Notice kind="warning" live="status" className={styles.missing}>Không tìm thấy đơn đăng ký này.</Notice> : null}
 
       {state.kind === 'loading' ? <PageState kind="loading" title="Đang tải đơn đăng ký…" /> : null}
       {state.kind === 'error' ? (

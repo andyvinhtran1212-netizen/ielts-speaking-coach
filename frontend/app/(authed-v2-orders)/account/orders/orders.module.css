@@ -4,6 +4,8 @@
 .eyebrow { margin: 0 0 var(--av2-space-4); font-size: var(--av2-fs-14); color: var(--av2-muted); }
 .title.title { margin: 0; font-family: var(--av2-font-serif); font-size: var(--av2-fs-40); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); color: var(--av2-ink); }
 
+.missing { margin-bottom: var(--av2-space-8); }
+
 .empty { padding: var(--av2-space-9) 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
 .emptyTitle { margin: 0 0 var(--av2-space-7); font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); color: var(--av2-ink); }
 .emptyActions { display: flex; flex-wrap: wrap; gap: var(--av2-space-6); }
