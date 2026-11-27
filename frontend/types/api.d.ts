@@ -12610,6 +12610,41 @@ export interface paths {
         patch: operations["admin_patch_feedback_status_api_admin_feedback__feedback_id__patch"];
         trace?: never;
     };
+    "/api/courses/{slug}/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subscribe Open Alert */
+        post: operations["subscribe_open_alert_api_courses__slug__open_alerts_post"];
+        /** Unsubscribe Open Alert */
+        delete: operations["unsubscribe_open_alert_api_courses__slug__open_alerts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Open Alerts */
+        get: operations["my_open_alerts_api_me_open_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kp/microcheck-answers": {
         parameters: {
             query?: never;
@@ -15502,6 +15537,12 @@ export interface components {
             created_at: string;
             /** Review Eligible */
             review_eligible: boolean;
+            /** Display State */
+            display_state?: ("draft" | "scheduled" | "open" | "running" | "grading" | "released" | "ended" | "archived") | null;
+            /** Audience Count */
+            audience_count?: number | null;
+            /** Listening Seconds */
+            listening_seconds?: number | null;
         } & {
             [key: string]: unknown;
         };
@@ -16722,6 +16763,11 @@ export interface components {
              * @default false
              */
             learner_v2_enabled: boolean;
+            /**
+             * Speaking Course Access
+             * @default false
+             */
+            speaking_course_access: boolean;
         };
         /** AuthProfileResponse */
         AuthProfileResponse: {
@@ -19369,6 +19415,58 @@ export interface components {
              */
             user_answer: string | null;
         };
+        /** ExamAudiencePatchResponse */
+        ExamAudiencePatchResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+            /** Mirror Failed */
+            mirror_failed?: boolean;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
+        };
+        /** ExamAudienceResponse */
+        ExamAudienceResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+        };
+        /** ExamAudienceRow */
+        ExamAudienceRow: {
+            /** User Id */
+            user_id: string | null;
+            /** Student Id */
+            student_id: string;
+            /** Name */
+            name: string;
+            /** Cohort */
+            cohort: string | null;
+            source: components["schemas"]["ExamAudienceSource"];
+            /** Skills */
+            skills: ("listening" | "reading" | "writing" | "speaking")[];
+            /** Selected */
+            selected: boolean;
+            /** Excluded Reason */
+            excluded_reason: string | null;
+            /** Open From */
+            open_from: string | null;
+            /** Open Until */
+            open_until: string | null;
+        };
+        /** ExamAudienceSource */
+        ExamAudienceSource: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cohort" | "learner" | "group";
+            /** Label */
+            label: string | null;
+        };
         /**
          * ExamContentItem
          * @description Canonical cross-library row returned to the admin catalog.
@@ -19576,6 +19674,39 @@ export interface components {
             draft_state?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ExamScheduleResponse */
+        ExamScheduleResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "published";
+            /** Selected */
+            selected: number;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
+        };
+        /**
+         * ExamWriteResponse
+         * @description The persisted exam row, with additional columns from the database.
+         */
+        ExamWriteResponse: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+        } & {
+            [key: string]: unknown;
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -22722,6 +22853,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** MyOpenAlertsOut */
+        MyOpenAlertsOut: {
+            /** Slugs */
+            slugs: string[];
+        };
         /** NextItemResponse */
         NextItemResponse: {
             /** Complete */
@@ -22874,6 +23010,21 @@ export interface components {
             value: number;
             /** Lowest Cohort Id */
             lowest_cohort_id?: string | null;
+        };
+        /** OpenAlertOkOut */
+        OpenAlertOkOut: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** OpenAlertSubscribeIn */
+        OpenAlertSubscribeIn: {
+            /** Email */
+            email?: string | null;
+        };
+        /** OpenAlertUnsubscribeIn */
+        OpenAlertUnsubscribeIn: {
+            /** Unsubscribe Token */
+            unsubscribe_token?: string | null;
         };
         /** OpenBody */
         OpenBody: {
@@ -49780,6 +49931,111 @@ export interface operations {
             };
         };
     };
+    subscribe_open_alert_api_courses__slug__open_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertSubscribeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unsubscribe_open_alert_api_courses__slug__open_alerts_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertUnsubscribeIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_open_alerts_api_me_open_alerts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOpenAlertsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_microcheck_answers_api_kp_microcheck_answers_post: {
         parameters: {
             query?: never;
@@ -51253,7 +51509,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51357,7 +51613,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51534,7 +51790,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudienceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51571,7 +51827,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudiencePatchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51604,7 +51860,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamScheduleResponse"];
                 };
             };
             /** @description Validation Error */

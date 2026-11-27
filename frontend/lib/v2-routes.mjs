@@ -11,8 +11,11 @@
 /** @type {readonly string[]} */
 export const V2_ROUTES = Object.freeze([
   '/about',
+  '/account',
   '/contact',
   '/course',
+  '/courses',
+  '/help',
   '/library',
   '/library/speaking',
   '/library/speaking/[slug]',
@@ -21,6 +24,8 @@ export const V2_ROUTES = Object.freeze([
   '/library/writing-samples',
   '/library/writing-samples/[slug]',
   '/privacy',
+  '/progress',
+  '/start',
   '/profile/v2-pilot',
   '/terms',
   '/ui-library',
