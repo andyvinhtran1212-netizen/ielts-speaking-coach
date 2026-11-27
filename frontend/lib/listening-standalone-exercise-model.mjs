@@ -130,12 +130,14 @@ export function normalizeListeningStandaloneResult(mode, expectedExerciseId, ite
     const idx = integerOf(detail?.idx);
     if (!detail || idx !== index || typeof detail.is_correct !== 'boolean') throw new Error('attempt-detail-contract');
     if (mode === 'true_false') {
+      // Backend không còn trả đáp án đúng (săn lỗi B2-13); một backend cũ còn
+      // gửi `expected` thì vẫn kiểm dạng nhưng không đưa ra màn hình.
       const actual = textOf(detail.actual);
       const expected = textOf(detail.expected);
-      if (!['T', 'F', 'NG'].includes(expected) || (actual && !['T', 'F', 'NG'].includes(actual))) {
+      if ((expected && !['T', 'F', 'NG'].includes(expected)) || (actual && !['T', 'F', 'NG'].includes(actual))) {
         throw new Error('attempt-detail-contract');
       }
-      return { idx, isCorrect: detail.is_correct, actual, expected };
+      return { idx, isCorrect: detail.is_correct, actual };
     }
     const actualIdx = detail.actual_idx == null ? null : integerOf(detail.actual_idx);
     if (actualIdx !== null && (actualIdx < 0 || actualIdx > 3)) throw new Error('attempt-detail-contract');

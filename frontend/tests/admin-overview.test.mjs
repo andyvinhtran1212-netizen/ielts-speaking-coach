@@ -2,7 +2,7 @@
  * frontend/tests/admin-overview.test.mjs — Sprint 12.4.
  *
  * Pins the Tổng quan landing redesign at /pages/admin/index.html and
- * the controller at /js/admin-overview.js. Sentinel-string match
+ * (retired fixture, ADR-005) and the Next controller admin-overview.tsx. Sentinel-string match
  * against static source — catches:
  *
  *   - Chrome embed regression
@@ -23,7 +23,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 
 const HTML = read('pages', 'admin', 'index.html');
-const JS   = read('js', 'admin-overview.js');
+// LEGACYJS-0075 W4a — admin-overview.js is retired; the Next owner below holds
+// the controller invariants.
+const TSX  = read('app', '(authed-admin)', '(overview)', 'admin', 'admin-overview.tsx');
 
 
 describe('Sprint 12.4 — Tổng quan landing chrome embed', () => {
@@ -134,31 +136,29 @@ describe('Sprint 12.4 — refresh + relative-time label', () => {
 });
 
 
-describe('Sprint 12.4 — admin-overview.js controller', () => {
-  it('GETs /admin/overview', () => {
-    assert.match(JS, /api\.get\(['"]\/admin\/overview['"]\)/);
+describe('Admin overview controller — Next owner (admin-overview.tsx)', () => {
+  it('GETs /admin/overview through the typed client', () => {
+    assert.match(TSX, /await getAdminContentOverview\(\)/);
   });
   it('auto-refreshes every 5 minutes', () => {
-    assert.match(JS, /REFRESH_MS\s*=\s*5\s*\*\s*60\s*\*\s*1000/);
-    assert.match(JS, /setInterval/);
+    assert.match(TSX, /REFRESH_MS\s*=\s*5\s*\*\s*60\s*\*\s*1000/);
+    assert.match(TSX, /setInterval\(\(\) => \{\s*if \(document\.visibilityState === 'visible'\) void loadContent\(\)/);
   });
   it('pauses on visibilitychange when hidden', () => {
-    assert.match(JS, /visibilitychange/);
-    assert.match(JS, /stopAutoRefresh/);
+    assert.match(TSX, /addEventListener\('visibilitychange', onVisibility\)/);
+    assert.match(TSX, /\} else \{\s*stop\(\);/);
   });
   it('refreshes on focus when stale (≥5min)', () => {
-    assert.match(JS, /Date\.now\(\)\s*-\s*_lastFetchAt\s*>=\s*REFRESH_MS/);
+    assert.match(TSX, /Date\.now\(\)\s*-\s*lastContentAt\.current\s*>=\s*REFRESH_MS/);
   });
-  it('escapes HTML in DB-sourced text (defense in depth)', () => {
-    assert.match(JS, /function\s+escapeHtml/);
-    assert.match(JS, /&amp;/);
-    assert.match(JS, /&lt;/);
+  it('renders DB-sourced text through React (no injected HTML)', () => {
+    assert.doesNotMatch(TSX, /dangerouslySetInnerHTML/);
   });
   it('VN-locale formatting on timestamps + relative phrases', () => {
-    assert.match(JS, /toLocaleString\(['"]vi-VN['"]/);
-    assert.match(JS, /Cập nhật/);
+    assert.match(TSX, /toLocaleString\(['"]vi-VN['"]/);
+    assert.match(TSX, /Cập nhật/);
   });
   it('warning class applied when undismissed errors > 0', () => {
-    assert.match(JS, /is-warning/);
+    assert.match(TSX, /Number\(errors\.undismissed \|\| 0\) > 0 \? ' is-warning' : ''/);
   });
 });

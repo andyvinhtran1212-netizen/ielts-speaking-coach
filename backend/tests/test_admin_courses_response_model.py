@@ -53,3 +53,22 @@ def test_course_ladder_fields_round_trip():
 def test_malformed_course_rows_fail_closed(override):
     with pytest.raises(ValidationError):
         AdminCourseOut.model_validate(_course(**override))
+
+
+@pytest.mark.parametrize("kind", ["class", "online"])
+def test_course_rows_after_migration_383_keep_kind(kind):
+    # Migration 383 adds courses.kind and the route reads select("*"); the
+    # strict model must accept the column instead of failing every row.
+    dumped = AdminCourseListOut.model_validate({"courses": [_course(kind=kind)]}) \
+        .model_dump(mode="json")
+    assert dumped["courses"][0]["kind"] == kind
+
+
+def test_course_rows_before_migration_383_still_validate():
+    dumped = AdminCourseOut.model_validate(_course()).model_dump(mode="json")
+    assert dumped["kind"] is None
+
+
+def test_unknown_course_kind_fails_closed():
+    with pytest.raises(ValidationError):
+        AdminCourseOut.model_validate(_course(kind="repractice"))

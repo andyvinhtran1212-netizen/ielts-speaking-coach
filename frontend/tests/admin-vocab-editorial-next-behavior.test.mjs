@@ -5,9 +5,9 @@ import { describe, test } from 'node:test';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'curated', 'page.tsx');
-const CLIENT = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'curated', 'admin-vocab-editorial.tsx');
-const HUB = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'page.tsx');
+const PAGE = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'curated', 'page.tsx');
+const CLIENT = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'curated', 'admin-vocab-editorial.tsx');
+const HUB = read('app', '(authed-admin)/(vocab)', 'admin', 'vocab', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const CSS = read('public', 'css', 'admin-vocab-next.css');
 
