@@ -6,23 +6,51 @@ import { useDialogFocus } from '@/lib/use-dialog-focus';
 
 import { cx } from '../cx';
 import { Icon } from '../icon/icon';
-import { groupCount, hasCurrent, isCurrent, type StaffNavGroup, type StaffRole } from './staff-nav';
+import {
+  groupCount, hasCurrent, isAvailable, isCurrent, readNavGroups, writeNavGroups,
+  type StaffNavGroup, type StaffNavItem, type StaffRole,
+} from './staff-nav';
 import styles from './staff-shell.module.css';
 
 const NAV_LABEL: Record<StaffRole, string> = { admin: 'Điều hướng quản trị', instructor: 'Điều hướng giáo viên' };
 const MENU_LABEL: Record<StaffRole, string> = { admin: 'Menu quản trị', instructor: 'Menu giáo viên' };
 
-/** Open groups: the one holding the current page starts open; the others follow the user. */
-function useOpenGroups(nav: readonly StaffNavGroup[], current: string | null) {
+/**
+ * Open groups: the one holding the current page is always open on arrival;
+ * the others follow the user, remembered in this browser (GOI-09 FR-006)
+ * unless `persist` is false (/ui-library).
+ */
+function useOpenGroups(nav: readonly StaffNavGroup[], current: string | null, persist: boolean) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const currentGroup = nav.find((g) => g.label && hasCurrent(g, current))?.id ?? null;
-  // A new current page opens its group again (FR-010: the current group is open).
+  // After mount (no hydration mismatch): what the user chose before, with the
+  // current page's group open whatever was stored (FR-010).
+  useEffect(() => {
+    if (!persist) return;
+    const stored = readNavGroups();
+    setOpen((prev) => ({ ...stored, ...prev }));
+  }, [persist]);
+  // A new current page opens its group again.
   useEffect(() => {
     if (currentGroup) setOpen((prev) => (prev[currentGroup] ? prev : { ...prev, [currentGroup]: true }));
   }, [currentGroup]);
   const isOpen = (id: string) => open[id] ?? id === currentGroup;
-  const toggle = (id: string) => setOpen((prev) => ({ ...prev, [id]: !(prev[id] ?? id === currentGroup) }));
+  const toggle = (id: string) => setOpen((prev) => {
+    const next = { ...prev, [id]: !(prev[id] ?? id === currentGroup) };
+    if (persist) writeNavGroups({ ...readNavGroups(), [id]: next[id] });
+    return next;
+  });
   return { isOpen, toggle };
+}
+
+/** An entry whose page is not open yet: dimmed, not a link, "Chưa mở", no count. */
+function Unavailable({ item, className }: { item: StaffNavItem; className: string }) {
+  return (
+    <span className={cx(className, styles.navItemOff)} aria-disabled="true" title="Chưa mở">
+      <span className={styles.navItemLabel}>{item.label}</span>
+      <span className={styles.srOnly}> (chưa mở)</span>
+    </span>
+  );
 }
 
 function Count({ value }: { value: number }) {
@@ -34,15 +62,17 @@ type ListProps = {
   current: string | null;
   /** 'phone' rows are 44px (drawer); 'desktop' 36px. */
   size: 'desktop' | 'phone';
+  persist: boolean;
 };
 
 /** The full list: folding groups, sub-entries on a thin rule, counts after labels. */
-function NavList({ nav, current, size }: ListProps) {
-  const { isOpen, toggle } = useOpenGroups(nav, current);
+function NavList({ nav, current, size, persist }: ListProps) {
+  const { isOpen, toggle } = useOpenGroups(nav, current, persist);
   return (
     <div className={cx(styles.navList, size === 'phone' && styles.navListPhone)}>
       {nav.map((group) => {
         const items = group.items.map((item) => {
+          if (!isAvailable(item)) return <Unavailable key={`off-${item.label}`} item={item} className={styles.navItem} />;
           const cur = isCurrent(item, current);
           return (
             <a
@@ -119,6 +149,14 @@ function NavRail({ nav, current }: { nav: readonly StaffNavGroup[]; current: str
       {nav.map((group) => {
         if (!group.label) {
           return group.items.map((item) => {
+            if (!isAvailable(item)) {
+              return (
+                <span key={`off-${item.label}`} className={cx(styles.railItem, styles.navItemOff)} aria-disabled="true" title={`${item.label} · Chưa mở`}>
+                  <Icon name={item.icon ?? group.icon} />
+                  <span className={styles.srOnly}>{item.label} (chưa mở)</span>
+                </span>
+              );
+            }
             const count = item.count && item.count > 0 ? item.count : 0;
             const cur = isCurrent(item, current);
             return (
@@ -159,6 +197,7 @@ function NavRail({ nav, current }: { nav: readonly StaffNavGroup[]; current: str
               <div id={panelId} role="group" aria-label={group.label} className={styles.flyout}>
                 <p className={styles.flyoutHead}>{group.label}</p>
                 {group.items.map((item) => {
+                  if (!isAvailable(item)) return <Unavailable key={`off-${item.label}`} item={item} className={styles.flyoutItem} />;
                   const cur = isCurrent(item, current);
                   return (
                     <a
@@ -182,6 +221,8 @@ function NavRail({ nav, current }: { nav: readonly StaffNavGroup[]; current: str
   );
 }
 
+const withRoot = (root: string | undefined, cls: string) => (root ? `${root} ${cls}` : cls);
+
 export type StaffSidebarProps = {
   role: StaffRole;
   nav: readonly StaffNavGroup[];
@@ -189,6 +230,10 @@ export type StaffSidebarProps = {
   /** User-collapsed (persisted). Below 1200px the rail shows regardless (FR-018). */
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  /** Remember folded groups in localStorage (false on /ui-library). */
+  persist?: boolean;
+  /** 'av2-root' when StaffShell scope="shell". */
+  rootClass?: string;
 };
 
 /**
@@ -196,11 +241,11 @@ export type StaffSidebarProps = {
  * rail below 1200px (1024px included, FR-018) or when the user collapses it.
  * Hidden below 768px, where StaffDrawer takes over.
  */
-export function StaffSidebar({ role, nav, current, collapsed, onCollapsedChange }: StaffSidebarProps) {
+export function StaffSidebar({ role, nav, current, collapsed, onCollapsedChange, persist = true, rootClass }: StaffSidebarProps) {
   return (
-    <nav aria-label={NAV_LABEL[role]} className={styles.sidebar} data-collapsed={collapsed ? 'true' : undefined}>
+    <nav aria-label={NAV_LABEL[role]} className={withRoot(rootClass, styles.sidebar)} data-collapsed={collapsed ? 'true' : undefined}>
       <div className={styles.sidebarFull}>
-        <NavList nav={nav} current={current} size="desktop" />
+        <NavList nav={nav} current={current} size="desktop" persist={persist} />
       </div>
       <div className={styles.sidebarRail}>
         <NavRail nav={nav} current={current} />
@@ -225,17 +270,20 @@ export type StaffDrawerProps = {
   current: string | null;
   open: boolean;
   onClose: () => void;
+  persist?: boolean;
+  /** 'av2-root' when StaffShell scope="shell". */
+  rootClass?: string;
 };
 
 /** Phone drawer (<768px): the same groups, 44px rows, only the current group open. Modal. */
-export function StaffDrawer({ role, nav, current, open, onClose }: StaffDrawerProps) {
+export function StaffDrawer({ role, nav, current, open, onClose, persist = true, rootClass }: StaffDrawerProps) {
   const panel = useRef<HTMLDivElement>(null);
   useDialogFocus({ open, onClose, dialogRef: panel });
   if (!open) return null;
   return (
     <>
-      <div className={styles.drawerBackdrop} aria-hidden="true" onClick={onClose} />
-      <div ref={panel} className={styles.drawer} role="dialog" aria-modal="true" aria-label={MENU_LABEL[role]}>
+      <div className={withRoot(rootClass, styles.drawerBackdrop)} aria-hidden="true" onClick={onClose} />
+      <div ref={panel} className={withRoot(rootClass, styles.drawer)} role="dialog" aria-modal="true" aria-label={MENU_LABEL[role]}>
         <div className={styles.drawerHead}>
           <span className={styles.drawerTitle}>{MENU_LABEL[role]}</span>
           <button type="button" className={styles.squareButton} aria-label={`Đóng ${MENU_LABEL[role].toLowerCase()}`} onClick={onClose}>
@@ -243,7 +291,7 @@ export function StaffDrawer({ role, nav, current, open, onClose }: StaffDrawerPr
           </button>
         </div>
         <nav aria-label={NAV_LABEL[role]}>
-          <NavList nav={nav} current={current} size="phone" />
+          <NavList nav={nav} current={current} size="phone" persist={persist} />
         </nav>
       </div>
     </>
