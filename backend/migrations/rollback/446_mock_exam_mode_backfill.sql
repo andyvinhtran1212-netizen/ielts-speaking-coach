@@ -5,6 +5,8 @@
 --     fn_guard_mock_paper_policy, fn_guard_owned_mock_attempt and
 --     fn_admin_mock_exams_with_review_eligibility: they accept the legacy names,
 --     so they are correct after this rollback too;
+--   * the live assigned-skill checks on paper admission and submission. A
+--     sitting with a personal selection keeps it under either mode name;
 --   * mock_exam_audiences rows (445 owns the table; its rollback decides).
 -- The backend must still be the two-name build (rollout.md: the lowest safe
 -- backend after 446 is the one with the compatibility layer).
