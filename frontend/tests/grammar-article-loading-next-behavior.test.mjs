@@ -11,10 +11,11 @@ const LOADING = readFileSync(path.join(
 
 test('Grammar article streams a stable, accessible reading skeleton', () => {
   assert.match(LOADING, /<aver-chrome active="grammar"/);
-  assert.match(LOADING, /className="gw-subnav/);
   assert.match(LOADING, /aria-busy="true"/);
   assert.match(LOADING, /role="status">Đang tải bài Grammar/);
-  assert.match(LOADING, /maxWidth: 'var\(--av-width-read\)'/);
-  assert.match(LOADING, /hidden lg:block w-56 shrink-0/);
+  // G06-T14 (a): khung tải theo khuôn bài đọc mới — cột mục lục + cột chữ, ẩn với trình đọc màn hình.
+  assert.match(LOADING, /className=\{`av2-root /);
+  assert.match(LOADING, /className=\{styles\.skeleton\} aria-hidden="true"/);
+  assert.match(LOADING, /styles\.skelToc/);
   assert.doesNotMatch(LOADING, /return null/);
 });

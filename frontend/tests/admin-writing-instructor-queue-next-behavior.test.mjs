@@ -16,7 +16,7 @@ const COMPONENT = read('app', '(authed-admin-writing-instructor-queue)', 'admin'
 const LAYOUT = read('app', '(authed-admin-writing-instructor-queue)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-writing-instructor-queue-next.css');
 const CONFIG = read('next.config.ts'); const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
+const HUB = read('app', '(authed-admin)/(writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const review = { id: 'r1', essay_id: 'e1', status: 'queued', claimed_by: null, claimed_at: null, delivered_at: null, instructor_note: null, created_at: '2026-08-10T00:00:00Z', updated_at: '2026-08-10T00:00:00Z' };

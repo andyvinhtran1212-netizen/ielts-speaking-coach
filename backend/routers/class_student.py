@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 from typing import Any, Dict, Literal, Optional, Union
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel
 
 from database import supabase_admin
@@ -491,7 +491,8 @@ def _visible_writing_gives(student_id: str, cohort_ids: list[str],
 
 
 def _visible_assignments(student: Dict[str, Any], now: datetime,
-                         cohort_ids: list[str] | None = None) -> tuple[list, bool]:
+                         cohort_ids: list[str] | None = None, *,
+                         reconcile_student_only: bool = False) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
 
     Shared by /my-assignments and /me so the two can never disagree about what
@@ -503,6 +504,8 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     ahead of one old unsubmitted one. A student must never be shown "nothing to
     do" while an unanswered task exists.
     """
+    if reconcile_student_only and not student.get("id"):
+        raise ValueError("Student ID required for scoped ledger reconciliation")
     cohort_ids = cohort_ids if cohort_ids is not None else (
         [str(student["cohort_id"])] if student.get("cohort_id") else [])
     # Writing gives live in their own table and never produced a ledger item, so
@@ -601,20 +604,21 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     # Một khối riêng cho mỗi bộ đối chiếu: chúng đọc hai nguồn bằng chứng rời
     # nhau, nên gộp chung nghĩa là bộ này hỏng thì bộ kia không được thử.
     stale = False
-    # Course repair reads every classmate's items for the ids it is given.
-    # Speaking and writing assignments are not course ledgers, so they must
-    # not be part of that scan.
+    # The new assigned route repairs only the authenticated student's ledger.
+    # Existing callers keep their original repair scope.
+    repair_scope = {"student_id": student["id"]} if reconcile_student_only else {}
     course_repair_ids = [
         aid for aid, row in by_id.items() if row.get("skill") == "course"
     ]
     for what, fn in (
         ("test-attempts", lambda: reconcile_test_attempts(
-            supabase_admin, list(by_id.values()))),
+            supabase_admin, list(by_id.values()), **repair_scope)),
         # Bài tập theo buổi cũng vậy, và còn nặng hơn: `end_session` ghi sổ
         # best-effort nên một lượt hỏng ở chặng CUỐI để bài nằm mãi ở "Cần nộp"
         # cho tới khi giáo viên tình cờ mở bảng. Em ấy thì thấy bài mình vừa
         # làm xong vẫn đang nợ.
-        ("course", lambda: reconcile_course_items(supabase_admin, course_repair_ids)),
+        ("course", lambda: reconcile_course_items(supabase_admin, course_repair_ids,
+                                                  **repair_scope)),
     ):
         try:
             fn()
@@ -693,6 +697,64 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     except Exception as exc:
         logger.error("[class] my assignments failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Lỗi khi tải bài tập. Vui lòng thử lại.") from None
+
+
+class SelfPracticeSessionParams(BaseModel):
+    mode: str
+    part: int
+    topic: str
+
+
+class SelfPracticeLaunch(BaseModel):
+    href: Optional[str] = None
+    session_params: Optional[SelfPracticeSessionParams] = None
+
+
+class SelfPracticeResponse(BaseModel):
+    skill: Literal["speaking", "listening", "reading"]
+    launch: SelfPracticeLaunch
+
+
+@router.post(
+    "/assignments/{item_id}/self-practice",
+    response_model=SelfPracticeResponse,
+    response_model_exclude_none=True,
+)
+async def self_practice_assignment(
+    item_id: str,
+    response: Response,
+    authorization: str | None = Header(default=None),
+):
+    """"Tự luyện bài này" for a closed assignment (LEARNERCORE-0063 FR-100).
+
+    Returns the public self-practice launch for the same paper; writes nothing
+    (no item state, no ledger). 404 not the caller's / not visible / no longer
+    in the class, 409 ``assignment_still_open`` or ``homework_attempt_in_progress``
+    (a resumable homework attempt on the paper would be resumed instead),
+    422 ``self_practice_unsupported``
+    (vocab, grammar, course, Writing before G08) or
+    ``self_practice_paper_unavailable`` (the paper is not open to public
+    self-practice now; the assignment's own access is never borrowed).
+    """
+    from services import class_self_practice
+    from services.student_service import account_display_name
+
+    auth_user = await get_supabase_user(authorization)
+    headers = {"Cache-Control": "private, no-store"}
+    response.headers.update(headers)
+    student = await asyncio.to_thread(
+        _student_for_user, auth_user["id"], account_display_name(auth_user))
+    if not student:
+        raise HTTPException(404, "Không tìm thấy hồ sơ học viên", headers=headers)
+    try:
+        return await asyncio.to_thread(
+            class_self_practice.self_practice, supabase_admin,
+            student=student, item_id=item_id, now=datetime.now(timezone.utc),
+            user_id=str(auth_user["id"]),
+        )
+    except class_self_practice.SelfPracticeError as exc:
+        detail = exc.message if exc.status == 404 else {"error": exc.code, "message": exc.message}
+        raise HTTPException(exc.status, detail, headers=headers) from None
 
 
 @router.post(

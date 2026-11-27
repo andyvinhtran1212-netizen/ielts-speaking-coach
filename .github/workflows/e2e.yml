@@ -11,13 +11,24 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'frontend/**'
       - '.github/workflows/e2e.yml'
 
+# CI queue (23/11): a new push or a base-branch merge on a PR cancels that
+# PR's older run of this workflow instead of leaving it queued. Push, schedule
+# and dispatch runs get a group of their own (run_id), so a staging/main SHA
+# that the promotion gate needs is never cancelled or replaced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   e2e:
     name: E2E modal smoke (advisory)
+    # Advisory and heavy: not on draft PRs; `ready_for_review` runs it.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:

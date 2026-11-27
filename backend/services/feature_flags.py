@@ -95,3 +95,47 @@ async def ais_flashcard_enabled(user_id: str, global_flag: bool, *, run) -> bool
 def is_vocab_curated_enabled(user_id: str) -> bool:
     """Curated Vocab Wiki cohort gate. Runtime kill switches are checked apart."""
     return _per_user_flag(user_id, "vocab_curated_enabled")
+
+
+# ── LEARNERCORE-0063 FR-072: new learner UI switch ──────────────────────────
+#
+# learner_v2_enabled = runtime_flags('learner_v2_all')
+#                      OR (users.feature_flags.learner_v2 is True
+#                          AND runtime_flags('learner_v2'))
+#
+# Both runtime keys default to off and deny on a lookup error: the new UI is
+# opt-in, so an outage must fall back to the current pages, never open the new
+# tree to everyone. `learner_v2` is the kill switch for per-learner opt-ins;
+# turning it off sends them back to the old UI within one runtime-flag cache
+# window (15 s). `per_user` lets /auth/me pass the flag from the users row it
+# already read instead of a second lookup.
+
+LEARNER_V2_USER_KEY = "learner_v2"
+LEARNER_V2_SWITCH = "learner_v2"
+LEARNER_V2_ALL = "learner_v2_all"
+
+
+def is_learner_v2_enabled(user_id: str, *, per_user: bool | None = None) -> bool:
+    from services import runtime_flags  # local: runtime_flags imports database too
+
+    if runtime_flags.is_enabled(LEARNER_V2_ALL, default=False, on_error=False):
+        return True
+    opted_in = (_per_user_flag(user_id, LEARNER_V2_USER_KEY)
+                if per_user is None else per_user is True)
+    if not opted_in:
+        return False
+    return runtime_flags.is_enabled(LEARNER_V2_SWITCH, default=False, on_error=False)
+
+
+async def ais_learner_v2_enabled(user_id: str, *, run, per_user: bool | None = None) -> bool:
+    """:func:`is_learner_v2_enabled` with every read awaited through ``run``."""
+    from services import runtime_flags
+
+    if await runtime_flags.ais_enabled(LEARNER_V2_ALL, default=False, run=run, on_error=False):
+        return True
+    opted_in = (await _aper_user_flag(user_id, LEARNER_V2_USER_KEY, run)
+                if per_user is None else per_user is True)
+    if not opted_in:
+        return False
+    return await runtime_flags.ais_enabled(
+        LEARNER_V2_SWITCH, default=False, run=run, on_error=False)

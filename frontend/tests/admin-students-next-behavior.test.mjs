@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,11 +19,11 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-students)', 'admin', 'students', 'page.tsx');
-const DIRECTORY = read('app', '(authed-admin-students)', 'admin', 'students', 'admin-students-directory.tsx');
-const LAYOUT = read('app', '(authed-admin-students)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(students)', 'admin', 'students', 'page.tsx');
+const DIRECTORY = read('app', '(authed-admin)/(students)', 'admin', 'students', 'admin-students-directory.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(students)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-students-next.css');
-const CLASSES = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const CLASSES = read('app', '(authed-admin)/(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -76,7 +76,7 @@ describe('/admin/students — native directory ownership', () => {
     assert.match(CSS, /@media \(max-width: 768px\)/);
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(LAYOUT, /admin-students-next\.css/);
-    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin-students\)\/\*\*/);
+    assert.match(WORKFLOW, /frontend\/app\/\(authed-admin\)\/\(students\)\/\*\*/);
     assert.match(WORKFLOW, /node tooling\/verify-admin-students-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);
     assert.match(BROWSER, /explicit null/);
@@ -105,10 +105,12 @@ describe('/admin/students — archive and restore (STUDENTARCHIVE-0029)', () => 
     assert.match(BROWSER, /DELETE \\\/admin\\\/students/);
   });
 
-  test('legacy panel confirm no longer claims essays are erased', () => {
-    const LEGACY = read('public', 'js', 'admin-students-panel.js');
-    assert.doesNotMatch(LEGACY, /Tất cả essays của học viên này cũng sẽ bị xóa/);
-    assert.match(LEGACY, /Bài làm và điểm được giữ nguyên/);
+  // LEGACYJS-0075 W3b: admin-students-panel.js is deleted; the archive dialog
+  // in the native directory is the only confirm and must keep the same truth.
+  test('archive confirm never claims essays are erased', () => {
+    assert.doesNotMatch(DIRECTORY, /Tất cả essays của học viên này cũng sẽ bị xóa/);
+    assert.match(DIRECTORY, /description="Bài làm, điểm và lịch sử được giữ nguyên\./);
+    assert.equal(existsSync(join(ROOT, 'public', 'js', 'admin-students-panel.js')), false);
   });
 
   test('model: archive state, request path and restore receipt', () => {
