@@ -1,5 +1,7 @@
 # Thứ tự merge các PR đang mở vào staging (25/11/2026)
 
+> Bản chụp lịch sử. Các SHA, HOLD và lịch dưới đây phản ánh thời điểm lập bảng. Đội Codex tiếp quản ngày 27/11. Đối chiếu [tiến độ phát hành hiện tại](https://github.com/andyvinhtran1212-netizen/aver-tien-do/blob/main/mang/phat-hanh.md) trước khi dùng bảng để điều phối.
+
 Soạn bởi RM sau promote phương án A (#2672). **Đây chỉ là đề xuất thứ tự. Không PR nào được merge khi anh Andy chưa gõ `merge #N`.** Từ 25/11 04:30Z, lời duyệt "merge theo lô" đã thu hồi, và staging đóng merge cho tới khi anh mở lại.
 
 Số liệu lấy từ GitHub lúc ~05:00Z: 121 PR mở (không tính #2450 nháp và #2672 promote). Trong đó 48 PR xếp chồng theo base, thêm 2 chuỗi xếp chồng theo nội dung (LEGACYJS, FR-010). Trạng thái thay đổi liên tục, nên trước mỗi lần merge phải chạy lại cổng.
