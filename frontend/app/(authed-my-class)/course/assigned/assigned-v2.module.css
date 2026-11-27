@@ -1,0 +1,211 @@
+/* "Bài được giao" v2 (LEARNERCORE-0063 amendment 3). Tokens only (`--av2-*`);
+   the G03 components bring their own styles. The legacy my-class CSS stays
+   loaded on this route, so every colour, margin and link rule is explicit. */
+
+.page {
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  box-sizing: border-box;
+}
+
+.main {
+  box-sizing: border-box;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--av2-space-6) var(--av2-space-4) var(--av2-space-10);
+  display: grid;
+  gap: var(--av2-space-6);
+}
+
+.header {
+  display: grid;
+  gap: var(--av2-space-2);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  line-height: var(--av2-lh-tight);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.lead,
+.empty,
+.meta {
+  margin: 0;
+  font-size: var(--av2-fs-14);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-muted);
+}
+
+.empty {
+  color: var(--av2-ink);
+  font-size: var(--av2-fs-15);
+}
+
+.cards {
+  display: flex;
+  gap: var(--av2-space-3);
+  overflow-x: auto;
+}
+
+.card {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--av2-row);
+  padding: 0 var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  color: var(--av2-ink);
+  text-decoration: none;
+  font-size: var(--av2-fs-15);
+}
+
+.card[aria-current='page'] {
+  border-color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.card:focus-visible,
+.clear:focus-visible {
+  outline: var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--av2-space-4);
+}
+
+.filter {
+  min-width: 200px;
+}
+
+.clear {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--av2-link);
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
+}
+
+.group {
+  display: grid;
+  gap: var(--av2-space-3);
+  padding-top: var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: var(--av2-fs-16);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.list,
+.steps {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--av2-space-3);
+}
+
+.list {
+  list-style: none;
+}
+
+.steps {
+  padding-left: var(--av2-space-6);
+  font-size: var(--av2-fs-14);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-ink);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-4);
+  min-height: var(--av2-row);
+  padding-bottom: var(--av2-space-3);
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.rowText {
+  display: grid;
+  gap: var(--av2-space-1);
+  min-width: 0;
+}
+
+.skill {
+  font-size: var(--av2-fs-13);
+  color: var(--av2-muted);
+}
+
+.title {
+  font-size: var(--av2-fs-15);
+  color: var(--av2-ink);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--av2-space-1);
+}
+
+.state {
+  color: var(--av2-ink);
+}
+
+/* Text says the state; colour only repeats it. */
+.overdue {
+  color: var(--av2-danger);
+  font-weight: var(--av2-fw-strong);
+}
+
+.late {
+  margin-left: var(--av2-space-2);
+  color: var(--av2-mark);
+  font-weight: var(--av2-fw-strong);
+}
+
+.action {
+  flex: none;
+}
+
+@media (max-width: 767px) {
+  .main {
+    padding: var(--av2-space-4) var(--av2-space-4) calc(var(--av2-space-10) + var(--av2-bottombar-h));
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .filters > p {
+    grid-column: 1 / -1;
+  }
+
+  .filter {
+    min-width: 0;
+  }
+
+  .row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .action {
+    width: 100%;
+  }
+}
