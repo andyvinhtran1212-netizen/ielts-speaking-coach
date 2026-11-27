@@ -24484,10 +24484,7 @@ export interface components {
             attempt_id: string;
             /** Q Num */
             q_num: number;
-            /**
-             * Body
-             * @default
-             */
+            /** Body */
             body: string;
         };
         /** ReviewNoteOut */

@@ -387,6 +387,15 @@ def test_review_notes_responses_are_private_and_the_payload_is_bounded(db, monke
         huge = client.patch("/api/review-notes", headers=headers,
                           json={"skill": "listening", "attempt_id": A1, "q_num": 3, "body": "x" * 10_001})
         assert huge.status_code == 422
+
+        question = {"skill": "listening", "attempt_id": A1, "q_num": 3}
+        missing = client.patch("/api/review-notes", headers=headers, json=question)
+        assert missing.status_code == 422
+        assert [note["body"] for note in _get()["notes"]] == ["ok"]
+
+        cleared = client.patch("/api/review-notes", headers=headers, json={**question, "body": ""})
+        assert cleared.status_code == 200
+        assert _get()["notes"] == []
     finally:
         app.dependency_overrides.pop(require_active_learner, None)
 

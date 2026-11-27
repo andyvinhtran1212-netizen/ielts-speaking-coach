@@ -56,7 +56,7 @@ class ReviewNoteIn(BaseModel):
     q_num: int = Field(ge=1)
     # The 500-character rule is checked in the service so it answers 422
     # note_too_long (FR-106); this only bounds the payload.
-    body: str = Field(default="", max_length=10_000)
+    body: str = Field(max_length=10_000)
 
 
 class ReviewNoteSavedOut(BaseModel):
