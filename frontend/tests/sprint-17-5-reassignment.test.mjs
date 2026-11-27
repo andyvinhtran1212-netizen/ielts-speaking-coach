@@ -13,8 +13,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
-const CODES = front('js', 'admin-access-codes.js');
-const COHORTS = front('js', 'admin-classes.js');
+// LEGACYJS-0075 W3a: admin-access-codes.js is deleted; the codes tab is the Next panel.
+const CODES = front('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
+// LEGACYJS-0075 W3b: admin-classes.js is deleted; the roster is the Next class detail.
+const COHORTS = front('app', '(authed-admin)', '(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
 const CODES_HTML = front('pages', 'admin', 'access-codes', 'index.html');
 const COHORTS_HTML = front('pages', 'admin', 'classes', 'index.html');
 
@@ -24,22 +26,22 @@ describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', ()
   // are now edited PER-CODE via "Sửa quyền". Pin that the reassign wiring is
   // gone so it can't silently regress, and that refill is untouched.
   test('reassign action + modal fully removed', () => {
-    assert.doesNotMatch(CODES, /data-action="reassign"/);
-    assert.doesNotMatch(CODES, /_reassignCtx/);
+    assert.doesNotMatch(CODES, /reassign/i);
     assert.doesNotMatch(CODES_HTML, /id="reassign-backdrop"/);
     assert.doesNotMatch(CODES_HTML, /id="ra-to"/);
   });
   test('refill button calls /refill', () => {
-    assert.match(CODES, /data-action="refill"/);
-    assert.match(CODES, /\/admin\/access-codes\/'\s*\+\s*codeId\s*\+\s*'\/refill/);
+    // #2665: refill and edit-perms are items of the row "⋯" menu.
+    assert.match(CODES, /label: 'Cấp mã mới',/);
+    assert.match(CODES, /window\.api\.post\(`\/admin\/access-codes\/\$\{encodeURIComponent\(code\.id\)\}\/refill`, \{\}\)/);
   });
-  test('click handler dispatches edit-perms + refill', () => {
-    assert.match(CODES, /dataset\.action === 'edit-perms'/);
-    assert.match(CODES, /dataset\.action === 'refill'/);
+  test('row actions open edit-perms + refill', () => {
+    assert.match(CODES, /onSelect: \(\) => setEdit\(\{ code, permissions:/);
+    assert.match(CODES, /title: 'Cấp mã mới',/);
   });
   test('Pattern #26 — no inline colour/bg/hex', () => {
-    assert.doesNotMatch(CODES, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(CODES, /style\s*=\s*["'][^"']*background/);
+    assert.doesNotMatch(CODES, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(CODES, /style=\{\{[^}]*background/);
     assert.doesNotMatch(CODES, /rgba\(\s*\d+\s*,/);
   });
 });
@@ -47,22 +49,21 @@ describe('Sprint 17.5 — codes UI refill (reassign replaced by edit-perms)', ()
 describe('Sprint 17.5 — cohort UI member add/remove', () => {
   test('add assigns existing student (POST /students) + remove DELETEs /students', () => {
     // WF-1: roster add/remove sets/clears students.cohort_id (no code issued).
-    assert.match(COHORTS, /api\.post\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/students'/);
-    assert.match(COHORTS, /api\.delete\('\/admin\/cohorts\/'\s*\+\s*encodeURIComponent\(_cohortId\)\s*\+\s*'\/students\/'/);
+    assert.match(COHORTS, /window\.api\.post\(`\/admin\/cohorts\/\$\{encodeURIComponent\(cohortId\)\}\/students`, \{ student_id: selectedStudent \}\)/);
+    assert.match(COHORTS, /window\.api\.delete\(`\/admin\/cohorts\/\$\{encodeURIComponent\(cohortId\)\}\/students\/\$\{encodeURIComponent\(member\.student_id\)\}`\)/);
   });
   test('remove-member button per row + confirm gate', () => {
-    assert.match(COHORTS, /data-action="remove-member"/);
-    // Notification PR-2: native confirm() → styled confirmDanger (gate preserved).
-    assert.match(COHORTS, /confirmDanger\(/);
+    assert.match(COHORTS, /setConfirm\(\{ kind: 'remove-member', member \}\)/);
+    assert.match(COHORTS, /title=\{confirm\?\.kind === 'remove-member' \? 'Gỡ học viên khỏi lớp\?'/);
   });
   test('Pattern #26 — no inline colour/bg/hex', () => {
-    assert.doesNotMatch(COHORTS, /style\s*=\s*["'][^"']*color\s*:/);
-    assert.doesNotMatch(COHORTS, /style\s*=\s*["'][^"']*background/);
+    assert.doesNotMatch(COHORTS, /style=\{\{[^}]*color\s*:/);
+    assert.doesNotMatch(COHORTS, /style=\{\{[^}]*background/);
     assert.doesNotMatch(COHORTS, /rgba\(\s*\d+\s*,/);
   });
-  test('add-member modal present in page', () => {
-    assert.match(COHORTS_HTML, /id="member-modal"/);
-    assert.match(COHORTS_HTML, /id="mf-student"/);
-    assert.match(COHORTS_HTML, /id="btn-add-member"/);
+  test('add-member dialog with a student picker', () => {
+    assert.match(COHORTS, /<Dialog open=\{memberPicker\} title="Thêm học viên vào lớp"/);
+    assert.match(COHORTS, /<form id="acx-member-form" className="acd-form" onSubmit=\{addMember\}>/);
+    assert.match(COHORTS, /<Field label="Học viên"/);
   });
 });

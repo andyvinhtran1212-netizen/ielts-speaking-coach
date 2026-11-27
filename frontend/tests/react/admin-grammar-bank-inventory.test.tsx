@@ -2,13 +2,13 @@ import { StrictMode } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { AdminVocabTopics } from '@/app/(authed-admin-vocab)/admin/vocab/topics/admin-vocab-topics';
-import { AdminVocabQuizImport } from '@/app/(authed-admin-vocab)/admin/vocab/quiz/admin-vocab-quiz-import';
+import { AdminVocabTopics } from '@/app/(authed-admin)/(vocab)/admin/vocab/topics/admin-vocab-topics';
+import { AdminVocabQuizImport } from '@/app/(authed-admin)/(vocab)/admin/vocab/quiz/admin-vocab-quiz-import';
 
 const params = vi.hoisted(() => new URLSearchParams({ skill_area: 'grammar' }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => params }));
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: 'admin-1' }) }));
-vi.mock('@/app/(authed-admin-vocab)/admin/vocab/quiz/admin-grammar-revision', () => ({ AdminGrammarRevision: () => null }));
+vi.mock('@/app/(authed-admin)/(vocab)/admin/vocab/quiz/admin-grammar-revision', () => ({ AdminGrammarRevision: () => null }));
 afterEach(cleanup);
 
 const topicId = '00000000-0000-4000-8000-000000000301';

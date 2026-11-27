@@ -1,0 +1,16 @@
+Subject: {product_title} đã mở · đơn đăng ký {order_code}
+
+{greeting}
+
+Chúng tôi đã nhận đủ học phí cho đơn đăng ký {order_code}. {product_title} đã mở trên tài khoản của bạn.
+
+Học được tới: hết ngày {expires_on}
+Lượt chấm AI: {credits_line}
+Tài khoản: đã kích hoạt, mở luôn luyện Reading, Listening, ngữ pháp, từ vựng
+{order_link_line}
+Mỗi tài khoản học viên dùng ở một thiết bị một lúc; đăng nhập nơi khác sẽ hỏi trước.
+
+Aver Learning
+
+Bạn nhận thư này vì đơn đăng ký của tài khoản {email} vừa được xác nhận.
+Thư về đơn đăng ký và thanh toán là thư bắt buộc, không tắt được.

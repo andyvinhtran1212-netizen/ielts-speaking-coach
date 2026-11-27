@@ -6,14 +6,14 @@
 **Author:** Code, on commission from Andy 2026-05-22
 **Predecessors:** Cluster 13.x closed via Sprint 13.6.3 (Codex audit hotfix)
 **Related artefacts:**
-- Pre-flight inventory: `commission/sprint_14_0_preflight.md`
+- Pre-flight inventory: `docs/history/commission/sprint_14_0_preflight.md`
 - Rubric scaffold: `data/rubric/cambridge_speaking_descriptors.json`
 
 ---
 
 ## 1. Executive summary
 
-Andy reported 8 deficiencies in the Speaking grading pipeline. Empirical pre-flight (see `commission/sprint_14_0_preflight.md`) confirmed 5 are accurate as described, 3 are partially false / less severe than commissioned. Net cluster scope: **7 implementation sprints + 1 closure ~= 8 PRs ~= 3 000–3 500 LOC** (revised down from initial 3 500–4 000 LOC estimate after pre-flight compressed items 1+2 and item 3).
+Andy reported 8 deficiencies in the Speaking grading pipeline. Empirical pre-flight (see `docs/history/commission/sprint_14_0_preflight.md`) confirmed 5 are accurate as described, 3 are partially false / less severe than commissioned. Net cluster scope: **7 implementation sprints + 1 closure ~= 8 PRs ~= 3 000–3 500 LOC** (revised down from initial 3 500–4 000 LOC estimate after pre-flight compressed items 1+2 and item 3).
 
 Cluster 14.x was originally planned as **Grammar Mindmap + Checker** (Andy lock 2026-05-20). Andy reprioritised on 2026-05-22 to **Speaking Grading Quality**. Grammar Mindmap UI deferred to Phase B; the grammar checker code asset (`assets/grammar-mindmap/grammar_checker.py`, 872 LOC) is reused as the enrichment source in cluster item 8.
 
@@ -38,7 +38,7 @@ Cluster 14.x was originally planned as **Grammar Mindmap + Checker** (Andy lock 
 
 ## 2. Pre-flight findings summary
 
-Full detail in `commission/sprint_14_0_preflight.md`. Headline table:
+Full detail in `docs/history/commission/sprint_14_0_preflight.md`. Headline table:
 
 | Item | Commission premise | Pre-flight verdict | Net effort |
 |---|---|---|---|
@@ -331,14 +331,14 @@ Carried forward from commission + sharpened by pre-flight:
 
 ## 9. Sprint 14.0 acceptance criteria check
 
-- [x] `commission/sprint_14_0_preflight.md` produced with PF1–PF7 empirical findings
+- [x] `docs/history/commission/sprint_14_0_preflight.md` produced with PF1–PF7 empirical findings
 - [x] Cambridge descriptors JSON committed at `data/rubric/cambridge_speaking_descriptors.json` (scaffold; canonical-source sourcing strategy flagged for Sprint 14.4)
 - [x] `docs/clusters/14_x/discovery.md` (this file) with all 8 architecture sections
 - [x] Sprint roadmap 14.0 → 14.7 with LOC estimates + dependencies
 - [x] ≥ 5 falsifications anticipated (8 documented)
 - [x] Phase B deferrals listed explicit
 - [x] Pattern dividends section (6 re-applied + 5 new)
-- [x] Zero code changes outside `commission/`, `docs/clusters/14_x/`, `data/rubric/`
+- [x] Zero code changes outside `docs/history/commission/`, `docs/clusters/14_x/`, `data/rubric/`
 - [ ] Andy review checkpoint — pending
 
 ---
@@ -363,7 +363,7 @@ Carried forward from commission + sharpened by pre-flight:
 
 - Cambridge IELTS Speaking Band Descriptors (canonical, copyright): https://ielts.org/cdn/ielts-guides/ielts-speaking-band-descriptors.pdf
 - Cluster 13.x closure: `docs/sprint-13-6-cluster-closure-retrospective.md`
-- Pre-flight: `commission/sprint_14_0_preflight.md`
+- Pre-flight: `docs/history/commission/sprint_14_0_preflight.md`
 - Rubric scaffold: `data/rubric/cambridge_speaking_descriptors.json`
 - Production grader: `backend/services/claude_grader.py`
 - Grading endpoint: `backend/routers/grading.py`

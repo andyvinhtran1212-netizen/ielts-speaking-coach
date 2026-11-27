@@ -6,39 +6,16 @@
  * so a non-engineer admin can triage the error log. These tests pin the
  * categorisation against the real messages pulled from the production log.
  *
- * admin-error-logs.js auto-runs main() on load, so we sandbox it with
- * document.readyState = 'loading' (defers main() to a DOMContentLoaded that
- * never fires) and stub window/document just enough for the module body to run.
+ * The function lives in lib/admin-error-logs-model.mjs (Next /admin/error-logs).
  */
 
 import { test, describe } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import vm from 'node:vm';
+import { humanizeError } from '../lib/admin-error-logs-model.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SOURCE = readFileSync(join(__dirname, '..', 'js', 'admin-error-logs.js'), 'utf8');
-
-function loadModule() {
-  const noop = () => {};
-  const fakeDocument = {
-    readyState: 'loading',           // → main() deferred, never runs in the test
-    addEventListener: noop,
-    getElementById: () => null,
-  };
-  const fakeWindow = { api: { base: '' }, initSupabase: noop, getSupabase: () => null };
-  const ctx = vm.createContext({
-    window: fakeWindow, document: fakeDocument,
-    console: { error: noop, warn: noop, log: noop },
-    Set, String, JSON, Math, Date, Promise, setTimeout, clearTimeout,
-  });
-  vm.runInContext(SOURCE, ctx);
-  return ctx;
-}
-
-const H = loadModule().humanizeError;
+// LEGACYJS-0075 W4b: admin-error-logs.js is deleted; the Next page imports
+// humanizeError from lib/admin-error-logs-model.mjs, which runs here directly.
+const H = humanizeError;
 
 describe('humanizeError — categorisation', () => {
   test('Postgres NOT NULL (23502) → CSDL with the column name', () => {
