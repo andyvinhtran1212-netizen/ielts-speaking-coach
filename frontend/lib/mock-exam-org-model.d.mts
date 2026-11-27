@@ -1,3 +1,5 @@
+import type { components } from '@/types/api';
+
 export type Skill = 'listening' | 'reading' | 'writing' | 'speaking';
 export type ExamMode = 'live' | 'self_paced';
 export type DisplayState = 'draft' | 'scheduled' | 'open' | 'running' | 'grading' | 'released' | 'ended' | 'archived';
@@ -53,7 +55,7 @@ export type AudienceItem = {
 };
 
 export type Audience = { items: AudienceItem[]; mirrorFailed: boolean };
-export type Built = { ok: true; value: Record<string, unknown> } | { ok: false; error: string };
+export type Built<Body = Record<string, unknown>> = { ok: true; value: Body } | { ok: false; error: string };
 
 export const SKILLS: readonly Skill[];
 export const SKILL_NAMES: Readonly<Record<Skill, string>>;
@@ -80,7 +82,7 @@ export function vnLocalToIso(value: string | null | undefined): string | null;
 export function toggleSkill(skills: Skill[], skill: Skill): Skill[];
 export function newExamCode(now?: number, random?: () => number): string;
 export function buildCreateBody(form: SetupForm, code: string, step?: SetupStepId): Built;
-export function buildPatchBody(form: SetupForm, exam: OrgExam, step: SetupStepId | null): Built;
+export function buildPatchBody(form: SetupForm, exam: OrgExam, step: SetupStepId | null): Built<components['schemas']['ExamPatch']>;
 export const LISTENING_BUFFER_SECONDS: number;
 export function sittingMinutes(exam: OrgExam | null, skills: Skill[], listeningSeconds?: number | null): number;
 export function modeLine(form: SetupForm, exam: OrgExam | null, listeningSeconds?: number | null): string | null;

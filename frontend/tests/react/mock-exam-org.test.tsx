@@ -17,7 +17,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  window.api = { get, post, patch } as unknown as typeof window.api;
+  window.api = { get, getWith: get, post, patch } as unknown as typeof window.api;
   window.history.replaceState(null, '', '/admin/mock-tests');
 });
 
@@ -212,13 +212,21 @@ describe('Tổ chức kỳ thi (FR-141…FR-144)', () => {
     expect(patch.mock.invocationCallOrder.at(-1)!).toBeLessThan(post.mock.invocationCallOrder.at(-1)!);
   });
 
-  it('self-paced: a window PATCH that is refused or not mirrored stops Lên lịch', async () => {
+  it.each([
+    ['refused', new Error('không ghi được khoảng mở'), /Chưa cập nhật được khoảng mở cho danh sách người thi: không ghi được khoảng mở/],
+    ['not mirrored', null, /Chưa cập nhật được khoảng mở cho danh sách người thi: đã lưu danh sách nhưng chưa ghi được lượt giao/],
+  ])('self-paced: a window PATCH that is %s stops Lên lịch', async (_failure, error, notice) => {
     routes({ '/admin/mock-exams/e1/audience': audience([person()]), '/admin/mock-exams': { exams: [selfPaced()] } });
-    patch.mockResolvedValue({ ...audience([person()]), mirror_failed: true });
+    patch.mockImplementation(async (path: string) => {
+      if (path === '/admin/mock-exams/e1') return {};
+      if (error) throw error;
+      return { ...audience([person()]), mirror_failed: true };
+    });
     window.history.replaceState(null, '', '/admin/mock-tests/e1/setup?step=review');
     render(<MockExamSetup examId="e1" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Lên lịch' }));
-    expect(await screen.findByText(/Chưa cập nhật được khoảng mở cho danh sách người thi: đã lưu danh sách nhưng chưa ghi được lượt giao/)).toBeTruthy();
+    expect(await screen.findByText(notice)).toBeTruthy();
+    expect(patch).toHaveBeenCalledWith('/admin/mock-exams/e1/audience', { window: WINDOW });
     expect(post).not.toHaveBeenCalled();
   });
 

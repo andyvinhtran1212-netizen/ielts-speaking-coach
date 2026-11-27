@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dialog, Notice, PageState, TextField } from '@/components/ui';
 import { messageOf } from '@/components/admin-directory-ui';
+import { getBrowserJsonAt, patchBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
 import {
   MODE_LABELS,
   SETUP_STEPS,
@@ -31,12 +32,15 @@ import {
   vnDateTime,
   vnLocalToIso,
 } from '@/lib/mock-exam-org-model.mjs';
+import type { components } from '@/types/api';
 
 import styles from './mock-exam-org.module.css';
 
 type OrgExam = import('@/lib/mock-exam-org-model.mjs').OrgExam;
 type Form = import('@/lib/mock-exam-org-model.mjs').SetupForm;
 type Audience = import('@/lib/mock-exam-org-model.mjs').Audience;
+// The server supplies the default for refresh_cohorts when it is omitted.
+type AudiencePatch = Partial<components['schemas']['AudiencePatch']>;
 type StepId = import('@/lib/mock-exam-org-model.mjs').SetupStepId;
 type ApiError = Error & { status?: number; code?: string | null; detail?: unknown };
 type PickerKind = 'listening' | 'reading' | 'writing-task1' | 'writing-task2';
@@ -45,6 +49,7 @@ type Cohort = { id: string; name: string; is_active?: boolean };
 type Student = { id: string; full_name: string; student_code?: string; user_id?: string | null };
 
 const STEP_NOTE: Record<StepId, string> = { papers: 'Kỹ năng và đề', audience: 'Ai thi', mode: 'Ngày giờ', review: 'Lên lịch' };
+const AUDIENCE_PATH = '/admin/mock-exams/{exam_id}/audience';
 
 function stepHref(examId: string | null, step: StepId) {
   return examId ? `/admin/mock-tests/${encodeURIComponent(examId)}/setup?step=${step}` : `/admin/mock-tests/new?step=${step}`;
@@ -124,7 +129,8 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
   /** The stored list, or null when it could not be read (never an empty stand-in). */
   const readAudience = useCallback(async (id: string): Promise<Audience | null> => {
     try {
-      const value = normalizeAudience(await window.api.get<unknown>(`/admin/mock-exams/${encodeURIComponent(id)}/audience`));
+      const response = await getBrowserJsonAt(AUDIENCE_PATH, `/admin/mock-exams/${encodeURIComponent(id)}/audience`);
+      const value = normalizeAudience(response);
       if (!value) throw new Error('Danh sách người thi sai định dạng.');
       setAudience(value);
       setAudienceError(null);
@@ -213,7 +219,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         }
         rows = current.items.length;
       }
-      await window.api.patch(`/admin/mock-exams/${encodeURIComponent(exam.id)}`, built.value);
+      await patchBrowserJsonAt('/admin/mock-exams/{exam_id}', `/admin/mock-exams/${encodeURIComponent(exam.id)}`, built.value);
       const windowError = windowChanged && rows ? await pushWindow(exam.id, form) : null;
       await reload(exam.id, true);
       if (windowError) {
@@ -238,11 +244,11 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
     goTo(next);
   };
 
-  const patchAudience = async (body: Record<string, unknown>) => {
+  const patchAudience = async (body: AudiencePatch) => {
     if (!exam) return;
     setActionError(null);
     try {
-      const response = await window.api.patch<unknown>(`/admin/mock-exams/${encodeURIComponent(exam.id)}/audience`, body);
+      const response = await patchBrowserJsonAt(AUDIENCE_PATH, `/admin/mock-exams/${encodeURIComponent(exam.id)}/audience`, body);
       const value = normalizeAudience(response);
       if (value?.mirrorFailed) setActionError('Đã lưu danh sách nhưng chưa ghi được lượt giao. Bấm lại thao tác vừa rồi để thử lại.');
     } catch (caught) {
@@ -270,7 +276,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
           return;
         }
       }
-      await window.api.post(`/admin/mock-exams/${encodeURIComponent(exam.id)}/schedule`, {});
+      await postBrowserJsonAt('/admin/mock-exams/{exam_id}/schedule', `/admin/mock-exams/${encodeURIComponent(exam.id)}/schedule`);
       window.location.assign('/admin/mock-tests');
     } catch (caught) {
       const missing = notReadyMissing(caught);
@@ -489,7 +495,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
 
 /** A self-paced add carries the window so new rows get it too (rows hold the window). */
 function windowOf(form: Form) {
-  const window: Record<string, string> = {};
+  const window: components['schemas']['AudienceWindow'] = {};
   const from = vnLocalToIso(form.openFrom);
   const until = vnLocalToIso(form.openUntil);
   if (from) window.open_from = from;
@@ -498,7 +504,7 @@ function windowOf(form: Form) {
 }
 
 /** Rows added on a self-paced exam carry its window, refresh included (CR #2640). */
-function audienceAddBody(body: Record<string, unknown>, form: Form) {
+function audienceAddBody(body: AudiencePatch, form: Form): AudiencePatch {
   if (form.mode !== 'self_paced') return body;
   const window = windowOf(form);
   return Object.keys(window).length ? { ...body, window } : body;
@@ -509,7 +515,9 @@ async function pushWindow(examId: string, form: Form): Promise<string | null> {
   const body = windowOf(form);
   if (!Object.keys(body).length) return null;
   try {
-    const value = normalizeAudience(await window.api.patch<unknown>(`/admin/mock-exams/${encodeURIComponent(examId)}/audience`, { window: body }));
+    const request: AudiencePatch = { window: body };
+    const response = await patchBrowserJsonAt(AUDIENCE_PATH, `/admin/mock-exams/${encodeURIComponent(examId)}/audience`, request);
+    const value = normalizeAudience(response);
     if (!value) return 'máy chủ trả danh sách sai định dạng';
     if (value.mirrorFailed) return 'đã lưu danh sách nhưng chưa ghi được lượt giao';
     return null;
