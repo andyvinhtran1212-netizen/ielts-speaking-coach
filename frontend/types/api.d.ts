@@ -7259,6 +7259,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/site-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Site Info */
+        get: operations["get_site_info_api_public_site_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vocabulary/categories": {
         parameters: {
             query?: never;
@@ -14584,6 +14601,34 @@ export interface paths {
          *     read or reconcile runs.
          */
         get: operations["today_api_student_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/assigned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Assigned
+         * @description "Bài được giao" page payload (LEARNERCORE-0063 amendment 3, FR-095..FR-099,
+         *     FR-102, FR-103): the caller's own /my-assignments rows plus `group`,
+         *     `action`, `accepting` and `self_practice_available`.
+         *
+         *     Writes nothing of its own; the only write is the class-ledger reconcile
+         *     inside `_visible_assignments` (FR-103 exception). A failed list read is
+         *     `degraded: ["items"]`, never an empty "no work" answer. 404 while
+         *     `learner_v2` is off for the caller, before any read or reconcile runs
+         *     (same gate as GET /today).
+         */
+        get: operations["assigned_api_student_assigned_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -25007,6 +25052,35 @@ export interface components {
              */
             audio_example: string;
         };
+        /** SiteContact */
+        SiteContact: {
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Zalo */
+            zalo?: string | null;
+            /** Reply Hours */
+            reply_hours?: string | null;
+        };
+        /** SiteEnroll */
+        SiteEnroll: {
+            /** Office Hours */
+            office_hours?: string | null;
+            /** Confirm Sla */
+            confirm_sla?: string | null;
+            /** Escalate After */
+            escalate_after?: string | null;
+        };
+        /** SiteInfo */
+        SiteInfo: {
+            contact: components["schemas"]["SiteContact"];
+            enroll: components["schemas"]["SiteEnroll"];
+            /** Login Code Enabled */
+            login_code_enabled: boolean;
+            /** Enroll Prelearn Chapter1 */
+            enroll_prelearn_chapter1: boolean;
+        };
         /** SourceAudioResponse */
         SourceAudioResponse: {
             /** Day */
@@ -25814,6 +25888,49 @@ export interface components {
             state: string;
             /** Independent Items */
             independent_items: number;
+        };
+        /**
+         * StudentAssignedItem
+         * @description One element of /api/class/my-assignments, unchanged, plus four fields the
+         *     new page reads instead of deriving them in the browser.
+         */
+        StudentAssignedItem: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "overdue" | "todo" | "awaiting_review" | "returned";
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "start" | "resume" | "review_submitted" | "result" | "self_practice" | "none";
+            /** Accepting */
+            accepting: boolean;
+            /** Self Practice Available */
+            self_practice_available: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** StudentAssignedResponse */
+        StudentAssignedResponse: {
+            /** Has Class */
+            has_class: boolean;
+            /** Items */
+            items?: components["schemas"]["StudentAssignedItem"][];
+            /** Repractice */
+            repractice?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Homework Stale
+             * @default false
+             */
+            homework_stale: boolean;
+            /** Degraded */
+            degraded?: ("items" | "repractice")[];
         };
         /**
          * StudentQuizQuestion
@@ -40288,6 +40405,26 @@ export interface operations {
             };
         };
     };
+    get_site_info_api_public_site_info_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInfo"];
+                };
+            };
+        };
+    };
     get_categories_api_vocabulary_categories_get: {
         parameters: {
             query?: never;
@@ -52801,6 +52938,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentTodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assigned_api_student_assigned_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentAssignedResponse"];
                 };
             };
             /** @description Validation Error */

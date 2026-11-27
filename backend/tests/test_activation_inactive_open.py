@@ -246,6 +246,7 @@ def test_profile_activation_read_failure_is_503_and_not_written(app):
 @pytest.mark.parametrize("method,path", [
     ("POST", "/api/student/today/seen"),
     ("GET", "/api/student/home-summary"),
+    ("GET", "/api/student/assigned"),
     ("GET", "/api/student/permissions"),
     ("GET", "/topics"),
 ])
