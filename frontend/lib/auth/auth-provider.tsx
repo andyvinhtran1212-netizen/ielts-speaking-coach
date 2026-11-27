@@ -28,6 +28,8 @@ import {
 import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
 import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
+import { SESSION_DISPLACED_EVENT } from '@/lib/auth/session-claim.mjs';
+import { signOutDisplaced } from '@/lib/auth/displaced-sign-out';
 import { clearForeignLocalCopies, clearOwnerLocalCopies } from '@/lib/exam-room/local-copy.mjs';
 import { getCurrentActiveStatus } from '@/lib/auth-api';
 import { setAuthMeAccount } from '@/lib/auth/auth-me-single-flight.mjs';
@@ -118,6 +120,10 @@ export function AuthProvider({
   const sessionReadRef = useRef(0);
   // Set while the user-initiated <aver-chrome> logout owns the navigation.
   const chromeSignOutRef = useRef(false);
+  // ENROLL-0060 G05-T20: set once a displaced sign-out has started.
+  const displacedRef = useRef(false);
+  const userRef = useRef<AuthUser | null>(null);
+  useEffect(() => { userRef.current = user; }, [user]);
   // W-03 — the account whose activation this provider already settled (active
   // or fail-open). Token refreshes for it never re-enter initial-loading.
   const activationSettledRef = useRef<string | null>(null);
@@ -272,6 +278,25 @@ export function AuthProvider({
     };
     window.addEventListener('pageshow', onPageShow);
 
+    // ENROLL-0060 G05-T20 (FR-052): api.js announces a `session_displaced`
+    // 401 instead of bouncing to /login. Claim it, then keep drafts, sign out
+    // locally and go to the 8c notice. Holding pages in initial-loading (the
+    // chrome-logout flag) stops their fail-closed replace('/login') from
+    // overriding that navigation.
+    const onDisplaced = (event: Event) => {
+      event.preventDefault();
+      if (disposed || displacedRef.current) return;
+      displacedRef.current = true;
+      chromeSignOutRef.current = true;
+      const at = (event as CustomEvent<{ displacedAt?: unknown }>).detail?.displacedAt;
+      void signOutDisplaced({
+        client: sbRef.current,
+        email: userRef.current?.email ?? null,
+        displacedAt: typeof at === 'string' ? at : null,
+      });
+    };
+    window.addEventListener(SESSION_DISPLACED_EVENT, onDisplaced);
+
     return () => {
       disposed = true;
       unsubscribe?.();
@@ -279,6 +304,7 @@ export function AuthProvider({
       document.removeEventListener('av-chrome-signing-out', onChromeSigningOut);
       document.removeEventListener('av-chrome-signed-out', onChromeSignedOut);
       window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener(SESSION_DISPLACED_EVENT, onDisplaced);
     };
   }, [applySession]);
 

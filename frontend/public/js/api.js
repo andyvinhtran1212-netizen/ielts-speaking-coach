@@ -137,6 +137,33 @@
     else loc.href = target;
   }
 
+  async function _displacedDetail(response) {
+    try {
+      var body = await response.clone().json();
+      var d = body && body.detail;
+      return d && typeof d === 'object' && d.error_code === 'session_displaced' ? d : null;
+    } catch (_) { return null; }
+  }
+
+  // Several calls can be refused at once: one announcement per page.
+  var _displacedAnnounced = false;
+  function _announceDisplaced(detail) {
+    if (_displacedAnnounced) return;
+    _displacedAnnounced = true;
+    var claimed = false;
+    var at = typeof detail.displaced_at === 'string' ? detail.displaced_at : null;
+    try {
+      claimed = !window.dispatchEvent(new CustomEvent('aver:session-displaced', {
+        cancelable: true,
+        detail: { displacedAt: at },
+      }));
+    } catch (_) { claimed = false; }
+    if (claimed) return;
+    var loc = window.location;
+    if (typeof loc.replace === 'function') loc.replace('/login?notice=displaced');
+    else loc.href = '/login?notice=displaced';
+  }
+
   function _announceInactive() {
     try { window.dispatchEvent(new CustomEvent('aver:account-inactive')); } catch (_) {}
   }
@@ -259,6 +286,16 @@
     // through to the throw path below. The default (authed) behaviour is
     // unchanged: bounce to login on 401.
     if (response.status === 401 && !(opts && opts.noRedirect)) {
+      // ENROLL-0060 G05-T20 (FR-052): another device took this learner's
+      // session. Mirrors lib/auth/session-claim.mjs (SESSION_DISPLACED_EVENT /
+      // DISPLACED_LOGIN_PATH). The AuthProvider claims the event, keeps the
+      // page's drafts, signs out locally and goes to the 8c notice; unclaimed
+      // (a page without the provider) → straight to that notice.
+      var displaced = await _displacedDetail(response);
+      if (displaced) {
+        _announceDisplaced(displaced);
+        return null;
+      }
       // The canonical login entry lives at the site root (/login). The
       // previous _appRoot+'login.html' build
       // resolved correctly for /pages/X.html but broke for any deeper
