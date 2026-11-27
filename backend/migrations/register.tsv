@@ -405,6 +405,7 @@ number	filename	state	owner	spec	note
 445	445_mock_exam_audiences.sql	present	G09-T31	MOCKORG-0086	Commercialization G09 band 440–459; mock_exam_audiences + mock_exams skills/starts_at/draft_state, mode CHECK widened (data renamed only by 446).
 451	451_incident_groups.sql	present	G09-T07	ADMINIA-0074	Commercialization G09 band 440–459; incident_groups status (new/in_review/resolved/ignored) + append-only incident_group_notes + fn_incident_group_transition.
 452	452_learner_goal_events.sql	present	G09-T04b	ADMINIA-0074	Commercialization G09 reserve band 452–459 (anh Andy chose 452, 20/11); append-only learner_goal_events + fn_learner_goal_resolve.
+500	500_account_data_rights.sql	present	G04-T18	ACCOUNTDATA-0100	Spec label 500 (GOI-04: G04 band 381-389 full). Deletion requests, export jobs, private account-exports bucket. Andy approved spec 2026-11-23.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
 502	502_response_pronunciation_sample.sql	present	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window (responses.pronunciation_sample_*). Andy 2026-11-20.
 503	503_credit_attempt_settle.sql	present	G04-T07	COURSEACCESS-0055	Per-attempt settlement of Speaking credit holds (credit_attempt_outcomes + fn_credit_settle_attempt), FR-015 BLOCKER on #2554; Andy approved 2026-11-23.
