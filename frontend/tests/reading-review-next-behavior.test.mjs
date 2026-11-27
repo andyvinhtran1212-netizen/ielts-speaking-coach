@@ -245,7 +245,8 @@ describe('native Reading review route contract', () => {
   });
 
   test('starts with incorrect answers and reveals a filtered card from the palette', () => {
-    assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all' : \(firstWrong \? 'wrong' : 'all'\)\)/);
+    // Old tree unchanged; the new tree (LEARNERCORE-0063 FR-105) opens on ?only=wrong.
+    assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all'\s*: v2 \? \(onlyWrongFromSearch\(window\.location\.search\) \? 'wrong' : 'all'\)\s*: \(firstWrong \? 'wrong' : 'all'\)\)/);
     assert.match(CLIENT, /review\.find\(\(item: any\) => readingReviewMatchesFilter\(item, 'wrong'\)\)/);
     assert.match(CLIENT, /allCurrentItems\.filter\(\(item: any\) => readingReviewMatchesFilter\(item, filter\)\)/);
     assert.match(CLIENT, /if \(filter !== 'all' && !readingReviewMatchesFilter\(item, filter\)\) setFilter\('all'\)/);

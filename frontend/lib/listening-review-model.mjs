@@ -1,3 +1,5 @@
+import { flaggedQNums } from './review-v2-model.mjs';
+
 const ORIGINS = new Set(['full', 'mini', 'drill', 'practice', 'mock', 'my-class', 'admin']);
 
 const text = (value) => String(value ?? '').trim();
@@ -257,6 +259,8 @@ export function normalizeListeningReview(payload) {
     audioDuration: Math.max(0, finiteNumber(payload.audio_duration) || 0),
     sections,
     review,
+    // LEARNERCORE-0063 FR-109: questions this caller already flagged (missing → none).
+    myFlaggedQNums: flaggedQNums(payload),
   });
 }
 
