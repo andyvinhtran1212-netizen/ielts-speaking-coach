@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fixture from '../fixtures/admin-grammar-revision.json';
 import sourceFixture from '../fixtures/grammar-exact-form-banks.json';
 import type { RevisionCode } from '@/lib/admin-grammar-revision-model';
-import { AdminGrammarRevision } from '@/app/(authed-admin-vocab)/admin/vocab/quiz/admin-grammar-revision';
-import { AdminVocabQuizImport } from '@/app/(authed-admin-vocab)/admin/vocab/quiz/admin-vocab-quiz-import';
+import { AdminGrammarRevision } from '@/app/(authed-admin)/(vocab)/admin/vocab/quiz/admin-grammar-revision';
+import { AdminVocabQuizImport } from '@/app/(authed-admin)/(vocab)/admin/vocab/quiz/admin-vocab-quiz-import';
 
 const context = vi.hoisted(() => ({ actor: '11111111-1111-4111-8111-111111111111', params: new URLSearchParams('skill_area=grammar') }));
 vi.mock('@/components/admin-access-gate', () => ({ useAdminProfile: () => ({ id: context.actor, role: 'admin' }) }));

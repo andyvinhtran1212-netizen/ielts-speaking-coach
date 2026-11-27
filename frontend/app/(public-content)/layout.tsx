@@ -40,11 +40,12 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
         suppressHydrationWarning
       />
 
-      {/* Stylesheets: tokens → components → ds → content CSS → tailwind (last for cascade) */}
+      {/* Stylesheets: tokens → components → ds → content CSS → tailwind (last for cascade).
+          LIBRARY-0061 T014 PR (c2): grammar-wiki.css is no longer loaded; the
+          Grammar pages style themselves with av2 CSS modules. */}
       <link rel="stylesheet" href="/css/aver-design/tokens.css" />
       <link rel="stylesheet" href="/css/aver-design/components.css" />
       <link rel="stylesheet" href="/css/ds.css" />
-      <link rel="stylesheet" href="/css/grammar-wiki.css" />
       <link rel="stylesheet" href="/css/vocab-wiki.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
@@ -60,9 +61,9 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
         <NextPageViewBeacon />
       </SupabaseRuntimeBoundary>
 
-      {/* grammar-wiki.css scopes overrides under body.av-page (e.g.
-          `body.av-page .text-white` recolors to readable) — a div wrapper
-          cannot satisfy those selectors, and React must not own <body>
+      {/* components.css gives <body> its page background, colour and font
+          through `.av-page` (grammar-wiki.css, which also scoped overrides
+          under body.av-page, left in T014 PR (c2)). React must not own <body>
           attributes here. Same pre-paint technique as the anti-flash IIFE. */}
       <script
         dangerouslySetInnerHTML={{

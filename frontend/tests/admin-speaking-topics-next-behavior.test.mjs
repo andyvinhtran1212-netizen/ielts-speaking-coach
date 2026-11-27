@@ -16,13 +16,13 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-speaking-topics)', 'admin', 'speaking', 'topics', 'page.tsx');
-const COMPONENT = read('app', '(authed-admin-speaking-topics)', 'admin', 'speaking', 'topics', 'admin-speaking-topics.tsx');
-const LAYOUT = read('app', '(authed-admin-speaking-topics)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(speaking-topics)', 'admin', 'speaking', 'topics', 'page.tsx');
+const COMPONENT = read('app', '(authed-admin)/(speaking-topics)', 'admin', 'speaking', 'topics', 'admin-speaking-topics.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(speaking-topics)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-speaking-topics-next.css');
 const LEGACY = read('public', 'pages', 'admin', 'speaking', 'topics.html');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const HUB = read('app', '(authed-admin-speaking)', 'admin', 'speaking', 'page.tsx');
+const HUB = read('app', '(authed-admin)/(speaking)', 'admin', 'speaking', 'page.tsx');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 
@@ -137,7 +137,7 @@ describe('/admin/speaking/topics native ownership and UX contract', () => {
     assert.match(CSS, /@media\(max-width:480px\)/);
     assert.match(CSS, /:focus-visible/);
     assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
-    assert.match(WORKFLOW, /authed-admin-speaking-topics/);
+    assert.match(WORKFLOW, /\(authed-admin\)\/\(speaking-topics\)/);
     assert.match(WORKFLOW, /verify-admin-speaking-topics-flow\.mjs/);
     assert.doesNotMatch(LEGACY, /href="\/admin\.html"/);
   });

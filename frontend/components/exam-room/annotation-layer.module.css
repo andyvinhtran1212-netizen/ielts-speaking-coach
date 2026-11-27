@@ -1,0 +1,96 @@
+/* EXAMROOM-0066 FR-030: Highlight / Note. Only var(--av2-*), no hex. */
+
+.wrap {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12rem;
+  gap: var(--av2-space-7);
+}
+.wrap[data-narrow] { grid-template-columns: minmax(0, 1fr); }
+
+.text { position: relative; min-width: 0; }
+
+/* Painted by the CSS Custom Highlight API where the browser has it. */
+:global(::highlight(exam-room-mark)) { background-color: var(--av2-highlight); color: inherit; }
+
+/* Fallback: boxes laid over the text, so the passage DOM is never rewritten. */
+.box {
+  position: absolute;
+  pointer-events: none;
+  background: var(--av2-highlight);
+  mix-blend-mode: multiply;
+  padding: 0;
+}
+
+.toolbar {
+  position: absolute;
+  z-index: var(--av2-z-overlay);
+  display: inline-flex;
+  transform: translateY(calc(-100% - var(--av2-space-3)));
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+}
+.toolbar button,
+.noteActions button,
+.noteNumber {
+  min-height: 44px;
+  padding: 0 var(--av2-space-5);
+  border: 0;
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+  font-size: var(--av2-fs-14);
+  font-weight: var(--av2-fw-strong);
+  cursor: pointer;
+}
+.toolbar button + button { border-left: var(--av2-rule-w) solid var(--av2-rule); }
+.toolbar button:focus-visible,
+.noteActions button:focus-visible,
+.noteNumber:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+
+.noteEditor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: var(--av2-z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--av2-space-3);
+  padding: var(--av2-space-5);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  background: var(--av2-surface);
+}
+.noteLabel { font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong); }
+.noteEditor textarea {
+  font: inherit;
+  padding: var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+}
+.noteActions { display: flex; gap: var(--av2-space-3); }
+.noteActions button { border: var(--av2-rule-w) solid var(--av2-rule); }
+
+/* Wide: the margin column beside the text. */
+.margin { position: relative; font-size: var(--av2-fs-13); color: var(--av2-muted); }
+.margin ol { list-style: none; margin: 0; padding: 0; }
+.margin li { position: relative; display: flex; gap: var(--av2-space-3); margin-bottom: var(--av2-space-4); }
+.wrap:not([data-narrow]) .margin li[style] { position: absolute; left: 0; right: 0; }
+.noteIndex { font-weight: var(--av2-fw-strong); color: var(--av2-ink); font-variant-numeric: tabular-nums; }
+
+/* Narrow: a small number after the marked text opens its note. */
+.noteNumber {
+  position: absolute;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0 var(--av2-space-2);
+  font-size: var(--av2-fs-12);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  transform: translateY(-50%);
+}
+.wrap[data-narrow] .margin li {
+  padding: var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+}
