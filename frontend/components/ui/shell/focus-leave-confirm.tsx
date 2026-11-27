@@ -14,6 +14,8 @@ export type LeaveConfirmProps = {
   copy: FocusLeaveCopy;
   onStay: () => void;
   onLeave: () => void;
+  /** Leaving is in progress (EXAMROOM-0066 FR-011 saves first): both buttons wait. */
+  busy?: boolean;
 };
 
 function LeaveBody({ copy, id }: { copy: FocusLeaveCopy; id?: string }) {
@@ -28,11 +30,13 @@ function LeaveBody({ copy, id }: { copy: FocusLeaveCopy; id?: string }) {
   );
 }
 
-function actions(mode: FocusMode, copy: FocusLeaveCopy, onStay?: () => void, onLeave?: () => void, stayRef?: Ref<HTMLButtonElement>) {
+function actions(mode: FocusMode, copy: FocusLeaveCopy, onStay?: () => void, onLeave?: () => void, stayRef?: Ref<HTMLButtonElement>, busy?: boolean) {
+  // `busy` is undefined unless the page saves before leaving, so other pages keep their buttons as drawn.
+  const busyProps = busy === undefined ? {} : { loading: busy, loadingLabel: FOCUS_WORDS[mode].leaving };
   return (
     <>
-      <Button ref={stayRef} variant="primary" onClick={onStay}>{copy.stayLabel}</Button>
-      <Button variant={mode === 'practice' ? 'danger' : 'secondary'} onClick={onLeave}>{copy.leaveLabel}</Button>
+      <Button ref={stayRef} variant="primary" disabled={busy === true} onClick={onStay}>{copy.stayLabel}</Button>
+      <Button variant={mode === 'practice' ? 'danger' : 'secondary'} {...busyProps} onClick={onLeave}>{copy.leaveLabel}</Button>
     </>
   );
 }
@@ -43,7 +47,7 @@ function actions(mode: FocusMode, copy: FocusLeaveCopy, onStay?: () => void, onL
  * timer keeps running; there is no "save and exit". Esc and the close button
  * mean stay.
  */
-export function LeaveConfirm({ open, mode, copy, onStay, onLeave }: LeaveConfirmProps) {
+export function LeaveConfirm({ open, mode, copy, onStay, onLeave, busy }: LeaveConfirmProps) {
   const stayRef = useRef<HTMLButtonElement>(null);
   const bodyId = useId();
   return (
@@ -55,7 +59,8 @@ export function LeaveConfirm({ open, mode, copy, onStay, onLeave }: LeaveConfirm
       initialFocusRef={stayRef}
       title={copy.title}
       closeLabel={FOCUS_WORDS[mode].close}
-      actions={actions(mode, copy, onStay, onLeave, stayRef)}
+      busy={busy === true}
+      actions={actions(mode, copy, onStay, onLeave, stayRef, busy)}
     >
       <LeaveBody copy={copy} id={bodyId} />
     </Dialog>

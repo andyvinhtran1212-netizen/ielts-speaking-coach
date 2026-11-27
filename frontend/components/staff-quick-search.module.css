@@ -1,0 +1,146 @@
+/* Staff quick search (ADMINIA-0074 FR-075; G09-T19). Tokens from
+   aver-design/tokens.css, which every v1 AuthedShell loads first. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--av-z-modal, 1000);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  background: color-mix(in srgb, var(--av-text-primary) 35%, transparent);
+}
+.dialog {
+  width: 100%;
+  max-width: 560px;
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--av-surface-card);
+  color: var(--av-text-primary);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  box-shadow: var(--av-shadow-xl);
+  font-family: var(--av-font-sans);
+}
+.dialog:focus { outline: none; }
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  padding: var(--av-space-3) var(--av-space-4);
+  border-bottom: 1px solid var(--av-border-subtle);
+}
+.icon, .trigger svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  color: var(--av-text-muted);
+}
+.input.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--av-text-primary);
+  font: inherit;
+  font-size: var(--av-fs-base);
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  appearance: none;
+}
+/* Admin page sheets style every input; the dialog's field shows one frame only. */
+.input.input:focus, .input.input:focus-visible { border: 0; box-shadow: none; outline: none; }
+.input.input::-webkit-search-cancel-button { display: none; }
+.esc.esc, .kbd {
+  flex: none;
+  padding: 2px 6px;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-sm);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-muted);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  cursor: pointer;
+}
+.body {
+  overflow-y: auto;
+  padding: var(--av-space-2) 0;
+}
+.note, .error {
+  margin: 0;
+  padding: var(--av-space-3) var(--av-space-4);
+  font-size: var(--av-fs-sm);
+  color: var(--av-text-muted);
+}
+.error { color: var(--av-error); }
+.list[hidden] { display: none; }
+.group {
+  margin: var(--av-space-2) 0 0;
+  padding: var(--av-space-1) var(--av-space-4);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-wide);
+  text-transform: uppercase;
+  color: var(--av-text-muted);
+}
+.item.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--av-space-2) var(--av-space-4);
+  border-left: 3px solid transparent;
+  color: var(--av-text-primary);
+  text-decoration: none;
+}
+.item.item[aria-selected='true'] {
+  background: var(--av-primary-soft);
+  border-left-color: var(--av-primary);
+}
+.title { font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); }
+.meta { font-size: var(--av-fs-xs); color: var(--av-text-muted); }
+.footer {
+  margin: 0;
+  padding: var(--av-space-2) var(--av-space-4);
+  border-top: 1px solid var(--av-border-subtle);
+  font-size: var(--av-fs-xs);
+  color: var(--av-text-muted);
+}
+/* Doubled class outranks page header rules such as `.ins-top__actions button`. */
+.trigger.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  min-height: 40px;
+  padding: 0 var(--av-space-3);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-card);
+  color: var(--av-text-secondary);
+  font: inherit;
+  font-size: var(--av-fs-sm);
+  cursor: pointer;
+}
+.trigger.trigger:hover { border-color: var(--av-primary-border); color: var(--av-primary); }
+.trigger.trigger:focus-visible { outline: none; box-shadow: var(--av-shadow-focus); }
+@media (max-width: 767px) {
+  .triggerLabel, .kbd { display: none; }
+  .trigger.trigger { width: 40px; padding: 0; justify-content: center; }
+  .backdrop { padding-top: 8px; }
+}

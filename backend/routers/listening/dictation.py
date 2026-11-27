@@ -141,7 +141,7 @@ def _section_cue_start(cue_points: list, section_num) -> float | None:
 
 @user_router.get("/tests/{test_id}/dictation")
 async def get_listening_test_dictation(
-    test_id: str,
+    test_id: uuid.UUID,
     authorization: str | None = Header(default=None),
     class_item: str | None = None,
 ):
@@ -153,6 +153,7 @@ async def get_listening_test_dictation(
     (``GET /tests/{id}``) which strips transcripts to prevent students
     reading the answers during a graded attempt.
     """
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     _user = await _require_auth(authorization)
 
     res = (
@@ -573,11 +574,12 @@ def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[di
 @user_router.get("/tests/{test_id}/dictation/attempts/in-progress", response_model=DictationResumeResponse,
                  response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 async def get_in_progress_dictation_attempt(
-    test_id: str,
+    test_id: uuid.UUID,
     section_num: int = Query(ge=1),
     authorization: str | None = Header(default=None),
     class_item: str | None = None,
 ):
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     _published_test_for_dictation(test_id, user.get("id"), class_item)
     if class_item:
@@ -590,13 +592,14 @@ async def get_in_progress_dictation_attempt(
                  response_model_exclude_unset=True, responses=_DICTATION_POLICY_ERRORS)
 @observe_operation("listening_dictation", "start", correlate_by=("test_id", "section_num", "body"))
 async def start_dictation_attempt(
-    test_id: str,
+    test_id: uuid.UUID,
     section_num: int = Query(ge=1),
     body: DictationAttemptStartRequest | None = None,
     authorization: str | None = Header(default=None),
     class_item: str | None = None,
 ):
     """Resume the one active section attempt, or create it without destroying progress."""
+    test_id = str(test_id)  # FastAPI already rejected a non-UUID (422)
     user = await _require_auth(authorization)
     _published_test_for_dictation(test_id, user.get("id"), class_item)
     if class_item:
