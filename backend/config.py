@@ -143,6 +143,17 @@ class Settings(BaseSettings):
     # signed request reaches the route instead of the SSO wall.
     VERCEL_AUTOMATION_BYPASS_SECRET: str = ""
 
+    # PUBLICSITE-0059 FR-026 (G05-T23): public contact block and enrolment
+    # texts served by GET /api/public/site-info. Empty → null (the line is
+    # hidden). Never put bank account details here (they belong to an order).
+    SITE_CONTACT_EMAIL: str = ""
+    SITE_CONTACT_PHONE: str = ""
+    SITE_CONTACT_ZALO: str = ""
+    SITE_CONTACT_REPLY_HOURS: str = ""
+    ENROLL_OFFICE_HOURS_TEXT: str = ""
+    ENROLL_CONFIRM_SLA_TEXT: str = ""
+    ENROLL_ESCALATE_AFTER_TEXT: str = ""
+
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""

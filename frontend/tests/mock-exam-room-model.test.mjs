@@ -8,7 +8,8 @@ import {
 } from '../lib/exam-room/local-copy.mjs';
 import { MemoryStorage } from './fixtures/exam-room-fakes.mjs';
 import {
-  legacyMockWritingKey, legacyRemovable, MOCK_SUBMIT_AUTO_RETRIES, mockSubmitOutcome, reconcileMockWritingCopy,
+  holdBlockedMockSubmit, legacyMockWritingKey, legacyRemovable, MOCK_SUBMIT_AUTO_RETRIES, mockSubmitOutcome, reconcileMockWritingCopy,
+  replayBlockedMockSubmit,
 } from '../lib/mock-exam-model.mjs';
 
 const T = '2026-11-23T10:45:00Z';
@@ -219,4 +220,62 @@ test('no server text is "" in ask rows from the copy and from the legacy key ali
     { task: 'task1', local: 'mine', server: '', source: 'copy' },
     { task: 'task2', local: 'old draft', server: '', source: 'legacy' },
   ]);
+});
+
+test('invigilator collection: tracked from the signal, final save fails, server closes → closed, never submitted', async () => {
+  // HOLD #2551: the collection is a submit this tab saw from the moment the
+  // signal arrives; while the final save keeps failing it reads `submitting`.
+  const collecting = state({ collected: 'reading' });
+  const during = mockSubmitOutcome({ state: collecting, section: 'reading', observed: true, finalFlushSecured: false });
+  assert.equal(during.outcome, 'submitting');
+  // The server then closes the section although the final save never got
+  // through: closed with its time, not confirmed.
+  const closedByServer = state({ submitted: { reading: T }, collected: 'reading' });
+  const after = mockSubmitOutcome({ state: closedByServer, section: 'reading', observed: true, finalFlushSecured: false });
+  assert.deepEqual([after.outcome, after.closedAt], ['closed_unconfirmed', T]);
+  // Sitting closed with no section stamp: still closed, never confirmed.
+  assert.equal(mockSubmitOutcome({ state: state({ status: 'lrw_submitted', collected: 'reading' }), section: 'reading', observed: true, finalFlushSecured: false }).outcome, 'closed_unconfirmed');
+
+  // Runner wiring: the collection effect marks the section observed and starts
+  // the track before its first flush attempt, not after the flush succeeds.
+  const { readFileSync } = await import('node:fs');
+  const runner = readFileSync(new URL('../app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', import.meta.url), 'utf8');
+  const effect = runner.slice(runner.indexOf('if (!collectionKey || !pendingCollectionSection || !awaitingCollectionFlush)'));
+  const drainAt = effect.indexOf('const drain = async');
+  assert.ok(drainAt > 0);
+  const head = effect.slice(0, drainAt);
+  assert.match(head, /observedSubmitRef\.current\.add\(pendingCollectionSection\)/);
+  assert.match(head, /setSubmitTrack\(\{ section: pendingCollectionSection, retries: 0, error: null \}\)/);
+  // A secured mark left by an earlier failed submit is cleared first (CR nit).
+  assert.match(head, /flushSecuredRef\.current\.delete\(pendingCollectionSection\)/);
+  assert.doesNotMatch(effect.slice(drainAt, effect.indexOf('void drain();')), /observedSubmitRef\.current\.add/);
+});
+
+test('FR-016: a link error still reads the flag once window.api is ready, with no request', async () => {
+  const { readFileSync } = await import('node:fs');
+  const runner = readFileSync(new URL('../app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', import.meta.url), 'utf8');
+  const start = runner.indexOf('if (!params.error) return undefined;');
+  assert.ok(start > 0);
+  const effect = runner.slice(start, runner.indexOf('}, [params.error]);', start));
+  assert.match(effect, /whenGlobalReady\([\s\S]*examRoomEnabled\('mock'\)[\s\S]*setExamRoom\(on\)/);
+  assert.doesNotMatch(effect, /window\.api\.(get|post)/);
+});
+
+test('write right lost between two submit attempts: the retry resumes at its own turn (FR-007, FR-013, HOLD on #2715)', () => {
+  const live = state();
+  // The first POST failed; retry 1 comes due while this tab is read-only.
+  let held = holdBlockedMockSubmit(null, 'reading', 1);
+  // The timer, a poll or an online event asks again at attempt 0: the turn is kept.
+  held = holdBlockedMockSubmit(held, 'reading', 0);
+  assert.deepEqual(held, { section: 'reading', attempt: 1 });
+  // The write right comes back with nothing in flight: retry 1 runs, not a fresh attempt 0.
+  assert.deepEqual(replayBlockedMockSubmit({ held, submitting: false, state: live }), { section: 'reading', attempt: 1 });
+  // Never while another submit is in flight, and never once the server settled it.
+  assert.equal(replayBlockedMockSubmit({ held, submitting: true, state: live }), null);
+  assert.equal(replayBlockedMockSubmit({ held, submitting: false, state: state({ submitted: { reading: T } }) }), null);
+  // A first submit refused before any POST is kept at attempt 0 (Codex P1).
+  assert.deepEqual(replayBlockedMockSubmit({ held: holdBlockedMockSubmit(null, 'reading', 0), submitting: false, state: live }), { section: 'reading', attempt: 0 });
+  // The last automatic retry keeps its turn too, so the limit is not reset.
+  const last = holdBlockedMockSubmit(held, 'reading', MOCK_SUBMIT_AUTO_RETRIES);
+  assert.equal(holdBlockedMockSubmit(last, 'reading', 0).attempt, MOCK_SUBMIT_AUTO_RETRIES);
 });
