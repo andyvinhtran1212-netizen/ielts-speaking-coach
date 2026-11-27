@@ -281,15 +281,15 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 - Trên staging, sau khi bật cờ, mọi bài trả qua hai đường trong phạm vi có đúng
   một cặp cho mỗi lần trả (đối soát dry-run báo 0 bài cần ghi bù sau một ngày).
 - Thời gian ghi cặp thêm vào request trả bài được đo trên staging và ghi vào
-  verification. Đề xuất ngưỡng p95 ≤ 100 ms; anh Andy chốt khi duyệt (câu hỏi 6).
+  verification. Đề xuất ngưỡng p95 ≤ 100 ms; anh Andy đã duyệt ngưỡng này ngày 27/11/2026 (quyết định 6).
 
 ## Open questions
 
-Mỗi câu kèm đề xuất mặc định; anh Andy xác nhận khi duyệt spec.
+**Quyết định ngày 27/11/2026.** Andy đã duyệt các mặc định ở mục 1, 2, 4, 5 và 6 dưới đây. Mục 3 đã chốt ngày 23/11. Quyết định này ghi nhận phạm vi nghiệp vụ, lịch đối soát dự kiến và ngưỡng nghiệm thu. Tạo cron hoặc triển khai vẫn cần duyệt riêng.
 
-1. **Bài thi thử (GOI-12 câu C5).** Đề xuất: chưa đưa vào, tách sau khi có đủ số
+1. **Bài thi thử (GOI-12 câu C5).** Chưa đưa vào, tách sau khi có đủ số
    cặp bài lớp. Lý do: band thi thử theo kỹ năng, luồng công bố khác.
-2. **Giáo viên instructor sửa band (câu C9).** Đề xuất: không đổi trong spec này;
+2. **Giáo viên instructor sửa band (câu C9).** Giữ quyền hiện tại trong spec này;
    cặp của instructor ghi `reviewer_can_edit_bands=false`. Nếu G09-T17 mở sửa
    band, đường đó phải đi qua `upsert_composed_version`, và hằng
    `INSTRUCTOR_CAN_EDIT_BANDS` đổi trong cùng PR đó.
@@ -298,12 +298,12 @@ Mỗi câu kèm đề xuất mặc định; anh Andy xác nhận khi duyệt spe
    (`writing_essays` cho DELETE, `users` cho UPDATE ẩn danh); `pg_trigger_depth() > 1`
    chỉ là điều kiện AND phòng thủ, bỏ được nếu test PG17 bác. Không dùng biến phiên hay
    cờ giao dịch. Câu này không còn mở.
-4. **Cron đối soát.** Đề xuất: 02:30 giờ VN hằng ngày qua
+4. **Cron đối soát.** Lịch đã chọn: 02:30 giờ VN hằng ngày qua
    `backend/railway.score-pairs-reconcile.json`; tạo service cron trên Railway là
    việc của anh Andy. Trước khi có cron, chạy tay `--report` mỗi tuần.
-5. **Bài `ai_instant` (G04).** Đề xuất: không ghi cặp (không có người chấm). Nếu
+5. **Bài `ai_instant` (G04).** Không ghi cặp (không có người chấm). Nếu
    sau này cần đo AI với chính nó qua thời gian, đọc thẳng
    `writing_ai_score_snapshots`.
-6. **Ngưỡng thời gian.** Đề xuất: p95 ghi cặp ≤ 100 ms trên staging. Vượt thì
+6. **Ngưỡng thời gian.** Ngưỡng đã chọn: p95 ghi cặp ≤ 100 ms trên staging. Vượt thì
    chuyển lời gọi `record_delivery` ra sau khi response đã trả (background task),
    không bỏ ghi.
