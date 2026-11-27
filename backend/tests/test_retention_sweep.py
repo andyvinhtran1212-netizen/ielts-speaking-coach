@@ -11,7 +11,9 @@ Covers (Pattern #20 schema-aware stub of Supabase + Storage):
   - main() returns a summary; DRY_RUN env parsing.
 """
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -103,9 +105,6 @@ class _StubClient:
             self.storage.remove = _raise
 
     def table(self, name):
-        if name == "account_deletion_requests":
-            raise RuntimeError("PGRST205: account_deletion_requests does not exist")
-
         def data_for(n, eqs):
             if n == "sessions":
                 return list(self._sessions)
@@ -116,11 +115,22 @@ class _StubClient:
 
 
 def _install(monkeypatch, *, dry_run, sessions, responses=None, remove_raises_for=None):
+    @asynccontextmanager
+    async def begin():
+        async def execute(statement, params=None):
+            sql = str(statement)
+            assert sql.startswith("SELECT pg_advisory_xact_lock(") or sql == (
+                "SELECT to_regclass('public.account_deletion_requests')"
+            )
+            return SimpleNamespace(scalar=lambda: None)
+
+        yield SimpleNamespace(execute=execute)
+
     calls: list = []
     client = _StubClient(sessions, responses or {}, calls, remove_raises_for)
     monkeypatch.setattr(sweep, "supabase_admin", client)
     monkeypatch.setattr(sweep, "DRY_RUN", dry_run)
-    monkeypatch.setattr(sweep, "get_engine", lambda: None)
+    monkeypatch.setattr(sweep, "get_engine", lambda: SimpleNamespace(begin=begin))
     return calls
 
 
@@ -142,16 +152,27 @@ def test_audio_eligibility_uses_strict_started_anchor(monkeypatch):
     assert sorted(s["id"] for s in eligible) == ["old", "reopened"]
 
 
-def test_audio_stays_intact_if_erasure_is_installed_without_a_direct_lock(monkeypatch):
-    sessions = [{"id": "old", "user_id": "u", "started_at": _ago(20), "audio_purged_at": None}]
-    calls = _install(monkeypatch, dry_run=False, sessions=sessions)
+@pytest.mark.parametrize("stale_schema_cache", [False, True])
+def test_unavailable_direct_lock_preserves_audio_and_keeps_content_sweep(monkeypatch, stale_schema_cache):
+    sessions = [{"id": "old", "user_id": "u", "started_at": _ago(70), "audio_purged_at": None}]
+    calls = _install(monkeypatch, dry_run=False, sessions=sessions,
+                     responses={"old": [{"audio_storage_path": "u/old/recording.webm"}]})
+    monkeypatch.setattr(sweep, "get_engine", lambda: None)
     client = sweep.supabase_admin
     table = client.table
-    monkeypatch.setattr(client, "table", lambda name: (
-        _Q(name, lambda *_: [], calls) if name == "account_deletion_requests" else table(name)))
-    result = sweep.sweep_audio()
-    assert result["eligible"] == 1 and result["purged"] == 0
-    assert not any(call["type"] in ("storage_remove", "update") for call in calls)
+
+    def table_with_cache(name):
+        if stale_schema_cache and name == "account_deletion_requests":
+            raise RuntimeError("PGRST205: public.account_deletion_requests not in the schema cache")
+        return table(name)
+
+    monkeypatch.setattr(client, "table", table_with_cache)
+    result = sweep.main()
+    assert result["audio"]["eligible"] == 1 and result["audio"]["purged"] == 0
+    assert result["content"]["purged"] == 1
+    assert not any(call["type"] == "storage_remove" for call in calls)
+    assert all(not {"audio_storage_path", "audio_url", "audio_purged_at"}.intersection(call["payload"])
+               for call in calls if call["type"] == "update")
 
 
 def test_content_eligibility_uses_max_anchor(monkeypatch):

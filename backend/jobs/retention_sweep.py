@@ -42,7 +42,6 @@ from sqlalchemy import text
 
 from database import supabase_admin
 from services.account_data_db import get_engine
-from services.account_deletion_gate import _is_missing_table
 from services.account_erasure import export_lock_key
 from services.account_export import StorageAdapter
 from services.recording_audio import current_recording_owners, recording_path
@@ -270,15 +269,6 @@ async def _purge_audio_locked(session: dict, engine) -> int | None:
         return await asyncio.to_thread(_purge_audio, current, reference_paths=sorted(eligible))
 
 
-def _audio_purge_requires_lock() -> bool:
-    """Without a direct connection only a confirmed pre-migration DB may purge."""
-    try:
-        supabase_admin.table("account_deletion_requests").select("id").range(0, 0).execute()
-    except Exception as exc:
-        return not _is_missing_table(exc)
-    return True
-
-
 def _purge_content(session: dict) -> None:
     """NULL the heavy text/JSONB columns (keeps every score column), then stamp
     content_purged_at. Aggregate/component scores are NOT in the update set."""
@@ -306,8 +296,12 @@ def sweep_audio() -> dict:
 
 async def _sweep_audio(eligible: list[dict]) -> dict:
     purged, objects, errors = 0, 0, []
-    engine = get_engine() if eligible and not DRY_RUN else None
-    if eligible and not DRY_RUN and engine is None and _audio_purge_requires_lock():
+    try:
+        engine = get_engine() if eligible and not DRY_RUN else None
+    except Exception as exc:
+        logger.warning("[sweep] audio lock setup failed: %s", type(exc).__name__)
+        engine = None
+    if eligible and not DRY_RUN and engine is None:
         logger.warning("[sweep] audio kept=%d reason=erasure_lock_unavailable", len(eligible))
         return {"op": "audio", "eligible": len(eligible), "purged": 0, "objects": 0, "errors": []}
     for s in eligible:
