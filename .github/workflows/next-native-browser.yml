@@ -188,15 +188,12 @@ jobs:
               - 'frontend/tooling/verify-error-states-flow.mjs'
               - 'frontend/app/(authed-advanced-vocab)/**'
               - 'frontend/tooling/verify-learner-route-auth-boot-flow.mjs'
-              - 'frontend/app/(authed-exam)/**'
               - 'frontend/lib/exam-player-model.mjs'
               - 'frontend/public/pages/exam.html'
               - 'frontend/public/js/exam-player.js'
               - 'frontend/public/js/kp-stepper.js'
               - 'frontend/public/css/exam-player-next.css'
-              - 'frontend/tests/exam-player-next-behavior.test.mjs'
               - 'frontend/tests/exam-player-next-model.test.mjs'
-              - 'frontend/tooling/verify-exam-flow.mjs'
               - 'frontend/app/(authed-full-test)/**'
               - 'frontend/app/(authed-mock-exam)/**'
               - 'frontend/lib/mock-exam-model.mjs'
@@ -931,10 +928,6 @@ jobs:
         env:
           ADMIN_GRAMMAR_BROWSER_EVIDENCE: /tmp/admin-grammar-revision-browser.json
         run: node tooling/verify-admin-grammar-revision-flow.mjs "http://localhost:$TEST_PORT"
-
-      - name: Kiểm luồng Exam player native
-        if: env.RUN_BROWSER == 'true'
-        run: node tooling/verify-exam-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/mock-exam` điều phối clock chung, iframe L/R và Writing autosave.
       # Parity tĩnh chỉ thấy nhánh thiếu identity; fixture này khóa create

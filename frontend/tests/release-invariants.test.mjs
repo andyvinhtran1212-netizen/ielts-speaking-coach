@@ -107,7 +107,11 @@ test('maps legacy aliases and nested filename families to canonical Next routes'
   assert.equal(canonicalNextRouteForLegacy('/pages/admin/dashboard/index.html'), '/admin');
   assert.equal(canonicalNextRouteForLegacy('/pages/vocabulary.html'), '/vocabulary/hub');
   assert.equal(canonicalNextRouteForLegacy('/vocabulary.html'), '/vocabulary');
-  assert.equal(buildLegacyReplacementInventory(['/pages/exam.html'], ['/exam']).entries[0].owner, 'exam-platform');
+  // LEARNERNAV-0062 batch 7a: the retired /exam player's HTML goes to Thi thử.
+  assert.deepEqual(
+    (({ nextPath, owner }) => ({ nextPath, owner }))(buildLegacyReplacementInventory(['/pages/exam.html'], ['/tests']).entries[0]),
+    { nextPath: '/tests', owner: 'mock-exam' },
+  );
   assert.equal(canonicalNextRouteForLegacy('not-a-route'), null);
 });
 

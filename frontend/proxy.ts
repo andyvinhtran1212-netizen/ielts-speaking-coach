@@ -331,7 +331,7 @@ export const config = {
     '/library/speaking/:slug',
     '/library/writing-samples/:slug',
     {
-      source: '/:section(admin|course|exam|exercises|full-test|full-test-result|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',
+      source: '/:section(admin|course|exercises|full-test-result|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|quiz|reading|result|speaking|tests|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {

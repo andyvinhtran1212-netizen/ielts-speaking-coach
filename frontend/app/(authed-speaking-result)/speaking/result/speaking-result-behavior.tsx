@@ -276,7 +276,7 @@ export function SpeakingResultBehavior() {
           <div className="spr-state__actions">
             {sittingId
               ? <a href={`/mock/result?sitting=${encodeURIComponent(sittingId)}`}>Về kết quả tổng</a>
-              : <a href="/full-test">Về danh sách kỳ thi</a>}
+              : <a href="/tests">Về danh sách kỳ thi</a>}
             {error.retryable ? <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>Thử lại</button> : null}
           </div>
         </div>

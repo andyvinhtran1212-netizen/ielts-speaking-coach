@@ -1,4 +1,4 @@
-// Route-group cần đăng nhập cho `/full-test`.
+// Route-group cần đăng nhập cho `/tests` (trước: `/full-test`, LEARNERNAV-0062 đợt 7a).
 //
 // `AuthedShell` lo toàn bộ `<head>` + bootstrap; ở đây chỉ khai stylesheet
 // RIÊNG của trang. `/css/full-test.css` là tệp vừa tách ra từ `<style>` inline
