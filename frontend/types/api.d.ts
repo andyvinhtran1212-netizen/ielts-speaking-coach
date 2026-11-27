@@ -3183,6 +3183,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class/assignments/{item_id}/self-practice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Self Practice Assignment
+         * @description "Tự luyện bài này" for a closed assignment (LEARNERCORE-0063 FR-100).
+         *
+         *     Returns the public self-practice launch for the same paper; writes nothing
+         *     (no item state, no ledger). 404 not the caller's / not visible / no longer
+         *     in the class, 409 ``assignment_still_open`` or ``homework_attempt_in_progress``
+         *     (a resumable homework attempt on the paper would be resumed instead),
+         *     422 ``self_practice_unsupported``
+         *     (vocab, grammar, course, Writing before G08) or
+         *     ``self_practice_paper_unavailable`` (the paper is not open to public
+         *     self-practice now; the assignment's own access is never borrowed).
+         */
+        post: operations["self_practice_assignment_api_class_assignments__item_id__self_practice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class/assignments/{item_id}/start": {
         parameters: {
             query?: never;
@@ -24514,6 +24543,30 @@ export interface components {
             /** Alert Status */
             alert_status?: ("pending" | "sent" | "failed" | "not_recorded") | null;
         };
+        /** SelfPracticeLaunch */
+        SelfPracticeLaunch: {
+            /** Href */
+            href?: string | null;
+            session_params?: components["schemas"]["SelfPracticeSessionParams"] | null;
+        };
+        /** SelfPracticeResponse */
+        SelfPracticeResponse: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "speaking" | "listening" | "reading";
+            launch: components["schemas"]["SelfPracticeLaunch"];
+        };
+        /** SelfPracticeSessionParams */
+        SelfPracticeSessionParams: {
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+        };
         /** SessionAudioUrl */
         SessionAudioUrl: {
             /** Response Id */
@@ -33057,6 +33110,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    self_practice_assignment_api_class_assignments__item_id__self_practice_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfPracticeResponse"];
                 };
             };
             /** @description Validation Error */
