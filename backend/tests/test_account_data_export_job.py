@@ -11,6 +11,7 @@ import zipfile
 from types import SimpleNamespace
 
 import pytest
+from storage3.exceptions import StorageApiError
 
 from services import account_export as ex
 from services import recording_audio
@@ -49,6 +50,9 @@ class FakeStorage(ex.StorageAdapter):
 
     def download(self, bucket, path):
         return self.objects[(bucket, path)]
+
+    def object_exists(self, bucket, path):
+        return (bucket, path) in self.objects
 
     def upload(self, bucket, path, data, content_type):
         assert content_type == "application/zip"
@@ -95,6 +99,27 @@ def _run(env, **kw):
                 send=env.send, render_pdf=env.pdf)
     args.update(kw)
     return asyncio.run(ex.run_one(env.engine, **args))
+
+
+@pytest.mark.parametrize("failure,possible_absence", [
+    (StorageApiError("Object not found", "NoSuchKey", 404), True),
+    (StorageApiError("Object not found", "Not Found", 404), True),
+    (StorageApiError("Bucket not found", "NoSuchBucket", 404), False),
+    (StorageApiError("Forbidden", "AccessDenied", 403), False),
+    (TimeoutError("metadata check timed out"), False),
+])
+def test_storage_info_only_treats_object_not_found_as_absent(monkeypatch, failure, possible_absence):
+    storage = ex.StorageAdapter()
+
+    def info(_path):
+        raise failure
+
+    monkeypatch.setattr(storage, "_bucket", lambda _name: SimpleNamespace(info=info))
+    if possible_absence:
+        assert storage.object_exists("audio-responses", "legacy/example.webm") is False
+    else:
+        with pytest.raises(type(failure)):
+            storage.object_exists("audio-responses", "legacy/example.webm")
 
 
 def test_builds_package_with_only_own_data(env):

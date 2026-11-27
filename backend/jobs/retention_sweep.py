@@ -30,6 +30,7 @@ is orphan-safe + idempotent; the only cost is a sub-second window where audio_ur
 404s on a session whose audio is expiring anyway.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -37,7 +38,14 @@ import sys
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from sqlalchemy import text
+
 from database import supabase_admin
+from services.account_data_db import get_engine
+from services.account_deletion_gate import _is_missing_table
+from services.account_erasure import export_lock_key
+from services.account_export import StorageAdapter
+from services.recording_audio import current_recording_owners, recording_path
 from services.speaking_submission import submission_id
 from services import retention_policy
 from services.retention import (
@@ -128,16 +136,20 @@ def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = F
     return out
 
 
-def _audio_paths(session_id: str, user_id: str | None = None) -> list[str]:
+def _audio_paths(session_id: str, user_id: str | None = None, *,
+                 reference_paths: list[str] | None = None) -> list[str]:
     """Bucket-relative keys for a session's recordings (non-null only)."""
-    rows = (
-        supabase_admin.table("responses")
-        .select("audio_storage_path")
-        .eq("session_id", session_id)
-        .execute()
-        .data
-    ) or []
-    paths = [r["audio_storage_path"] for r in rows if r.get("audio_storage_path")]
+    if reference_paths is None:
+        rows = (
+            supabase_admin.table("responses")
+            .select("audio_storage_path")
+            .eq("session_id", session_id)
+            .execute()
+            .data
+        ) or []
+        paths = [r["audio_storage_path"] for r in rows if r.get("audio_storage_path")]
+    else:
+        paths = list(reference_paths)
     # Immutable take paths may outlive the single canonical row (retakes or a
     # losing concurrent upload). Keep their existing 15-day retention deadline.
     if user_id:
@@ -196,11 +208,11 @@ def _retire_expired_open_session(session: dict) -> None:
     }).eq("id", session["id"]).eq("status", "in_progress").execute()
     session["status"] = "abandoned"
 
-def _purge_audio(session: dict) -> int:
+def _purge_audio(session: dict, *, reference_paths: list[str] | None = None) -> int:
     """Storage-first (orphan-safe): capture paths → remove files → scrub audio
     columns → stamp audio_purged_at. Returns the number of objects removed."""
     sid = session["id"]
-    paths = _audio_paths(sid, session.get("user_id"))              # capture BEFORE scrubbing audio_storage_path
+    paths = _audio_paths(sid, session.get("user_id"), reference_paths=reference_paths)
     if DRY_RUN:
         return len(paths)
     if paths:
@@ -213,6 +225,58 @@ def _purge_audio(session: dict) -> int:
         {"audio_purged_at": _now_iso()}
     ).eq("id", sid).execute()              # 4. stamp completion
     return len(paths)
+
+
+async def _purge_audio_locked(session: dict, engine) -> int | None:
+    """Hold the same learner lock as erasure claim until Storage and SQL finish."""
+    sid, uid = str(session["id"]), str(session["user_id"])
+    async with engine.begin() as conn:
+        await conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                           {"key": export_lock_key(uid)})
+        has_requests = (await conn.execute(text("SELECT to_regclass('public.account_deletion_requests')"))).scalar()
+        if has_requests is None:
+            return await asyncio.to_thread(_purge_audio, session)
+        erasing = (await conn.execute(text("""
+            SELECT 1 FROM public.account_deletion_requests
+             WHERE user_id = CAST(:uid AS uuid) AND (
+                 status = 'erasing' OR (status = 'failed' AND step_done LIKE 'audio:%'))
+             LIMIT 1
+        """), {"uid": uid})).scalar()
+        if erasing:
+            return None
+        fresh = (await conn.execute(text("""
+            SELECT status, resume_expires_at FROM public.sessions
+             WHERE id = CAST(:sid AS uuid) AND user_id = CAST(:uid AS uuid) AND audio_purged_at IS NULL
+        """), {"sid": sid, "uid": uid})).mappings().first()
+        if fresh is None:
+            return None
+        rows = (await conn.execute(text("""
+            SELECT audio_storage_path, audio_url FROM public.responses WHERE session_id = CAST(:sid AS uuid)
+        """), {"sid": sid})).mappings().all()
+        paths = {path for row in rows if (path := recording_path(dict(row)))}
+        same_session = {path for path in paths if path.startswith(f"{uid}/{sid}/")}
+        if any(path.startswith(f"{uid}/") for path in paths - same_session):
+            return None
+        legacy = paths - same_session
+        owners = await current_recording_owners(conn, legacy)
+        storage = StorageAdapter(supabase_admin)
+        for path in sorted(legacy - owners.keys()):
+            if await asyncio.to_thread(storage.object_exists, _AUDIO_BUCKET, path):
+                return None
+        eligible = same_session | {path for path, owner in owners.items() if owner == uid}
+        current = {**session, **fresh}
+        if current["resume_expires_at"] is not None:
+            current["resume_expires_at"] = current["resume_expires_at"].isoformat()
+        return await asyncio.to_thread(_purge_audio, current, reference_paths=sorted(eligible))
+
+
+def _audio_purge_requires_lock() -> bool:
+    """Without a direct connection only a confirmed pre-migration DB may purge."""
+    try:
+        supabase_admin.table("account_deletion_requests").select("id").range(0, 0).execute()
+    except Exception as exc:
+        return not _is_missing_table(exc)
+    return True
 
 
 def _purge_content(session: dict) -> None:
@@ -237,14 +301,27 @@ def _purge_content(session: dict) -> None:
 
 def sweep_audio() -> dict:
     eligible = _eligible("audio_purged_at", RETENTION_AUDIO_DAYS, "is_audio_purged")
+    return asyncio.run(_sweep_audio(eligible))
+
+
+async def _sweep_audio(eligible: list[dict]) -> dict:
     purged, objects, errors = 0, 0, []
+    engine = get_engine() if eligible and not DRY_RUN else None
+    if eligible and not DRY_RUN and engine is None and _audio_purge_requires_lock():
+        logger.warning("[sweep] audio kept=%d reason=erasure_lock_unavailable", len(eligible))
+        return {"op": "audio", "eligible": len(eligible), "purged": 0, "objects": 0, "errors": []}
     for s in eligible:
         try:
-            objects += _purge_audio(s)
+            count = (await _purge_audio_locked(s, engine) if engine is not None
+                     else await asyncio.to_thread(_purge_audio, s))
+            if count is None:
+                continue
+            objects += count
             purged += 1
         except Exception as exc:  # noqa: BLE001 — isolate; retry next run (#29)
-            errors.append({"session_id": s["id"], "error": str(exc)})
-            logger.warning("[sweep] audio purge failed session=%s: %s", s["id"], exc)
+            code = type(exc).__name__
+            errors.append({"session_id": s["id"], "error": code})
+            logger.warning("[sweep] audio purge failed session=%s: %s", s["id"], code)
     return {"op": "audio", "eligible": len(eligible), "purged": purged,
             "objects": objects, "errors": errors}
 

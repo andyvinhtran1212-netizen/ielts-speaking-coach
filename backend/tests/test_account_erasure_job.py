@@ -275,7 +275,9 @@ def test_full_erasure_of_one_learner(env):
     assert _erase(env, req) == "skipped"
 
 
-def test_erasure_removes_only_verified_legacy_recordings_before_deleting_responses(env):
+def test_erasure_removes_only_verified_legacy_recordings_before_deleting_responses(env, monkeypatch):
+    from jobs import retention_sweep
+
     origin = str(recording_audio.settings.SUPABASE_URL).rstrip("/")
     run = env.run
     run(f"""
@@ -284,6 +286,7 @@ def test_erasure_removes_only_verified_legacy_recordings_before_deleting_respons
           ('{SESS1}', 'legacy/other-owner.webm', NULL),
           ('{SESS1}', 'legacy/no-owner.webm', NULL),
           ('{SESS1}', 'legacy/missing-metadata.webm', NULL),
+          ('{SESS1}', 'legacy/absent.webm', NULL),
           ('{SESS1}', NULL, 'https://other.example.test/legacy/foreign.webm'),
           ('{SESS2}', 'legacy/other-response.webm', NULL);
         INSERT INTO storage.objects (bucket_id, name, owner_id) VALUES
@@ -297,18 +300,77 @@ def test_erasure_removes_only_verified_legacy_recordings_before_deleting_respons
     for key in ("owned-url", "other-owner", "no-owner", "missing-metadata", "other-response"):
         env.storage.objects[("audio-responses", f"legacy/{key}.webm")] = b"recording"
     requested = []
+    checked = []
     remove = env.storage.remove
+    object_exists = env.storage.object_exists
 
     def track_remove(bucket, paths):
         if bucket == "audio-responses":
             requested.extend(paths)
         remove(bucket, paths)
 
+    def track_check(bucket, path):
+        checked.append(path)
+        return object_exists(bucket, path)
+
     env.storage.remove = track_remove
+    env.storage.object_exists = track_check
     req = _request(env)
     before = set(env.storage.objects)
     assert asyncio.run(er.dry_run(env.engine))[0]["request_id"] == req
-    assert set(env.storage.objects) == before and not requested
+    assert set(env.storage.objects) == before and not requested and not checked
+
+    run("ALTER TABLE public.sessions ADD COLUMN audio_purged_at timestamptz, ADD COLUMN resume_expires_at timestamptz")
+    purged = []
+
+    def purge(session, *, reference_paths):
+        purged.append((session["id"], reference_paths))
+        return len(reference_paths)
+
+    monkeypatch.setattr(retention_sweep, "_purge_audio", purge)
+    monkeypatch.setattr(retention_sweep, "StorageAdapter", lambda _client: env.storage)
+    assert asyncio.run(retention_sweep._purge_audio_locked({"id": SESS1, "user_id": U1}, env.engine)) is None
+    assert not purged and not requested and set(env.storage.objects) == before
+    checked.clear()
+
+    other_req = _request(env, U2)
+    assert _erase(env, req) == "waiting_recording_ownership"
+    assert checked == ["legacy/absent.webm", "legacy/missing-metadata.webm"]
+    assert set(env.storage.objects) == before and not requested and not env.revoked
+    assert run(f"SELECT status, last_error_code, attempts, lease_until > now() "
+               f"FROM public.account_deletion_requests WHERE id = '{req}'") == (
+                   "erasing|recording_ownership_unverified|0|t")
+    assert run(f"SELECT count(*) FROM public.responses WHERE session_id = '{SESS1}'") == "8"
+    assert asyncio.run(er.due_request_ids(env.engine, limit=1)) == [other_req]
+
+    # A retention job that selected this session before the erasure claim must
+    # re-check under the lock and leave it alone, while the other learner runs.
+    assert asyncio.run(retention_sweep._purge_audio_locked({"id": SESS1, "user_id": U1}, env.engine)) is None
+    assert asyncio.run(retention_sweep._purge_audio_locked({"id": SESS2, "user_id": U2}, env.engine)) == 1
+    assert purged == [(SESS2, [f"{U2}/{SESS2}/b.webm"])]
+
+    # If a reference disappears despite the gate, do not mistake the empty
+    # field for confirmation that the held object has gone.
+    response_id = run("SELECT id FROM public.responses WHERE audio_storage_path = 'legacy/missing-metadata.webm'")
+    checkpoint = run(f"SELECT step_done FROM public.account_deletion_requests WHERE id = '{req}'")
+    run(f"UPDATE public.responses SET audio_storage_path = NULL WHERE id = '{response_id}'; "
+        f"UPDATE public.account_deletion_requests SET lease_until = now() - interval '1 second' WHERE id = '{req}'")
+    assert _erase(env, req) == "waiting_recording_ownership"
+    assert run(f"SELECT step_done FROM public.account_deletion_requests WHERE id = '{req}'") == checkpoint
+    assert not requested and set(env.storage.objects) == before
+    run(f"UPDATE public.responses SET audio_storage_path = 'legacy/missing-metadata.webm' WHERE id = '{response_id}'")
+
+    # Once eligible again, the older request cannot jump ahead of an account
+    # that has already waited longer on its current deadline.
+    run(f"UPDATE public.account_deletion_requests SET lease_until = now() - interval '1 second' WHERE id = '{req}'; "
+        f"INSERT INTO storage.objects (bucket_id, name, owner_id) "
+        f"VALUES ('audio-responses', 'legacy/missing-metadata.webm', '{U2}')")
+    assert asyncio.run(er.due_request_ids(env.engine, limit=1)) == [other_req]
+    assert _erase(env, req) == "waiting_recording_ownership"
+    assert checked[-2:] == ["legacy/absent.webm", "legacy/no-owner.webm"]
+    assert not requested and set(env.storage.objects) == before
+    run(f"UPDATE public.account_deletion_requests SET lease_until = now() - interval '1 second' WHERE id = '{req}'; "
+        f"UPDATE storage.objects SET owner_id = '{U1}' WHERE name = 'legacy/no-owner.webm'")
 
     soft_delete = env.auth.soft_delete
 
@@ -319,7 +381,7 @@ def test_erasure_removes_only_verified_legacy_recordings_before_deleting_respons
     assert _erase(env, req) == "error:auth:RuntimeError"
     assert run(f"SELECT count(*) FROM public.responses WHERE session_id = '{SESS1}'") == "0"
     assert run(f"SELECT count(*) FROM public.responses WHERE session_id = '{SESS2}'") == "2"
-    removed = {f"{U1}/{SESS1}/a.webm", "legacy/an-old.webm", "legacy/owned-url.webm"}
+    removed = {f"{U1}/{SESS1}/a.webm", "legacy/an-old.webm", "legacy/owned-url.webm", "legacy/no-owner.webm"}
     assert sorted(requested) == sorted(removed)
     assert env.storage.list_prefix("audio-responses", "") == sorted(
         path for bucket, path in before if bucket == "audio-responses" and path not in removed)
@@ -328,6 +390,37 @@ def test_erasure_removes_only_verified_legacy_recordings_before_deleting_respons
     env.auth.soft_delete = soft_delete
     assert _erase(env, req) == "erased"
     assert sorted(requested) == sorted(removed)
+
+
+def test_audio_retention_serializes_with_the_erasure_claim(env, monkeypatch):
+    from jobs import retention_sweep
+
+    env.run("ALTER TABLE public.sessions ADD COLUMN audio_purged_at timestamptz, ADD COLUMN resume_expires_at timestamptz")
+    req = _request(env)
+    started = threading.Event()
+    release = threading.Event()
+
+    def purge(_session, *, reference_paths):
+        started.set()
+        assert release.wait(timeout=15), "retention test did not release its Storage step"
+        return len(reference_paths)
+
+    monkeypatch.setattr(retention_sweep, "_purge_audio", purge)
+
+    async def run():
+        retention = asyncio.create_task(retention_sweep._purge_audio_locked({"id": SESS1, "user_id": U1}, env.engine))
+        try:
+            assert await asyncio.to_thread(started.wait, 5)
+            claim = asyncio.create_task(er.claim(env.engine, req, "erasure-worker", 300))
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(asyncio.shield(claim), timeout=0.2)
+            assert env.run(f"SELECT status FROM public.account_deletion_requests WHERE id = '{req}'") == "pending"
+        finally:
+            release.set()
+        assert await retention == 2
+        assert await claim == U1
+
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("hardened", [False, True])

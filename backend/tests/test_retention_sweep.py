@@ -103,6 +103,9 @@ class _StubClient:
             self.storage.remove = _raise
 
     def table(self, name):
+        if name == "account_deletion_requests":
+            raise RuntimeError("PGRST205: account_deletion_requests does not exist")
+
         def data_for(n, eqs):
             if n == "sessions":
                 return list(self._sessions)
@@ -117,6 +120,7 @@ def _install(monkeypatch, *, dry_run, sessions, responses=None, remove_raises_fo
     client = _StubClient(sessions, responses or {}, calls, remove_raises_for)
     monkeypatch.setattr(sweep, "supabase_admin", client)
     monkeypatch.setattr(sweep, "DRY_RUN", dry_run)
+    monkeypatch.setattr(sweep, "get_engine", lambda: None)
     return calls
 
 
@@ -136,6 +140,18 @@ def test_audio_eligibility_uses_strict_started_anchor(monkeypatch):
     _install(monkeypatch, dry_run=True, sessions=sessions)
     eligible = sweep._eligible("audio_purged_at", sweep.RETENTION_AUDIO_DAYS, "is_audio_purged")
     assert sorted(s["id"] for s in eligible) == ["old", "reopened"]
+
+
+def test_audio_stays_intact_if_erasure_is_installed_without_a_direct_lock(monkeypatch):
+    sessions = [{"id": "old", "user_id": "u", "started_at": _ago(20), "audio_purged_at": None}]
+    calls = _install(monkeypatch, dry_run=False, sessions=sessions)
+    client = sweep.supabase_admin
+    table = client.table
+    monkeypatch.setattr(client, "table", lambda name: (
+        _Q(name, lambda *_: [], calls) if name == "account_deletion_requests" else table(name)))
+    result = sweep.sweep_audio()
+    assert result["eligible"] == 1 and result["purged"] == 0
+    assert not any(call["type"] in ("storage_remove", "update") for call in calls)
 
 
 def test_content_eligibility_uses_max_anchor(monkeypatch):

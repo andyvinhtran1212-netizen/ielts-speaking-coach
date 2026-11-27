@@ -17,10 +17,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from sqlalchemy import text
+from storage3.exceptions import StorageApiError
 
 from services import account_data_inventory as inventory
 from services.account_erasure import AccountDataError, _iso, export_lock_key
-from services.recording_audio import recording_path, verified_legacy_recording_paths
+from services.recording_audio import current_recording_owners, recording_path
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,18 @@ class StorageAdapter:
 
     def download(self, bucket: str, path: str) -> bytes:
         return self._bucket(bucket).download(path)
+
+    def object_exists(self, bucket: str, path: str) -> bool:
+        """Only an object-specific not-found response proves absence."""
+        try:
+            self._bucket(bucket).info(path)
+        except StorageApiError as exc:
+            code = exc.code.lower().replace(" ", "_")
+            legacy_missing = code == "not_found" and exc.message.strip().rstrip(".").lower() == "object not found"
+            if str(exc.status) == "404" and (code in ("nosuchkey", "object_not_found") or legacy_missing):
+                return False
+            raise
+        return True
 
     def upload(self, bucket: str, path: str, data: bytes, content_type: str) -> None:
         self._bucket(bucket).upload(path, data, {"content-type": content_type, "x-upsert": "false"})
@@ -454,7 +467,8 @@ async def collect_recordings(engine: Any, storage: StorageAdapter, user_id: str,
     legacy_paths = {path for _, path in references if path and not path.startswith(prefix)}
     if legacy_paths:
         async with engine.connect() as conn:
-            paths.update(await verified_legacy_recording_paths(conn, user_id, legacy_paths))
+            owners = await current_recording_owners(conn, legacy_paths)
+        paths.update(path for path, owner in owners.items() if owner == user_id)
 
     skipped = []
     for row, path in references:

@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from hashlib import sha256
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -20,7 +21,7 @@ from typing import Any, Optional
 from sqlalchemy import text
 
 from services import account_data_inventory as inventory
-from services.recording_audio import recording_path, verified_legacy_recording_paths
+from services.recording_audio import current_recording_owners, recording_path
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +251,8 @@ async def due_request_ids(engine: Any, limit: int = 20) -> list[str]:
             "SELECT id FROM public.account_deletion_requests "
             " WHERE (status = 'pending' AND erase_after <= now()) "
             "    OR (status = 'erasing' AND lease_until < now()) "
-            " ORDER BY erase_after LIMIT :n"), {"n": int(limit)})).all()
+            " ORDER BY CASE WHEN status = 'pending' THEN erase_after ELSE lease_until END, id LIMIT :n"),
+            {"n": int(limit)})).all()
     return [str(r[0]) for r in rows]
 
 
@@ -311,12 +313,20 @@ async def revoke_entitlements(engine: Any, user_id: str) -> int:
     return len(rows)
 
 
-async def audio_paths(engine: Any, user_id: str) -> list[str]:
-    """Verified legacy recordings of this learner outside ``<user_id>/``."""
+def _audio_checkpoint(path: str) -> str:
+    return "audio:" + sha256(path.encode()).hexdigest()[:32]
+
+
+async def audio_paths(engine: Any, request_id: str, user_id: str, storage: Any) -> tuple[list[str], Optional[str]]:
+    """Verified legacy paths, or a checkpoint of an object still on hold."""
     async with engine.connect() as conn:
         await conn.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
+        step_done = (await conn.execute(text(
+            "SELECT step_done FROM public.account_deletion_requests WHERE id = CAST(:id AS uuid)"),
+            {"id": request_id})).scalar()
+        checkpoint = step_done if (step_done or "").startswith("audio:") else None
         if (await conn.execute(text("SELECT to_regclass('public.responses')"))).scalar() is None:
-            return []
+            return [], checkpoint
         rows = (await conn.execute(text(
             "SELECT r.audio_storage_path, r.audio_url "
             "  FROM public.responses r JOIN public.sessions s ON s.id = r.session_id "
@@ -325,7 +335,21 @@ async def audio_paths(engine: Any, user_id: str) -> list[str]:
             {"uid": user_id})).mappings().all()
         candidates = {path for row in rows if (path := recording_path(dict(row)))
                       and not path.startswith(f"{user_id}/")}
-        return sorted(await verified_legacy_recording_paths(conn, user_id, candidates))
+        owners = await current_recording_owners(conn, candidates)
+    unknown = sorted(candidates - owners.keys())
+    if checkpoint:
+        waiting_path = next((path for path in candidates if _audio_checkpoint(path) == checkpoint), None)
+        if waiting_path is None:
+            # A changed response cannot establish what happened to the object
+            # that blocked the previous attempt. Keep the checkpoint on hold.
+            return [], checkpoint
+        if waiting_path in unknown:
+            unknown.remove(waiting_path)
+            unknown.insert(0, waiting_path)
+    for path in unknown:
+        if await asyncio.to_thread(storage.object_exists, AUDIO_BUCKET, path):
+            return [], _audio_checkpoint(path)
+    return sorted(path for path, owner in owners.items() if owner == user_id), None
 
 
 async def remove_storage(storage: Any, user_id: str, extra_audio: list[str]) -> int:
@@ -414,18 +438,19 @@ async def export_lease_active(engine: Any, user_id: str) -> bool:
 
 
 async def _release(engine: Any, request_id: str, owner: str, code: str, *, count: bool,
-                   max_attempts: int) -> str:
+                   max_attempts: int, retry_seconds: int = 0, checkpoint: Optional[str] = None) -> str:
     """Record the error and release the lease. After ``max_attempts`` counted
     failures the request becomes ``failed`` (FR-009)."""
     async with engine.begin() as conn:
         row = (await conn.execute(text(
             "UPDATE public.account_deletion_requests "
-            "   SET last_error_code = :code, lease_until = now(), "
+            "   SET last_error_code = :code, lease_until = now() + make_interval(secs => :retry), "
+            "       step_done = coalesce(:checkpoint, step_done), "
             "       attempts = CASE WHEN :count THEN attempts ELSE greatest(attempts - 1, 0) END, "
             "       status = CASE WHEN :count AND attempts >= :max THEN 'failed' ELSE status END "
             " WHERE id = CAST(:id AS uuid) AND erasing_owner = :owner RETURNING status"),
             {"id": request_id, "owner": owner, "code": code[:80], "count": count,
-             "max": int(max_attempts)})).first()
+             "max": int(max_attempts), "retry": int(retry_seconds), "checkpoint": checkpoint})).first()
     return row[0] if row else "lost"
 
 
@@ -483,7 +508,7 @@ async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: 
                     storage: Any, auth: AuthAdapter, send: Any = None, revoke_sessions: Any = None,
                     alert: Any = None) -> str:
     """Run plan section 5 for one request. Returns ``erased``, ``skipped``,
-    ``lost``, ``waiting_export`` or ``error:<code>`` (``failed`` once
+    ``lost``, ``waiting_export``, ``waiting_recording_ownership`` or ``error:<code>`` (``failed`` once
     ``max_attempts`` is reached)."""
     if send is None:
         from services.learner_email import send_direct as send
@@ -495,6 +520,15 @@ async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: 
     step = "plan"
     try:
         plan = await build_plan(engine)
+        step = "storage"
+        await renew(engine, request_id, owner, lease_seconds)
+        legacy_audio, checkpoint = await audio_paths(engine, request_id, uid, storage)
+        if checkpoint:
+            # Keep the response rows as evidence and defer the request so
+            # other due accounts can be processed while this one is reconciled.
+            status = await _release(engine, request_id, owner, "recording_ownership_unverified", count=False,
+                                    max_attempts=max_attempts, retry_seconds=lease_seconds, checkpoint=checkpoint)
+            return "lost" if status == "lost" else "waiting_recording_ownership"
         step = "sessions"
         await renew(engine, request_id, owner, lease_seconds)
         await revoke_sessions(engine, uid)
@@ -503,7 +537,7 @@ async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: 
         await revoke_entitlements(engine, uid)
         step = "storage"
         await renew(engine, request_id, owner, lease_seconds)
-        await remove_storage(storage, uid, await audio_paths(engine, uid))
+        await remove_storage(storage, uid, legacy_audio)
         step = "database"
         await renew(engine, request_id, owner, lease_seconds)
         # FR-014 (c): step 0 cancelled the learner's exports, but a worker that
@@ -537,7 +571,7 @@ async def erase_one(engine: Any, request_id: str, *, owner: str, lease_seconds: 
         return "lost"
     except Exception as exc:
         code = f"{step}:{getattr(exc, 'error_code', None) or type(exc).__name__}"
-        logger.error("[account_erasure] request=%s step=%s failed: %r", request_id, step, exc)
+        logger.error("[account_erasure] request=%s step=%s failed=%s", request_id, step, code)
         status = await _release(engine, request_id, owner, code, count=True, max_attempts=max_attempts)
         if status == "failed":
             logger.error("[account_erasure] account_deletion_failed request=%s attempts=%d", request_id,
