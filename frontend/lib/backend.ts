@@ -50,13 +50,24 @@ export const PUBLIC_CONTENT_LIFE = { stale: 3600, revalidate: 3600, expire: 8640
  *     chính bảng đo của mình.
  */
 export async function getPublicJson<T = unknown>(path: string): Promise<T | null> {
+  // Site info includes operational switches. Keep the API's own cache window.
+  if (path === '/api/public/site-info') return readPublicJson<T>(path, 'no-store');
+  return getCachedPublicJson<T>(path);
+}
+
+async function getCachedPublicJson<T>(path: string): Promise<T | null> {
   'use cache';
   cacheLife(PUBLIC_CONTENT_LIFE);
   for (const [prefix, tag] of PUBLIC_CACHE_TAGS) {
     if (path.startsWith(prefix)) cacheTag(tag);
   }
 
+  return readPublicJson<T>(path);
+}
+
+async function readPublicJson<T>(path: string, cache?: RequestCache): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
+    cache,
     signal: AbortSignal.timeout(ABORT_MS),
   });
   if (res.status === 404) return null;

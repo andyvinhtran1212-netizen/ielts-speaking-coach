@@ -28,7 +28,8 @@ from services.feature_flags import is_learner_v2_enabled
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
 from models.student_today import StudentTodayResponse, TodaySeenRequest
-from services import student_today
+from models.student_assigned import StudentAssignedResponse
+from services import student_assigned, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -104,6 +105,28 @@ async def today(response: Response, authorization: str | None = Header(default=N
     name = account_name or (email.split("@", 1)[0] if email else "bạn")
     return await student_today.get_today_concurrent(
         thread_supabase_admin, auth_user["id"], name=name, account_name=account_name,
+    )
+
+
+@router.get("/assigned", response_model=StudentAssignedResponse)
+async def assigned(response: Response, authorization: str | None = Header(default=None)):
+    """"Bài được giao" page payload (LEARNERCORE-0063 amendment 3, FR-095..FR-099,
+    FR-102, FR-103): the caller's own /my-assignments rows plus `group`,
+    `action`, `accepting` and `self_practice_available`.
+
+    Writes nothing of its own; the only write is the class-ledger reconcile
+    inside `_visible_assignments` (FR-103 exception). A failed list read is
+    `degraded: ["items"]`, never an empty "no work" answer. 404 while
+    `learner_v2` is off for the caller, before any read or reconcile runs
+    (same gate as GET /today).
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    await _require_learner_v2(auth_user["id"])
+    account_name = account_display_name(auth_user)
+    now = datetime.now(timezone.utc)
+    return await asyncio.to_thread(
+        student_assigned.get_assigned, auth_user["id"], account_name, now,
     )
 
 
