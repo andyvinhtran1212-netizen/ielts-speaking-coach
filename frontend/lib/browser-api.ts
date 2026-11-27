@@ -1,12 +1,15 @@
 import 'client-only';
 
 import type {
+  ApiDeleteJson,
+  ApiDeletePath,
   ApiGetJson,
   ApiGetPath,
   ApiPatchJson,
   ApiPatchPath,
   ApiPostJson,
   ApiPostPath,
+  ApiPostSuccessJson,
 } from '@/lib/openapi-contract';
 import { searchParamsSuffix } from '@/lib/search-params.mjs';
 
@@ -70,4 +73,29 @@ export function patchBrowserJsonAt<Path extends ApiPatchPath>(
   body: unknown = {},
 ): Promise<ApiPatchJson<Path>> {
   return window.api.patch<ApiPatchJson<Path>>(endpoint, body);
+}
+
+/**
+ * POST with the transport options (`noRedirect` for public pages). The type
+ * accepts a 201/202 answer, which `ApiPostJson` (200 only) would make `never`.
+ */
+export function postBrowserJsonAtWith<Path extends ApiPostPath>(
+  _contractPath: Path,
+  endpoint: string,
+  body: unknown = {},
+  { noRedirect = false, signal }: { noRedirect?: boolean; signal?: AbortSignal } = {},
+): Promise<ApiPostSuccessJson<Path>> {
+  const opts = signal || noRedirect ? { signal, noRedirect } : undefined;
+  return window.api.postWith<ApiPostSuccessJson<Path>>(endpoint, body, undefined, opts);
+}
+
+/** Typed DELETE with a JSON body (e.g. a mail-link token that must stay out of the URL). */
+export function deleteBrowserJsonAt<Path extends ApiDeletePath>(
+  _contractPath: Path,
+  endpoint: string,
+  body: unknown = {},
+  { noRedirect = false, signal }: { noRedirect?: boolean; signal?: AbortSignal } = {},
+): Promise<ApiDeleteJson<Path>> {
+  const opts = signal || noRedirect ? { signal, noRedirect } : undefined;
+  return window.api.deleteWith<ApiDeleteJson<Path>>(endpoint, body, undefined, opts);
 }
