@@ -348,11 +348,7 @@ class _DB:
         return _Q(self, name)
 
 
-def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
-    import database
-    from routers import class_student
-    from services import quiz_service
-
+def _two_student_ledger_db():
     students = ["s1", "s2"]
     finished = _iso(NOW - timedelta(hours=1))
     db = _DB({
@@ -387,6 +383,15 @@ def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
         ],
         "quiz_questions": [{"id": "prompt", "bank_id": "bank", "qid": "prompt", "type": "writing"}],
     })
+    return db, finished
+
+
+def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
+    import database
+    from routers import class_student
+    from services import quiz_service
+
+    db, finished = _two_student_ledger_db()
     with patch.object(class_student, "supabase_admin", db), \
          patch.object(quiz_service, "supabase_admin", db), \
          patch.object(database, "supabase_admin", db):

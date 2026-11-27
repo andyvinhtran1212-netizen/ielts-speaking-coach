@@ -259,6 +259,29 @@ def test_resume_lists_only_this_skill_newest_first_max_three(wire):
     assert [r["title"] for r in out["resume"]] == ["Cam 18 Test 1"]
 
 
+@pytest.mark.parametrize("skill,table,test_id,query", [
+    ("reading", "reading_test_attempts", "R1", {"test_id": ["cam18-1"]}),
+    ("listening", "listening_test_attempts", "L1", {"id": ["L1"]}),
+    ("listening", "dictation_attempts", "L1", {"test_id": ["L1"], "section": ["2"]}),
+])
+def test_resume_distinguishes_homework_and_standalone_attempts(wire, skill, table, test_id, query):
+    from urllib.parse import parse_qs, urlsplit
+
+    tables = _base_tables()
+    attempt = {"user_id": UID, "status": "in_progress", "test_id": test_id,
+               "resume_expires_at": (NOW + timedelta(days=1)).isoformat(), "section_num": 2}
+    tables[table] = [
+        {**attempt, "id": "homework", "started_at": _ts(), "class_assignment_item_id": "item-1"},
+        {**attempt, "id": "practice", "started_at": _ts(hours=1)},
+    ]
+    homework, practice = [parse_qs(urlsplit(row["href"]).query)
+                          for row in _run(_DB(tables), skill)["resume"]]
+    assert homework == {**practice, "class_item": ["item-1"]}
+    assert "class_item" not in practice
+    for key, value in query.items():
+        assert practice[key] == value
+
+
 def test_writing_resume_is_the_newest_unsubmitted_draft(wire):
     t = _base_tables()
     t["writing_assignments"] = [{"id": "A1", "prompt_id": "p1", "status": "in_progress"},
@@ -475,6 +498,34 @@ def test_one_failing_part_degrades_only_its_block(wire):
     wire["assigned"] = RuntimeError("class down")
     out = _run(_DB(_base_tables()), "reading")
     assert out["degraded"] == ["suggestions"] and out["catalog"]
+
+
+def test_hub_get_repairs_only_the_signed_in_learners_ledger(monkeypatch):
+    from fastapi import FastAPI
+    import database
+    from routers import class_student, student_home
+    from services import quiz_service
+    from test_student_assigned import _two_student_ledger_db
+
+    db, _ = _two_student_ledger_db()
+    async def authenticate(_authorization):
+        return {"id": "u-1", "email": "a@example.com"}
+
+    monkeypatch.setattr(student_home, "get_supabase_user", authenticate)
+    monkeypatch.setattr(student_home, "thread_supabase_admin", lambda: _DB(_base_tables()))
+    monkeypatch.setattr(database, "supabase_admin", db)
+    monkeypatch.setattr(class_student, "supabase_admin", db)
+    monkeypatch.setattr(quiz_service, "supabase_admin", db)
+    app = FastAPI()
+    app.include_router(student_home.router)
+    response = TestClient(app).get("/api/student/skill-hub?skill=reading",
+                                   headers={"Authorization": "Bearer learner-a"})
+    assert response.status_code == 200
+    assert db.writes == [("class_assignment_items", "reading-s1"),
+                         ("class_assignment_items", "course-s1")]
+    for item in db.tables["class_assignment_items"]:
+        if item["student_id"] == "s2":
+            assert item["state"] == "assigned" and item["submitted_at"] is None
 
 
 def test_unknown_skill_is_422(monkeypatch):
