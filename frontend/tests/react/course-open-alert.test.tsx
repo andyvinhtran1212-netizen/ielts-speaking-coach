@@ -1,17 +1,20 @@
 // ENROLL-0060 FR-060 / PUBLICSITE-0059 FR-022 (G05-T22) — "Báo cho tôi khi mở"
 // toggle states and the mail-link unsubscribe (#bo-nhan=<token>).
 import { StrictMode } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { OpenAlertToggle } from '@/components/courses/open-alert-toggle';
 import { OpenAlertUnsubscribeNotice } from '@/components/courses/open-alert-unsubscribe-notice';
 
 const auth = vi.hoisted(() => ({ status: 'signed-out' as 'signed-in' | 'signed-out' | 'initial-loading', id: 'learner-a' }));
+const transport = vi.hoisted(() => ({
+  whenGlobalReady: vi.fn<() => Promise<boolean>>(async () => true),
+}));
 vi.mock('@/lib/auth/auth-provider', () => ({
   useAuth: () => ({ status: auth.status, user: auth.status === 'signed-in' ? { id: auth.id, email: `${auth.id}@example.test` } : null }),
 }));
-vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
+vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: transport.whenGlobalReady }));
 
 type Call = [method: string, path: string, body?: unknown];
 let calls: Call[];
@@ -34,6 +37,7 @@ beforeEach(() => {
   holdGet = null;
   auth.status = 'signed-out';
   auth.id = 'learner-a';
+  transport.whenGlobalReady.mockReset().mockResolvedValue(true);
   const step = async (method: string, path: string, body?: unknown) => {
     calls.push(body === undefined ? [method, path] : [method, path, body]);
     if (failNext) { const e = failNext; failNext = null; throw e; }
@@ -186,6 +190,7 @@ it('signed in: a failed list read says so and retries; no state is guessed', asy
   render(<OpenAlertToggle slug="ielts-7" />);
   expect(await screen.findByText('Chưa đọc được trạng thái nhận báo của bạn. Bạn thử lại nhé.')).toBeTruthy();
   expect(screen.queryByText('Đã đăng ký nhận báo')).toBeNull();
+  expect(screen.queryByRole('button', SUBSCRIBE)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
   expect(await screen.findByText('Đã đăng ký nhận báo')).toBeTruthy();
   expect(screen.queryByText(/Chưa đọc được/)).toBeNull();
@@ -199,6 +204,8 @@ it('signed in: a failed re-read after "Bỏ nhận" shows the warning, not an as
   failGet = new TypeError('Failed to fetch');
   fireEvent.click(unsub);
   expect(await screen.findByText('Chưa đọc được trạng thái nhận báo của bạn. Bạn thử lại nhé.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Bỏ nhận' })).toBeNull();
+  expect(screen.queryByText('Đã đăng ký nhận báo')).toBeNull();
   expect(calls.map(([m]) => m)).toEqual(['GET', 'DELETE', 'GET']);
 });
 
@@ -217,6 +224,50 @@ it('account A → B: the view follows B, and A\'s late answer is dropped', async
   await new Promise((r) => setTimeout(r, 0));
   expect(screen.queryByText('Đã đăng ký nhận báo')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Bỏ nhận' })).toBeNull();
+  expect(calls).toEqual([['GET', '/api/me/open-alerts'], ['GET', '/api/me/open-alerts']]);
+});
+
+it('account A → B: a mutation waiting for transport is never sent', async () => {
+  auth.status = 'signed-in';
+  lists = { 'learner-a': ['ielts-7'], 'learner-b': [] };
+  const view = render(<OpenAlertToggle slug="ielts-7" />);
+  const unsubscribe = await screen.findByRole('button', { name: 'Bỏ nhận' });
+
+  let release!: (ready: boolean) => void;
+  transport.whenGlobalReady.mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+  fireEvent.click(unsubscribe);
+  auth.id = 'learner-b';
+  view.rerender(<OpenAlertToggle slug="ielts-7" />);
+  await screen.findByRole('button', SUBSCRIBE);
+  await act(async () => { release(true); });
+
+  expect(calls).toEqual([['GET', '/api/me/open-alerts'], ['GET', '/api/me/open-alerts']]);
+});
+
+it('account A → B: the request is aborted while the transport loads the session', async () => {
+  auth.status = 'signed-in';
+  lists = { 'learner-a': [], 'learner-b': [] };
+  let release!: () => void;
+  const session = new Promise<void>((resolve) => { release = resolve; });
+  const post = vi.fn(async (_path, _body, _headers, { signal }: { signal: AbortSignal }) => {
+    await session;
+    signal.throwIfAborted();
+    calls.push(['POST', '/api/courses/ielts-7/open-alerts', {}]);
+    return { ok: true };
+  });
+  window.api.postWith = post as typeof window.api.postWith;
+
+  const view = render(<OpenAlertToggle slug="ielts-7" />);
+  await waitFor(() => expect((screen.getByRole('button', SUBSCRIBE) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', SUBSCRIBE));
+  await waitFor(() => expect(post).toHaveBeenCalledOnce());
+  const [, , , { signal }] = post.mock.calls[0];
+
+  auth.id = 'learner-b';
+  view.rerender(<OpenAlertToggle slug="ielts-7" />);
+  await act(async () => { release(); });
+
+  expect(signal.aborted).toBe(true);
   expect(calls).toEqual([['GET', '/api/me/open-alerts'], ['GET', '/api/me/open-alerts']]);
 });
 

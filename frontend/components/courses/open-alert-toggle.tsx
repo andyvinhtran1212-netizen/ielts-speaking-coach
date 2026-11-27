@@ -7,11 +7,11 @@
 //
 // State belongs to one viewer: everything resets when the account changes
 // (sign-in, sign-out, A → B), and an answer that arrives for an earlier viewer
-// or after unmount is dropped (generation counter, also safe under StrictMode).
+// or after unmount is dropped (abort signal, also safe under StrictMode).
 // Signed in, "đã đăng ký" is only ever what GET /api/me/open-alerts said; when
 // that read fails the UI says so and offers a retry instead of guessing.
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Button, Notice, TextField } from '@/components/ui';
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -42,76 +42,83 @@ export function OpenAlertToggle({ slug }: { slug: string }) {
   const [busy, setBusy] = useState(false);
   const [fieldError, setFieldError] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
-  const generation = useRef(0);
+  const viewerRequests = useRef<AbortController | null>(null);
 
-  const readList = useCallback(async (gen: number) => {
+  const readList = useCallback(async (signal: AbortSignal) => {
     await transportReady();
-    const data = await getBrowserJson('/api/me/open-alerts', undefined, undefined, { noRedirect: true });
-    if (gen !== generation.current) return;
+    if (signal.aborted) return;
+    const data = await getBrowserJson('/api/me/open-alerts', undefined, signal, { noRedirect: true });
+    if (signal.aborted) return;
     const slugs = Array.isArray(data?.slugs) ? data.slugs : null;
     if (!slugs) throw new Error('open-alerts list malformed');
     setView(slugs.includes(slug) ? 'subscribed' : 'idle');
     setList('ready');
   }, [slug]);
 
-  const loadList = useCallback((gen: number) => {
+  const loadList = useCallback((signal: AbortSignal) => {
     setList('loading');
-    readList(gen).catch(() => {
-      if (gen === generation.current) setList('error');
+    readList(signal).catch(() => {
+      if (!signal.aborted) setList('error');
     });
   }, [readList]);
 
-  // A new viewer (or a new course) starts from scratch; older answers are void.
-  useEffect(() => {
-    const gen = ++generation.current;
+  // Reset and cancel the previous viewer before the browser can paint their state.
+  useLayoutEffect(() => {
+    const requests = new AbortController();
+    viewerRequests.current = requests;
     setView('idle');
     setEmail('');
     setBusy(false);
     setFieldError(undefined);
     setError(null);
-    if (signedIn) loadList(gen); else setList('ready');
-    return () => { generation.current += 1; };
+    if (signedIn) loadList(requests.signal); else setList('ready');
+    return () => { requests.abort(); };
   }, [viewerKey, signedIn, loadList]);
 
-  async function run(action: (gen: number) => Promise<void>) {
-    const gen = generation.current;
+  function retryList() {
+    const signal = viewerRequests.current?.signal;
+    if (signal && !signal.aborted) loadList(signal);
+  }
+
+  async function run(action: (signal: AbortSignal) => Promise<void>) {
+    const signal = viewerRequests.current?.signal;
+    if (!signal || signal.aborted) return;
     setBusy(true);
     setError(null);
     setFieldError(undefined);
     try {
-      await action(gen);
+      await transportReady();
+      if (!signal.aborted) await action(signal);
     } catch (caught) {
-      if (gen !== generation.current) return;
+      if (signal.aborted) return;
       const { message, field } = openAlertErrorMessage(caught);
       if (field) setFieldError(message); else setError(message);
     } finally {
-      if (gen === generation.current) setBusy(false);
+      if (!signal.aborted) setBusy(false);
     }
   }
 
   // After a signed-in change, re-read the list; a failed re-read shows the
   // "chưa đọc được" state rather than an assumed one.
-  async function rereadAfterChange(gen: number) {
+  async function rereadAfterChange(signal: AbortSignal) {
     try {
-      await readList(gen);
+      await readList(signal);
     } catch {
-      if (gen === generation.current) setList('error');
+      if (!signal.aborted) setList('error');
     }
   }
 
   function subscribeSignedIn() {
-    void run(async (gen) => {
-      await transportReady();
-      await postBrowserJsonAtWith(CONTRACT, openAlertPath(slug), {}, { noRedirect: true });
-      await rereadAfterChange(gen);
+    void run(async (signal) => {
+      await postBrowserJsonAtWith(CONTRACT, openAlertPath(slug), {}, { noRedirect: true, signal });
+      if (!signal.aborted) await rereadAfterChange(signal);
     });
   }
 
   function unsubscribeSignedIn() {
-    void run(async (gen) => {
-      await transportReady();
-      await deleteBrowserJsonAt(CONTRACT, openAlertPath(slug), {}, { noRedirect: true });
-      await rereadAfterChange(gen);
+    void run(async (signal) => {
+      await deleteBrowserJsonAt(CONTRACT, openAlertPath(slug), {}, { noRedirect: true, signal });
+      if (!signal.aborted) await rereadAfterChange(signal);
     });
   }
 
@@ -123,28 +130,32 @@ export function OpenAlertToggle({ slug }: { slug: string }) {
       setFieldError(OPEN_ALERT_COPY.emailInvalid);
       return;
     }
-    void run(async (gen) => {
-      await transportReady();
-      await postBrowserJsonAtWith(CONTRACT, openAlertPath(slug), { email: clean }, { noRedirect: true });
-      if (gen === generation.current) setView('subscribed');
+    void run(async (signal) => {
+      await postBrowserJsonAtWith(CONTRACT, openAlertPath(slug), { email: clean }, { noRedirect: true, signal });
+      if (!signal.aborted) setView('subscribed');
     });
   }
 
   const errorNotice = error ? <Notice kind="error" live="alert">{error}</Notice> : null;
-  const listNotice = signedIn && list === 'error' ? (
-    <Notice
-      kind="warning"
-      live="alert"
-      action={<Button variant="secondary" onClick={() => loadList(generation.current)}>{OPEN_ALERT_COPY.retry}</Button>}
-    >
-      {OPEN_ALERT_COPY.listUnavailable}
-    </Notice>
-  ) : null;
-
   if (signedIn && list === 'loading') {
     return (
       <div data-open-alert="loading">
         <Button variant="secondary" disabled>{OPEN_ALERT_COPY.subscribe}</Button>
+        <p>{OPEN_ALERT_COPY.note}</p>
+      </div>
+    );
+  }
+
+  if (signedIn && list === 'error') {
+    return (
+      <div data-open-alert="list-error">
+        <Notice
+          kind="warning"
+          live="alert"
+          action={<Button variant="secondary" onClick={retryList}>{OPEN_ALERT_COPY.retry}</Button>}
+        >
+          {OPEN_ALERT_COPY.listUnavailable}
+        </Notice>
         <p>{OPEN_ALERT_COPY.note}</p>
       </div>
     );
@@ -159,7 +170,6 @@ export function OpenAlertToggle({ slug }: { slug: string }) {
         ) : (
           <p>{OPEN_ALERT_COPY.guestMailNote}</p>
         )}
-        {listNotice}
         {errorNotice}
       </div>
     );
@@ -198,7 +208,6 @@ export function OpenAlertToggle({ slug }: { slug: string }) {
         {OPEN_ALERT_COPY.subscribe}
       </Button>
       <p>{OPEN_ALERT_COPY.note}</p>
-      {listNotice}
       {errorNotice}
     </div>
   );
