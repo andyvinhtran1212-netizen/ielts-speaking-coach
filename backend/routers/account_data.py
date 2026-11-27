@@ -233,5 +233,3 @@ async def download_data_export(export_id: str = Path(..., pattern=_UUID),
         return JSONResponse({"url": url, "expires_in_seconds": seconds},
                             headers={"Cache-Control": "no-store", "Vary": "Accept"})
     return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store", "Vary": "Accept"})
-
-

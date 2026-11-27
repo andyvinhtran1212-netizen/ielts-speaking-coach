@@ -78,6 +78,17 @@ CREATE TABLE public.entitlement_events (id bigserial PRIMARY KEY, entitlement_id
     action text, actor_kind text, before jsonb, after jsonb, reason text);
 CREATE TABLE public.credit_ledger (id bigserial PRIMARY KEY, user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT, delta int);
 INSERT INTO public.credit_ledger (user_id, delta) VALUES ('{U1}', 5);
+CREATE TABLE public.credit_reservations (id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES public.users(id));
+INSERT INTO public.credit_reservations VALUES ('{ENT1}', '{U1}');
+CREATE TABLE public.credit_attempt_outcomes (
+    user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    reservation_id uuid NOT NULL REFERENCES public.credit_reservations(id) ON DELETE RESTRICT);
+INSERT INTO public.credit_attempt_outcomes VALUES ('{U1}', '{ENT1}');
+CREATE TABLE public.mock_exam_audiences (
+    student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+    user_id uuid REFERENCES public.users(id) ON DELETE SET NULL);
+INSERT INTO public.mock_exam_audiences VALUES ('{S1}', NULL), ('{S1}', '{U1}'), ('{S2}', '{U2}');
+
 CREATE TABLE public.user_code_assignments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL,
     is_active boolean NOT NULL DEFAULT true, revoked_at timestamptz);
 INSERT INTO public.user_code_assignments (user_id) VALUES ('{U1}'), ('{U2}');
@@ -231,6 +242,10 @@ def test_full_erasure_of_one_learner(env):
     assert one("SELECT string_agg(user_id::text, ',') FROM public.learner_goal_events") == U2
     # keep tables stay, pointing at the anonymised id.
     assert one(f"SELECT count(*) FROM public.credit_ledger WHERE user_id = '{U1}'") == "1"
+    assert one("SELECT student_id, user_id FROM public.mock_exam_audiences") == f"{S2}|{U2}"
+    assert one("SELECT o.user_id, o.reservation_id FROM public.credit_attempt_outcomes o "
+               "JOIN public.credit_reservations r ON r.id = o.reservation_id AND r.user_id = o.user_id") == f"{U1}|{ENT1}"
+
     assert one(f"SELECT learner_note IS NULL FROM public.enrollment_orders WHERE user_id = '{U1}'") == "t"
     assert one(f"SELECT learner_note FROM public.enrollment_orders WHERE user_id = '{U2}'") == "hi"
     assert one(f"SELECT student_name IS NULL, action FROM public.class_action_log WHERE student_id = '{S1}'") == "t|extend"

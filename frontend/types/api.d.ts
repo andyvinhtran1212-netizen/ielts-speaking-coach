@@ -19540,19 +19540,19 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
-        /** ExtendEntitlement */
-        ExtendEntitlement: {
-            /** Days */
-            days: number;
-            /** Reason */
-            reason: string;
-        };
         /** ExportDownloadLink */
         ExportDownloadLink: {
             /** Url */
             url: string;
             /** Expires In Seconds */
             expires_in_seconds: number;
+        };
+        /** ExtendEntitlement */
+        ExtendEntitlement: {
+            /** Days */
+            days: number;
+            /** Reason */
+            reason: string;
         };
         /** FanOutBody */
         FanOutBody: {
