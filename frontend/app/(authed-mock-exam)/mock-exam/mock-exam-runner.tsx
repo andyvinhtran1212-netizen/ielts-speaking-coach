@@ -26,6 +26,7 @@ import {
   chooseWritingDraft,
   configuredMockSections,
   formatMockTime,
+  holdBlockedMockSubmit,
   isMockSubmitSettled,
   mockExamParams,
   mockExamView,
@@ -38,12 +39,14 @@ import {
   normalizeIntegrity,
   normalizeMockExamState,
   parseLocalWritingDraft,
+  replayBlockedMockSubmit,
   submittedAtFor,
 } from '@/lib/mock-exam-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
 
 import { MockExamRoom, type MockSubmitTrack } from './mock-exam-room';
+import { MockWritingRoom, type MockWritingBridge } from './mock-writing-room';
 
 export type Section = 'listening' | 'reading' | 'writing';
 export type ConnectionState = null | 'offline' | 'submitting' | 'submit_failed';
@@ -95,6 +98,8 @@ interface Prompt {
 interface WritingBridge {
   flush(): Promise<void>;
   finalize(): Promise<{ task1_text: string; task2_text: string }>;
+  /** Exam-room Writing only (FR-012 loss guard). */
+  hasUnsavedText?(): boolean;
 }
 
 const POLL_MS = 8_000;
@@ -106,6 +111,30 @@ const CONNECTION_MESSAGES: Record<Exclude<ConnectionState, null>, string> = {
   submitting: 'Submitting answers. The connection is unstable; retrying…',
   submit_failed: 'Answers have not been submitted. Keep this tab open while submission retries. The invigilator can collect your saved answers.',
 };
+
+/**
+ * Request helpers of the runner. Flag off: the exact calls of today. Flag on
+ * (EXAMMOCK-0071 FR-012): every call passes `{ noRedirect: true }`, so a 401
+ * throws instead of leaving the page before the Writing copy is kept.
+ */
+export function mockRunnerApi(noRedirect: boolean) {
+  const opts = (signal?: AbortSignal, keepalive?: boolean) => ({
+    ...(signal ? { signal } : {}), ...(keepalive !== undefined ? { keepalive } : {}), ...(noRedirect ? { noRedirect: true } : {}),
+  });
+  return {
+    get<T = unknown>(path: string, signal?: AbortSignal): Promise<T> {
+      if (noRedirect || signal) return window.api.getWith<T>(path, undefined, opts(signal));
+      return window.api.get<T>(path);
+    },
+    post<T = unknown>(path: string, body: unknown, headers?: Record<string, string>): Promise<T> {
+      if (noRedirect) return window.api.postWith<T>(path, body, headers, opts());
+      return headers ? window.api.postWith<T>(path, body, headers) : window.api.post<T>(path, body);
+    },
+    postWith<T = unknown>(path: string, body: unknown, options: { signal?: AbortSignal; keepalive?: boolean }): Promise<T> {
+      return window.api.postWith<T>(path, body, undefined, opts(options.signal, options.keepalive));
+    },
+  };
+}
 
 function statusOf(caught: unknown) {
   if (!caught || typeof caught !== 'object' || !('status' in caught)) return null;
@@ -697,6 +726,8 @@ export function MockExamRunner() {
   const finalWritingBodyRef = useRef<{ task1_text: string; task2_text: string } | null>(null);
   const timerAnchorRef = useRef({ section: null as Section | null, seconds: 0, at: 0 });
   const timerSubmitTriggeredRef = useRef<Section | null>(null);
+  /** FR-013: a submit refused for lack of the write right, with its retry turn, run once it is granted. */
+  const blockedSubmitRef = useRef<{ readonly section: string; readonly attempt: number } | null>(null);
   const submitRef = useRef<(section: Section, attempt?: number) => Promise<void>>(async () => {});
   const integrityRef = useRef<Record<string, number> | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
@@ -713,6 +744,20 @@ export function MockExamRunner() {
   const observedSubmitRef = useRef<Set<Section>>(new Set());
   const flushSecuredRef = useRef<Set<Section>>(new Set());
   const [submitTrack, setSubmitTrack] = useState<MockSubmitTrack | null>(null);
+  const apiRef = useRef(mockRunnerApi(false));
+  // FR-012: a 401 seen by the exam-room branch (no redirect) opens the frame's
+  // sign-in box after the Writing copy is kept.
+  const [session, setSession] = useState<'active' | 'expired'>('active');
+  // FR-013: false while another tab of this sitting holds the write right.
+  // Starts false: the shell's tab guard reports writer/unsupported on its first
+  // effect, so a second tab never mounts the frame or an editable Writing box
+  // for one render before turning read-only. The old branch never reads it.
+  const [canWrite, setCanWrite] = useState(false);
+  const canWriteRef = useRef(false);
+  canWriteRef.current = canWrite;
+  const noteAuthError = useCallback((caught: unknown) => {
+    if (examRoomRef.current && statusOf(caught) === 401) setSession('expired');
+  }, []);
 
   stateRef.current = state;
   const view = state ? mockExamView(state) : 'loading';
@@ -771,9 +816,7 @@ export function MockExamRunner() {
     const id = sittingId || currentSittingRef.current;
     if (!id) throw new Error('missing-mock-sitting');
     const generation = ++stateReadGenerationRef.current;
-    const payload = signal
-      ? await window.api.getWith(`/api/mock-exams/sittings/${encodeURIComponent(id)}`, undefined, { signal })
-      : await window.api.get(`/api/mock-exams/sittings/${encodeURIComponent(id)}`);
+    const payload = await apiRef.current.get(`/api/mock-exams/sittings/${encodeURIComponent(id)}`, signal);
     const next = normalizeMockExamState(payload, id) as MockState;
     if (generation !== stateReadGenerationRef.current) return next;
     return commitState(next);
@@ -799,10 +842,9 @@ export function MockExamRunner() {
     if (!sittingId) return;
     const values = loadIntegrity();
     if (!(values.blur_count || values.resumes || values.offline_events)) return;
-    void window.api.postWith(
+    void apiRef.current.postWith(
       `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/integrity`,
       values,
-      undefined,
       { keepalive },
     ).catch(() => {});
   }, [loadIntegrity]);
@@ -849,12 +891,13 @@ export function MockExamRunner() {
       // config is there now; reading it at mount could run before it loads.
       const on = examRoomEnabled('mock');
       examRoomRef.current = on;
+      apiRef.current = mockRunnerApi(on);
       setExamRoom(on);
       try {
         let sittingId = params.value.sittingId;
         let createdNow = false;
         if (!sittingId) {
-          const created = await retryIdempotent<any>(() => window.api.post(
+          const created = await retryIdempotent<any>(() => apiRef.current.post(
             `/api/mock-exams/${encodeURIComponent(params.value!.code!)}/sittings`,
             {},
           ));
@@ -902,6 +945,7 @@ export function MockExamRunner() {
         }
       } catch (caught) {
         if (disposed || isAbort(caught)) return;
+        noteAuthError(caught);
         const statusCode = statusOf(caught);
         if (statusCode === 403 || statusCode === 404) {
           setFatal(userMessage(caught, 'This attempt is no longer accessible.'));
@@ -913,7 +957,7 @@ export function MockExamRunner() {
     };
     const interval = window.setInterval(poll, POLL_MS);
     return () => { disposed = true; window.clearInterval(interval); };
-  }, [fatal, loadState, state?.sitting.id, state?.sitting.status]);
+  }, [fatal, loadState, noteAuthError, state?.sitting.id, state?.sitting.status]);
 
   const closeHiddenInterval = useCallback(() => {
     if (hiddenAtRef.current == null) return false;
@@ -1014,7 +1058,7 @@ export function MockExamRunner() {
   const acknowledgeCollectionFlush = useCallback(async (section: Section) => {
     const sittingId = currentSittingRef.current;
     if (!sittingId) throw new Error('missing-mock-sitting');
-    await window.api.post(
+    await apiRef.current.post(
       `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/${section}/flush-ack`,
       {},
     );
@@ -1036,6 +1080,8 @@ export function MockExamRunner() {
 
   useEffect(() => {
     if (!collectionKey || !pendingCollectionSection || !awaitingCollectionFlush) return undefined;
+    // FR-013: a read-only tab neither flushes nor acknowledges the collection.
+    if (examRoom && !canWrite) return undefined;
     let disposed = false;
     let retryTimer: number | null = null;
     // FR-007: an invigilator collection is a submit this tab saw. Track it from
@@ -1069,7 +1115,7 @@ export function MockExamRunner() {
       disposed = true;
       if (retryTimer != null) window.clearTimeout(retryTimer);
     };
-  }, [acknowledgeCollectionFlush, awaitingCollectionFlush, collectionKey, flushEmbed, pendingCollectionSection]);
+  }, [acknowledgeCollectionFlush, awaitingCollectionFlush, canWrite, collectionKey, examRoom, flushEmbed, pendingCollectionSection]);
 
   useEffect(() => {
     if (!collectionKey && flushedCollectionKey) setFlushedCollectionKey(null);
@@ -1084,7 +1130,7 @@ export function MockExamRunner() {
         finalWritingBodyRef.current = await writingBridgeRef.current?.finalize()
           || { task1_text: '', task2_text: '' };
       }
-      await window.api.post(
+      await apiRef.current.post(
         `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/writing/submit`,
         finalWritingBodyRef.current,
       );
@@ -1109,7 +1155,7 @@ export function MockExamRunner() {
       accountId: user?.id, method: 'POST', path: domainPath, input: { body, sitting_id: sittingId, section },
       acknowledged: (reply: any) => reply?.attempt_id === attemptId || (reply?.received === true && reply?.sealed === true),
     }, async (headers: Record<string, string>) => {
-      const domainResponse = await window.api.postWith<Partial<CaptureEnvelope> & {
+      const domainResponse = await apiRef.current.post<Partial<CaptureEnvelope> & {
         attempt_id?: string; received?: boolean; sealed?: boolean;
       }>(domainPath, body, headers);
       if (domainResponse?.post_test_capture_required) {
@@ -1117,7 +1163,7 @@ export function MockExamRunner() {
       }
       // Keep the domain hint pending until the parent also acknowledges the
       // collection. A failed second step must retry the same two-step intent.
-      await window.api.post(
+      await apiRef.current.post(
         `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/${section}/submit`,
         {},
       );
@@ -1127,6 +1173,16 @@ export function MockExamRunner() {
 
   const submitSection = useCallback(async (section: Section, attempt = 0) => {
     if (submittingRef.current && attempt === 0) return;
+    // FR-013: only the tab holding the write right submits; the writer submits as usual.
+    if (examRoomRef.current && !canWriteRef.current) {
+      // Keep it (Codex P1 and HOLD FR-007/FR-013 on #2715): the timer latch
+      // will not fire again, so the submit runs when this tab gains the write
+      // right. A retry keeps its turn, so the retry limit is not reset, and
+      // leaves the in-flight state so the replay and "Try again" are not stuck.
+      blockedSubmitRef.current = holdBlockedMockSubmit(blockedSubmitRef.current, section, attempt);
+      if (attempt > 0) submittingRef.current = false;
+      return;
+    }
     if (attempt > 0 && isMockSubmitSettled(stateRef.current, section)) {
       submittingRef.current = false;
       owedSubmitRef.current = null;
@@ -1153,6 +1209,7 @@ export function MockExamRunner() {
       submittingRef.current = false;
       if (track) setSubmitTrack({ section, retries: attempt, error: null });
     } catch (caught) {
+      noteAuthError(caught);
       const statusCode = statusOf(caught);
       if (statusCode === 403 || statusCode === 404) {
         submittingRef.current = false;
@@ -1186,7 +1243,7 @@ export function MockExamRunner() {
       if (track) manualRetryRef.current = section;
       setConnection('submit_failed');
     }
-  }, [doSubmit, loadState]);
+  }, [doSubmit, loadState, noteAuthError]);
   submitRef.current = submitSection;
 
   useEffect(() => () => {
@@ -1233,22 +1290,23 @@ export function MockExamRunner() {
     setStarting(section);
     setStartError(null);
     try {
-      await window.api.post(
+      await apiRef.current.post(
         `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/${section}/start`,
         {},
       );
       await loadState(sittingId);
     } catch (caught) {
+      noteAuthError(caught);
       setStartError(userMessage(caught, 'Unable to start this section. Please try again.'));
     } finally { setStarting(null); }
-  }, [loadState, starting]);
+  }, [loadState, noteAuthError, starting]);
 
   const startSpeaking = useCallback(async () => {
     const current = stateRef.current;
     if (!current || openingSpeaking) return;
     setOpeningSpeaking(true);
     try {
-      const response = await window.api.post<any>('/sessions', {
+      const response = await apiRef.current.post<any>('/sessions', {
         mode: 'test_full',
         part: 1,
         topic: mockSpeakingTopic(current),
@@ -1258,10 +1316,25 @@ export function MockExamRunner() {
       if (!sessionId) throw new Error('invalid-speaking-session');
       window.location.assign(mockSpeakingHref(sessionId));
     } catch (caught) {
+      if (examRoomRef.current && statusOf(caught) === 401) { noteAuthError(caught); setOpeningSpeaking(false); return; }
       setFatal(userMessage(caught, 'Unable to open Speaking. Try again or contact your invigilator.'));
       setOpeningSpeaking(false);
     }
-  }, [openingSpeaking]);
+  }, [noteAuthError, openingSpeaking]);
+
+  // FR-013: run a submit that waited for the write right. The Writing room's
+  // layout effect has already reconciled the boxes with the server by now.
+  useEffect(() => {
+    if (!examRoom || !canWrite) return;
+    if (!blockedSubmitRef.current) return;
+    const pending = replayBlockedMockSubmit({ held: blockedSubmitRef.current, submitting: submittingRef.current, state: stateRef.current });
+    blockedSubmitRef.current = null;
+    if (pending) void submitRef.current(pending.section as Section, pending.attempt);
+  }, [canWrite, examRoom]);
+  const writingLosesWork = useCallback(
+    () => activeSectionRef.current === 'writing' && Boolean(writingBridgeRef.current?.hasUnsavedText?.()),
+    [],
+  );
 
   const registerWriting = useCallback((bridge: WritingBridge | null) => {
     writingBridgeRef.current = bridge;
@@ -1303,6 +1376,21 @@ export function MockExamRunner() {
       error: submitTrack.error,
     }),
   } : null), [state, submitTrack]);
+  // FR-006: the Writing save request stays here; the room keeps the rhythm.
+  const saveWriting = useCallback((body: { task1_text: string; task2_text: string }, opts: { keepalive?: boolean; signal?: AbortSignal }) => {
+    const sittingId = currentSittingRef.current;
+    if (!sittingId) return Promise.reject(new Error('missing-mock-sitting'));
+    return apiRef.current.postWith(`/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/writing`, body, opts)
+      .catch((caught: unknown) => { noteAuthError(caught); throw caught; });
+  }, [noteAuthError]);
+  // FR-010/FR-012: before the sign-in box, keep the Writing boxes on this device.
+  // Reading/Listening answers live in the embedded child, which keeps its own copy.
+  const saveLocalCopy = useCallback(() => {
+    const bridge = writingBridgeRef.current as Partial<MockWritingBridge> | null;
+    if (activeSectionRef.current !== 'writing') return true;
+    return typeof bridge?.saveLocalCopy === 'function' ? bridge.saveLocalCopy() : false;
+  }, []);
+  const reloadFromServer = useCallback(() => loadState(), [loadState]);
   const retrySubmit = useCallback(() => {
     const section = submitTrack?.section;
     if (section && !submittingRef.current) void submitSection(section);
@@ -1327,9 +1415,23 @@ export function MockExamRunner() {
         timerLive={Boolean(activeSection) && state?.sectionTimeLeftSeconds != null}
         frameSrc={frameSrc}
         frameRef={frameRef}
-        writing={state && renderedSection === 'writing'
-          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} remaining={remaining} locked={awaitingCollectionFlush} />
-          : null}
+        renderWriting={(onSaveStatus) => (state && renderedSection === 'writing' ? (
+          <MockWritingRoom
+            key={`${state.sitting.id}:${user?.id || ''}`}
+            state={state}
+            ownerKey={user?.id || ''}
+            locked={awaitingCollectionFlush || (Boolean(activeSection) && state.sectionTimeLeftSeconds != null && remaining <= 0)}
+            readOnly={!canWrite}
+            register={registerWriting}
+            saveWriting={saveWriting}
+            onSaveStatus={onSaveStatus}
+          />
+        ) : null)}
+        session={session}
+        saveLocalCopy={saveLocalCopy}
+        canWrite={canWrite}
+        onWriteRightChange={setCanWrite}
+        reloadFromServer={reloadFromServer}
         capture={pendingCapture ? (
           <MockPostTestCapture
             skill={pendingCapture.section}
@@ -1347,6 +1449,7 @@ export function MockExamRunner() {
         outcome={submitOutcome}
         onRetrySubmit={retrySubmit}
         flushForExit={flushForExit}
+        losesWork={writingLosesWork}
       />
     );
   }
