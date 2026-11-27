@@ -101,7 +101,7 @@ describe('routes', () => {
     assert.match(read('lib/admin-frame-redirect.ts'), /process\.env\.ADMIN_FRAME_V2 !== '1'/);
     assert.match(read('app/(authed-admin)/(learners)/admin/learners/page.tsx'), /requireAdminFrameV2\(\);/);
     // /admin/users keeps role changes, account lock and codes until T11b and T12.
-    assert.doesNotMatch(read('app/(authed-admin-users)/admin/users/page.tsx'), /redirectUnderAdminFrameV2/);
+    assert.doesNotMatch(read('app/(authed-admin)/(users)/admin/users/page.tsx'), /redirectUnderAdminFrameV2/);
   });
 
   it('no dangerous action in a row or in the bulk bar', () => {
