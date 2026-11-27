@@ -115,7 +115,10 @@ def test_d1_l3_reimport_deletes_passage_removed_from_source():
     # 1) reading_tests existence check (used by _import_l3_full_test step 1).
     test_exist_chain = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
     test_exist_chain.execute.return_value = MagicMock(
-        data=[{"id": "test-uuid"}],     # the test already exists → update path
+        # The test already exists → update path. The same mock chain also
+        # serves the per-slug passage lookup in 2b, which is now owner-guarded
+        # (HOLD #2702): the passage must belong to this test.
+        data=[{"id": "test-uuid", "test_id": "test-uuid"}],
     )
     # 2a) existing passages lookup — the test row currently has THREE passages
     #     (slug A, B, C), but the incoming payload only has A + B. C must be
@@ -166,7 +169,8 @@ def test_d1_l3_reimport_unchanged_passages_no_extra_delete():
     mock_db = _legacy_practice_db()
 
     test_exist_chain = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
-    test_exist_chain.execute.return_value = MagicMock(data=[{"id": "test-uuid"}])
+    # Also serves the owner-guarded 2b passage lookup (HOLD #2702).
+    test_exist_chain.execute.return_value = MagicMock(data=[{"id": "test-uuid", "test_id": "test-uuid"}])
 
     existing_pass_chain = mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value
     existing_pass_chain.execute.return_value = MagicMock(data=[

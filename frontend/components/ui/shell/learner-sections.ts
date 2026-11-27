@@ -1,6 +1,7 @@
 // The five learner sections (UIBASE-0056 FR-007, KhungTrang §1): fixed order,
 // never a sixth. `id` is the `section` of lib/route-registry.mjs; the current
 // one is derived from the pathname, never passed by a page.
+import { publicCommerceEnabled } from '@/lib/public-commerce.mjs';
 import { routeFor } from '@/lib/route-registry.mjs';
 
 import type { IconName } from '../icon/icon-set';
@@ -16,7 +17,13 @@ export type LearnerSectionId = 'home' | 'course' | 'practice' | 'tests' | 'libra
  */
 type PlannedLink = { href: string; today: string | null };
 
+// PUBLICSITE-0059 FR-029: /courses and /courses/<slug> are `live` in the
+// registry but answer 404 while the build flag AVER_PUBLIC_COMMERCE is off,
+// so a page that links to them through liveHref hides the link until then.
+const COURSE_ROUTE = /^\/courses(?:\/|$)/;
+
 export function isLiveRoute(href: string): boolean {
+  if (COURSE_ROUTE.test(href) && !publicCommerceEnabled()) return false;
   return routeFor(href)?.status === 'live';
 }
 
@@ -56,6 +63,8 @@ export const ACCOUNT_LINKS = Object.freeze(resolve([
 ]));
 
 export const ADMIN_SWITCH = Object.freeze({ label: 'Đổi vai trò: sang Quản trị', href: '/admin' });
+/** LEARNERNAV-0062 FR-003 (T03s): instructors and admins. */
+export const INSTRUCTOR_SWITCH = Object.freeze({ label: 'Đổi vai trò: sang Giáo viên', href: '/instructor' });
 
 export const COMPACT_FOOTER_LINKS = Object.freeze(resolve([
   { label: 'Trợ giúp', href: '/help', today: null },

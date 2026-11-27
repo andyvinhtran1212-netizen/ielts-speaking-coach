@@ -4,19 +4,20 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { ROUTES, isV2Route } from '../lib/route-registry.mjs';
-import { V2_DYNAMIC_ROUTES, V2_ROUTES, isV2Path } from '../lib/v2-routes.mjs';
+import { V2_ROUTES, isV2Path } from '../lib/v2-routes.mjs';
 
 const registryV2 = ROUTES.filter((entry) => entry.ui === 'v2').map((entry) => entry.route);
 
-test('V2_ROUTES + V2_DYNAMIC_ROUTES are exactly the registry entries with ui: v2', () => {
-  assert.deepEqual([...V2_ROUTES].sort(), registryV2.filter((route) => !route.includes('[')).sort());
-  assert.deepEqual([...V2_DYNAMIC_ROUTES].sort(), registryV2.filter((route) => route.includes('[')).sort());
+test('V2_ROUTES is exactly the registry entries with ui: v2', () => {
+  assert.deepEqual([...V2_ROUTES].sort(), [...registryV2].sort());
 });
 
-test('a dynamic v2 route uses only one-segment params, the only kind isV2Path matches', () => {
-  // Catch-all or optional segments need the registry matcher; extend
-  // lib/v2-routes.mjs before adding one.
-  for (const route of V2_DYNAMIC_ROUTES) assert.doesNotMatch(route, /\[\[|\[\.\.\./, route);
+test('a dynamic v2 route has single-segment params only (the slim matcher supports no catch-all)', () => {
+  assert.deepEqual(registryV2.filter((route) => /\[\[|\[\.\.\./.test(route)), []);
+  assert.equal(isV2Path('/library/writing-samples/working-from-home'), true);
+  assert.equal(isV2Path('/library/writing-samples/a/b'), false);
+  assert.equal(isV2Path('/library/speaking/describe-a-teacher'), true);
+  assert.equal(isV2Path('/library/speaking/a/b'), false);
   assert.equal(isV2Path('/courses/khoa-a'), isV2Route('/courses/khoa-a'));
   assert.equal(isV2Path('/courses/khoa-a/enroll'), isV2Route('/courses/khoa-a/enroll'));
 });
@@ -32,6 +33,13 @@ test('isV2Path agrees with isV2Route on every registry route and its variants', 
   assert.equal(isV2Path('/profile'), false);
   assert.equal(isV2Path('/profile/v2-pilot/extra'), false);
   assert.equal(isV2Path(''), false);
+  // Dynamic v2 route: one segment only.
+  assert.equal(isV2Path('/library/speaking/a-city-part-2'), true);
+  assert.equal(isV2Path('/library/speaking/a-city-part-2/'), true);
+  assert.equal(isV2Path('/library/speaking/a/b'), false);
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai'), true);
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai/'), true);
+  assert.equal(isV2Path('/library/writing-guides/a/b'), false);
 });
 
 test('the navigation bridge reads the slim list, not the registry', async () => {

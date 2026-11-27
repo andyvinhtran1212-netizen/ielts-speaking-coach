@@ -103,6 +103,15 @@ function normalizeLesson(value) {
   };
 }
 
+/**
+ * One element of `assignments` from `/api/class/me` or `/api/class/my-assignments`
+ * (the same `_visible_assignments` row; `/api/student/today` returns it as is).
+ * `null` when the row breaks the contract.
+ */
+export function normalizeClassAssignment(value) {
+  return normalizeAssignment(value);
+}
+
 function normalizeAssignment(value) {
   const row = objectOf(value);
   const assignment = objectOf(row?.assignment);

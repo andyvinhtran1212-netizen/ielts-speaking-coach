@@ -248,9 +248,8 @@ describe('proxy.ts', () => {
     const routes = pageRoutes();
     assert.ok(routes.filter((r) => r.shell).length > 100, 'route discovery found the signed-in routes');
     const wrong = routes
-      // Grammar articles and course pages pass through the proxy for their
-      // real-404 check only (coursePage/grammarArticle), never the nonce branch.
-      .filter((r) => !r.url.startsWith('/grammar/') && !r.url.startsWith('/courses/'))
+      // The Grammar, Speaking-question and Library-sample 404 branches match public pages on purpose.
+      .filter((r) => !r.url.startsWith('/grammar/') && !r.url.startsWith('/courses/') && !/^\/library\/speaking\/[^/]+$/.test(r.url) && !r.url.startsWith('/library/writing-samples/'))
       .filter((r) => proxyMatches(r.url, 'staging.averlearning.com') !== r.shell)
       .map((r) => `${r.url} (${r.shell ? 'AuthedShell, not matched' : 'not AuthedShell, matched'})`);
     assert.deepEqual(wrong, []);
@@ -265,6 +264,9 @@ describe('proxy.ts', () => {
         assert.equal(proxyMatches(url, host), false, `${host}${url}`);
       }
       assert.equal(proxyMatches('/grammar/tenses/present-simple', host), true);
+      assert.equal(proxyMatches('/library/speaking/a-city-part-2', host), true);
+      assert.equal(proxyMatches('/library/speaking', host), false);
+      assert.equal(proxyMatches('/library/writing-samples/working-from-home', host), true);
     }
     assert.equal(proxyMatches('/admin', 'ielts-git-staging.vercel.app'), true);
   });
