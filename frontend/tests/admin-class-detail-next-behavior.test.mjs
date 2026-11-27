@@ -17,11 +17,11 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const PAGE = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'page.tsx');
-const DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
-const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
-const DIRECTORY = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
-const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
+const PAGE = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'page.tsx');
+const DETAIL = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const SUBMISSIONS = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
+const DIRECTORY = read('app', '(authed-admin)/(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const LAYOUT = read('app', '(authed-admin)', 'layout.tsx') + read('app', '(authed-admin)', '(classes)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-class-detail-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');

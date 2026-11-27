@@ -6,7 +6,9 @@
  * existed as the cockpit that EMBEDS those same pages. These pin the single
  * door, the de-duplicated chrome, and the two-way convert buttons.
  *
- * Source-sentinels: admin pages behind auth, driven by IIFEs.
+ * Source-sentinels. The retired HTML fixtures stay pinned (ADR-005); the
+ * assertions on the deleted `admin-mock-tests.js`, `admin-exam-content.js` and
+ * `admin-mock-live.js` now pin their Next owners (LEGACYJS-0075 W2).
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,10 +20,23 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pub = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8');
 
 const HUB = pub('pages', 'admin', 'index.html');
-const COCKPIT_JS = pub('js', 'admin-mock-tests.js');
+const app = (...p) => readFileSync(join(__dirname, '..', 'app', ...p), 'utf8');
+const COCKPIT = app('(authed-admin)', '(mock-tests)', 'admin', 'mock-tests', 'admin-mock-tests.tsx');
+const COCKPIT_MODEL = readFileSync(join(__dirname, '..', 'lib', 'admin-mock-tests-model.mjs'), 'utf8');
+const LIBRARY = app('(authed-admin)', '(mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
+const LIVE = app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx');
 const COCKPIT_HTML = pub('pages', 'admin', 'mock-tests', 'index.html');
-const EMBED = pub('js', 'admin-embed.js');
-const EXAM_CONTENT = pub('js', 'admin-exam-content.js');
+// LEGACYJS-0075 W4a: admin-embed.js is deleted. The Next owners of the three
+// embedded pages read ?embed=1 themselves and drop their own hero/heading.
+const EMBEDDED_OWNERS = {
+  'mock-exams': app('(authed-admin)', '(mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx'),
+  'mock-live': app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'admin-mock-live.tsx'),
+  'mock-reviews': app('(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'admin-mock-reviews.tsx'),
+};
+const EMBED_PAGES = {
+  'mock-live': app('(authed-admin)', '(mock-live)', 'admin', 'mock-live', 'page.tsx'),
+  'mock-reviews': app('(authed-admin)', '(mock-reviews)', 'admin', 'mock-reviews', 'page.tsx'),
+};
 
 const MOCK_PAGES = ['mock-exams', 'mock-live', 'mock-reviews'];
 
@@ -37,26 +52,26 @@ describe('một lối vào duy nhất', () => {
   test('cockpit có đủ 4 tab', () => {
     for (const t of ['manage', 'live', 'review', 'writing']) {
       assert.match(COCKPIT_HTML, new RegExp(`data-tab="${t}"`), t);
-      assert.match(COCKPIT_JS, new RegExp(`\\b${t}:\\s*function`), t);
+      assert.match(COCKPIT, new RegExp(`\\{ id: '${t}', label: `), t);
     }
   });
 
   test('tab cần chọn đề thì nói ĐÚNG tab đang hỏi', () => {
     // "để duyệt bài thi" on the live-console tab sends the admin looking for
     // the wrong thing.
-    assert.match(COCKPIT_JS, /state\.tab === 'live' \? 'mở phòng thi trực tiếp\.'/);
+    assert.match(COCKPIT, /\$\{tab === 'live' \? 'mở phòng thi trực tiếp' : 'duyệt bài thi'\}/);
   });
 
   test('phòng thi trực tiếp được nhúng KÈM exam_id', () => {
     // A console that opens on somebody else's classroom is worse than one that
     // asks which class you mean.
-    assert.match(COCKPIT_JS, /mock-live\/index\.html\?exam_id='/);
+    assert.match(COCKPIT_MODEL, /return `\/admin\/mock-live\?exam_id=\$\{encodeURIComponent\(id\)\}&embed=1`;/);
   });
 });
 
 describe('chrome nhúng — không lộ tiêu đề lần hai', () => {
   test('helper dùng chung, không ba bản sao', () => {
-    assert.match(EMBED, /classList\.add\('is-embedded'\)/);
+    // Retired fixtures still load the shared helper (ADR-005).
     for (const p of MOCK_PAGES) {
       assert.match(pub('pages', 'admin', p, 'index.html'), /\/js\/admin-embed\.js/, p);
     }
@@ -86,9 +101,15 @@ describe('chrome nhúng — không lộ tiêu đề lần hai', () => {
   });
 
   test('mở trực tiếp thì KHÔNG ẩn gì', () => {
-    // Every page must still work standalone — the class is only added when the
+    // Every page must still work standalone — the hero is only dropped when the
     // query param says so.
-    assert.match(EMBED, /get\('embed'\) !== '1'\) return;/);
+    assert.match(EMBEDDED_OWNERS['mock-exams'], /const embedded = searchParams\?\.get\('embed'\) === '1'/);
+    for (const [p, page] of Object.entries(EMBED_PAGES)) {
+      assert.match(page, /params\.embed === '1'/, p);
+    }
+    for (const [p, src] of Object.entries(EMBEDDED_OWNERS)) {
+      assert.match(src, /\{!embedded && <>/, p);
+    }
   });
 });
 
@@ -122,7 +143,7 @@ describe('nút chuyển đề 2 chiều', () => {
       assert.match(src, /mock test/);
       assert.match(src, /bài giao lớp/);
     }
-    assert.match(EXAM_CONTENT, /Việc gán mock test hoặc lớp học không đổi/);
+    assert.match(LIBRARY, /Việc gán mock test và giao lớp không thay đổi\./);
   });
 
   test('KHÔNG chép luật chặn sang trình duyệt', () => {
@@ -133,11 +154,12 @@ describe('nút chuyển đề 2 chiều', () => {
   });
 
   test('bảng Đề kỳ thi mở public qua endpoint canonical', () => {
-    assert.match(EXAM_CONTENT, /ec-release/);
-    assert.match(EXAM_CONTENT, /'\/admin\/exam-content\/'/);
-    assert.match(EXAM_CONTENT, /\{ is_public: true \}/);
-    assert.match(EXAM_CONTENT, /k\.kind === 'writing'/);
-    assert.match(EXAM_CONTENT, /\{ exam_only: false \}/);
+    // Reading/Listening go through the public-tests endpoint; Writing keeps its
+    // own exam_only contract in the Writing library, so this table never sets it.
+    assert.match(LIBRARY, /\/admin\/mock-corrections\/public-tests\/\$\{encodeURIComponent\(row\.kind\)\}/);
+    assert.match(LIBRARY, /is_public: true,/);
+    assert.match(LIBRARY, /if \(row\.kind === 'writing'\) return;/);
+    assert.doesNotMatch(LIBRARY, /exam_only: false/);
   });
 });
 
@@ -145,18 +167,19 @@ describe('tab theo cấp khoá', () => {
   test('tab SINH TỪ dữ liệu, không liệt kê cứng', () => {
     // course_level is free text on purpose (a CHECK would need a migration per
     // new course), so a hardcoded strip goes stale the first time one is added.
-    assert.match(EXAM_CONTENT, /function renderTabs\(\)/);
-    assert.doesNotMatch(EXAM_CONTENT, /\['C1',\s*'C2'/);
+    assert.match(LIBRARY, /const tabLevels = useMemo\(\(\) => \[\.\.\.new Set\(\[\.\.\.levels, /);
+    assert.doesNotMatch(LIBRARY, /\['C1',\s*'C2'/);
   });
 
   test('có tab "Chưa đặt cấp khoá" và nó xếp cuối', () => {
-    assert.match(EXAM_CONTENT, /Chưa đặt cấp khoá/);
-    assert.match(EXAM_CONTENT, /if \(a === ''\) return 1;/);
+    assert.match(LIBRARY, /\{level \|\| 'Chưa đặt'\}/);
+    assert.match(LIBRARY, /\.sort\(\(a, b\) => !a \? 1 : !b \? -1 : a\.localeCompare\(b\)\)/);
   });
 
   test('bảng render theo tab đang chọn, không render toàn bộ', () => {
-    assert.match(EXAM_CONTENT, /function visibleRows\(\)/);
-    assert.match(EXAM_CONTENT, /\+ rows\.map\(function \(r\)/);
+    // The level tab is a server filter: changing it resets paging and refetches one page.
+    assert.match(LIBRARY, /useEffect\(\(\) => \{ setPage\(1\); \}, \[attention, cohortFilter, deferredQuery, kind, levelTab, visibility\]\);/);
+    assert.match(LIBRARY, /pageRows\.map\(/);
   });
 });
 
@@ -168,20 +191,14 @@ describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
     // rail — an admin scrolled back to check before doing something
     // irreversible (thu bài, mở phần sau).
     assert.match(HTML, /id="mt-context"/);
-    assert.match(COCKPIT_JS, /function renderContext\(\)/);
-    // …and it is refreshed on every path that can change the answer
-    for (const call of ['setTab', 'selectExam', 'the exam list resolves']) void call;
-    assert.ok((COCKPIT_JS.match(/renderContext\(\)/g) || []).length >= 4,
-      'renderContext must run on tab change, selection AND first load');
+    // The Next bar is derived from the selected exam on every render.
+    assert.match(COCKPIT, /\{activeTab\.needsExam && selected && <div className="mts-context"><span>Đang thao tác trên<\/span><strong>\{selected\.code \|\| selected\.id\}<\/strong>/);
   });
 
   test('thanh ngữ cảnh dựng bằng DOM, không nối chuỗi HTML', () => {
     // Exam codes and titles are admin-authored; innerHTML here would be an
     // injection surface for a value nobody thinks of as untrusted.
-    const fn = COCKPIT_JS.slice(COCKPIT_JS.indexOf('function renderContext()'));
-    const body = fn.slice(0, fn.indexOf('\n  function ', 1));
-    assert.doesNotMatch(body, /innerHTML/);
-    assert.match(body, /createElement\('span'\)/);
+    assert.doesNotMatch(COCKPIT, /dangerouslySetInnerHTML/);
   });
 
   test('tab cần chọn đề nói ra ĐIỀU ĐÓ, không chỉ bằng chấm tròn', () => {
@@ -219,33 +236,36 @@ describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
     assert.match(HTML, /role="tabpanel"/);
     assert.match(HTML, /aria-controls="mt-panel-body"/);
     assert.doesNotMatch(HTML, /aria-controls="mt-frame"/);
-    assert.match(COCKPIT_JS, /setAttribute\('aria-selected'/);
+    assert.match(COCKPIT, /role="tab" aria-selected=\{tab === item\.id\} aria-controls="mts-panel"/);
+    assert.match(COCKPIT, /id="mts-panel" className="mts-frame-wrap" role="tabpanel"/);
   });
 
   test('bàn phím đi được giữa các tab', () => {
     // role="tablist" promises arrow-key navigation; it did not keep that.
-    assert.match(COCKPIT_JS, /function onTabKey/);
-    assert.match(COCKPIT_JS, /ArrowRight/);
-    assert.match(COCKPIT_JS, /setAttribute\('tabindex', on \? '0' : '-1'\)/);
+    assert.match(COCKPIT, /const onTabKey = \(event: KeyboardEvent<HTMLButtonElement>, index: number\) => \{/);
+    assert.match(COCKPIT, /if \(event\.key === 'ArrowRight'\)/);
+    assert.match(COCKPIT, /tabIndex=\{tab === item\.id \? 0 : -1\}/);
   });
 
   test('chip lọc báo trạng thái cho trình đọc màn hình', () => {
-    assert.match(COCKPIT_JS, /setAttribute\('aria-pressed'/);
+    assert.match(COCKPIT, /aria-pressed=\{stage === item\.id\}/);
   });
 
   test('CHỈ data-needs-exam biết tab nào cần đề — JS không kể lại tên tab', () => {
     // The rule was written three times: the CSS marker, the reload-on-select
     // branch and the guard in renderFrame(). The dot could then say "pick an
     // exam" while the guard had stopped asking for one.
-    assert.match(COCKPIT_JS, /function tabNeedsExam\(tab\)/);
-    assert.match(COCKPIT_JS, /hasAttribute\('data-needs-exam'\)/);
-    assert.doesNotMatch(COCKPIT_JS, /=== 'review' \|\| state\.tab === 'live'/);
+    // In Next the TABS table is the single source: the marker and the guard both read `needsExam`.
+    assert.match(COCKPIT, /data-needs-exam=\{item\.needsExam \? '' : undefined\}/);
+    assert.match(COCKPIT, /activeTab\.needsExam/);
+    assert.doesNotMatch(COCKPIT, /=== 'review' \|\| tab === 'live'/);
   });
 
   test('panel mang tên của tab đang chọn', () => {
     // role="tabpanel" with no accessible name drops a screen reader into an
     // unnamed region that it has to guess the purpose of.
-    assert.match(COCKPIT_JS, /setAttribute\('aria-labelledby', t\.id\)/);
+    assert.match(COCKPIT, /role="tabpanel" aria-labelledby=\{`mts-tab-\$\{tab\}`\}/);
+    assert.match(COCKPIT, /id=\{`mts-tab-\$\{item\.id\}`\}/);
     for (const t of ['manage', 'live', 'review', 'writing']) {
       assert.match(HTML, new RegExp(`id="mt-tab-${t}"`), t);
     }
@@ -254,14 +274,14 @@ describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
   test('mũi tên chỉ dời tiêu điểm, KHÔNG tự mở tab', () => {
     // Each panel is a whole admin page loading in an iframe. Activating on arrow
     // would fire three page loads just to walk across the strip.
-    const fn = COCKPIT_JS.slice(COCKPIT_JS.indexOf('function onTabKey'));
-    const body = fn.slice(0, fn.indexOf('\n  function ', 1));
-    assert.doesNotMatch(body, /setTab\(/);
+    const fn = COCKPIT.slice(COCKPIT.indexOf('const onTabKey'));
+    const body = fn.slice(0, fn.indexOf('\n  };'));
+    assert.doesNotMatch(body, /activateTab\(|setTab\(/);
     assert.match(body, /\.focus\(\)/);
   });
 
   test('đề biến khỏi danh sách thì bỏ chọn, không để khung trỏ ID mồ côi', () => {
-    assert.match(COCKPIT_JS, /state\.selectedId = null;/);
+    assert.match(COCKPIT, /setSelectedId\(''\);/);
   });
 
   test('nhúng thì CHỈ thanh bên trái chọn kỳ thi, không có bộ chọn thứ hai', () => {
@@ -272,23 +292,20 @@ describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
     assert.match(live, /id="exam-picker"[^>]*data-embed-hide/);
     // …and the handler refuses to move the console even if something changes the
     // hidden control programmatically.
-    const js = pub('js', 'admin-mock-live.js');
-    const at = js.indexOf("el('exam-picker').addEventListener('change'");
-    assert.ok(at > 0);
-    assert.match(js.slice(at, at + 400), /if \(window\.AVER_EMBEDDED\) return;/);
+    // In Next the embedded console renders no picker at all.
+    assert.match(LIVE, /\{!embedded && <label>Kỳ thi<select /);
   });
 
   test('tab "Tất cả" dùng sentinel qua được bộ phân tích HTML', () => {
-    // A literal U+0000 in innerHTML is rewritten to U+FFFD by the parser, so
-    // getAttribute() could never match it and the tab rendered an empty table.
-    assert.doesNotMatch(EXAM_CONTENT, /\\u0000/);
-    assert.match(EXAM_CONTENT, /var ALL_TABS = '__all__';/);
+    // A literal U+0000 would be rewritten to U+FFFD by the HTML parser, so the
+    // "all" option could never match and the tab rendered an empty table.
+    assert.doesNotMatch(LIBRARY, /\\u0000/);
+    assert.match(LIBRARY, /<option value="__all__">Tất cả<\/option>/);
   });
 
   test('nhãn nút theo visibility THẬT của từng loại', () => {
-    assert.match(EXAM_CONTENT, /r\.kind === 'writing' \? !r\.exam_only : Boolean\(r\.is_public\)/);
-    assert.match(EXAM_CONTENT, /!isPublic/);
-    assert.match(EXAM_CONTENT, /Đang công khai/);
+    assert.match(LIBRARY, /\{row\.isPublic \? 'Ẩn khỏi web' : 'Mở công khai'\}/);
+    assert.match(LIBRARY, /row\.kind === 'writing' \? '—' : row\.isPublic \?/);
   });
 
   test('không còn số ma nào cho chiều cao', () => {
@@ -302,7 +319,6 @@ describe('nhúng phòng thi trực tiếp — không để lại ngõ cụt', ()
     // The rail lists every exam; this page only opens published ones. Clicking a
     // draft therefore lands on the error branch — which pointed at the picker
     // above, the one now hidden inside the cockpit. Nowhere to go.
-    const js = pub('js', 'admin-mock-live.js');
-    assert.match(js, /window\.AVER_EMBEDDED\s*\n?\s*\?\s*'Chọn một kỳ thi đã publish ở danh sách bên trái\.'/);
+    assert.match(LIVE, /embedded \? 'Không mở được kỳ này\. Chọn một đề đã publish ở rail bên trái\.'/);
   });
 });

@@ -144,9 +144,11 @@ await page.locator('.lse-items > li').nth(0).getByText('Đúng (T)').click();
 await page.locator('.lse-items > li').nth(1).getByText('Không có (NG)').click();
 await page.getByRole('button', { name: 'Kiểm tra' }).click();
 await page.getByText('50% · 1/2').waitFor();
-check('T/F submits canonical values and shows server truth after submit',
+// Săn lỗi B2-13 (Andy chọn 25/11): kết quả T/F chỉ báo đúng/sai, không lộ đáp án.
+check('T/F submits canonical values and shows right/wrong without the answer key',
   writes[1]?.mode === 'true_false' && JSON.stringify(writes[1]?.answers) === '["T","NG"]'
-    && await page.getByText('✗ Sai — bạn chọn NG · đáp án F').isVisible());
+    && await page.getByText('✗ Sai — bạn chọn NG', { exact: true }).isVisible()
+    && await page.getByText('đáp án F').count() === 0);
 
 await page.goto(`${BASE}/listening/gist?content_id=${CONTENT_ID}`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Summarise <b>the trip</b>.').waitFor();

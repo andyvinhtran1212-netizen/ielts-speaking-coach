@@ -1,5 +1,6 @@
 import logging
 from functools import lru_cache
+from typing import Optional
 import ipaddress
 
 from pydantic import Field, field_validator
@@ -141,6 +142,17 @@ class Settings(BaseSettings):
     # is sent as ``x-vercel-protection-bypass`` on the invalidation call so the
     # signed request reaches the route instead of the SSO wall.
     VERCEL_AUTOMATION_BYPASS_SECRET: str = ""
+
+    # PUBLICSITE-0059 FR-026 (G05-T23): public contact block and enrolment
+    # texts served by GET /api/public/site-info. Empty → null (the line is
+    # hidden). Never put bank account details here (they belong to an order).
+    SITE_CONTACT_EMAIL: str = ""
+    SITE_CONTACT_PHONE: str = ""
+    SITE_CONTACT_ZALO: str = ""
+    SITE_CONTACT_REPLY_HOURS: str = ""
+    ENROLL_OFFICE_HOURS_TEXT: str = ""
+    ENROLL_CONFIRM_SLA_TEXT: str = ""
+    ENROLL_ESCALATE_AFTER_TEXT: str = ""
 
     # Supabase
     SUPABASE_URL: str = ""
@@ -344,6 +356,16 @@ class Settings(BaseSettings):
     # code change. Loaded once, cached (services.pron_calibration).
     PRON_CALIBRATION_PATH: str = ""
 
+    # COURSEACCESS-0055 FR-035 (G04-T13): used only while the runtime flag
+    # `pron_sample_window` is on (migration 502 must be applied first).
+    # Azure hears one PRON_SAMPLE_SECONDS window from the middle of a longer
+    # answer; in the Parts listed in PRON_ONE_PER_SESSION_PARTS (comma list)
+    # a session sends only one answer, the first one of at least
+    # PRON_ONE_PER_SESSION_MIN_SECONDS (Q6 defaults, Andy 2026-11-20).
+    PRON_SAMPLE_SECONDS: int = Field(default=30, ge=10, le=60)
+    PRON_ONE_PER_SESSION_PARTS: str = "1"
+    PRON_ONE_PER_SESSION_MIN_SECONDS: int = Field(default=12, ge=0, le=120)
+
     # Supabase Storage bucket holding Task 1 Academic writing-prompt
     # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
     # LISTENING_IMAGES_BUCKET — created out-of-band BEFORE the first
@@ -370,6 +392,8 @@ class Settings(BaseSettings):
     # MAX_SESSIONS_PER_USER_PER_DAY env var is set (e.g. on Railway) it WINS
     # over this default, so update/remove that var to roll the production value.
     MAX_SESSIONS_PER_USER_PER_DAY: int = 24
+    # COURSEACCESS-0055 FR-049 (Q18 default): days a learner_login_events row is kept.
+    LOGIN_EVENTS_KEEP_DAYS: int = 90
     # G02-T04 (FR-02-003) — the Home Reading/Listening card shows a band only
     # once the learner has at least this many submitted full (40-question)
     # tests with a band_estimate; below it the card shows no band number.
@@ -378,6 +402,9 @@ class Settings(BaseSettings):
     # an Overall only once this many of the four skills carry a final band.
     # Display-only: the stored final_bands.overall is never changed.
     MOCK_OVERALL_MIN_SKILLS: int = 4
+    # MOCKORG-0086 Q31 (b): seconds between two self-paced sections. 0 = the
+    # next section starts the moment the previous one ends.
+    MOCK_SELF_PACED_GAP_SECONDS: int = 0
     MAX_AUDIO_DURATION_SECONDS: int = 300
     # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
@@ -575,8 +602,33 @@ class Settings(BaseSettings):
     CREDIT_SPEAKING_CLUSTER_SIZE: int = 3
     CREDIT_CARRY_PERCENT: int = 100
     CREDIT_CARRY_VALID_DAYS: int = 60
+    # Plan 5.18 / Q4: credits pre-filled in the convert-class box; empty = the
+    # admin types the number (default). Only a suggestion, never applied alone.
+    LEGACY_CLASS_INITIAL_CREDITS: Optional[int] = None
     CREDIT_HOLD_TTL_SPEAKING_SECONDS: int = 600
     CREDIT_HOLD_TTL_WRITING_SECONDS: int = 86400
+    # Enrollment orders (plan 5.10, G04-T04). No pay hours or bank account →
+    # orders_paused; Andy fills them in (Q11). Read through
+    # services.enrollment_orders.enrollment_config(), never directly.
+    ENROLLMENT_PAY_HOURS: int = 0
+    ENROLL_BANK_BIN: str = ""
+    ENROLL_BANK_NAME: str = ""
+    ENROLL_BANK_ACCOUNT_NO: str = ""
+    ENROLL_BANK_ACCOUNT_NAME: str = ""
+    ENROLL_VIETQR_IMAGE_TEMPLATE: str = ""
+    ENROLL_PAY_REMINDER_HOURS_BEFORE: int = 24
+    ENROLL_PAY_REMINDER_MIN_AGE_HOURS: int = 6
+    ENROLL_SUPPLEMENT_HOURS: int = 72
+    # Learner e-mail (plan 5.11). RESEND_API_KEY stays a process variable.
+    LEARNER_EMAIL_FROM: str = ""
+    LEARNER_EMAIL_REPLY_TO: str = ""
+    PUBLIC_SITE_URL: str = ""
+    # Retention (plan 5.14, G04-T10). services/retention.py clamps the audio
+    # value to its 60-day ceiling (FR-029); the code default keeps today's 15.
+    # The content window after the last course expiry applies only while the
+    # runtime flag retention_by_entitlement is on (FR-048).
+    RETENTION_AUDIO_DAYS: int = 15
+    RETENTION_CONTENT_DAYS_AFTER_EXPIRY: int = 45
 
     class Config:
         env_file = ".env"
@@ -612,10 +664,48 @@ class Settings(BaseSettings):
     def _strict_carry_percent(cls, value):
         return _bounded_int_or_default("CREDIT_CARRY_PERCENT", value, 0, 100, 100)
 
+    @field_validator("LEGACY_CLASS_INITIAL_CREDITS", mode="before")
+    @classmethod
+    def _legacy_class_initial_credits(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return _bounded_int_or_default("LEGACY_CLASS_INITIAL_CREDITS", value, 0, 100_000, None)
+
     @field_validator("CREDIT_CARRY_VALID_DAYS", mode="before")
     @classmethod
     def _strict_carry_valid_days(cls, value):
         return _bounded_int_or_default("CREDIT_CARRY_VALID_DAYS", value, 0, 3650, 60)
+
+    @field_validator("ENROLLMENT_PAY_HOURS", mode="before")
+    @classmethod
+    def _strict_pay_hours(cls, value):
+        return _bounded_int_or_default("ENROLLMENT_PAY_HOURS", value, 0, 720, 0)
+
+    @field_validator("ENROLL_PAY_REMINDER_HOURS_BEFORE", mode="before")
+    @classmethod
+    def _strict_reminder_hours_before(cls, value):
+        return _bounded_int_or_default("ENROLL_PAY_REMINDER_HOURS_BEFORE", value, 1, 720, 24)
+
+    @field_validator("ENROLL_PAY_REMINDER_MIN_AGE_HOURS", mode="before")
+    @classmethod
+    def _strict_reminder_min_age(cls, value):
+        return _bounded_int_or_default("ENROLL_PAY_REMINDER_MIN_AGE_HOURS", value, 0, 720, 6)
+
+    @field_validator("RETENTION_AUDIO_DAYS", mode="before")
+    @classmethod
+    def _strict_retention_audio_days(cls, value):
+        # Above 60 is accepted here and clamped (with a warning) by services.retention.
+        return _bounded_int_or_default("RETENTION_AUDIO_DAYS", value, 1, 3650, 15)
+
+    @field_validator("RETENTION_CONTENT_DAYS_AFTER_EXPIRY", mode="before")
+    @classmethod
+    def _strict_retention_content_after_expiry(cls, value):
+        return _bounded_int_or_default("RETENTION_CONTENT_DAYS_AFTER_EXPIRY", value, 1, 3650, 45)
+
+    @field_validator("ENROLL_SUPPLEMENT_HOURS", mode="before")
+    @classmethod
+    def _strict_supplement_hours(cls, value):
+        return _bounded_int_or_default("ENROLL_SUPPLEMENT_HOURS", value, 1, 720, 72)
 
     @field_validator("CREDIT_HOLD_TTL_SPEAKING_SECONDS", mode="before")
     @classmethod

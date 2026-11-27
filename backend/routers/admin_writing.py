@@ -10,6 +10,7 @@ inline, matching the established convention in routers/admin.py.
 
 from __future__ import annotations
 
+import asyncio
 import io
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -977,6 +978,19 @@ async def update_instructor_note(
     }
 
 
+def _active_writing_job_exists(essay_id: str) -> bool:
+    """Có job chấm đang chờ/chạy cho bài này không (đọc lại sau lỗi xếp job)."""
+    rows = (
+        supabase_admin.table("writing_jobs")
+        .select("id")
+        .eq("essay_id", essay_id)
+        .in_("status", ["queued", "running"])
+        .limit(1)
+        .execute()
+    ).data
+    return bool(rows)
+
+
 @router.post("/essays/{essay_id}/regrade", status_code=status.HTTP_202_ACCEPTED)
 @observe_writing_partial_failure
 async def trigger_regrade(
@@ -1012,7 +1026,8 @@ async def trigger_regrade(
         .select(
             "id, student_id, prompt_text, prompt_image_url, essay_text, "
             "task_type, analysis_level, form_of_address, selected_model, "
-            "is_flagged, status, regrade_count"
+            "is_flagged, status, regrade_count, is_manually_edited, "
+            "last_regraded_at, last_regraded_by"
         )
         .eq("id", str(essay_id))
         .is_("deleted_at", "null")          # soft-deleted → 404 (no regrade)
@@ -1082,7 +1097,7 @@ async def trigger_regrade(
         else (essay.get("selected_model") or "gemini-2.5-pro")
     )
     try:
-        (
+        claimed = (
             supabase_admin.table("writing_essays")
             .update({
                 "status":             "grading",
@@ -1098,27 +1113,85 @@ async def trigger_regrade(
                 "is_manually_edited": False,
             })
             .eq("id", str(essay_id))
+            # Chốt so-và-đổi: chỉ chuyển sang 'grading' nếu status vẫn là cái
+            # vừa đọc. Hai cú bấm gần nhau đều đọc 'graded' ở trên; thiếu chốt
+            # này cả hai cùng ghi 'grading' và cùng xếp job ⇒ chấm 2 lần
+            # (báo cáo săn lỗi B1-15).
+            .eq("status", essay["status"])
             .execute()
         )
     except Exception as exc:
         _logger.error("[admin-writing] regrade update failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
+    if not claimed.data:
+        raise HTTPException(
+            status_code=409,
+            detail="Bài đang được chấm lại bởi một yêu cầu khác. Đợi lượt đó xong rồi thử lại.",
+        )
 
     # Reuse the SAGA leg from Sprint 2.7.1: schedule_grading_job inserts
     # the writing_jobs row and returns the job id; the router adds the
     # BG task. Same pattern as POST /admin/writing/essays + the student
     # submit path use.
     note_writing_mutation(str(essay_id))
-    job_info = essay_service.schedule_grading_job(
-        essay_id       = str(essay_id),
-        analysis_level = effective_level,
-        selected_model = regrade_model,
-        # regrade-resilience (Sprint W-MM): persist the pre-regrade status on the
-        # job so the reaper can restore it if the process dies and reaper
-        # attempts are exhausted (the in-memory restore_status_on_fail below
-        # only covers the live BG task, not an out-of-process reaper takeover).
-        restore_status = essay.get("status"),
-    )
+    try:
+        job_info = essay_service.schedule_grading_job(
+            essay_id       = str(essay_id),
+            analysis_level = effective_level,
+            selected_model = regrade_model,
+            # regrade-resilience (Sprint W-MM): persist the pre-regrade status on the
+            # job so the reaper can restore it if the process dies and reaper
+            # attempts are exhausted (the in-memory restore_status_on_fail below
+            # only covers the live BG task, not an out-of-process reaper takeover).
+            restore_status = essay.get("status"),
+        )
+    except Exception:
+        # Báo cáo săn lỗi B1-21: không có job ⇒ không reaper nào trả status
+        # về, bài kẹt 'grading' và mọi lần chấm lại sau đều 409.
+        #
+        # Nhưng lỗi có thể xảy ra SAU khi job đã ghi (insert time-out mà vẫn
+        # commit, hay bước sau insert hỏng). Khi đó job vẫn còn và reaper sẽ
+        # chạy/khôi phục nó (job_payload.restore_status), nên KHÔNG được trả
+        # status cũ — làm vậy mở cửa cho lượt chấm thứ hai. Chỉ hoàn nguyên khi
+        # đọc lại chắc chắn không có job đang chờ/chạy cho bài này; đọc hỏng
+        # thì giữ 'grading' cho reaper (CR #2697).
+        #
+        # Hoàn nguyên ĐỦ những gì lượt claim đã ghi (level, model, dấu chỉnh
+        # tay, số lần chấm lại, ai/lúc nào), vì kết quả hiện hành vẫn là bản
+        # cũ. `last_regraded_at = now_iso` là mã claim: chỉ đè đúng lượt này.
+        try:
+            job_exists = await asyncio.to_thread(_active_writing_job_exists, str(essay_id))
+        except Exception as lookup_exc:
+            job_exists = True
+            _logger.error(
+                "[admin-writing] regrade job lookup failed essay=%s; leaving grading for the reaper: %s",
+                essay_id, lookup_exc, exc_info=True,
+            )
+        if not job_exists:
+            try:
+                await asyncio.to_thread(
+                    supabase_admin.table("writing_essays")
+                    .update({
+                        "status":             essay["status"],
+                        "regrade_count":      essay.get("regrade_count"),
+                        "last_regraded_at":   essay.get("last_regraded_at"),
+                        "last_regraded_by":   essay.get("last_regraded_by"),
+                        "analysis_level":     essay.get("analysis_level"),
+                        "selected_model":     essay.get("selected_model"),
+                        "is_manually_edited": bool(essay.get("is_manually_edited")),
+                    })
+                    .eq("id", str(essay_id))
+                    .eq("status", "grading")
+                    .eq("last_regraded_at", now_iso)
+                    .execute
+                )
+                note_writing_mutation(str(essay_id))
+            except Exception as restore_exc:
+                _logger.error(
+                    "[admin-writing] regrade status restore failed essay=%s: %s",
+                    essay_id, restore_exc, exc_info=True,
+                )
+        raise
     # regrade-resilience: on grader failure, restore the pre-regrade status
     # (essay["status"], captured above before the 'grading' write) instead of
     # stranding the essay in 'failed' — the prior version is still current.

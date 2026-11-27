@@ -16,6 +16,8 @@ test('a dynamic v2 route has single-segment params only (the slim matcher suppor
   assert.deepEqual(registryV2.filter((route) => /\[\[|\[\.\.\./.test(route)), []);
   assert.equal(isV2Path('/library/writing-samples/working-from-home'), true);
   assert.equal(isV2Path('/library/writing-samples/a/b'), false);
+  assert.equal(isV2Path('/library/speaking/describe-a-teacher'), true);
+  assert.equal(isV2Path('/library/speaking/a/b'), false);
 });
 
 test('isV2Path agrees with isV2Route on every registry route and its variants', () => {
@@ -29,6 +31,13 @@ test('isV2Path agrees with isV2Route on every registry route and its variants', 
   assert.equal(isV2Path('/profile'), false);
   assert.equal(isV2Path('/profile/v2-pilot/extra'), false);
   assert.equal(isV2Path(''), false);
+  // Dynamic v2 route: one segment only.
+  assert.equal(isV2Path('/library/speaking/a-city-part-2'), true);
+  assert.equal(isV2Path('/library/speaking/a-city-part-2/'), true);
+  assert.equal(isV2Path('/library/speaking/a/b'), false);
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai'), true);
+  assert.equal(isV2Path('/library/writing-guides/cach-viet-mo-bai/'), true);
+  assert.equal(isV2Path('/library/writing-guides/a/b'), false);
 });
 
 test('the navigation bridge reads the slim list, not the registry', async () => {

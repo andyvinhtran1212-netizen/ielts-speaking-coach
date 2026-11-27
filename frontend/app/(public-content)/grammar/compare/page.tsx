@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { getCompare, type GrammarCompareWire } from '@/lib/grammar-api';
 import { articleUrl } from '../grammar-cards';
 import { SubpageFrame, SubpageHeader, SubpageSkeleton, articleMeta, frameStyles as styles } from '../subpage-frame';
+import prose from '../article-prose.module.css';
 import { redirectNoticeHref } from '@/lib/redirect-notice-model.mjs';
 
 type CompareArticle = GrammarCompareWire['left'];
@@ -39,7 +40,7 @@ function CompareColumn({ article, id }: { article: CompareArticle; id: string })
       {/* Authored Markdown HTML from GrammarContentService, as on the article
           page; title/summary above stay React-escaped, so the trust boundary
           does not widen to other fields. */}
-      <div className="article-body" dangerouslySetInnerHTML={{ __html: article.html || '' }} />
+      <div className={`article-body ${prose.prose}`} dangerouslySetInnerHTML={{ __html: article.html || '' }} />
     </section>
   );
 }

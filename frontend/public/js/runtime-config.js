@@ -10,5 +10,6 @@ window.__AVER_RUNTIME_CONFIG__ = Object.freeze({
   "release": null,
   "gitRef": null,
   "coreOperationCorrelationEnabled": false,
-  "writingAdmissionEnabled": false
+  "writingAdmissionEnabled": false,
+  "examRoomSurfaces": []
 });

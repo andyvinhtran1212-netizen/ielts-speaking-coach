@@ -1,0 +1,26 @@
+/* PUBLICSITE-0059 FR-026 contact block. Only var(--av2-*). */
+.block { color: var(--av2-ink); }
+
+.title {
+  margin: 0 0 var(--av2-space-4);
+  font-size: var(--av2-fs-18);
+}
+
+.rows { margin: 0; }
+
+.row {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: var(--av2-space-4);
+  padding: var(--av2-space-3) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.label { color: var(--av2-muted); }
+.value { margin: 0; overflow-wrap: anywhere; }
+.value a, .fallback a { color: var(--av2-link); }
+.fallback { margin: 0; }
+
+@media (max-width: 767px) {
+  .row { grid-template-columns: 1fr; gap: var(--av2-space-1); }
+}

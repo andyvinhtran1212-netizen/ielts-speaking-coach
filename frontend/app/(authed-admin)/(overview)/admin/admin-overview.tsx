@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 
-import { AdminAiPanel } from './admin-ai-panel';
 import {
   getAdminContentOverview,
   getAdminDashboardOverview,
@@ -664,11 +663,12 @@ export function AdminOverview() {
             <Link href="/admin/dashboard/reading-attempts">Reading — Lượt làm bài · LIVE</Link>
             <Link href="/admin/classes">Lớp &amp; Học viên · LIVE</Link>
             <Link href="/admin/usage">Hoạt động người dùng</Link>
+            {/* ADMINIA-0074 FR-074: the model table lives on its own page now. */}
+            <Link href="/admin/ai-models">AI và mô hình</Link>
+            <Link href="/admin/qa-tools">Công cụ QA</Link>
           </div>
         </div>
       </section>
-
-      <AdminAiPanel />
     </main>
   );
 }

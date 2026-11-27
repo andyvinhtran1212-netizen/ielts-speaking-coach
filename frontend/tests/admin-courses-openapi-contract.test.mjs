@@ -7,8 +7,8 @@ const FRONTEND = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(FRONTEND, ...parts), 'utf8');
 const API = read('lib', 'admin-courses-api.ts');
 const OPENAPI = read('types', 'api.d.ts');
-const DIRECTORY = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
-const DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
+const DIRECTORY = read('app', '(authed-admin)/(classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
+const DETAIL = read('app', '(authed-admin)/(classes)', 'admin', 'classes', '[cohortId]', 'admin-class-detail.tsx');
 
 describe('admin course ladder read contract', () => {
   test('derives the course envelope from generated OpenAPI', () => {
