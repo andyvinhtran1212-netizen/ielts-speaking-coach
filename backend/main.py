@@ -123,6 +123,7 @@ from routers.quiz import router as quiz_player_router
 from routers.course_pronunciation import router as course_pronunciation_router
 from routers.reading_student import router as reading_student_router
 from routers.feedback import router as feedback_router
+from routers.review_notes import router as review_notes_router
 from routers.kp import router as kp_router
 from routers.exams import router as exams_router
 from routers.admin_exams import router as admin_exams_router
@@ -362,6 +363,7 @@ app.include_router(course_pronunciation_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(reading_student_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(mock_attempt_flags_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(feedback_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(review_notes_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(kp_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exams_router)
