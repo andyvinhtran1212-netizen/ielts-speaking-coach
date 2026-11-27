@@ -19,7 +19,9 @@ student_id filter as defense-in-depth.
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Response
+from typing import Literal
+
+from fastapi import APIRouter, Header, HTTPException, Query, Response
 
 from database import thread_supabase_admin
 from routers.auth import get_supabase_user
@@ -29,7 +31,8 @@ from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
 from models.student_today import StudentTodayResponse, TodaySeenRequest
 from models.student_assigned import StudentAssignedResponse
-from services import student_assigned, student_today
+from models.student_skill_hub import StudentSkillHubResponse
+from services import student_assigned, student_skill_hub, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -146,3 +149,20 @@ async def today_seen(body: TodaySeenRequest, authorization: str | None = Header(
             thread_supabase_admin(), auth_user["id"], body.seen_until, body.seen_key),
     )
     return Response(status_code=204)
+
+
+@router.get("/skill-hub", response_model=StudentSkillHubResponse)
+async def skill_hub(
+    response: Response,
+    skill: Literal["speaking", "writing", "listening", "reading"] = Query(...),
+    authorization: str | None = Header(default=None),
+):
+    """One skill hub (LEARNERCORE-0063 T25, FR-111..118). Read-only, the
+    caller's own data; a failing block lands in `degraded`. Any other `skill`
+    is 422 (FastAPI validates the Literal)."""
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    return await student_skill_hub.get_skill_hub_concurrent(
+        thread_supabase_admin, auth_user["id"], skill,
+        account_name=account_display_name(auth_user),
+    )
