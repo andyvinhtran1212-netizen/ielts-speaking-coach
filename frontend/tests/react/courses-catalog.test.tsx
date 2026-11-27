@@ -1,6 +1,7 @@
 // PUBLICSITE-0059 T04 — `/courses` catalogue body (FR-004, 005, 006, 022, 023).
 // Fixtures are fake (tests/fixtures/commerce); nothing here calls a backend.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { CourseCatalog } from '@/app/(public-commerce)/courses/course-catalog';
@@ -24,21 +25,24 @@ function withViewer(items: CourseItem[], states: Record<string, Partial<CourseIt
 }
 
 let calls: string[];
-let catalogs: Record<string, CourseItem[] | Error>;
+let catalogs: Record<string, unknown>;
 let holds: Record<string, Promise<void>>;
+let lastCatalogOptions: unknown;
 
 beforeEach(() => {
   vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
   calls = [];
   catalogs = {};
   holds = {};
+  lastCatalogOptions = undefined;
   auth.status = 'signed-out';
   auth.id = 'learner-a';
   Object.assign(window, { api: {
-    getWith: async (path: string) => {
+    getWith: async (path: string, _headers: unknown, options: unknown) => {
       const who = auth.id;
       calls.push(`GET ${path} as ${who}`);
       if (path === '/api/me/open-alerts') return { slugs: [] };
+      lastCatalogOptions = options;
       if (holds[who]) await holds[who];
       const answer = catalogs[who] ?? GUEST;
       if (answer instanceof Error) throw answer;
@@ -122,6 +126,25 @@ it('a failed session read says so, keeps the general rows, and "Thử lại" rea
   expect(screen.queryByText(/Chưa tải được trạng thái/)).toBeNull();
 });
 
+it.each([
+  { result: 'expired token', payload: Object.assign(new Error('expired'), { status: 401 }) },
+  { result: 'malformed viewer', payload: [{ ...GUEST[0], viewer: { state: 'enrolled', days_left: 77 } }] },
+])('$result after switching accounts keeps the public catalogue without redirecting', async ({ payload }) => {
+  auth.status = 'signed-in';
+  catalogs['learner-a'] = withViewer(GUEST, { 'khoa-a': { state: 'enrolled', days_left: 30 } });
+  catalogs['learner-b'] = payload;
+  const view = render(<CourseCatalog initialItems={GUEST} />);
+  expect(await list().findByText('Bạn đang học · còn 30 ngày')).toBeTruthy();
+
+  auth.id = 'learner-b';
+  view.rerender(<CourseCatalog initialItems={GUEST} />);
+  expect(await screen.findByText(/Chưa tải được trạng thái khoá học của bạn/)).toBeTruthy();
+  expect(lastCatalogOptions).toEqual({ noRedirect: true });
+  expect(screen.queryByText(/Bạn đang học/)).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Vào học' })).toBeNull();
+  expect(rows()).toHaveLength(GUEST.length);
+});
+
 it('A → B: an answer for A that arrives after the switch is dropped; sign-out returns to the guest rows', async () => {
   auth.status = 'signed-in';
   let releaseA!: () => void;
@@ -130,11 +153,11 @@ it('A → B: an answer for A that arrives after the switch is dropped; sign-out 
   catalogs['learner-b'] = withViewer(GUEST, { 'khoa-a': { state: 'enrolled', days_left: 5 } });
   const view = render(<CourseCatalog initialItems={GUEST} />);
 
+  await waitFor(() => expect(calls).toContain('GET /api/courses as learner-a'));
   auth.id = 'learner-b';
   view.rerender(<CourseCatalog initialItems={GUEST} />);
   expect(await list().findByText('Bạn đang học · còn 5 ngày')).toBeTruthy();
-  releaseA();
-  await new Promise((r) => setTimeout(r, 0));
+  await act(async () => { releaseA(); });
   expect(list().queryByText('Bạn đang học · còn 77 ngày')).toBeNull();
   expect(list().getByText('Bạn đang học · còn 5 ngày')).toBeTruthy();
 
@@ -142,6 +165,40 @@ it('A → B: an answer for A that arrives after the switch is dropped; sign-out 
   view.rerender(<CourseCatalog initialItems={GUEST} />);
   await waitFor(() => expect(list().queryByText(/Bạn đang học/)).toBeNull());
   expect(within(rows()[0]).getByText('Đang mở đăng ký')).toBeTruthy();
+});
+
+it.each(['signed-in', 'signed-out'] as const)('switch to %s starts with the public catalogue in the first commit', async (nextStatus) => {
+  auth.status = 'signed-in';
+  catalogs['learner-a'] = withViewer(GUEST, { 'khoa-a': { state: 'enrolled', days_left: 77 } });
+  catalogs['learner-b'] = withViewer(GUEST, { 'khoa-a': { state: 'enrolled', days_left: 5 } });
+  let releaseB!: () => void;
+  holds['learner-b'] = new Promise<void>((resolve) => { releaseB = resolve; });
+
+  function CaptureCommit({ capture }: { capture?: () => void }) {
+    // Inspect the committed page before the catalogue's passive effect runs.
+    useLayoutEffect(() => { capture?.(); }, [capture]);
+    return <CourseCatalog initialItems={GUEST} />;
+  }
+  const view = render(<CaptureCommit />);
+  expect(await list().findByText('Bạn đang học · còn 77 ngày')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Vào học' })).toBeTruthy();
+
+  auth.id = 'learner-b';
+  auth.status = nextStatus;
+  const capturePublicState = vi.fn(() => {
+    expect(screen.queryByText('Bạn đang học · còn 77 ngày')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Vào học' })).toBeNull();
+    expect(within(rows()[0]).getByText('Đang mở đăng ký')).toBeTruthy();
+  });
+  view.rerender(<CaptureCommit capture={capturePublicState} />);
+  expect(capturePublicState).toHaveBeenCalledOnce();
+
+  await act(async () => { releaseB(); });
+  if (nextStatus === 'signed-in') {
+    expect(await list().findByText('Bạn đang học · còn 5 ngày')).toBeTruthy();
+  } else {
+    expect(calls).not.toContain('GET /api/courses as learner-b');
+  }
 });
 
 it('compare table: a row nobody has is left out, a missing cell reads "Chưa công bố"', () => {
