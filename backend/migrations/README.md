@@ -136,6 +136,14 @@ send_check (G04 dispatcher). Needs 383. It is not part of the #2450
 five RLS-only Library tables reached only through service_role and the private
 `library-media` bucket guarded by a RESTRICTIVE `storage.objects` policy; the schema
 rollback refuses while any Library content, slug history, mark or bucket object exists.
+`500` is `pending_feature account_data_rights` (ACCOUNTDATA-0100 T002, G04-T18,
+spec label 500 assigned by GOI-04): RLS-only `account_deletion_requests` (one open
+request per learner, lease columns, no email) and `account_data_exports` (one
+running job per learner, object path scoped to `<user_id>/<export_id>/<uuid>.zip`),
+both service_role only, and the private `account-exports` bucket guarded by a
+RESTRICTIVE `storage.objects` policy. Users rows are anonymised, never deleted, so
+both foreign keys are `ON DELETE RESTRICT`. The rollback refuses while either
+table has a row or the bucket has an object.
 `401` is `pending_feature public_library_signoff` (LIBRARY-0061 T002b, amendment 2):
 Writing sample sign-off columns `review_status`/`reviewed_by`/`reviewed_at` on
 `writing_samples` and CHECKs that a published row is approved and every approval is
