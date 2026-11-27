@@ -302,6 +302,7 @@ def test_me_flag_parity_query_order_request_memo_and_private_cache(app, me_setup
         'id': USER, 'email': 'j428@example.test', 'display_name': None,
         'avatar_url': None, 'role': 'user', 'is_active': True, 'suspended': False,
         'permissions': ['practice_single'], 'onboarding_completed': False,
+        'speaking_course_access': False,
         'target_band': None, 'exam_date': None, 'self_level': None,
         'preferred_topics': [], 'vocab_bank_enabled': False, 'd1_enabled': False,
         'd3_enabled': False, 'flashcard_enabled': True, 'vocab_curated_enabled': True,
