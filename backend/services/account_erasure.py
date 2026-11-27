@@ -183,7 +183,11 @@ async def build_plan(engine: Any) -> dict:
         present = {r[0] for r in (await conn.execute(text(
             "SELECT relname FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind IN ('r','p')"
         ))).all()}
-    deletes = [e for e in inventory.INVENTORY if e.action == "delete" and e.table != "account_data_exports"]
+    # The SQL function handles export leases and the owned/guest alert policy.
+    deletes = [
+        e for e in inventory.INVENTORY
+        if e.action == "delete" and e.table not in ("account_data_exports", "course_open_alerts")
+    ]
     delete_tables = {e.table for e in deletes}
     children = {}
     for child, parent in inventory.CHILD_TABLES.items():

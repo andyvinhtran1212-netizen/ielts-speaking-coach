@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from services import account_erasure as er
+from services import account_erasure as er, account_export as ex
 from tests.account_data_pg import make_engine, pg_database
 from tests.test_account_data_export_job import FakeStorage
 
@@ -270,6 +270,82 @@ def test_full_erasure_of_one_learner(env):
     assert env.letters == [("account_erased", "an@example.test", f"account-erased-{req}")]
     # Re-running after erasure claims nothing.
     assert _erase(env, req) == "skipped"
+
+
+@pytest.mark.parametrize("verified", [True, False])
+def test_course_alerts_follow_account_and_verified_guest_ownership(env, verified):
+    run = env.run
+    # Create the commerce tables used by the real migration 394.
+    run("""
+        CREATE TABLE public.course_products (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(), slug text, title text,
+            status text, is_public boolean, archived_at timestamptz);
+        ALTER TABLE public.entitlements ADD COLUMN product_id uuid,
+            ADD COLUMN starts_at timestamptz, ADD COLUMN expires_at timestamptz;
+        CREATE TABLE public.learner_email_outbox (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid,
+            to_email text, template text CONSTRAINT learner_email_outbox_template_check
+                CHECK (template IN ('course_open_alert', 'staff_notice')),
+            dedupe_key text UNIQUE, payload jsonb, status text);
+    """)
+    run((MIG / "394_course_open_alerts.sql").read_text(encoding="utf-8"))
+    confirmed_at = "now()" if verified else "NULL"
+    run(f"""
+        INSERT INTO auth.users (id, email, email_confirmed_at)
+        VALUES ('{U1}', 'verified@example.test', {confirmed_at});
+        INSERT INTO public.course_products (slug)
+        VALUES ('owned'), ('guest'), ('other-owner'), ('profile-email');
+        INSERT INTO public.course_open_alerts (
+            product_id, email, user_id, unsubscribe_token, unsubscribed_at)
+        SELECT id, CASE slug WHEN 'owned' THEN 'previous@example.test'
+                            WHEN 'profile-email' THEN 'an@example.test'
+                            ELSE 'Verified@EXAMPLE.test' END,
+               CASE slug WHEN 'owned' THEN '{U1}'::uuid WHEN 'other-owner' THEN '{U2}'::uuid END,
+               replace(id::text, '-', '') || replace(id::text, '-', ''),
+               CASE slug WHEN 'guest' THEN now() END
+          FROM public.course_products;
+        INSERT INTO public.learner_email_outbox (to_email, template, dedupe_key, payload, status)
+        SELECT a.email, 'course_open_alert',
+               CASE p.slug WHEN 'guest' THEN 'legacy:guest' ELSE 'open_alert:' || a.id::text END,
+               CASE p.slug WHEN 'owned' THEN '{{}}'::jsonb ELSE jsonb_build_object('alert_id', a.id) END,
+               'pending'
+          FROM public.course_open_alerts a JOIN public.course_products p ON p.id = a.product_id;
+        INSERT INTO public.learner_email_outbox (to_email, template, dedupe_key, payload, status)
+        SELECT a.email, 'course_open_alert', 'sent:owned', jsonb_build_object('alert_id', a.id), 'sent'
+          FROM public.course_open_alerts a JOIN public.course_products p ON p.id = a.product_id
+         WHERE p.slug = 'owned';
+        INSERT INTO public.course_open_alert_attempts (rate_key, action) VALUES
+            ('user:{U1}', 'subscribe'), ('user:{U1}', 'unsubscribe'),
+            ('user:{U1}:suffix', 'subscribe'), ('user:{U2}', 'subscribe'), ('ip:hashed-ip', 'subscribe');
+    """)
+
+    exported, _ = asyncio.run(ex.collect_rows(env.engine, U1))
+    expected = [{"course_slug": "owned", "status": "subscribed"}]
+    if verified:
+        expected.insert(0, {"course_slug": "guest", "status": "unsubscribed"})
+    assert exported["course_open_alerts"] == expected
+    assert "course_open_alerts.user_id" not in exported
+
+    removed_mail = run("""
+        SELECT o.dedupe_key FROM public.learner_email_outbox o
+        JOIN public.course_open_alerts a ON o.dedupe_key = 'open_alert:' || a.id::text
+        JOIN public.course_products p ON p.id = a.product_id WHERE p.slug = 'owned'
+    """)
+    assert _erase(env, _request(env)) == "erased"
+    remaining = ["other-owner", "profile-email"]
+    if not verified:
+        remaining.insert(0, "guest")
+    assert run("""
+        SELECT p.slug FROM public.course_open_alerts a
+        JOIN public.course_products p ON p.id = a.product_id ORDER BY p.slug
+    """).splitlines() == remaining
+    assert run(f"SELECT count(*) FROM public.learner_email_outbox WHERE dedupe_key = '{removed_mail}'") == "0"
+    assert run("SELECT count(*) FROM public.learner_email_outbox WHERE status = 'pending'") == str(len(remaining))
+    assert run("SELECT count(*) FROM public.learner_email_outbox WHERE dedupe_key = 'legacy:guest'") == str(int(not verified))
+    assert run("SELECT status FROM public.learner_email_outbox WHERE dedupe_key = 'sent:owned'") == "sent"
+    assert set(run("SELECT rate_key FROM public.course_open_alert_attempts").splitlines()) == {
+        f"user:{U1}:suffix", f"user:{U2}", "ip:hashed-ip",
+    }
 
 
 def test_not_due_and_cancelled_are_never_claimed(env):

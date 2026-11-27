@@ -310,8 +310,8 @@ def export_entries() -> list[inventory.Entry]:
 
 
 async def collect_rows(engine: Any, user_id: str) -> tuple[dict[str, list[dict]], list[dict]]:
-    """``{"table.column": rows}`` for every exported entry, plus the child
-    tables of exported parents, read in one REPEATABLE READ snapshot.
+    """Rows for exported entries, their child tables and the alert summary,
+    read in one REPEATABLE READ snapshot.
     Returns ``(data, skipped)``; a table not present here is listed in
     ``skipped`` with the reason (FR-011 manifest)."""
     data: dict[str, list[dict]] = {}
@@ -319,7 +319,9 @@ async def collect_rows(engine: Any, user_id: str) -> tuple[dict[str, list[dict]]
     entries = export_entries()
     async with engine.connect() as conn:
         await conn.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
-        present = await _existing_tables(conn, {e.table for e in entries} | set(inventory.CHILD_TABLES))
+        present = await _existing_tables(
+            conn, {e.table for e in entries} | set(inventory.CHILD_TABLES) | {"course_open_alerts"}
+        )
         students = await _student_ids(conn, user_id)
         parent_ids: dict[str, list[str]] = {}
         for e in entries:
@@ -353,6 +355,24 @@ async def collect_rows(engine: Any, user_id: str) -> tuple[dict[str, list[dict]]
             rows = (await conn.execute(text(
                 f'SELECT * FROM public."{child}" WHERE "{fk}"::text = ANY(:ids)'), {"ids": ids})).mappings().all()
             data[f"{child}.{fk}"] = [dict(r) for r in rows]
+        if "course_open_alerts" in present:
+            alerts = (await conn.execute(text("""
+                SELECT p.slug AS course_slug,
+                       CASE WHEN a.unsubscribed_at IS NOT NULL THEN 'unsubscribed'
+                            ELSE coalesce(a.notify_result, 'subscribed') END AS status
+                  FROM public.course_open_alerts a
+                  JOIN public.course_products p ON p.id = a.product_id
+                 WHERE a.user_id = CAST(:uid AS uuid)
+                    OR (a.user_id IS NULL AND lower(a.email) = (
+                        SELECT lower(u.email) FROM auth.users u
+                         WHERE u.id = CAST(:uid AS uuid)
+                           AND u.email_confirmed_at IS NOT NULL AND u.deleted_at IS NULL
+                    ))
+                 ORDER BY p.slug, a.id
+            """), {"uid": user_id})).mappings().all()
+            data["course_open_alerts"] = [dict(r) for r in alerts]
+        else:
+            skipped.append({"table": "course_open_alerts", "reason": "table_not_present"})
     return data, skipped
 
 

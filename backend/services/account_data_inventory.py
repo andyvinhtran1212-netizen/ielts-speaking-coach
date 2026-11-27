@@ -34,7 +34,7 @@ from typing import Literal, Optional
 Action = Literal["delete", "anonymize", "keep", "staff_actor", "staff_only"]
 ACTIONS: frozenset[str] = frozenset({"delete", "anonymize", "keep", "staff_actor", "staff_only"})
 
-INVENTORY_VERSION = "2026-11-27.3"
+INVENTORY_VERSION = "2026-11-27.4"
 
 
 @dataclass(frozen=True)
@@ -101,6 +101,7 @@ _DELETE_EXPORT = _many(
     export=True,
 )
 
+# Course-open alerts are projected separately in account_export.collect_rows.
 _DELETE_INTERNAL = _many(
     "delete",
     """

@@ -28,7 +28,7 @@ END $$;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 CREATE SCHEMA auth;
-CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, deleted_at timestamptz);
+CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, email_confirmed_at timestamptz, deleted_at timestamptz);
 CREATE TABLE auth.sessions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL);
 CREATE TABLE public.users (
     id uuid PRIMARY KEY, email text NOT NULL, display_name text, role text DEFAULT 'student',

@@ -140,6 +140,8 @@ DECLARE
     key_col text;
     student_ids uuid[];
     login_email text;
+    verified_alert_email text;
+    deleted_alert_ids uuid[];
     item jsonb;
     tbl text;
     col text;
@@ -194,6 +196,36 @@ BEGIN
     PERFORM set_config('aver.account_erasure_owner', p_owner, true);
     SELECT coalesce(array_agg(s.id), '{}') INTO student_ids FROM public.students s WHERE s.user_id = uid;
     SELECT u.email INTO login_email FROM public.users u WHERE u.id = uid;
+
+    -- Guest alerts belong to this account only when their email matches the
+    -- verified Auth address. A different account's rows always stay intact.
+    IF to_regclass('public.course_open_alerts') IS NOT NULL THEN
+        SELECT lower(u.email) INTO verified_alert_email
+          FROM auth.users u
+         WHERE u.id = uid AND u.email_confirmed_at IS NOT NULL AND u.deleted_at IS NULL;
+
+        WITH deleted_alerts AS (
+            DELETE FROM public.course_open_alerts a
+             WHERE a.user_id = uid
+                OR (a.user_id IS NULL AND lower(a.email) = verified_alert_email)
+            RETURNING a.id
+        )
+        SELECT array_agg(id) INTO deleted_alert_ids FROM deleted_alerts;
+        counts := counts || jsonb_build_object('course_open_alerts', coalesce(cardinality(deleted_alert_ids), 0));
+
+        -- Enqueue locks the alert row before writing the outbox. A separate
+        -- statement sees any mail committed while the DELETE waited for it.
+        DELETE FROM public.learner_email_outbox o
+         USING unnest(deleted_alert_ids) AS alert(id)
+         WHERE o.template = 'course_open_alert' AND o.status = 'pending'
+           AND (o.dedupe_key = 'open_alert:' || alert.id::text OR o.payload ->> 'alert_id' = alert.id::text);
+        GET DIAGNOSTICS n = ROW_COUNT;
+        counts := counts || jsonb_build_object('course_open_alert_pending_mail', n);
+
+        DELETE FROM public.course_open_alert_attempts WHERE rate_key = 'user:' || uid::text;
+        GET DIAGNOSTICS n = ROW_COUNT;
+        counts := counts || jsonb_build_object('course_open_alert_attempts', n);
+    END IF;
 
     -- Deletes, in the plan's order (rows whose foreign keys do not cascade
     -- first). subject 'student' → students.id of the learner, else user id.
