@@ -35,6 +35,7 @@ from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
 from services import essay_service
+from services import mock_exam_modes
 from services import mock_exam_service as svc
 from services import mock_review_workflow as review_wf
 from services.writing_image_access import attach_signed_image_urls
@@ -202,7 +203,10 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
     return {
         "sitting": sitting,
         "exam": content,
-        "exam_mode": (exam or {}).get("exam_mode") or "sequential",
+        # The learner API keeps the legacy name until G08 switches; the new
+        # name is additive (MOCKORG-0086 plan 5.5 point 2).
+        "exam_mode": mock_exam_modes.legacy_name((exam or {}).get("exam_mode") or "sequential"),
+        "exam_mode_v2": mock_exam_modes.normalize((exam or {}).get("exam_mode") or "sequential"),
         "assigned_skills": assigned,
         "active_section": active,
         # The canonical pause marker, so the runner can close the paper without

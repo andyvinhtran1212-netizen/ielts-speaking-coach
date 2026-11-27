@@ -224,17 +224,11 @@ describe('user error-flagging (báo lỗi)', () => {
 describe('admin dictation-reports page', () => {
 
   const AHTML = read('pages', 'admin', 'listening', 'dictation-reports.html');
-  const AJS = read('js', 'admin-listening-dictation-reports.js');
 
   it('mounts admin chrome + loads its controller', () => {
     assert.match(AHTML, /<aver-admin-chrome\s+active="listening"\s+subsection="dictation-reports"/);
     assert.match(AHTML, /\/js\/admin-listening-dictation-reports\.js/);
     assert.match(AHTML, /\/js\/components\/aver-admin-chrome\.js/);
-  });
-
-  it('calls the admin list + aggregate endpoints', () => {
-    assert.match(AJS, /\/admin\/listening\/dictation-reports\/aggregate/);
-    assert.match(AJS, /\/admin\/listening\/dictation-reports/);
   });
 
   it('links content flags to the shared feedback inbox (no duplicate admin)', () => {

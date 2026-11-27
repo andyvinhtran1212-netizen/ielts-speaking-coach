@@ -1,14 +1,14 @@
 ---
 id: ENROLL-0060
 title: Learners sign in with Google or a six-digit email code and return where they were, check a class activation code before using it, and register for an online course by bank transfer until an admin confirms it
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Learners sign in with Google or a six-digit email code and return where they were, check a class activation code before using it, and register for an online course by bank transfer until an admin confirms it
 
-Status: **draft** — soạn ngày 23/11/2026 cho nhiệm vụ `G05-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-05-trang-cong-khai-va-dang-ky.md` (bản 18/11 chiều) nhóm B của mục 4, mục 5.2, 5.2b, 5.3, 5.6, 5.6b, 5.7, 5.8, 6, 7, 8, 9, 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số 0060 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6 và còn trống ở staging `31725a9b`.
+Status: **approved** — anh Andy duyệt 23/11/2026 18:08 giờ VN (xem `approval-decision.md`); soạn ngày 23/11/2026 cho nhiệm vụ `G05-T01` (thương mại hoá 2026-11), từ `docs/proposals/commercialization-2026-11/GOI-05-trang-cong-khai-va-dang-ky.md` (bản 18/11 chiều) nhóm B của mục 4, mục 5.2, 5.2b, 5.3, 5.6, 5.6b, 5.7, 5.8, 6, 7, 8, 9, 10. Chưa dòng mã nào chạy theo spec này. Chỉ anh Andy duyệt; khi duyệt, câu trả lời ghi nguyên văn kèm thời điểm vào `approval-decision.md` cùng thư mục và `status` đổi sang `approved`. Số 0060 lấy từ sổ cấp số ở `01-KE-HOACH-TONG.md` mục 6 và còn trống ở staging `31725a9b`.
 
 `risk: high`: đường đăng nhập mới (auth), mã kích hoạt (sự thật về quyền sở hữu mã), năm migration, RLS và quyền gọi hàm.
 
