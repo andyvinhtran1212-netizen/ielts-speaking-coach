@@ -96,7 +96,7 @@ describe('routes', () => {
     const item = ADMIN_NAV_GROUPS.flatMap((g) => g.items).find((i) => i.id === 'learners');
     assert.equal(item.href, '/admin/learners'); assert.equal(item.available, true);
     assert.equal(adminRouteFor('/admin/students').redirectTo, '/admin/learners');
-    const page = read('app/(authed-admin-students)/admin/students/page.tsx');
+    const page = read('app/(authed-admin)/(students)/admin/students/page.tsx');
     assert.match(page, /redirectUnderAdminFrameV2\('\/admin\/students', \{ q:/);
     assert.match(read('lib/admin-frame-redirect.ts'), /process\.env\.ADMIN_FRAME_V2 !== '1'/);
     assert.match(read('app/(authed-admin)/(learners)/admin/learners/page.tsx'), /requireAdminFrameV2\(\);/);
