@@ -16733,6 +16733,11 @@ export interface components {
              * @default false
              */
             learner_v2_enabled: boolean;
+            /**
+             * Speaking Course Access
+             * @default false
+             */
+            speaking_course_access: boolean;
         };
         /** AuthProfileResponse */
         AuthProfileResponse: {

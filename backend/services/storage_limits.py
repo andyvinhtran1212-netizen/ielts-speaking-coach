@@ -30,6 +30,9 @@ BUCKET_LIMITS: dict[str, tuple[int, tuple[str, ...]]] = {
     # LIBRARY-0061 (migration 400): private; served only by the backend after a
     # `published` check. The bucket cap is the largest per-type cap below.
     "library-media": (10 * 1024 * 1024, ("image/png", "image/webp", "audio/mpeg", "audio/mp4")),
+    # ACCOUNTDATA-0100 (migration 500): private learner data exports; 200 MiB
+    # package cap (ACCOUNT_EXPORT_MAX_BYTES) plus manifest headroom.
+    "account-exports": (210 * 1024 * 1024, ("application/zip",)),
 }
 
 # Per-MIME caps tighter than the bucket cap; Storage only knows one limit.

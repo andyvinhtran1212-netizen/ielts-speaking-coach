@@ -1,3 +1,4 @@
+import { learnerV2Enabled } from './auth-wire-model.mjs';
 import { sanitizeLearnerNext } from './safe-next.mjs';
 
 const record = (value) => value && typeof value === 'object' && !Array.isArray(value)
@@ -21,17 +22,27 @@ export function normalizeLoginProfile(value) {
     id: row.id.trim(),
     isActive: row.is_active,
     onboardingCompleted: row.onboarding_completed,
+    // LEARNERCORE-0063 FR-090: soft flag; missing or not `true` → old flow.
+    learnerV2: learnerV2Enabled(row),
   };
 }
 
 /**
- * @param {{ isActive?: boolean, onboardingCompleted?: boolean } | null} profile
+ * @param {{ isActive?: boolean, onboardingCompleted?: boolean, learnerV2?: boolean } | null} profile
  * @param {string | null} [next] the page the visitor meant to open; it is
- *   sanitized again here, and activation and onboarding always come first.
+ *   sanitized again here, and activation always comes first.
+ *
+ * First sign-in (onboarding not done): with the `learner_v2` flag the
+ * destination is `/start` (LEARNERCORE-0063 FR-090), unless a valid `next`
+ * says where the visitor was going (FR-065, ENROLL-0060 FR-031); without the
+ * flag it stays `/onboarding`, before any `next`, exactly as before.
  */
 export function loginDestination(profile, next = null) {
   if (!profile?.isActive) return 'activate';
-  if (!profile.onboardingCompleted) return '/onboarding';
+  if (!profile.onboardingCompleted) {
+    if (profile.learnerV2 === true) return sanitizeLearnerNext(next) || '/start';
+    return '/onboarding';
+  }
   return sanitizeLearnerNext(next) || '/home';
 }
 
