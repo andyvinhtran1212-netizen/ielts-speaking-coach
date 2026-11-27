@@ -16,6 +16,8 @@ Every other learner route still answers the gate's 403 to that account.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -329,3 +331,28 @@ def test_open_routes_keep_the_current_session_gate(app, monkeypatch, method, pat
     assert calls == [(uid, f"Bearer {uid}", "testclient")]
     assert not app.users.writes
     assert not (_WORK_TABLES & set(app.users.reads))
+
+
+@pytest.mark.parametrize("method,path,kwargs", [
+    ("GET", "/api/student/today", {}),
+    ("PATCH", "/auth/profile", {"json": {"target_band": 7}}),
+])
+def test_inactive_open_monitor_counts_each_admitted_request(app, monkeypatch, caplog, method, path, kwargs):
+    caplog.set_level(logging.INFO, logger=activation_gate.__name__)
+    monkeypatch.setattr(student_home, "is_learner_v2_enabled", lambda _user_id: True)
+
+    for _ in range(2):
+        assert app.call(method, path, INACTIVE, **kwargs).status_code == 200
+    assert app.call(method, path, ACTIVE, **kwargs).status_code == 200
+    assert app.call(method, path, SUSPENDED, **kwargs).status_code == 403
+
+    async def displaced(*_args):
+        raise HTTPException(409, {"code": "session_not_current"})
+
+    monkeypatch.setattr(session_gate, "ensure_current", displaced)
+    assert app.call(method, path, INACTIVE, **kwargs).status_code == 409
+
+    events = [record.getMessage() for record in caplog.records
+              if record.name == activation_gate.__name__
+              and record.getMessage().startswith("learner_v2_inactive_open_request ")]
+    assert events == [f"learner_v2_inactive_open_request method={method} path={path} user_id={INACTIVE}"] * 2

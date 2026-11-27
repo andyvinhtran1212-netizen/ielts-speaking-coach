@@ -108,10 +108,13 @@ async def today(request: Request, response: Response, authorization: str | None 
     email = auth_user.get("email") or ""
     account_name = account_display_name(auth_user)
     name = account_name or (email.split("@", 1)[0] if email else "bạn")
-    return await student_today.get_today_concurrent(
+    result = await student_today.get_today_concurrent(
         thread_supabase_admin, auth_user["id"], name=name, account_name=account_name,
         active=status == activation_gate.OPEN_ACTIVE,
     )
+    if status == activation_gate.OPEN_INACTIVE:
+        activation_gate.log_inactive_open_request("GET", "/api/student/today", auth_user["id"])
+    return result
 
 
 @router.get("/assigned", response_model=StudentAssignedResponse)

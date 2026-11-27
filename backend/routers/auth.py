@@ -1187,6 +1187,8 @@ async def update_profile(
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
 
     user = result.data[0]
+    if status == activation_gate.OPEN_INACTIVE:
+        activation_gate.log_inactive_open_request("PATCH", "/auth/profile", user_id)
     return {
         "id": user["id"],
         "email": user.get("email"),

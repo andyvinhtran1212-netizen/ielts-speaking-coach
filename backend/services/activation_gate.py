@@ -309,6 +309,11 @@ OPEN_ACTIVE = "active"
 OPEN_INACTIVE = "inactive_open"
 
 
+def log_inactive_open_request(method: str, path: str, user_id: str) -> None:
+    """Count one admitted request for the LEARNERCORE-0063 T26 rollout."""
+    logger.info("learner_v2_inactive_open_request method=%s path=%s user_id=%s", method, path, user_id)
+
+
 def _open_status_query(user_id: str):
     # "*" like /auth/check-active: works before migration 332 adds suspended_at
     # (absent column = not suspended).
