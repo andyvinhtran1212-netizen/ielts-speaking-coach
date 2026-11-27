@@ -273,3 +273,42 @@ def test_rollback_restores_legacy_names(pg):
               check=False).returncode != 0                       # 169 version again
     pg(SQL)                                                       # re-applies cleanly
     assert one(pg, f"SELECT exam_mode FROM public.mock_exams WHERE id = {E1};") == "live"
+
+
+def test_live_personal_scope_on_paper_admission_and_submission(pg):
+    pg(M445)
+    # Install the prior dual-name version, then upgrade and reapply in place.
+    start = SQL.index("-- Keep the two mode rewrites")
+    end = SQL.index("-- 2. fn_set_exam_mode", start)
+    pg(SQL[:start] + SQL[end:])
+    pg(SQL)
+    pg(SQL)
+    pg(_from_306("fn_lock_mock_paper"))
+    pg(_from_306("fn_mock_paper_error"))
+    pg(f"""
+        ALTER TABLE public.mock_exams ADD reading_test_id uuid, ADD reading_started_at timestamptz;
+        ALTER TABLE public.mock_exam_sittings ADD user_id uuid, ADD reading_attempt_id uuid,
+            ADD assigned_skills text[];
+        UPDATE public.mock_exams SET status='published', active_section='reading',
+            reading_test_id=gen_random_uuid(), reading_started_at=now() WHERE id={E1};
+        INSERT INTO public.mock_exam_sittings(mock_exam_id,user_id,reading_attempt_id)
+            VALUES ({E1},gen_random_uuid(),gen_random_uuid());
+    """)
+    args = f"FROM public.mock_exam_sittings s JOIN public.mock_exams e ON e.id=s.mock_exam_id WHERE e.id={E1};"
+    submit = """SELECT public.fn_guard_owned_mock_attempt('reading',jsonb_build_object(
+        'status','in_progress','resume_expires_at',now()+interval '1 hour','id',s.reading_attempt_id,
+        'user_id',s.user_id,'test_id',e.reading_test_id,'sitting_id',s.id),'submit')->>'allowed' """ + args
+    admission = "SELECT public.fn_mock_section_valid('reading',to_jsonb(e),to_jsonb(s)) " + args
+    for mode in ("live", "sequential"):
+        if mode == "sequential":
+            pg(DOWN)
+        assert one(pg, f"SELECT exam_mode FROM public.mock_exams WHERE id={E1};") == mode
+        for scope, allowed in (("NULL", True), ("ARRAY['reading']", True),
+                               ("ARRAY['speaking']", False), ("ARRAY[]::text[]", False)):
+            pg(f"UPDATE public.mock_exam_sittings SET assigned_skills={scope} WHERE mock_exam_id={E1};")
+            assert one(pg, admission) == ("t" if allowed else "f")
+            if allowed:
+                assert one(pg, submit) == "true"
+            else:
+                denied = pg(submit, check=False)
+                assert denied.returncode != 0 and "ambiguous_orphan" in denied.stderr
