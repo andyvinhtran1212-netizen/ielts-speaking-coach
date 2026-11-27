@@ -12,6 +12,7 @@
 export const V2_ROUTES = Object.freeze([
   '/about',
   '/contact',
+  '/course',
   '/library',
   '/library/speaking',
   '/library/speaking/[slug]',
