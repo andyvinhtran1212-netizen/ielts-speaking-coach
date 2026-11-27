@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -14,6 +14,7 @@ import {
   normalizeQuizQuery,
   quizAreaModel,
   quizEndPayload,
+  quizCumulativeModel,
   quizResultModel,
   quizEngineBank,
   quizStartBody,
@@ -34,6 +35,13 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { createEngine } from '../../../public/js/quiz-engine.js';
 import { buildReviewList } from '../../../public/js/quiz-review.js';
 import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
+import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
+import { lazyLegacyRoom } from '@/components/exam-room/lazy-legacy-room';
+import type { ExamRoomSaveStatus } from '@/components/exam-room/types';
+
+// EXAMDRILL-0073: the room (and the "Bản in" tokens it needs) loads only when the
+// 'drill' flag is on, so the page with the flag off loads exactly what it did.
+const QuizRoom = lazyLegacyRoom(() => import('./quiz-room').then((module) => module.QuizRoom));
 
 type Phase = 'loading' | 'error' | 'gate' | 'play' | 'finishing' | 'summary';
 type AnyRow = Record<string, any>;
@@ -52,7 +60,7 @@ interface Feedback {
   cardKey: string | null;
 }
 
-function FormattedText({ value }: { value?: unknown }) {
+export function FormattedText({ value }: { value?: unknown }) {
   const parts = String(value ?? '').split(/(\*\*.+?\*\*|_{2,})/g);
   return parts.map((part, index): ReactNode => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
@@ -61,7 +69,7 @@ function FormattedText({ value }: { value?: unknown }) {
   });
 }
 
-function instruction(question: AnyRow) {
+export function instruction(question: AnyRow) {
   const prompt = String(question.prompt || '');
   if (question.input === 'boolean') return 'Chọn Đúng hoặc Sai.';
   if (question.input === 'choice') {
@@ -79,7 +87,7 @@ function instruction(question: AnyRow) {
   return '';
 }
 
-function stringList(value: unknown) {
+export function stringList(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => {
     if (typeof item === 'string') return item;
@@ -90,7 +98,7 @@ function stringList(value: unknown) {
   }).map(String).map((item) => item.trim()).filter(Boolean);
 }
 
-function formatDuration(seconds: number) {
+export function formatDuration(seconds: number) {
   const value = Math.max(0, Math.round(seconds));
   return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
 }
@@ -117,7 +125,23 @@ export function QuizPlayer() {
   const { status, user } = useAuth();
   const searchParams = useSearchParams();
   const querySource = searchParams?.toString() || '';
-  const requestKey = status === 'signed-in' && user?.id ? `${user.id}:${querySource}` : null;
+  // EXAMDRILL-0073 FR-013: in the exam-room branch a run that is under way keeps
+  // its key while signed out, so its unsent answers stay on the page; signing in
+  // as the same account resumes it, another account starts over (answers dropped).
+  const heldKeyRef = useRef<string | null>(null);
+  const requestKey = status === 'signed-in' && user?.id ? `${user.id}:${querySource}` : status === 'signed-out' ? heldKeyRef.current : null;
+  // Read once on the client: the room flag never changes during a page load.
+  const [drill, setDrill] = useState<boolean | null>(null);
+  useEffect(() => { setDrill(examRoomEnabled('drill')); }, []);
+  const [session, setSession] = useState<'active' | 'expired'>('active');
+  const sessionStateRef = useRef(session);
+  sessionStateRef.current = session;
+  const [questionNo, setQuestionNo] = useState(0);
+  const [unsaved, setUnsaved] = useState(0);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | undefined>(undefined);
+  const answeredRef = useRef(0);
+  const ackedRef = useRef(0);
+  const sentRef = useRef(0);
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [message, setMessage] = useState('');
@@ -128,6 +152,7 @@ export function QuizPlayer() {
   const [textAnswer, setTextAnswer] = useState('');
   const [progress, setProgress] = useState({ mastered: 0, total: 0, remaining: 0 });
   const [result, setResult] = useState<AnyRow | null>(null);
+  const [cumulative, setCumulative] = useState<{ correct: number; wrong: number } | null>(null);
   const [reviewRows, setReviewRows] = useState<AnyRow[]>([]);
   const [wrongOnly, setWrongOnly] = useState(true);
   const [cardKey, setCardKey] = useState<string | null>(null);
@@ -141,6 +166,9 @@ export function QuizPlayer() {
   requestKeyRef.current = requestKey;
   const epochRef = useRef(0);
   const scopeRef = useRef<RunScope | null>(null);
+  // word_stats this run started from; never re-read at the end, since the
+  // outbox may already have pushed this run's answers into them.
+  const startResumeRef = useRef<unknown[]>([]);
   const admissionRef = useRef<{ scope: RunScope; bank: AnyRow; review: boolean; sessionId: string } | null>(null);
   const bankRef = useRef<AnyRow | null>(null);
   const engineRef = useRef<any>(null);
@@ -165,6 +193,8 @@ export function QuizPlayer() {
   const cardReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const area = useMemo(() => quizAreaModel(bank), [bank]);
+  if (status !== 'signed-out') heldKeyRef.current = drill && (phase === 'play' || phase === 'finishing') ? requestKey : null;
+  const syncUnsaved = useCallback(() => { setUnsaved(Math.max(0, answeredRef.current - ackedRef.current)); }, []);
   const fresh = ownerKey === requestKey;
   const isCurrentScope = useCallback((scope: RunScope) => !scope.disposed
     && scopeRef.current === scope && requestKeyRef.current === scope.key, []);
@@ -201,8 +231,10 @@ export function QuizPlayer() {
   }, [sendKeepalive]);
 
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login');
-  }, [status]);
+    if (status !== 'signed-out' || drill === null) return;
+    if (drill && heldKeyRef.current) { setSession('expired'); return; }
+    window.location.replace('/login');
+  }, [status, drill]);
 
   const finish = useCallback(async (scope: RunScope) => {
     const admitted = admissionRef.current;
@@ -228,6 +260,7 @@ export function QuizPlayer() {
       } catch { /* local summary explicitly reports an unconfirmed save */ }
       if (!isCurrentScope(scope) || outbox.blockedReason) return;
       setResult(quizResultModel(summary, duration, progressSaved && finalized));
+      setCumulative(quizCumulativeModel(startResumeRef.current, summary));
       setReviewRows(buildReviewList(logRef.current)); setWrongOnly(true);
       setPhase('summary'); setCurrent(null); setFeedback(null);
     } finally {
@@ -241,7 +274,7 @@ export function QuizPlayer() {
     const item = engineRef.current?.next?.();
     answerLockRef.current = false; setFeedback(null); setTextAnswer('');
     if (!item) { setCurrent(null); setPhase('finishing'); void finish(scope); return; }
-    setCurrent(item); setProgress(engineRef.current.progress());
+    setCurrent(item); setProgress(engineRef.current.progress()); setQuestionNo((value) => value + 1);
   }, [finish, isCurrentScope]);
 
   const startPlay = useCallback(async (selectedBank: AnyRow, review: boolean, scope: RunScope) => {
@@ -268,10 +301,11 @@ export function QuizPlayer() {
         unavailable(scope, 'Chưa xác nhận được tài khoản của lượt học. Hãy mở lại bài trước khi tiếp tục.'); return;
       }
       const sessionId = started.session_id;
-      const engine = createEngine(quizEngineBank(selectedBank), { resume: review ? [] : started.resume, seed: sessionId });
+      const startResume = review ? [] : started.resume;
+      const engine = createEngine(quizEngineBank(selectedBank), { resume: startResume, seed: sessionId });
       const admitted = { scope, bank: selectedBank, review, sessionId };
       const outbox = new QuizProgressOutbox({
-        api: { post: (_path: string, body: any) => scope.api.progress(sessionId, body) },
+        api: { post: (_path: string, body: any) => { sentRef.current = Array.isArray(body?.attempts) ? body.attempts.length : 0; return scope.api.progress(sessionId, body); } },
         engine, sessionId, review,
         isActive: () => isCurrentScope(scope) && admissionRef.current === admitted,
         validateAck: selectedBank.managed ? (value: unknown, payload: any) => validQuizProgress(value, selectedBank.managed, payload) : null,
@@ -279,28 +313,35 @@ export function QuizPlayer() {
         onAcknowledged: (value: any) => {
           if (!isCurrentScope(scope)) return;
           setSaveUnconfirmed(false);
+          ackedRef.current += sentRef.current; sentRef.current = 0; syncUnsaved(); setLastSavedAt(new Date());
           if (selectedBank.managed && value?.grammar?.mastery_retained === true) setMasteryRetained(true);
         },
       });
       admissionRef.current = admitted; scope.outbox = outbox;
-      engineRef.current = engine; sessionIdRef.current = sessionId; outboxRef.current = outbox; authTokenRef.current = token;
+      engineRef.current = engine; startResumeRef.current = Array.isArray(startResume) ? startResume : []; sessionIdRef.current = sessionId; outboxRef.current = outbox; authTokenRef.current = token;
       startedAtRef.current = Date.now(); logRef.current = [];
+      answeredRef.current = 0; ackedRef.current = 0; sentRef.current = 0; setUnsaved(0); setQuestionNo(0);
       finishLockRef.current = false; answerLockRef.current = false; advanceLockRef.current = false; enterSubmitRef.current = false;
       setPhase('play'); setFeedback(null); setTextAnswer(''); setProgress(engine.progress());
       const item = engine.next();
-      if (!item) { setPhase('finishing'); await finish(scope); } else setCurrent(item);
+      if (!item) { setPhase('finishing'); await finish(scope); } else { setCurrent(item); setQuestionNo(1); }
     } catch {
       unavailable(scope, 'Không xác nhận được lượt học mới. Hãy mở lại bài để kiểm tra trước khi tiếp tục.');
     } finally {
       if (isCurrentScope(scope)) { startLockRef.current = false; setStartBusy(false); }
     }
-  }, [finish, isCurrentScope, unavailable]);
+  }, [finish, isCurrentScope, syncUnsaved, unavailable]);
 
   useEffect(() => {
-    if (!requestKey) return;
+    if (!requestKey || drill === null) return;
     const controller = new AbortController();
-    const scope: RunScope = { key: requestKey, accountId: user!.id, epoch: ++epochRef.current, disposed: false, controller, api: quizPlayerApi(controller.signal, () => isCurrentScope(scope)) };
+    const auth = drill ? {
+      noRedirect: () => admissionRef.current?.scope === scope,
+      onUnauthorized: () => { if (isCurrentScope(scope)) setSession('expired'); },
+    } : undefined;
+    const scope: RunScope = { key: requestKey, accountId: user!.id, epoch: ++epochRef.current, disposed: false, controller, api: quizPlayerApi(controller.signal, () => isCurrentScope(scope), auth) };
     scopeRef.current = scope;
+    setSession('active'); answeredRef.current = 0; ackedRef.current = 0; sentRef.current = 0; setUnsaved(0); setLastSavedAt(undefined);
     setOwnerKey(requestKey); setPhase('loading'); setMessage(''); setBank(null); setCurrent(null); setFeedback(null); setMasteryRetained(false); setSaveUnconfirmed(false);
     cardReturnFocusRef.current = null;
     setCardKey(null); setResult(null); setReviewRows([]); setWrongOnly(true);
@@ -350,11 +391,52 @@ export function QuizPlayer() {
       }
     })();
     return () => {
-      sendKeepalive(scope);
+      // An expired run handed to another account sends nothing (FR-013).
+      if (sessionStateRef.current !== 'expired') sendKeepalive(scope);
       scope.disposed = true; scope.outbox?.dispose(); controller.abort();
       if (scopeRef.current === scope) scopeRef.current = null;
     };
-  }, [querySource, requestKey, reopen, sendKeepalive, startPlay, isCurrentScope, unavailable]);
+  }, [querySource, requestKey, drill, reopen, sendKeepalive, startPlay, isCurrentScope, unavailable]);
+
+  // FR-013: the same account is signed in again (here or in another tab), or the
+  // network or window comes back: send what the outbox still holds, then go on.
+  useEffect(() => {
+    if (!drill || session !== 'expired') return undefined;
+    let running = false;
+    const retry = async () => {
+      const scope = scopeRef.current;
+      if (running || !scope || !isCurrentScope(scope) || status !== 'signed-in' || user?.id !== scope.accountId) return;
+      running = true;
+      try {
+        try {
+          const current = await (window.getSupabase() as SupabaseClient | null | undefined)?.auth?.getSession?.();
+          if (current?.data?.session?.user?.id === scope.accountId) authTokenRef.current = current.data.session.access_token || authTokenRef.current;
+        } catch { /* the keepalive keeps its old token */ }
+        const saved = scope.outbox ? await scope.outbox.flush(true) : true;
+        if (!isCurrentScope(scope) || !saved) return;
+        syncUnsaved(); setSaveUnconfirmed(false); setSession('active');
+      } finally { running = false; }
+    };
+    void retry();
+    window.addEventListener('focus', retry);
+    window.addEventListener('online', retry);
+    return () => { window.removeEventListener('focus', retry); window.removeEventListener('online', retry); };
+  }, [drill, session, status, user?.id, isCurrentScope, syncUnsaved]);
+
+  // FR-012: "‹ Thoát" saves what is left first; the room asks only when answers stay unsaved.
+  const flushForExit = useCallback(async () => {
+    const scope = scopeRef.current;
+    if (scope && isCurrentScope(scope) && admissionRef.current?.scope === scope && scope.outbox) await scope.outbox.flush(true);
+    const left = Math.max(0, answeredRef.current - ackedRef.current);
+    setUnsaved(left);
+    return { unsaved: left };
+  }, [isCurrentScope]);
+  useEffect(() => {
+    if (!drill) return undefined;
+    const onOnline = () => { const scope = scopeRef.current; if (scope && isCurrentScope(scope)) void scope.outbox?.flush(true).then(() => syncUnsaved()); };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [drill, isCurrentScope, syncUnsaved]);
 
   useEffect(() => {
     if (feedback && !enterSubmitRef.current) nextButtonRef.current?.focus();
@@ -419,6 +501,7 @@ export function QuizPlayer() {
     const response = engineRef.current.submit(value);
     if (!response) { answerLockRef.current = false; return; }
     advanceLockRef.current = false;
+    if (!admissionRef.current?.review) { answeredRef.current += 1; syncUnsaved(); }
     const question = current.question;
     const correctText = correctAnswerText(question);
     const articleUrl = safeQuizLink(question.article_url);
@@ -457,7 +540,8 @@ export function QuizPlayer() {
     const scope = scopeRef.current;
     if (resetLockRef.current || !currentBank || !scope || !isCurrentScope(scope)
         || currentBank.managed && (!currentBank.managed.isCurrent || !currentBank.grammar.new_starts_enabled)) return;
-    if (!window.confirm('Xóa toàn bộ tiến độ “đã thuộc” của bài này và làm lại từ đầu?')) return;
+    // The exam-room branch asks in its own in-page box before calling this (FR-010).
+    if (!drill && !window.confirm('Xóa toàn bộ tiến độ “đã thuộc” của bài này và làm lại từ đầu?')) return;
     resetLockRef.current = true; setResetBusy(true); setMessage('');
     try {
       let confirmed = false;
@@ -513,7 +597,65 @@ export function QuizPlayer() {
   const visibleReviews = wrongOnly ? reviewRows.filter((row) => row.wrongCount > 0) : reviewRows;
   const selectedCard = cardKey ? bank?.word_cards?.[cardKey] : null;
 
-  if (!requestKey || !fresh || status === 'initial-loading') return <QuizPlayerLoading />;
+  if (!requestKey || !fresh || status === 'initial-loading' || drill === null) return <QuizPlayerLoading />;
+
+  if (drill) {
+    // Answers waiting in the outbox (below the batch size or in flight) are not
+    // saved yet: the bar says "saving", never "saved" (Codex P2 on #2597).
+    const saveStatus: ExamRoomSaveStatus = unsaved > 0 && (saveUnconfirmed || session === 'expired')
+      ? { state: 'retrying', unsaved, lastSavedAt }
+      : unsaved > 0 ? { state: 'saving', lastSavedAt }
+        : lastSavedAt ? { state: 'saved', lastSavedAt } : { state: 'idle' };
+    return (
+      <Suspense fallback={<QuizPlayerLoading />}>
+      <QuizRoom
+        phase={phase}
+        ownerKey={scopeRef.current?.accountId || user?.id || ''}
+        sessionKey={sessionIdRef.current || `quiz:${querySource}`}
+        message={message}
+        retryable={retryable}
+        bank={bank}
+        area={area}
+        question={question || null}
+        itemKey={current?.item_key || ''}
+        answerOrder={answerOrder}
+        options={options}
+        feedback={feedback}
+        textAnswer={textAnswer}
+        questionNo={questionNo}
+        progress={progress}
+        result={result}
+        reviewRows={reviewRows}
+        review={Boolean(admissionRef.current?.review)}
+        masteryRetained={masteryRetained}
+        saveUnconfirmed={saveUnconfirmed}
+        pending={unsaved}
+        saveStatus={saveStatus}
+        session={session}
+        startBusy={startBusy}
+        resetBusy={resetBusy}
+        instruction={question ? instruction(question) : ''}
+        renderText={(value) => <FormattedText value={value} />}
+        formatDuration={formatDuration}
+        stringList={stringList}
+        onText={setTextAnswer}
+        onAnswer={submitAnswer}
+        onTextEnter={() => { enterSubmitRef.current = true; submitAnswer(textAnswer); }}
+        onNext={() => scopeRef.current && showNext(scopeRef.current)}
+        onReopen={() => { scopeRef.current?.outbox?.dispose(); setReopen((value) => value + 1); }}
+        onContinueLegacy={() => bankRef.current && scopeRef.current && void startPlay(bankRef.current, false, scopeRef.current)}
+        onReview={() => bankRef.current && scopeRef.current && void startPlay(bankRef.current, true, scopeRef.current)}
+        onReset={resetProgress}
+        flush={flushForExit}
+        nextButtonRef={nextButtonRef}
+        reopenButtonRef={reopenButtonRef}
+        textInputRef={textInputRef}
+        promptRef={promptRef}
+        summaryHeadingRef={summaryHeadingRef}
+      />
+      </Suspense>
+    );
+  }
 
   return (
     <QuizFrame active={area.active}>
@@ -606,7 +748,7 @@ export function QuizPlayer() {
             <p className="qz-eyebrow">Quick-Check · Kết quả phiên</p>
             <h1 ref={summaryHeadingRef} tabIndex={-1} id="qz-summary-title">🎉 Hoàn tất phiên!</h1>
             <div className="qz-result-tiles"><div><span>⏱ Thời gian</span><strong>{formatDuration(result.durationSeconds)}</strong></div><div><span>Số câu đã làm</span><strong>{result.totalQuestions}</strong></div><div><span>{area.masteredNoun}</span><strong>{result.mastered}<small>/{result.total}</small></strong></div></div>
-            <article className="av-card qz-card"><h2>Hiệu suất</h2><div className="qz-result-row"><span>Độ chính xác</span><strong>{result.accuracy}%</strong></div><div className="qz-track"><div className="qz-bar" style={{ width: `${result.accuracy}%` }} /></div><div className="qz-result-row"><span>Đúng / Sai</span><span><b className="is-success">{result.totalCorrect}</b> · <b className="is-error">{result.totalWrong}</b></span></div>{result.hardest?.key && result.hardest.attempts > 1 ? <div className="qz-result-row"><span>{area.hardestNoun}</span><b>{displayItemKey(result.hardest.key, area.grammar)} · {result.hardest.attempts} lần</b></div> : null}</article>
+            <article className="av-card qz-card"><h2>{cumulative ? 'Lượt này' : 'Hiệu suất'}</h2><div className="qz-result-row"><span>Độ chính xác</span><strong>{result.accuracy}%</strong></div><div className="qz-track"><div className="qz-bar" style={{ width: `${result.accuracy}%` }} /></div><div className="qz-result-row"><span>Đúng / Sai</span><span><b className="is-success">{result.totalCorrect}</b> · <b className="is-error">{result.totalWrong}</b></span></div>{cumulative ? <p className="qz-muted">Tính cả các lần trước trong bài này: đúng {cumulative.correct}, sai {cumulative.wrong}</p> : null}{result.hardest?.key && result.hardest.attempts > 1 ? <div className="qz-result-row"><span>{area.hardestNoun}</span><b>{displayItemKey(result.hardest.key, area.grammar)} · {result.hardest.attempts} lần</b></div> : null}</article>
             {result.carriedKeys.length ? <article className="av-card qz-card"><h2>Cần ôn lại ({result.carriedKeys.length})</h2><div className="qz-chips">{result.carriedKeys.map((key: string) => { const normalized = key.toLowerCase(); const hasCard = Boolean(bank?.word_cards?.[normalized]); return hasCard ? <button type="button" className="qz-chip qz-res-chip" key={key} onClick={(event) => openCard(normalized, event.currentTarget)}>{displayItemKey(key, area.grammar)}</button> : <span className="qz-chip" key={key}>{displayItemKey(key, area.grammar)}</span>; })}</div></article> : null}
             {reviewRows.length ? <article className="av-card qz-card"><div className="qz-review-head"><h2>Xem lại bài làm</h2><button type="button" className="av-button av-button-secondary av-button-sm" onClick={() => setWrongOnly((value) => !value)}>{wrongOnly ? `Hiện tất cả (${reviewRows.length})` : `Chỉ câu sai (${reviewRows.filter((row) => row.wrongCount > 0).length})`}</button></div>{visibleReviews.length ? visibleReviews.map((row) => <div className={`qz-review-item ${!row.correct ? 'is-wrong' : row.wrongCount ? 'is-fixed' : 'is-right'}`} key={row.qid}><strong><FormattedText value={row.prompt} /></strong>{row.hint ? <p>💡 <FormattedText value={row.hint} /></p> : null}{row.wrongCount > 0 && row.correct && row.wrongGiven != null ? <p>Từng trả lời sai: <b className="is-error"><FormattedText value={row.wrongGiven} /></b> ✗{row.wrongCount > 1 ? ` (sai ${row.wrongCount} lần)` : ''}</p> : null}<p>{row.wrongCount > 0 && row.correct ? 'Sau đó trả lời đúng' : 'Bạn trả lời'}: <b className={row.correct ? 'is-success' : 'is-error'}><FormattedText value={row.given} /></b> {row.correct ? '✓' : '✗'}</p>{!row.correct && row.correctText ? <p>Đáp án đúng: <b className="is-success"><FormattedText value={row.correctText} /></b></p> : null}{row.explain ? <p><FormattedText value={row.explain} /></p> : null}{safeQuizLink(row.article_url) ? <p><a href={safeQuizLink(row.article_url)!} target="_blank" rel="noopener noreferrer">📖 Ôn lại bài</a></p> : null}</div>) : <p className="qz-muted">🎉 Không sai câu nào trong phiên này.</p>}</article> : null}
             {!result.saved ? <div className="qz-save-warning" role="alert"><strong>⚠ Chưa xác nhận lưu hết tiến độ</strong><p>Một phần tiến độ hoặc trạng thái kết thúc chưa được máy chủ xác nhận. Hãy tải lại trang thống kê trước khi làm lại.</p></div> : null}

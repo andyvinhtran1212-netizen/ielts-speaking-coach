@@ -136,7 +136,7 @@ def authenticated(monkeypatch):
     async def user(_authorization): return {"id": "owner"}
     monkeypatch.setattr(sessions, "get_supabase_user", user)
     monkeypatch.setattr(admin, "require_admin", user)
-    monkeypatch.setattr(sessions, "compute_expiry", lambda _session: {})
+    monkeypatch.setattr(sessions, "compute_expiry", lambda _session, *_args, **_kwargs: {})
 
 
 def test_owner_audio_endpoint_signs_legacy_recording(monkeypatch, authenticated):

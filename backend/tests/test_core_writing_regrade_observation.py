@@ -73,6 +73,11 @@ async def test_grading_admission_snapshots_canonical_state(world, monkeypatch, r
         world.getter.assert_not_awaited()
         world.receipt.assert_not_awaited()
         assert world.essay["status"] == ("grading" if stage == "guard_reject" else old_status)
+    elif stage == "job_error" and route == "admin_regrade":
+        # Báo cáo săn lỗi B1-21: không xếp được job ⇒ không reaper nào trả
+        # status về; admin regrade tự trả status cũ thay vì kẹt 'grading'.
+        assert world.essay["status"] == old_status
+        assert world.fake.store.get("writing_jobs", []) == []
     else:
         assert world.essay["status"] == "grading"
         if observation == "recorded":
@@ -136,7 +141,7 @@ async def test_moderation_only_accepted_essay_changes_get_snapshots(world, monke
     monkeypatch.setattr(admin_writing_regrade, "supabase_admin", SimpleNamespace(rpc=rpc))
     formatter = Mock(side_effect=failure if stage == "format_error" else lambda rows: rows)
     monkeypatch.setattr(admin_writing_regrade, "_decorate", formatter)
-    body = admin_writing_regrade.RegradeAction(action=action, response="test explanation")
+    body = admin_writing_regrade.RegradeAction(action=action, response="test explanation that is long enough for the 40 char rule")
     if stage == "ok":
         assert await admin_writing_regrade.action_regrade_request(request_id, body, "auth") == request_row
     else:
@@ -171,7 +176,7 @@ async def test_moderation_hook_uses_rpc_status_not_intent(world, monkeypatch, ac
         SimpleNamespace(execute=lambda: SimpleNamespace(data={"ok": True, "request": request_row}))))
     monkeypatch.setattr(admin_writing_regrade, "_decorate", lambda rows: rows)
     result = await admin_writing_regrade.action_regrade_request(request_id,
-        admin_writing_regrade.RegradeAction(action=action, response="test explanation"), "auth")
+        admin_writing_regrade.RegradeAction(action=action, response="test explanation that is long enough for the 40 char rule"), "auth")
     assert result == request_row
     if status == "accepted":
         world.receipt.assert_awaited_once()

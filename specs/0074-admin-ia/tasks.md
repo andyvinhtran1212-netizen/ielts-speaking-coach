@@ -103,7 +103,7 @@ Chi tiết từng nhiệm vụ (gói mục 6, chép nguyên):
 - Ước lượng: 3 phiên · 4.
 
 ### G09-T05 — API tìm nhanh — SỬA
-- Mục đích: `GET /admin/search`, `GET /instructor/search`.
+- Mục đích: `POST /admin/search`, `POST /instructor/search` (body JSON `{ q }`, không đặt `q` trên URL — #2453).
 - Việc làm: học viên qua service T03 (≤3); lớp từ `cohorts`; bài nộp `writing_essays`; đề (chỉ admin); **đơn đăng ký** theo mã `AVER-…` hoặc email qua API G04 (chưa có → bỏ nhóm). Escape `%`/`_`. Giáo viên: lọc `scope.cohort_ids`. Log `admin_search` không ghi `q`.
 - Đầu ra: 1 PR backend. Nghiệm thu: pytest: giáo viên A không thấy học viên lớp B; q 1 ký tự → 422; `%` không thành wildcard; inventory qua.
 - Không làm: không full-text index, không migration.

@@ -13,7 +13,9 @@ const read = (...p) => readFileSync(path.join(FRONTEND, ...p), 'utf8');
 const REPORTER = read('js', 'error-reporter.js');
 const BEACON = read('js', 'analytics-beacon.js');
 const API = read('js', 'api.js');
-const ADMIN_JS = read('js', 'admin-error-logs.js');
+// LEGACYJS-0075 W4b: admin-error-logs.js is deleted; the Next page owns it.
+const ADMIN_JS = read('app', '(authed-admin)', '(error-logs)', 'admin', 'error-logs', 'admin-error-logs.tsx');
+const ADMIN_MODEL = read('lib', 'admin-error-logs-model.mjs');
 const ADMIN_HTML = read('pages', 'admin', 'error-logs', 'index.html');
 
 test('error-reporter: migration tags (implementation/release) ride in extra (ADR-012 §3)', () => {
@@ -53,17 +55,20 @@ test('correlation chain: failed api calls carry join keys into error reports (re
 });
 
 test('triage refresh: dismiss/undismiss also refresh the migration panel (review #746)', () => {
-  const refreshes = ADMIN_JS.match(/loadLogs\(\), loadStats\(\), loadMigrationStats\(\)/g) || [];
-  assert.ok(refreshes.length >= 2,
+  const refreshes = ADMIN_JS.match(/loadLogs\(latest\.filters, latest\.offset\), loadStats\(\), loadMigration\(\)/g) || [];
+  // Dismiss and undismiss share one triage handler; #2655 moved the test-error
+  // generator (the page's other refresh) to /admin/qa-tools (FR-073).
+  assert.ok(refreshes.length >= 1,
     'both dismiss and undismiss must refresh migration-stats (its undismissed column is canonical state)');
+  assert.match(ADMIN_JS, /action: 'dismiss' \| 'undismiss'/);
 });
 
 test('cutover dashboard: admin Báo lỗi renders migration-stats (ADR-012 điều kiện mở)', () => {
   assert.match(ADMIN_HTML, /id="migration-stats-panel"/);
   assert.match(ADMIN_HTML, /id="migration-stats-body"/);
-  assert.match(ADMIN_JS, /function loadMigrationStats\(\)/);
+  assert.match(ADMIN_JS, /const loadMigration = useCallback\(/);
   assert.match(ADMIN_JS, /'\/admin\/error-logs\/migration-stats'/);
-  assert.match(ADMIN_JS, /truncated/, 'silent truncation is forbidden — must render the warning');
+  assert.match(ADMIN_JS, /\{migration\.truncated && <div className="el-note is-warning">/, 'silent truncation is forbidden — must render the warning');
 });
 
 // ── AUDIT F2 (2026-07-14): field Web Vitals collector ──────────────────
@@ -117,11 +122,13 @@ test('rollback-metrics: admin panel computes the FROZEN triggers with a real den
   assert.match(ADMIN_HTML, /id="rollback-metrics-panel"/);
   assert.match(ADMIN_HTML, /id="rbm-route"/);
   assert.match(ADMIN_HTML, /id="rbm-window"/);
-  assert.match(ADMIN_JS, /function loadRollbackMetrics\(\)/);
-  assert.match(ADMIN_JS, /\/admin\/error-logs\/rollback-metrics\?route=/);
-  assert.match(ADMIN_JS, /encodeURIComponent\(route\)/, 'route param must be URL-encoded');
-  assert.match(ADMIN_JS, /error_verdict/, 'the verdict (not just raw counts) must render');
-  assert.match(ADMIN_JS, /vitals_verdict/, 'the LCP verdict must render');
+  assert.match(ADMIN_JS, /const loadRollback = async \(\) =>/);
+  assert.match(ADMIN_JS, /`\/admin\/error-logs\/rollback-metrics\?\$\{params\}`/);
+  assert.match(ADMIN_JS, /new URLSearchParams\(\{ route, window_minutes: windowMinutes, match: matchMode \}\)/, 'route param must be URL-encoded');
+  assert.match(ADMIN_MODEL, /raw\.error_verdict/, 'the verdict (not just raw counts) must render');
+  assert.match(ADMIN_JS, /verdict=\{rollback\.errorVerdict\}/);
+  assert.match(ADMIN_MODEL, /raw\.vitals_verdict/, 'the LCP verdict must render');
+  assert.match(ADMIN_JS, /verdict=\{rollback\.vitalsVerdict\}/);
   assert.match(ADMIN_JS, /insufficient-sample/,
     'sample insufficiency must be surfaced — a rate over 3 views is not a verdict');
 });

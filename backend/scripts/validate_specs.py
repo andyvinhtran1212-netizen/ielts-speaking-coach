@@ -1276,6 +1276,25 @@ def _requirement_coverage(body: str) -> list[tuple[str, str]]:
     )
 
 
+# A pinned release cut: `release/<sha>` whose head is exactly that staging
+# commit. Hotfix names such as `release/<sha>-hotfix-N` do not match and are
+# validated like any other pull request.
+RELEASE_HEAD_RE = re.compile(r"release/([0-9a-f]{7,40})")
+
+
+def _is_promotion_head(head: str, head_sha: str) -> bool:
+    """Return True for a staging→main promotion head.
+
+    The staging branch itself, or a `release/<sha>` branch whose name pins the
+    head commit. The staging promotion gate separately proves that the commit
+    is in staging and passed the exact-SHA integrated checks.
+    """
+    if head == "staging":
+        return True
+    match = RELEASE_HEAD_RE.fullmatch(head)
+    return bool(match and head_sha and head_sha.lower().startswith(match.group(1)))
+
+
 def validate_pull_request(
     event: dict[str, Any], known_specs: dict[str, Path], root: Path = REPO_ROOT
 ) -> list[str]:
@@ -1287,7 +1306,7 @@ def validate_pull_request(
     base_sha = str((pull.get("base") or {}).get("sha") or "")
     head = str((pull.get("head") or {}).get("ref") or "")
     head_sha = str((pull.get("head") or {}).get("sha") or "")
-    if base == "main" and head == "staging":
+    if base == "main" and _is_promotion_head(head, head_sha):
         return []
 
     body = str(pull.get("body") or "")

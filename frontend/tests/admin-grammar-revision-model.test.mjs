@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import {
-  GRAMMAR_FOLLOWUP_CODES, GRAMMAR_REVISION_CODES, commandFits, freezeRevisionCommand, grammarSourceHash,
+  GRAMMAR_FOLLOWUP_CODES, GRAMMAR_REVISION_CODES, commandFits, freezeRevisionCommand as freezeWithHash, grammarSourceHash,
   isGrammarRevisionCode, normalizeRevisionAck, normalizeRevisionPreview, normalizeRevisionRead,
   revisionReadbackMatches, sourceBytes,
 } from '../lib/admin-grammar-revision-model.ts';
@@ -14,6 +14,10 @@ const sources = load('grammar-exact-form-banks.json');
 const clone = structuredClone;
 const row = fixture.rows[0];
 const sourceFor = (code) => sources.banks.find((b) => b.code === code).raw_source;
+const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
+// Mọi lệnh trong file này đóng băng đúng nguồn đã xem trước; hash tính từ nguồn.
+const freezeRevisionCommand = (actor, code, source, preview, operation) =>
+  freezeWithHash(actor, code, source, preview, operation, sha256(source));
 const commandFor = (r = row) => freezeRevisionCommand(fixture.actor, r.code, sourceFor(r.code), r.preview, fixture.operation_id);
 
 test('actual local PG/ASGI public read/preview/applied/replayed/current wire retains exact command and canonical identities', async () => {
@@ -271,4 +275,11 @@ test('GRAMMARAUDIT-0019 FR-007: follow-up reads and first-edge replays are limit
     assert.equal(normalizeRevisionAck(replay, command) !== null, allowed, code);
     assert.equal(normalizeRevisionAck({ ...replay, outcome: 'applied' }, command), null, code);
   }
+});
+
+test('a command never freezes a source whose hash is not the preview hash (bug-hunt #135)', () => {
+  const source = sourceFor(row.code);
+  const edited = `${source}\n`;
+  assert.notEqual(freezeWithHash(fixture.actor, row.code, source, row.preview, fixture.operation_id, sha256(source)), null);
+  assert.equal(freezeWithHash(fixture.actor, row.code, edited, row.preview, fixture.operation_id, sha256(edited)), null);
 });
