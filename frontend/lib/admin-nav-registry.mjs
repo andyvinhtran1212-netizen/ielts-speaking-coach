@@ -63,7 +63,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
       item('speaking', 'Speaking', '/admin/speaking'),
       item('vocab', 'Từ vựng', '/admin/vocab'),
       item('grammar', 'Ngữ pháp', '/admin/grammar'),
-      soon('library', 'Thư viện công khai', { plannedHref: '/admin/library' }),
+      item('library', 'Thư viện công khai', '/admin/library'),
     ],
   },
   { id: 'mock', label: 'Thi thử', icon: 'timer', items: [item('mock-tests', 'Kỳ thi', '/admin/mock-tests')] },
@@ -78,9 +78,9 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
   {
     id: 'system', label: 'Hệ thống', icon: 'settings', items: [
       item('incidents', 'Hộp thư sự cố', '/admin/incidents', { countKey: 'incident_groups_open' }),
-      soon('ai-models', 'AI và mô hình', { plannedHref: '/admin/ai-models' }),
+      item('ai-models', 'AI và mô hình', '/admin/ai-models'),
       item('mfa', 'Bảo mật', '/admin/mfa'),
-      soon('qa-tools', 'Công cụ QA', { plannedHref: '/admin/qa-tools' }),
+      item('qa-tools', 'Công cụ QA', '/admin/qa-tools'),
       soon('settings', 'Cài đặt', { plannedHref: '/admin/settings' }),
     ],
   },

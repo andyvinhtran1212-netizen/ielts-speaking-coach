@@ -46,6 +46,10 @@ describe('admin navigation registry', () => {
       for (const item of group.items) {
         if (item.href === null) {
           assert.equal(item.available, false, item.label);
+          if (item.plannedHref) {
+            const path = item.plannedHref.split('?')[0];
+            assert.ok(!ADMIN_PAGES.includes(path), `${item.label} has a page and should be linked`);
+          }
           continue;
         }
         const route = adminRouteFor(item.href);
