@@ -3,9 +3,8 @@ amendment 1, FR-030…FR-037).
 
     GET /api/student/course -> get_course_concurrent(...)
 
-Read-only, apart from the class-ledger reconcile that the shared assignment
-reader performs for the requesting learner (the FR-078 exception, amendment 3, #2484):
-`assigned_open` reuses T13's count so the page and Today can never disagree.
+Read-only (FR-085). `assigned_open` reuses Today’s counting rules and
+reflects the requesting learner’s accepted hand-ins without updating the ledger.
 Private reads are scoped to the caller. The service-role reads run with one
 worker thread per part. A part that raises lands in `degraded` and keeps its
 empty default. Online access and the public catalogue reuse G04. Lesson
@@ -201,9 +200,9 @@ def _class_for(user_id: str, account_name: str) -> Optional[Dict[str, Any]]:
 
 
 def _assigned_open_for(user_id: str, account_name: str, now: datetime) -> Tuple[int, bool]:
-    """T13's count (`assigned_total_open`), from the same reader."""
+    """T13's count (`assigned_total_open`) from the read-only assignment view."""
     _has_class, rows, stale = student_today._visible_assignments_for(
-        user_id, account_name, now, reconcile_student_only=True
+        user_id, account_name, now, read_only=True
     )
     return student_today.build_assigned(rows, now)["assigned_total_open"], stale
 

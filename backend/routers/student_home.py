@@ -153,8 +153,8 @@ async def today_seen(body: TodaySeenRequest, authorization: str | None = Header(
 async def course(response: Response, authorization: str | None = Header(default=None)):
     """Lộ trình page payload (LEARNERCORE-0063 amendment 1, FR-030..FR-037).
 
-    Writes nothing of its own; `assigned_open` reuses Today's count, whose
-    reader performs the class-ledger reconcile (FR-078 exception, #2484).
+    Read-only (FR-085); `assigned_open` includes hand-ins that the ledger has
+    not recorded yet, without updating it.
     Each part runs in its own worker; a failing part lands in `degraded`.
     """
     response.headers["Cache-Control"] = "private, no-store"

@@ -104,8 +104,8 @@ def test_class_only_uses_todays_count(monkeypatch):
     rows = [{"assignment": {"due_at": "2026-11-30T00:00:00Z"}, "item_id": "a"},
             {"assignment": {"due_at": None}, "item_id": "b"},
             {"assignment": {"due_at": None}, "item_id": "c", "submitted_at": "2026-11-20T00:00:00Z"}]
-    def assigned(user_id, account_name, now, *, reconcile_student_only):
-        assert user_id == "u-1" and reconcile_student_only is True
+    def assigned(user_id, account_name, now, *, read_only):
+        assert user_id == "u-1" and read_only is True
         return True, rows, False
 
     monkeypatch.setattr(st, "_visible_assignments_for", assigned)
@@ -291,8 +291,9 @@ def course_client(monkeypatch):
     from fastapi.testclient import TestClient
     from routers import student_home
 
-    async def authenticated(_authorization):
-        return {"id": "u-1", "email": "a@example.com"}
+    async def authenticated(authorization):
+        learner_id = "u-2" if authorization == "Bearer learner-b" else "u-1"
+        return {"id": learner_id, "email": f"{learner_id}@example.com"}
 
     monkeypatch.setattr(student_home, "get_supabase_user", authenticated)
     app = FastAPI()
@@ -349,27 +350,27 @@ def test_course_route_reads_owned_g04_entitlement_and_public_catalog(monkeypatch
     ]
 
 
-def test_course_route_reconciles_only_the_callers_reading_and_course_ledgers(monkeypatch, course_client):
+def test_course_route_counts_hand_ins_without_writing_any_ledgers(monkeypatch, course_client):
     import database
     from routers import class_student
     from services import quiz_service
     from test_student_assigned import _two_student_ledger_db
 
     db, finished = _two_student_ledger_db()
+    next(row for row in db.tables["class_assignment_items"] if row["id"] == "course-s1")["passed_at"] = finished
+    db.tables["reading_test_attempts"] = db.tables["reading_test_attempts"][:1]
+    db.tables["course_writing_submissions"] = db.tables["course_writing_submissions"][:1]
     for module in (database, class_student, quiz_service):
         monkeypatch.setattr(module, "supabase_admin", db)
     monkeypatch.setattr(sc, "_courses_for", lambda *_a: {"items": []})
     monkeypatch.setattr(sc, "_catalog_for", lambda: [])
     monkeypatch.setattr(sc, "_class_for", lambda *_a: None)
 
-    response = course_client.get("/api/student/course", headers={"Authorization": "Bearer learner-a"})
+    for learner, expected_open in (("learner-a", 0), ("learner-b", 2)):
+        response = course_client.get("/api/student/course", headers={"Authorization": f"Bearer {learner}"})
+        assert response.status_code == 200, response.text
+        assert response.json()["degraded"] == []
+        assert response.json()["assigned_open"] == expected_open
 
-    assert response.status_code == 200, response.text
-    assert response.json()["degraded"] == []
-    assert response.json()["assigned_open"] == 0
-    assert db.writes == [("class_assignment_items", "reading-s1"), ("class_assignment_items", "course-s1")]
-    for item in db.tables["class_assignment_items"]:
-        if item["student_id"] == "s1":
-            assert item["submitted_at"] == finished
-        else:
-            assert item["state"] == "assigned" and item["submitted_at"] is None
+    assert db.writes == []
+    assert all(row["submitted_at"] is None for row in db.tables["class_assignment_items"])
