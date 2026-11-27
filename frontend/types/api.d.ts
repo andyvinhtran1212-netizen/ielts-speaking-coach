@@ -15531,6 +15531,12 @@ export interface components {
             created_at: string;
             /** Review Eligible */
             review_eligible: boolean;
+            /** Display State */
+            display_state?: ("draft" | "scheduled" | "open" | "running" | "grading" | "released" | "ended" | "archived") | null;
+            /** Audience Count */
+            audience_count?: number | null;
+            /** Listening Seconds */
+            listening_seconds?: number | null;
         } & {
             [key: string]: unknown;
         };
@@ -16751,6 +16757,11 @@ export interface components {
              * @default false
              */
             learner_v2_enabled: boolean;
+            /**
+             * Speaking Course Access
+             * @default false
+             */
+            speaking_course_access: boolean;
         };
         /** AuthProfileResponse */
         AuthProfileResponse: {
@@ -19333,6 +19344,58 @@ export interface components {
              */
             user_answer: string | null;
         };
+        /** ExamAudiencePatchResponse */
+        ExamAudiencePatchResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+            /** Mirror Failed */
+            mirror_failed?: boolean;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
+        };
+        /** ExamAudienceResponse */
+        ExamAudienceResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+        };
+        /** ExamAudienceRow */
+        ExamAudienceRow: {
+            /** User Id */
+            user_id: string | null;
+            /** Student Id */
+            student_id: string;
+            /** Name */
+            name: string;
+            /** Cohort */
+            cohort: string | null;
+            source: components["schemas"]["ExamAudienceSource"];
+            /** Skills */
+            skills: ("listening" | "reading" | "writing" | "speaking")[];
+            /** Selected */
+            selected: boolean;
+            /** Excluded Reason */
+            excluded_reason: string | null;
+            /** Open From */
+            open_from: string | null;
+            /** Open Until */
+            open_until: string | null;
+        };
+        /** ExamAudienceSource */
+        ExamAudienceSource: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cohort" | "learner" | "group";
+            /** Label */
+            label: string | null;
+        };
         /**
          * ExamContentItem
          * @description Canonical cross-library row returned to the admin catalog.
@@ -19540,6 +19603,39 @@ export interface components {
             draft_state?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ExamScheduleResponse */
+        ExamScheduleResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "published";
+            /** Selected */
+            selected: number;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
+        };
+        /**
+         * ExamWriteResponse
+         * @description The persisted exam row, with additional columns from the database.
+         */
+        ExamWriteResponse: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+        } & {
+            [key: string]: unknown;
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -51426,7 +51522,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51530,7 +51626,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51707,7 +51803,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudienceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51744,7 +51840,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudiencePatchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51777,7 +51873,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamScheduleResponse"];
                 };
             };
             /** @description Validation Error */
