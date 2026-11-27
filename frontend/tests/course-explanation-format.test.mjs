@@ -68,22 +68,23 @@ describe('safe explanation block formatter', () => {
 });
 
 describe('one explanation contract across learner and admin surfaces', () => {
+  // LEGACYJS-0075 W3b: admin-classes.js is deleted; the Next admin submissions
+  // panel renders explanations with its own escaped InlineMd (see the W3b ledger).
   const sources = [
     read('public', 'js', 'course-writing.js'),
     read('public', 'js', 'course-report.js'),
     read('public', 'js', 'quiz-progress.js'),
-    read('public', 'js', 'admin-classes.js'),
     read('app', '(authed)', 'course-exercises', 'course-behavior.tsx'),
     read('app', '(authed-quiz-progress)', 'quiz', 'progress', 'quiz-progress-behavior.tsx'),
   ];
 
   test('every explanation renderer uses the shared safe formatter', () => {
-    sources.slice(0, 5).forEach((source) => assert.match(source, /formatCourseExplanation\(/));
-    assert.match(sources[5], /parseCourseExplanation\(/);
+    sources.slice(0, 4).forEach((source) => assert.match(source, /formatCourseExplanation\(/));
+    assert.match(sources[4], /parseCourseExplanation\(/);
   });
 
   test('immediate feedback announces only the new result region', () => {
-    const behavior = sources[4];
+    const behavior = sources[3];
     const shell = read('app', '(authed)', 'course-exercises', 'page-shell.tsx');
     assert.match(behavior, /id="cx-why" role="status" aria-live="polite" aria-atomic="true"/);
     assert.match(behavior, /<h2 class="cx-why__label">Giải thích<\/h2>/);

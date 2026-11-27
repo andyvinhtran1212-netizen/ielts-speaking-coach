@@ -36,7 +36,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
       item('learners', 'Học viên', '/admin/learners'),
       item('classes', 'Lớp', '/admin/classes'),
       item('instructors', 'Giáo viên', '/admin/instructors'),
-      soon('activation-codes', 'Mã kích hoạt', { plannedHref: '/admin/activation-codes' }),
+      item('activation-codes', 'Mã kích hoạt', '/admin/activation-codes'),
       soon('notifications', 'Gửi thông báo', { plannedHref: '/admin/notifications' }),
       { ...item('surveys', 'Khảo sát và nhận xét', '/admin/surveys'), available: false }, // GOI-13 part A builds it
     ],
@@ -63,7 +63,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
       item('speaking', 'Speaking', '/admin/speaking'),
       item('vocab', 'Từ vựng', '/admin/vocab'),
       item('grammar', 'Ngữ pháp', '/admin/grammar'),
-      soon('library', 'Thư viện công khai', { plannedHref: '/admin/library' }),
+      item('library', 'Thư viện công khai', '/admin/library'),
     ],
   },
   { id: 'mock', label: 'Thi thử', icon: 'timer', items: [item('mock-tests', 'Kỳ thi', '/admin/mock-tests')] },
@@ -78,9 +78,9 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
   {
     id: 'system', label: 'Hệ thống', icon: 'settings', items: [
       item('incidents', 'Hộp thư sự cố', '/admin/incidents', { countKey: 'incident_groups_open' }),
-      soon('ai-models', 'AI và mô hình', { plannedHref: '/admin/ai-models' }),
+      item('ai-models', 'AI và mô hình', '/admin/ai-models'),
       item('mfa', 'Bảo mật', '/admin/mfa'),
-      soon('qa-tools', 'Công cụ QA', { plannedHref: '/admin/qa-tools' }),
+      item('qa-tools', 'Công cụ QA', '/admin/qa-tools'),
       soon('settings', 'Cài đặt', { plannedHref: '/admin/settings' }),
     ],
   },
@@ -172,6 +172,7 @@ export const ADMIN_ROUTES = Object.freeze([
   r('/admin/classes/[cohortId]/assignments/[assignmentId]', 'context', 'learners', 'classes'),
   r('/admin/classes/[cohortId]/assignments/[assignmentId]/release', 'context', 'learners', 'classes'),
   r('/admin/activation-codes', 'nav', 'learners', 'activation-codes'),
+  r('/admin/activation-codes/[codeId]', 'context', 'learners', 'activation-codes'),
   r('/admin/notifications', 'nav', 'learners', 'notifications'),
   r('/admin/surveys', 'nav', 'learners', 'surveys'),
   r('/admin/instructors/[id]', 'context', 'learners', 'instructors'),

@@ -413,6 +413,15 @@ def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
         except Exception:
             bands["speaking"], failed = None, failed + ["speaking"]
 
+    # Care notes are an admin's (Q16 b): a teacher gets none.
+    latest_note = None
+    if cohort_ids is None:
+        from services import learner_care_notes   # it imports Person from here
+        try:
+            latest_note = learner_care_notes.latest(person)
+        except Exception:
+            failed.append("care_notes")
+
     return {
         "name": person.name,
         "cohorts": cohorts,
@@ -422,7 +431,7 @@ def summary(person: Person, thresholds: Optional[dict[str, Optional[int]]],
         "overdue": overdue,
         "recent_bands": bands,
         "last_active_at": (person.user or {}).get("last_seen_at") or None,
-        "latest_note": None,   # care notes arrive with G09-T35 (migration 442)
+        "latest_note": latest_note,
     }, sorted(set(failed))
 
 

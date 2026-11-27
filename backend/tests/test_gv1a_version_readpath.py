@@ -32,7 +32,7 @@ def test_writing_feedback_read_path_gate():
     writer_re = re.compile(r'\.(insert|update|delete)\s*\(')
     violations: list[str] = []
     for d in (root / "routers", root / "services"):
-        for p in sorted(d.glob("*.py")):
+        for p in sorted(d.rglob("*.py")):
             lines = p.read_text(encoding="utf-8").splitlines()
             for i, line in enumerate(lines):
                 if base_re.search(line):

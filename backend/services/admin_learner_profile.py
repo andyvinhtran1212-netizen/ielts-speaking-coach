@@ -4,7 +4,7 @@ plan 5.4 ``GET /admin/learners/{ref}/overview``; G09-T04).
 Each block is its own function. A block whose source cannot be read is
 ``None`` and its name goes to ``sources_failed``; the other blocks still
 answer. Nothing here guesses: a value with no source yet (G04 courses and
-credits, G09-T35 care notes, term milestones) is ``None``, not ``0`` or ``[]``.
+credits, term milestones) is ``None``, not ``0`` or ``[]``.
 
 * ``alerts``  — the reasons of ``learner_attention.compute`` (the one
   attention function, FR-029), plus the codes that were checked and did not
@@ -403,7 +403,9 @@ def scores(person: Person) -> dict[str, Any]:
     return {"grammar": grammar, "writing": writing, "speaking": speaking, "mock": mock, "milestones": None}
 
 
-def side() -> dict[str, Any]:
-    """Right column. Care notes arrive with G09-T35; courses and credits with
-    G04's read API. Until then each is ``None`` (never 0)."""
-    return {"due_notes": None, "courses": None, "credits_left": None, "credits_carried": None}
+def side(due_notes: Optional[list[dict[str, Any]]] = None) -> dict[str, Any]:
+    """Right column. ``due_notes`` is the care notes' booked work
+    (:func:`services.learner_care_notes.due`; ``None`` when it could not be
+    read). Courses and credits arrive with G04's read API; until then each is
+    ``None`` (never 0)."""
+    return {"due_notes": due_notes, "courses": None, "credits_left": None, "credits_carried": None}
