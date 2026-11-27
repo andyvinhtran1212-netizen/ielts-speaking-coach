@@ -1,5 +1,7 @@
 # Bảng lô merge vào staging (MERGE-LOTS-20261123)
 
+> Bản chụp lịch sử. Các SHA, HOLD và lịch dưới đây phản ánh thời điểm lập bảng. Đội Codex tiếp quản ngày 27/11. Đối chiếu [tiến độ phát hành hiện tại](https://github.com/andyvinhtran1212-netizen/aver-tien-do/blob/main/mang/phat-hanh.md) trước khi dùng bảng để điều phối.
+
 Thread tiếp quản lập theo lệnh anh Andy 23/11 13:31Z (20:31 VN). Dữ liệu GitHub quét lúc 13:33–13:35Z; đã đối chiếu với `team/queue/MERGE-ORDER-20261125.md`, `CHO-CI-20261123.md`, `READY-QUEUE-20261123.md` và `lots-input-g09-mock.md` (thread qk9jb5). Bảng chỉ đọc: không merge, không bật auto-merge.
 
 **Lưu ý CI:** cột CI là dữ liệu 13:33Z; hầu hết run sau đó đã bị huỷ (đợt 14:03Z và concurrency #2630). Chạy lại CI cho lô 2–4 hẹn 04:30 VN 24/11. Migration cần áp trước từng lô: TONG-HOP-SANG-20261124.md mục 8.
