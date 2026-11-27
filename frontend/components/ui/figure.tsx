@@ -4,7 +4,7 @@ import styles from './figure.module.css';
 import { cx } from './cx';
 
 export type FigureProps = {
-  /** The drawing, usually one inline <svg>. Without it the figure is a dashed placeholder. */
+  /** The drawing to display, typically an inline SVG element. Omit it to show a dashed placeholder. */
   children?: ReactNode;
   /** One sentence on what the figure shows, not a description of it. */
   caption: string;
