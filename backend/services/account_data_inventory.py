@@ -34,7 +34,7 @@ from typing import Literal, Optional
 Action = Literal["delete", "anonymize", "keep", "staff_actor", "staff_only"]
 ACTIONS: frozenset[str] = frozenset({"delete", "anonymize", "keep", "staff_actor", "staff_only"})
 
-INVENTORY_VERSION = "2026-11-23.2"
+INVENTORY_VERSION = "2026-11-27.3"
 
 
 @dataclass(frozen=True)
@@ -109,6 +109,8 @@ _DELETE_INTERNAL = _many(
     error_logs.user_id analytics_events.user_id activation_attempts.user_id
     learner_email_outbox.user_id credit_cluster_members.user_id
     account_data_exports.user_id
+    learner_care_notes.student_id learner_care_notes.user_id learner_active_sessions.user_id
+    mock_exam_audiences.student_id mock_exam_audiences.user_id
     """,
     note="internal operational rows, not part of the download",
 )
@@ -117,6 +119,8 @@ _ANONYMIZE = [
     Entry("users", "id", "anonymize", export=True, note="keep id, role, created_at"),
     Entry("students", "user_id", "anonymize", export=True,
           note="keep row for class statistics; clear name, email, phone (open question 5)"),
+    Entry("learner_login_events", "user_id", "anonymize",
+          note="389 stores no raw IP, location or user agent; points at the anonymised id"),
 ]
 
 _KEEP = _many(
@@ -129,7 +133,7 @@ _KEEP = _many(
 ) + _many(
     "keep",
     """
-    credit_reservations.user_id credit_covered_requests.user_id
+    credit_reservations.user_id credit_covered_requests.user_id credit_attempt_outcomes.user_id
     ai_budget_reservations.user_id ai_usage_logs.user_id
     access_codes.used_by user_code_assignments.user_id
     exercise_book_grant_owners.user_id exercise_book_cohort_grants.grantee_id
@@ -273,14 +277,7 @@ CHILD_TABLES: dict[str, str] = {
 # Classified ahead of packages not merged yet. Each moves into the lists above
 # in the pull request that adds its migration; the FR-006 test fails if one
 # appears in migrations while still listed here.
-UPCOMING: tuple[Entry, ...] = (
-    Entry("learner_care_notes", "student_id", "delete",
-          note="mig 442 (#2471); staff notes, never exported (open question 7)"),
-    Entry("learner_care_notes", "user_id", "delete",
-          note="mig 442 (#2471); author_id/done_by are staff actors (not matched by FR-006)"),
-    Entry("learner_active_sessions", "user_id", "delete", note="G04-T09 (not merged)"),
-    Entry("learner_login_events", "user_id", "anonymize", note="G04-T16; clear IP, user agent, location"),
-)
+UPCOMING: tuple[Entry, ...] = ()
 
 BUCKETS: frozenset[str] = frozenset({"audio-responses", "account-exports"})
 
