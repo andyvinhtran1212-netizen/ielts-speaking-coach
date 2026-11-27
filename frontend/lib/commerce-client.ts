@@ -29,4 +29,3 @@ export async function fetchCourseForViewer(slug: string): Promise<CourseDetail> 
   await transportReady();
   return window.api.getWith<CourseDetail>(`/api/courses/${encodeURIComponent(slug)}`, undefined, { noRedirect: true });
 }
-
