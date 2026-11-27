@@ -5699,7 +5699,7 @@
       var classItemId = (classTask && classTask.item_id)
         || (_sessionData && _sessionData.class_assignment_item_id);
       _updateNativeView('frame', {
-        returnHref: classItemId ? '/my-class' : '/speaking',
+        returnHref: classItemId ? '/course/assigned' : '/speaking',
         returnLabel: classItemId ? 'Về lớp học' : 'Quay lại',
         contextLabel: classItemId ? 'Bài tập theo buổi' : 'Speaking',
       });

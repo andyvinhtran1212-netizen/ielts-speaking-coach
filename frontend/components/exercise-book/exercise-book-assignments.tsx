@@ -109,7 +109,7 @@ function AssignmentsSession() {
       {items && !items.length && <p>Bạn chưa được giao bài nào trong sách bài tập.</p>}
       {items?.map((assignment) => <AssignmentCard key={assignment.assignment_id} assignment={assignment} now={now} />)}
       {cursor && <button type="button" disabled={busy} onClick={() => void load(cursor)}>{busy ? 'Đang tải…' : 'Xem thêm'}</button>}
-      <p><a href="/my-class">Về lớp học</a></p>
+      <p><a href="/course/assigned">Về lớp học</a></p>
     </main>
   );
 }

@@ -331,7 +331,7 @@ export const config = {
     '/library/speaking/:slug',
     '/library/writing-samples/:slug',
     {
-      source: '/:section(admin|advanced-vocabulary|course|course-exercises|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',
+      source: '/:section(admin|advanced-vocabulary|course|course-exercises|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {

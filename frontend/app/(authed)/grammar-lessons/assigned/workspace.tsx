@@ -45,7 +45,7 @@ export function AssignedGrammarLesson() {
     if (authStatus !== 'signed-in') return;
     const requestId = ++requestSequence.current;
     // G02-T11: a link without its assignment item goes back to My class.
-    if (!itemId) { leaveForParent('/my-class'); return; }
+    if (!itemId) { leaveForParent('/course/assigned'); return; }
     setLoading(true); setLesson(null); setBusy(false); setError('');
     try {
       const value = await window.api.get<Lesson>(`/api/grammar/lessons/items/${encodeURIComponent(itemId)}`);
@@ -105,8 +105,8 @@ export function AssignedGrammarLesson() {
   // U-16: without ?assignment_item there is nothing to load or retry.
   // G02-T11: the loader sends a link without its item back to My class;
   // this card is only what shows while the browser leaves.
-  if (!itemId) return <main className="agl-shell"><div className="agl-alert" role="alert">Đường dẫn này chưa cho biết bài Grammar nào được giao. Hãy mở bài từ trang Lớp của tôi.</div><a className="av-button av-button-primary" href="/my-class">← Về Lớp của tôi</a></main>;
-  if (!lesson) return <main className="agl-shell"><a href="/my-class">← Lớp của tôi</a><div className="agl-alert" role="alert">{error || 'Không tìm thấy bài này.'}</div><button type="button" onClick={() => void reload()}>Thử lại</button></main>;
+  if (!itemId) return <main className="agl-shell"><div className="agl-alert" role="alert">Đường dẫn này chưa cho biết bài Grammar nào được giao. Hãy mở bài từ trang Lớp của tôi.</div><a className="av-button av-button-primary" href="/course/assigned">← Về Lớp của tôi</a></main>;
+  if (!lesson) return <main className="agl-shell"><a href="/course/assigned">← Lớp của tôi</a><div className="agl-alert" role="alert">{error || 'Không tìm thấy bài này.'}</div><button type="button" onClick={() => void reload()}>Thử lại</button></main>;
 
   const article = lesson.article;
   const articleHref = article ? `/grammar/${encodeURIComponent(article.category)}/${encodeURIComponent(article.slug)}` : null;
@@ -114,7 +114,7 @@ export function AssignedGrammarLesson() {
   const hasTeaching = Boolean(lesson.lesson_notes || articleHref);
   const objectiveCount = lesson.objective_count ?? lesson.question_count;
   return <main className="agl-shell">
-    <a className="agl-back" href="/my-class">← Lớp của tôi</a>
+    <a className="agl-back" href="/course/assigned">← Lớp của tôi</a>
     <header className="agl-hero"><p>COURSE 5 · GRAMMAR LESSON</p><h1>{lesson.lesson_id} · {lesson.title}</h1><p>{lesson.focus}</p>
       <div className="agl-meta"><span>{lesson.answered_count}/{lesson.question_count} câu đã làm</span>{lesson.due_at && <span>Hạn: {new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(lesson.due_at))}</span>}</div>
       {Boolean(lesson.writing_count) && <p>{objectiveCount} câu trắc nghiệm · {lesson.writing_count} câu viết{Boolean(lesson.supplementary_count) && ` (gồm ${lesson.supplementary_count} câu viết bổ sung)`}.</p>}

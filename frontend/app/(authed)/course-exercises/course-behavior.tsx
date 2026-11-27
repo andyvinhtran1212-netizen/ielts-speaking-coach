@@ -186,7 +186,7 @@ export function CourseBehavior() {
       const appendBackToClass = () => {
         const back = document.createElement('a');
         back.className = 'av-button av-button-primary';
-        back.href = '/my-class';
+        back.href = '/course/assigned';
         back.textContent = 'Về Lớp học';
         placeErrorAction(back, 'back');
       };
@@ -212,7 +212,7 @@ export function CourseBehavior() {
       // G02-T11 (mục 5.3): a link that names no bank goes back to Lớp học,
       // which says so in one line (RedirectNotice).
       if (!bankId) {
-        leaveForParent('/my-class');
+        leaveForParent('/course/assigned');
         return;
       }
 

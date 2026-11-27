@@ -187,7 +187,7 @@ describe('Listening review native model', () => {
     assert.deepEqual(listeningReviewBackTarget(hostile), { href: '/listening/tests', label: '← Bài thi Listening' });
     assert.equal(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=mock&sitting=s%2F1')).href, '/mock/result?sitting=s%2F1');
     assert.deepEqual(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=my-class')), {
-      href: '/my-class', label: '← Lớp học của tôi',
+      href: '/course/assigned', label: '← Lớp học của tôi',
     });
     assert.deepEqual(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=admin')), {
       href: '/admin/classes', label: '← Quản lý lớp',

@@ -23,7 +23,7 @@ export function readingReviewParams(search) {
 
 export function readingReviewBackTarget(params) {
   if (params?.from === 'mini') return { href: '/reading/mini-test', label: '← Mini tests' };
-  if (params?.from === 'my-class') return { href: '/my-class', label: '← Lớp học của tôi' };
+  if (params?.from === 'my-class') return { href: '/course/assigned', label: '← Lớp học của tôi' };
   if (params?.from === 'admin') return { href: '/admin/classes', label: '← Quản lý lớp' };
   if (params?.from === 'mock' && params?.sittingId) {
     return {
