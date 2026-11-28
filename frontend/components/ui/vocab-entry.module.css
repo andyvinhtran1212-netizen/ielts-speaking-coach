@@ -1,0 +1,28 @@
+/* UIBASE-0056 VocabEntry (ThanhPhanHocTap2 §6). Only var(--av2-*). */
+.entry { box-sizing: border-box; background: var(--av2-surface); border: var(--av2-rule-w) solid var(--av2-ink); border-radius: var(--av2-radius); }
+.entry p { margin: 0; }
+.full { padding: var(--av2-space-6); }
+.popover { display: flex; flex-direction: column; gap: var(--av2-space-2); max-width: 360px; padding: var(--av2-space-4); }
+
+.head { display: flex; flex-direction: column; gap: var(--av2-space-2); padding-bottom: var(--av2-space-4); border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+.headword { margin: 0; font-family: var(--av2-font-serif); font-size: var(--av2-fs-40); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); }
+.headRow { display: flex; align-items: center; gap: var(--av2-space-3); }
+.headwordSm { font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-3); color: var(--av2-muted); }
+.ipa { color: var(--av2-ink); font-size: var(--av2-fs-18); }
+.pos { font-style: italic; }
+
+.fields { margin: var(--av2-space-4) 0 0; display: flex; flex-direction: column; gap: var(--av2-space-4); }
+.field dt { font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong); color: var(--av2-muted); }
+.field dd { margin: var(--av2-space-1) 0 0; }
+.example { font-family: var(--av2-font-serif); font-size: var(--av2-fs-18); }
+.example strong { font-weight: var(--av2-fw-strong); }
+.defVi { font-size: var(--av2-fs-16); }
+
+.actions { display: flex; flex-wrap: wrap; gap: var(--av2-space-3); margin-top: var(--av2-space-4); }
+.popover .actions { margin-top: var(--av2-space-2); }
+
+@media (max-width: 767px) {
+  .full { padding: var(--av2-space-5); }
+  .headword { font-size: var(--av2-fs-24); }
+}
