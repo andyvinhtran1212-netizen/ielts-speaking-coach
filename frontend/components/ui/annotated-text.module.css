@@ -1,0 +1,64 @@
+/* UIBASE-0056 AnnotatedText (ThanhPhanHocTap2 §7). Only var(--av2-*). */
+.annotated { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--av2-space-7); align-items: start; }
+.text { margin: 0; font-family: var(--av2-font-serif); font-size: var(--av2-fs-18); line-height: 1.75; }
+
+.mark { padding: 0 1px; }
+/* 1 Ngữ pháp: solid 2px. 2 Từ vựng: wavy. 3 Mạch lạc: dashed. 4 Làm tốt: tint + double. */
+.mark.grammar { border-bottom: 2px solid var(--av2-mark); }
+.mark.vocab { text-decoration: underline wavy var(--av2-mark); text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
+.mark.coherence { border-bottom: 2px dashed var(--av2-ink); }
+.mark.good { background: var(--av2-tint); border-bottom: 3px double var(--av2-accent); }
+.on { outline: 2px solid var(--av2-ink); outline-offset: 2px; }
+
+.ref { font-family: var(--av2-font-sans); font-size: var(--av2-fs-12); font-weight: var(--av2-fw-strong); }
+
+.notes { display: flex; flex-direction: column; gap: var(--av2-space-3); margin: 0; padding: 0; list-style: none; }
+.note { padding: var(--av2-space-3); border: var(--av2-rule-w) solid var(--av2-rule); border-radius: var(--av2-radius); background: var(--av2-surface); }
+.noteOn { border: var(--av2-rule-strong-w) solid var(--av2-ink); background: var(--av2-tint); }
+.noteHead {
+  display: flex;
+  align-items: center;
+  gap: var(--av2-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.noteHead { min-height: 44px; cursor: pointer; }
+.noteNum {
+  box-sizing: border-box;
+  min-width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--av2-rule-w) solid currentColor;
+  border-radius: var(--av2-radius);
+  font-weight: var(--av2-fw-strong);
+  font-variant-numeric: tabular-nums;
+}
+.noteLabel { font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); }
+.noteBody { margin: var(--av2-space-2) 0 0; font-size: var(--av2-fs-14); }
+/* Colour is the last layer: the number box takes the kind's colour. */
+.note.grammar .noteNum, .note.vocab .noteNum { color: var(--av2-mark); }
+.note.good .noteNum { color: var(--av2-accent); }
+.note.coherence .noteNum { color: var(--av2-ink); }
+
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 767px) {
+  .annotated { grid-template-columns: minmax(0, 1fr); gap: var(--av2-space-5); }
+}

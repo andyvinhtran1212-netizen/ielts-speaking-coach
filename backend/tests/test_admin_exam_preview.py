@@ -34,14 +34,18 @@ def _src(rel: str) -> str:
 def test_the_student_review_body_was_extracted_not_copied():
     """If the preview rebuilt the payload itself, the two would drift silently.
     The student endpoint must now be a one-line delegation to the shared
-    builder — that is the proof there is only one renderer."""
+    builder — that is the proof there is only one renderer. LEARNERCORE-0063
+    FR-109 adds the caller's ``my_flagged_q_nums`` to the builder's dict; the
+    body itself is still the single shared call."""
     import routers.listening as L
     import routers.reading_student as R
 
     for fn, helper in ((L.get_listening_test_attempt_review, "_assemble_listening_review"),
                        (R.review_reading_test_attempt, "_assemble_reading_review")):
         src = inspect.getsource(fn)
-        assert f"return {helper}(attempt, attempt_id)" in src, fn.__name__
+        assert f"review = {helper}(attempt, attempt_id)" in src, fn.__name__
+        assert src.count(f"{helper}(") == 1, fn.__name__
+        assert src.rstrip().endswith("return review"), fn.__name__
 
 
 def test_the_previews_call_that_same_builder():

@@ -1712,7 +1712,12 @@ async def get_listening_test_attempt_review(
                 409, "Hãy hoàn tất confidence trước khi xem đáp án và chữa bài."
             )
 
-    return _assemble_listening_review(attempt, attempt_id)
+    review = _assemble_listening_review(attempt, attempt_id)
+    # LEARNERCORE-0063 FR-109: the questions the caller already flagged here.
+    from services.review_notes import my_flagged_q_nums
+    review["my_flagged_q_nums"] = await asyncio.to_thread(
+        my_flagged_q_nums, supabase_admin, attempt_id=attempt_id, user_id=user["id"])
+    return review
 
 
 @user_router.get("/source-collections/blackeye-v5-upper/units/U1", response_model=BlackEyeUnitPublic)
