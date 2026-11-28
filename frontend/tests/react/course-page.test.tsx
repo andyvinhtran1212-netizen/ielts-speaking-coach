@@ -1,6 +1,7 @@
 // PUBLICSITE-0059 T05 — `/courses/[slug]` body (FR-007, 008, 022, 024, 025, 028).
 // Fixtures are fake (tests/fixtures/commerce); nothing here calls a backend.
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { CoursePage } from '@/app/(public-commerce)/courses/[slug]/course-page';
@@ -23,22 +24,28 @@ function viewer(course: CourseDetail, patch: Partial<CourseDetail['viewer']>, ex
 }
 
 let calls: string[];
-let detail: Record<string, CourseDetail | Error>;
+let detail: Record<string, unknown>;
 let mine: Record<string, unknown>;
+let detailHolds: Record<string, Promise<void>>;
+let detailRequests: [string, unknown][];
 
 beforeEach(() => {
   vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
   calls = [];
   detail = {};
   mine = {};
+  detailHolds = {};
+  detailRequests = [];
   auth.status = 'signed-out';
   auth.id = 'learner-a';
   Object.assign(window, { api: {
-    getWith: async (path: string) => {
+    getWith: async (path: string, _headers: unknown, options: unknown) => {
       const who = auth.id;
       calls.push(`GET ${path}`);
       if (path === '/api/me/open-alerts') return { slugs: [] };
       if (path === '/api/me/courses') return mine[who] ?? { items: [], content_visible_until: null };
+      detailRequests.push([who, options]);
+      if (detailHolds[who]) await detailHolds[who];
       const answer = detail[who] ?? OPEN;
       if (answer instanceof Error) throw answer;
       return answer;
@@ -180,7 +187,7 @@ it('FAQ: one answer open at a time', () => {
   expect(q1.getAttribute('aria-expanded')).toBe('false');
 });
 
-it('a failed session read keeps the guest view and offers "Thử lại"; A → B drops the old answer', async () => {
+it('a failed session read keeps the guest view and offers "Thử lại"', async () => {
   auth.status = 'signed-in';
   detail['learner-a'] = Object.assign(new Error('boom'), { status: 503 });
   const view = render(<CoursePage course={OPEN} />);
@@ -192,6 +199,69 @@ it('a failed session read keeps the guest view and offers "Thử lại"; A → B
   view.rerender(<CoursePage course={OPEN} />);
   expect(await panel().findByText('Bạn đang học · còn 3 ngày')).toBeTruthy();
   expect(screen.queryByText(/Chưa tải được trạng thái/)).toBeNull();
+});
+
+it.each(['signed-in', 'signed-out'] as const)('switch to %s hides the previous order in the first commit', async (nextStatus) => {
+  auth.status = 'signed-in';
+  detail['learner-a'] = viewer(OPEN, { state: 'open_order', open_order_code: 'AV-GIA-A' });
+  detail['learner-b'] = viewer(OPEN, { state: 'open_order', open_order_code: 'AV-GIA-B' });
+  let releaseB!: () => void;
+  detailHolds['learner-b'] = new Promise<void>((resolve) => { releaseB = resolve; });
+
+  function CaptureCommit({ capture }: { capture?: () => void }) {
+    useLayoutEffect(() => { capture?.(); }, [capture]);
+    return <CoursePage course={OPEN} />;
+  }
+  const view = render(<CaptureCommit />);
+  expect((await panel().findByRole('link', { name: 'Tiếp tục thanh toán' })).getAttribute('href')).toBe('/enroll/AV-GIA-A');
+  expect(document.querySelectorAll('a[href="/enroll/AV-GIA-A"]')).toHaveLength(2);
+
+  auth.id = 'learner-b';
+  auth.status = nextStatus;
+  const capturePublicState = vi.fn(() => {
+    expect(screen.queryAllByRole('link', { name: 'Tiếp tục thanh toán' })).toHaveLength(0);
+    expect(document.querySelector('a[href="/enroll/AV-GIA-A"]')).toBeNull();
+    expect(panel().getByText('Đang mở đăng ký')).toBeTruthy();
+  });
+  view.rerender(<CaptureCommit capture={capturePublicState} />);
+  expect(capturePublicState).toHaveBeenCalledOnce();
+  await act(async () => { releaseB(); });
+
+  if (nextStatus === 'signed-in') {
+    expect((await panel().findByRole('link', { name: 'Tiếp tục thanh toán' })).getAttribute('href')).toBe('/enroll/AV-GIA-B');
+  } else {
+    expect(detailRequests.map(([id]) => id)).toEqual(['learner-a']);
+  }
+});
+
+it("drops a late response with the previous account's order", async () => {
+  auth.status = 'signed-in';
+  detail['learner-a'] = viewer(OPEN, { state: 'open_order', open_order_code: 'AV-GIA-A' });
+  detail['learner-b'] = viewer(OPEN, { state: 'enrolled', days_left: 9 });
+  let releaseA!: () => void;
+  detailHolds['learner-a'] = new Promise<void>((resolve) => { releaseA = resolve; });
+  const view = render(<CoursePage course={OPEN} />);
+  await waitFor(() => expect(detailRequests.map(([id]) => id)).toContain('learner-a'));
+
+  auth.id = 'learner-b';
+  view.rerender(<CoursePage course={OPEN} />);
+  expect(await panel().findByText('Bạn đang học · còn 9 ngày')).toBeTruthy();
+  await act(async () => { releaseA(); });
+  expect(document.querySelector('a[href="/enroll/AV-GIA-A"]')).toBeNull();
+  expect(panel().getByText('Bạn đang học · còn 9 ngày')).toBeTruthy();
+});
+
+it.each([
+  { result: 'expired token', payload: Object.assign(new Error('expired'), { status: 401 }) },
+  { result: 'malformed viewer', payload: { ...OPEN, viewer: { state: 'open_order', open_order_code: 'AV-GIA-MALFORMED' } } },
+])('$result keeps the public course on the same page', async ({ payload }) => {
+  auth.status = 'signed-in';
+  detail['learner-a'] = payload;
+  render(<CoursePage course={OPEN} />);
+  expect(await screen.findByText(/Chưa tải được trạng thái khoá học của bạn/)).toBeTruthy();
+  expect(detailRequests).toEqual([['learner-a', { noRedirect: true }]]);
+  expect(panel().getByText('Đang mở đăng ký')).toBeTruthy();
+  expect(document.querySelector('a[href="/enroll/AV-GIA-MALFORMED"]')).toBeNull();
 });
 
 it('the mail unsubscribe strip is mounted on the course page', async () => {

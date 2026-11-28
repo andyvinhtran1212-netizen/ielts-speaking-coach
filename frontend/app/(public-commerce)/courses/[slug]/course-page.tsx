@@ -19,7 +19,7 @@ import { OpenAlertToggle } from '@/components/courses/open-alert-toggle';
 import { OpenAlertUnsubscribeNotice } from '@/components/courses/open-alert-unsubscribe-notice';
 import { Button, Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/auth-provider';
-import { fetchCourseForViewer, fetchMyCourses } from '@/lib/commerce-client';
+import { fetchContentVisibleUntil, fetchCourseForViewer } from '@/lib/commerce-client';
 import {
   carryOverSentence, courseRowLabel, courseRowState, enrollHref, formatViDate, formatVnd, internalHref, orderHref,
 } from '@/lib/commerce-model.mjs';
@@ -35,7 +35,9 @@ const CONTINUE_PAYMENT = 'Tiếp tục thanh toán';
 const PAY_NOTE = 'Thanh toán bằng chuyển khoản, mở khoá sau khi xác nhận.';
 const PANEL_ID = 'dang-ky';
 
-type ViewerRead = 'none' | 'loading' | 'ready' | 'error';
+type ViewerRead =
+  | { accountId: string; slug: string; status: 'loading' | 'error' }
+  | { accountId: string; slug: string; status: 'ready'; course: CourseDetail; visibleUntil: string | null };
 type PanelState = ReturnType<typeof courseRowState> | 'open_order';
 
 const LESSON_KINDS: Record<string, string> = {
@@ -364,39 +366,44 @@ function Faq({ course }: { course: CourseDetail }) {
 export function CoursePage({ course: initial }: { course: CourseDetail }) {
   const { status, user } = useAuth();
   const signedIn = status === 'signed-in';
-  const viewerKey = signedIn ? `user:${user?.id ?? ''}` : status;
-  const [course, setCourse] = useState<CourseDetail>(initial);
-  const [read, setRead] = useState<ViewerRead>('none');
-  const [visibleUntil, setVisibleUntil] = useState<string | null>(null);
+  const accountId = signedIn ? user?.id ?? null : null;
+  const [viewerRead, setViewerRead] = useState<ViewerRead | null>(null);
   const generation = useRef(0);
+  const slug = initial.slug;
 
-  const loadViewer = useCallback((gen: number) => {
-    setRead('loading');
-    fetchCourseForViewer(initial.slug).then(
+  const loadViewer = useCallback((id: string, gen: number) => {
+    setViewerRead({ accountId: id, slug, status: 'loading' });
+    fetchCourseForViewer(slug).then(
       (data) => {
         if (gen !== generation.current) return;
-        if (!data || data.slug !== initial.slug || !data.viewer) { setRead('error'); return; }
-        setCourse(data);
-        setRead('ready');
+        setViewerRead({ accountId: id, slug, status: 'ready', course: data, visibleUntil: null });
         if (courseRowState(data) !== 'expired') return;
         // FR-024: the "still readable until" line; a failed read just hides it.
-        fetchMyCourses().then(
-          (mine) => { if (gen === generation.current) setVisibleUntil(formatViDate(mine?.content_visible_until)); },
+        fetchContentVisibleUntil().then(
+          (until) => {
+            if (gen === generation.current) {
+              setViewerRead({ accountId: id, slug, status: 'ready', course: data, visibleUntil: formatViDate(until) });
+            }
+          },
           () => undefined,
         );
       },
-      () => { if (gen === generation.current) setRead('error'); },
+      () => { if (gen === generation.current) setViewerRead({ accountId: id, slug, status: 'error' }); },
     );
-  }, [initial.slug]);
+  }, [slug]);
 
   useEffect(() => {
     const gen = ++generation.current;
-    setCourse(initial);
-    setVisibleUntil(null);
-    if (signedIn) loadViewer(gen); else setRead('none');
+    if (accountId) loadViewer(accountId, gen);
+    else setViewerRead(null);
     return () => { generation.current += 1; };
-  }, [viewerKey, signedIn, initial, loadViewer]);
+  }, [accountId, initial, loadViewer]);
 
+  // Private details, including the order URL, belong to one account and slug.
+  const ownRead = viewerRead?.accountId === accountId && viewerRead.slug === slug ? viewerRead : null;
+  const course = ownRead?.status === 'ready' ? ownRead.course : initial;
+  const visibleUntil = ownRead?.status === 'ready' ? ownRead.visibleUntil : null;
+  const isLoading = accountId !== null && (!ownRead || ownRead.status === 'loading');
   const state = panelState(course);
   const level = levelText(course);
   const catalog = coursesHref() ?? '/';
@@ -404,11 +411,11 @@ export function CoursePage({ course: initial }: { course: CourseDetail }) {
   return (
     <div className={styles.page}>
       <OpenAlertUnsubscribeNotice slug={course.slug} />
-      {read === 'error' ? (
+      {ownRead?.status === 'error' ? (
         <Notice
           kind="warning"
           live="alert"
-          action={<Button variant="secondary" onClick={() => loadViewer(generation.current)}>Thử lại</Button>}
+          action={<Button variant="secondary" onClick={() => loadViewer(ownRead.accountId, generation.current)}>Thử lại</Button>}
         >
           Chưa tải được trạng thái khoá học của bạn. Trang dưới đây là thông tin chung.
         </Notice>
@@ -418,7 +425,7 @@ export function CoursePage({ course: initial }: { course: CourseDetail }) {
         <a href={catalog}>Khoá học</a> <span aria-hidden="true">›</span> <span aria-current="page">{shortName(course)}</span>
       </nav>
 
-      <div className={styles.layout} aria-busy={read === 'loading' || undefined}>
+      <div className={styles.layout} aria-busy={isLoading || undefined}>
         <div className={styles.main}>
           <header className={styles.intro}>
             <p className={styles.eyebrow}>Khoá online{level ? ` · trình độ ${level}` : ''}</p>
@@ -426,7 +433,7 @@ export function CoursePage({ course: initial }: { course: CourseDetail }) {
             {course.summary ? <p className={styles.summary}>{course.summary}</p> : null}
           </header>
           <Author course={course} />
-          <Chapters key={`${viewerKey}-${state}`} course={course} state={state} />
+          <Chapters key={`${accountId ?? 'guest'}-${slug}-${state}`} course={course} state={state} />
           <Credits course={course} />
           <FeedbackSample course={course} />
           {/* Slot "Học viên khoá này nói gì" (spec 0059 mục 10 câu 18): drawn only when real reviews exist. */}

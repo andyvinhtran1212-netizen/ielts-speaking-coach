@@ -49,11 +49,15 @@ export function getBrowserJsonAt<Path extends ApiGetPath>(
   _contractPath: Path,
   endpoint: string,
   signal?: AbortSignal,
+  { noRedirect = false }: { noRedirect?: boolean } = {},
 ): Promise<ApiGetJson<Path>> {
+  const opts = signal || noRedirect
+    ? { ...(signal ? { signal } : {}), ...(noRedirect ? { noRedirect: true } : {}) }
+    : undefined;
   return window.api.getWith<ApiGetJson<Path>>(
     endpoint,
     undefined,
-    signal ? { signal } : undefined,
+    opts,
   );
 }
 
@@ -83,9 +87,10 @@ export function postBrowserJsonAtWith<Path extends ApiPostPath>(
   _contractPath: Path,
   endpoint: string,
   body: unknown = {},
-  { noRedirect = false }: { noRedirect?: boolean } = {},
+  { noRedirect = false, signal }: { noRedirect?: boolean; signal?: AbortSignal } = {},
 ): Promise<ApiPostSuccessJson<Path>> {
-  return window.api.postWith<ApiPostSuccessJson<Path>>(endpoint, body, undefined, noRedirect ? { noRedirect: true } : undefined);
+  const opts = signal || noRedirect ? { signal, noRedirect } : undefined;
+  return window.api.postWith<ApiPostSuccessJson<Path>>(endpoint, body, undefined, opts);
 }
 
 /** Typed DELETE with a JSON body (e.g. a mail-link token that must stay out of the URL). */
@@ -93,7 +98,8 @@ export function deleteBrowserJsonAt<Path extends ApiDeletePath>(
   _contractPath: Path,
   endpoint: string,
   body: unknown = {},
-  { noRedirect = false }: { noRedirect?: boolean } = {},
+  { noRedirect = false, signal }: { noRedirect?: boolean; signal?: AbortSignal } = {},
 ): Promise<ApiDeleteJson<Path>> {
-  return window.api.deleteWith<ApiDeleteJson<Path>>(endpoint, body, undefined, noRedirect ? { noRedirect: true } : undefined);
+  const opts = signal || noRedirect ? { signal, noRedirect } : undefined;
+  return window.api.deleteWith<ApiDeleteJson<Path>>(endpoint, body, undefined, opts);
 }

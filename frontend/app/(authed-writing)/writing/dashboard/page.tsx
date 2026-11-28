@@ -18,6 +18,7 @@
 //
 // "PORT XONG" = cùng bản khai đó xanh trên CẢ HAI vế, tức `nextPending` đã gỡ.
 import type { Metadata } from 'next';
+import { SkillHubSwitch } from '@/components/learner/skill-hub/skill-hub-switch';
 
 import { WritingShell } from './page-shell';
 import { WritingBehavior } from './writing-behavior';
@@ -35,8 +36,11 @@ export default function WritingDashboardPage() {
           bài học PR #897: thiếu dòng này là mất toàn bộ điều hướng mà build vẫn xanh. */}
       {/* @ts-ignore */}
       <aver-chrome active="writing" />
-      <WritingShell />
-      <WritingBehavior />
+      {/* LEARNERCORE-0063 FR-111: the page unchanged unless learner_v2 is on. */}
+      <SkillHubSwitch skill="writing">
+        <WritingShell />
+        <WritingBehavior />
+      </SkillHubSwitch>
     </>
   );
 }

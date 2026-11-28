@@ -98,8 +98,10 @@ MUST_BE_GATED = [
     ("POST", "/sessions/{session_id}/responses"),
     ("POST", "/tts"),
     ("GET", "/topics"),
-    ("PATCH", "/auth/profile"),
     ("GET", "/api/student/permissions"),
+    # LEARNERCORE-0063 FR-094: only GET Today is opened; its "seen" write is not.
+    ("POST", "/api/student/today/seen"),
+    ("GET", "/api/student/home-summary"),
     ("GET", "/api/listening/tests"),
     ("POST", "/api/reading/test/{test_id}/attempts"),
 ]
@@ -117,3 +119,28 @@ def test_activation_bootstrap_routes_stay_exempt():
     for key in [("GET", "/auth/me"), ("GET", "/auth/check-active"), ("POST", "/auth/activate")]:
         assert key in ACTIVATION_EXEMPT_ROUTES
     assert activation_gate.is_exempt("get", "/auth/me")
+
+
+# LEARNERCORE-0063 FR-094 (G07-T26): exactly two learner routes are opened to an
+# inactive learner_v2 account, and each one re-checks its caller in the handler.
+FR094_OPEN_ROUTES = {
+    ("GET", "/api/student/today"): "routers.student_home",
+    ("PATCH", "/auth/profile"): "routers.auth",
+}
+
+
+def test_fr094_inactive_open_exemptions_are_exactly_two():
+    fr094 = {key for key, reason in ACTIVATION_EXEMPT_ROUTES.items() if reason.startswith("FR-094")}
+    assert fr094 == set(FR094_OPEN_ROUTES)
+
+
+@pytest.mark.parametrize("key,module", sorted(FR094_OPEN_ROUTES.items()))
+def test_fr094_handlers_recheck_activation_themselves(key, module):
+    import inspect
+
+    routes = [r for m, p, _g, r in ROUTES if (m, p) == key]
+    assert routes, f"{key} not found"
+    for route in routes:
+        assert route.endpoint.__module__ == module
+        source = inspect.getsource(route.endpoint)
+        assert "activation_gate.aopen_learner_status(" in source, key
