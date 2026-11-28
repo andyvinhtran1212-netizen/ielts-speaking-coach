@@ -86,6 +86,19 @@ SELECT pg_temp.mock446_rewrite('public.fn_admin_mock_exams_with_review_eligibili
     $s$exam.exam_mode = 'retake'$s$,
     $s$exam.exam_mode IN ('retake', 'self_paced')$s$);
 
+-- Keep the two mode rewrites above intact so an earlier build of 446
+-- can be upgraded in place. NULL denotes an unscoped legacy live sitting.
+SELECT pg_temp.mock446_rewrite('public.fn_mock_section_valid(text,jsonb,jsonb)',
+    $s$IF p_exam->>'active_section'<>p_skill OR$s$,
+    $s$IF (p_sitting->>'assigned_skills' IS NOT NULL
+            AND NOT (p_sitting->'assigned_skills' @> jsonb_build_array(p_skill)))
+           OR p_exam->>'active_section'<>p_skill OR$s$);
+SELECT pg_temp.mock446_rewrite('public.fn_guard_owned_mock_attempt(text,jsonb,text)',
+    $s$AND exam->>'active_section'=p_skill AND exam->>'collected_section'$s$,
+    $s$AND (sitting->>'assigned_skills' IS NULL OR sitting->'assigned_skills' @> jsonb_build_array(p_skill))
+                        AND exam->>'active_section'=p_skill
+                        AND exam->>'collected_section'$s$);
+
 -- 2. fn_set_exam_mode: four names in, the new name stored -------------------
 CREATE OR REPLACE FUNCTION public.fn_set_exam_mode(
     p_exam_id uuid,

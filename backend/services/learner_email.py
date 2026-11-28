@@ -135,6 +135,13 @@ def _order_link(order_code: Optional[str]) -> str:
     return f"\nMở trang đơn đăng ký: {base}/enroll/{order_code}\n"
 
 
+def _account_link() -> str:
+    """ACCOUNTDATA-0100 FR-012: letters link to the account page only, never
+    to a Storage URL."""
+    base = (settings.PUBLIC_SITE_URL or "").strip().rstrip("/")
+    return f"\nMở trang Tài khoản: {base}/account\n" if base else ""
+
+
 def _bank_lines() -> str:
     cfg = orders.enrollment_config()
     lines = []
@@ -213,6 +220,10 @@ def template_fields(template: str, payload: dict, user: dict) -> dict:
         fields["bank_lines"] = _bank_lines()
     elif template == "order_needs_info":
         fields.update(_needs_info_fields(payload))
+    elif template.startswith("account_"):
+        fields["erase_on"] = vn_date(payload.get("erase_after")) or ""
+        fields["export_expires_on"] = vn_date(payload.get("expires_at")) or ""
+        fields["account_link_line"] = _account_link()
     elif template == "order_confirmed":
         credits = int(payload.get("ai_credits") or 0)
         fields["expires_on"] = vn_date(payload.get("expires_at")) or ""

@@ -206,6 +206,10 @@ def _pre_320() -> str:
     user_code_assignments = re.search(
         r"CREATE TABLE IF NOT EXISTS user_code_assignments \(.*?^\);",
         (MIGRATIONS / "009_access_code_upgrade.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
+    # 421 adds flag-once indexes to 100's user_feedback (and preflights it).
+    user_feedback = re.search(
+        r"CREATE TABLE IF NOT EXISTS user_feedback \(.*?^\);",
+        (MIGRATIONS / "100_user_feedback.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
@@ -378,6 +382,7 @@ def _pre_320() -> str:
             -- staging; 009's backfill reads them) and on 009's assignments.
             ADD COLUMN used_by uuid REFERENCES users(id), ADD COLUMN used_at timestamptz;
         {user_code_assignments}
+        {user_feedback}
         -- 338 minimal shape: 033's trigger function, 306's paper guard, 208's trigger.
         {m338.FUNCTION_033}
         ALTER FUNCTION update_updated_at_column() SET search_path = public, pg_temp;

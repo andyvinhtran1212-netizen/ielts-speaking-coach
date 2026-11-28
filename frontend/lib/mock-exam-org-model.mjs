@@ -274,6 +274,18 @@ export function buildPatchBody(form, exam, step) {
   if (!form.skills.length) return { ok: false, error: 'Chọn ít nhất một kỹ năng.' };
   const stored = examFields(formFromExam(exam));
   const next = examFields(form);
+  const active = [
+    ['listening_test_id', exam.listeningTestId, form.skills.includes('listening'), 'đề Listening'],
+    ['reading_test_id', exam.readingTestId, form.skills.includes('reading'), 'đề Reading'],
+    ['writing_task1_prompt_id', exam.writingTask1PromptId, form.skills.includes('writing'), 'đề Writing Task 1'],
+    ['writing_task2_prompt_id', exam.writingTask2PromptId, form.skills.includes('writing'), 'đề Writing Task 2'],
+    ['starts_at', exam.startsAt, form.mode === 'live', 'giờ bắt đầu'],
+    ['open_from', exam.openFrom, form.mode === 'self_paced', 'giờ mở'],
+    ['open_until', exam.openUntil, form.mode === 'self_paced', 'giờ đóng'],
+  ];
+  const cleared = active.find(([field, saved, remainsActive]) => remainsActive && saved && next[field] === null);
+  if (cleared) return { ok: false, error: `Không thể bỏ ${cleared[3]} đã lưu. Chọn giá trị mới để lưu.` };
+
   const body = {};
   for (const [key, value] of Object.entries(next)) {
     const same = Array.isArray(value) ? JSON.stringify(value) === JSON.stringify(stored[key]) : value === stored[key];

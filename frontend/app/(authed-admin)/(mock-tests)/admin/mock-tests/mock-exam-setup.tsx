@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dialog, Notice, PageState, TextField } from '@/components/ui';
 import { messageOf } from '@/components/admin-directory-ui';
+import { getBrowserJsonAt, patchBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
 import {
   MODE_LABELS,
   SETUP_STEPS,
@@ -31,12 +32,16 @@ import {
   vnDateTime,
   vnLocalToIso,
 } from '@/lib/mock-exam-org-model.mjs';
+import type { components } from '@/types/api';
+import type { ApiPostJson } from '@/lib/openapi-contract';
 
 import styles from './mock-exam-org.module.css';
 
 type OrgExam = import('@/lib/mock-exam-org-model.mjs').OrgExam;
 type Form = import('@/lib/mock-exam-org-model.mjs').SetupForm;
 type Audience = import('@/lib/mock-exam-org-model.mjs').Audience;
+// The server supplies the default for refresh_cohorts when it is omitted.
+type AudiencePatch = Partial<components['schemas']['AudiencePatch']>;
 type StepId = import('@/lib/mock-exam-org-model.mjs').SetupStepId;
 type ApiError = Error & { status?: number; code?: string | null; detail?: unknown };
 type PickerKind = 'listening' | 'reading' | 'writing-task1' | 'writing-task2';
@@ -45,6 +50,12 @@ type Cohort = { id: string; name: string; is_active?: boolean };
 type Student = { id: string; full_name: string; student_code?: string; user_id?: string | null };
 
 const STEP_NOTE: Record<StepId, string> = { papers: 'Kỹ năng và đề', audience: 'Ai thi', mode: 'Ngày giờ', review: 'Lên lịch' };
+const EXAMS_PATH = '/admin/mock-exams';
+const AUDIENCE_PATH = '/admin/mock-exams/{exam_id}/audience';
+const SCHEDULE_FIELDS = [
+  'skills', 'exam_mode', 'listening_test_id', 'reading_test_id', 'writing_task1_prompt_id',
+  'writing_task2_prompt_id', 'starts_at', 'open_from', 'open_until',
+];
 
 function stepHref(examId: string | null, step: StepId) {
   return examId ? `/admin/mock-tests/${encodeURIComponent(examId)}/setup?step=${step}` : `/admin/mock-tests/new?step=${step}`;
@@ -93,7 +104,7 @@ function PaperPicker({ kind, label, value, onChange }: { kind: PickerKind; label
 }
 
 export function MockExamSetup({ examId: initialId }: { examId: string | null }) {
-  const [examId, setExamId] = useState<string | null>(initialId);
+  const examId = useRef(initialId);
   const [exam, setExam] = useState<OrgExam | null>(null);
   const [form, setForm] = useState<Form>(() => formFromExam(null));
   const [audience, setAudience] = useState<Audience | null>(null);
@@ -107,6 +118,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
   // and must never be taken for an empty one (CR #2640).
   const [audienceError, setAudienceError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const saveInProgress = useRef(false);
   const [saveError, setSaveError] = useState<{ at: string; message: string } | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -124,7 +136,8 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
   /** The stored list, or null when it could not be read (never an empty stand-in). */
   const readAudience = useCallback(async (id: string): Promise<Audience | null> => {
     try {
-      const value = normalizeAudience(await window.api.get<unknown>(`/admin/mock-exams/${encodeURIComponent(id)}/audience`));
+      const response = await getBrowserJsonAt(AUDIENCE_PATH, `/admin/mock-exams/${encodeURIComponent(id)}/audience`);
+      const value = normalizeAudience(response);
       if (!value) throw new Error('Danh sách người thi sai định dạng.');
       setAudience(value);
       setAudienceError(null);
@@ -159,48 +172,44 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
     return () => { request.current += 1; };
   }, [initialId, reload]);
 
-  const goTo = (next: StepId) => {
+  const goTo = (next: StepId, targetId = examId.current) => {
     setStep(next);
-    window.history.replaceState(window.history.state, '', stepHref(examId, next));
+    window.history.replaceState(window.history.state, '', stepHref(targetId, next));
   };
 
-  /** Save the exam fields; true when stored (or nothing to store). */
-  const save = useCallback(async (nextStep: StepId): Promise<boolean> => {
+  /** Return the stored exam ID, including when nothing needs to be written. */
+  const saveExam = async (nextStep: StepId): Promise<string | null> => {
     setActionError(null);
     const at = hhmm(new Date());
-    if (!examId) {
+    if (!examId.current) {
       const built = buildCreateBody(form, newExamCode(), nextStep);
-      if (!built.ok) { setSaveError({ at, message: built.error }); return false; }
-      setSaving(true);
+      if (!built.ok) { setSaveError({ at, message: built.error }); return null; }
       try {
-        let created: { id?: string } | null = null;
+        let created: ApiPostJson<typeof EXAMS_PATH>;
         try {
-          created = await window.api.post<{ id?: string }>('/admin/mock-exams', built.value);
+          created = await postBrowserJsonAt(EXAMS_PATH, EXAMS_PATH, built.value);
         } catch (caught) {
           // A code collision is the only 409 of create: one retry with a new code.
           if ((caught as ApiError).status !== 409) throw caught;
-          created = await window.api.post<{ id?: string }>('/admin/mock-exams', { ...built.value, code: newExamCode() });
+          created = await postBrowserJsonAt(EXAMS_PATH, EXAMS_PATH, { ...built.value, code: newExamCode() });
         }
         if (!created?.id) throw new Error('Máy chủ không trả mã kỳ thi vừa tạo.');
-        setExamId(created.id);
+        examId.current = created.id;
         window.history.replaceState(window.history.state, '', stepHref(created.id, nextStep));
         await reload(created.id, true);
         setSaveError(null);
         setSavedAt(at);
-        return true;
+        return created.id;
       } catch (caught) {
         setSaveError({ at, message: messageOf(caught) });
-        return false;
-      } finally {
-        setSaving(false);
+        return null;
       }
     }
-    if (!exam) return false;
+    if (!exam) return null;
     const built = buildPatchBody(form, exam, nextStep);
-    if (!built.ok) { setSaveError({ at, message: built.error }); return false; }
+    if (!built.ok) { setSaveError({ at, message: built.error }); return null; }
     const windowChanged = form.mode === 'self_paced' && ('open_from' in built.value || 'open_until' in built.value);
-    if (!Object.keys(built.value).length) { setSaveError(null); return true; }
-    setSaving(true);
+    if (!Object.keys(built.value).length) { setSaveError(null); return exam.id; }
     try {
       // Self-paced windows live on each person's row: read the list first and
       // refuse to change the window while it cannot be read (CR #2640).
@@ -209,42 +218,54 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         const current = disabled ? { items: [] } : await readAudience(exam.id);
         if (!current) {
           setSaveError({ at, message: 'Chưa đọc được danh sách người thi nên chưa đổi khoảng mở. Thử lại khi danh sách tải được' });
-          return false;
+          return null;
         }
         rows = current.items.length;
       }
-      await window.api.patch(`/admin/mock-exams/${encodeURIComponent(exam.id)}`, built.value);
+      await patchBrowserJsonAt('/admin/mock-exams/{exam_id}', `/admin/mock-exams/${encodeURIComponent(exam.id)}`, built.value);
       const windowError = windowChanged && rows ? await pushWindow(exam.id, form) : null;
       await reload(exam.id, true);
       if (windowError) {
         setSaveError({ at, message: `Đã lưu kỳ thi nhưng chưa cập nhật khoảng mở cho danh sách người thi (${windowError}). Bấm Lưu lại hoặc Lên lịch để gửi lại` });
-        return false;
+        return null;
       }
+      if (SCHEDULE_FIELDS.some((field) => field in built.value)) setServerMissing(null);
       setSaveError(null);
       setSavedAt(at);
-      return true;
+      return exam.id;
     } catch (caught) {
       setSaveError({ at, message: messageOf(caught) });
-      return false;
-    } finally {
-      setSaving(false);
+      return null;
     }
-  }, [disabled, exam, examId, form, readAudience, reload]);
-
-  const changeStep = async (next: StepId) => {
-    if (next === step) return;
-    // Auto-save on every step change; a failed save keeps the edits on the page.
-    if (form.title.trim()) await save(next);
-    goTo(next);
   };
 
-  const patchAudience = async (body: Record<string, unknown>) => {
+  const save = async (nextStep: StepId): Promise<string | null> => {
+    if (saveInProgress.current) return null;
+    saveInProgress.current = true;
+    setSaving(true);
+    try {
+      return await saveExam(nextStep);
+    } finally {
+      saveInProgress.current = false;
+      setSaving(false);
+    }
+  };
+
+  const changeStep = async (next: StepId) => {
+    if (next === step || saveInProgress.current) return;
+    // Auto-save on every step change; a failed save keeps the edits on the page.
+    const savedId = form.title.trim() ? await save(next) : null;
+    goTo(next, savedId ?? examId.current);
+  };
+
+  const patchAudience = async (body: AudiencePatch) => {
     if (!exam) return;
     setActionError(null);
     try {
-      const response = await window.api.patch<unknown>(`/admin/mock-exams/${encodeURIComponent(exam.id)}/audience`, body);
+      const response = await patchBrowserJsonAt(AUDIENCE_PATH, `/admin/mock-exams/${encodeURIComponent(exam.id)}/audience`, body);
       const value = normalizeAudience(response);
       if (value?.mirrorFailed) setActionError('Đã lưu danh sách nhưng chưa ghi được lượt giao. Bấm lại thao tác vừa rồi để thử lại.');
+      else if (value) setServerMissing(null);
     } catch (caught) {
       setActionError(messageOf(caught));
     }
@@ -270,7 +291,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
           return;
         }
       }
-      await window.api.post(`/admin/mock-exams/${encodeURIComponent(exam.id)}/schedule`, {});
+      await postBrowserJsonAt('/admin/mock-exams/{exam_id}/schedule', `/admin/mock-exams/${encodeURIComponent(exam.id)}/schedule`);
       window.location.assign('/admin/mock-tests');
     } catch (caught) {
       const missing = notReadyMissing(caught);
@@ -285,9 +306,10 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
   const missing = useMemo(() => serverMissing || scheduleMissing(exam, audience), [audience, exam, serverMissing]);
   const summary = useMemo(() => audienceSummary(audience?.items || []), [audience]);
   const dirty = !exam || (() => { const built = buildPatchBody(form, exam, null); return !built.ok || Object.keys(built.value).length > 0; })();
+  const visibleSavedAt = saveError ? null : savedAt;
 
   if (loadState === 'loading') return <main className={styles.page}><PageState kind="loading" title="Đang mở kỳ thi…" /></main>;
-  if (loadState === 'error') return <main className={styles.page}><PageState kind="error" title="Chưa mở được kỳ thi" body={loadError} action={<Button variant="secondary" onClick={() => examId && void reload(examId, true)}>Thử lại</Button>} /></main>;
+  if (loadState === 'error') return <main className={styles.page}><PageState kind="error" title="Chưa mở được kỳ thi" body={loadError} action={<Button variant="secondary" onClick={() => examId.current && void reload(examId.current, true)}>Thử lại</Button>} /></main>;
   if (loadState === 'missing') return <main className={styles.page}><PageState kind="error" title="Không tìm thấy kỳ thi" body="Kỳ thi này không còn trong danh sách." action={<Button href="/admin/mock-tests">Về danh sách kỳ thi</Button>} /></main>;
   if (loadState === 'not-draft') return <main className={styles.page}><PageState kind="locked" title="Kỳ thi đã lên lịch" body="Trang này chỉ soạn kỳ thi ở Nháp. Kỳ thi đã lên lịch được theo dõi ở trang kỳ thi." action={<Button href={`/admin/mock-tests/${encodeURIComponent(exam?.id || '')}`}>Mở kỳ thi</Button>} /></main>;
 
@@ -305,7 +327,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
       <header className={styles.head}>
         <div>
           <h1>Tổ chức kỳ thi{form.title.trim() ? ` · ${form.title.trim()}` : ''}</h1>
-          <p>Nháp{savedAt ? ` · đã lưu lúc ${savedAt}` : exam ? '' : ' · chưa lưu'}</p>
+          <p>Nháp{visibleSavedAt ? ` · đã lưu lúc ${visibleSavedAt}` : exam ? '' : ' · chưa lưu'}</p>
         </div>
         <div className={styles.actions}>
           <Button variant="secondary" href="/admin/mock-tests">Về danh sách</Button>
@@ -314,7 +336,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
       </header>
 
       {saveError && (
-        <Notice kind="warning" title="Lưu nháp không thành công" action={<Button size="sm" variant="secondary" onClick={() => void save(step)}>Lưu lại</Button>}>
+        <Notice kind="warning" title="Lưu nháp không thành công" action={<Button size="sm" variant="secondary" disabled={saving} onClick={() => void save(step)}>Lưu lại</Button>}>
           Chưa lưu được nháp lúc {saveError.at}: {saveError.message.replace(/[.\s]+$/, '')}. Thay đổi vẫn còn trên trang này; đừng đóng tab.
         </Notice>
       )}
@@ -325,7 +347,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         <ol className={styles.steps}>
           {SETUP_STEPS.map((s, i) => (
             <li key={s.id}>
-              <button type="button" className={styles.stepButton} aria-current={step === s.id ? 'step' : undefined} onClick={() => void changeStep(s.id)}>
+              <button type="button" className={styles.stepButton} aria-current={step === s.id ? 'step' : undefined} disabled={saving} onClick={() => void changeStep(s.id)}>
                 <strong>{i + 1} · {s.label}</strong>
                 <small>{STEP_NOTE[s.id]}</small>
               </button>
@@ -366,7 +388,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         <section className={styles.section} aria-labelledby="mts-audience">
           <h2 id="mts-audience">Người thi</h2>
           {!exam ? (
-            <PageState kind="empty" title="Lưu nháp trước khi thêm người thi" body="Nhập tên kỳ thi ở bước Đề rồi bấm Lưu nháp." action={<Button onClick={() => void save('audience')}>Lưu nháp</Button>} />
+            <PageState kind="empty" title="Lưu nháp trước khi thêm người thi" body="Nhập tên kỳ thi ở bước Đề rồi bấm Lưu nháp." action={<Button disabled={saving} onClick={() => void save('audience')}>Lưu nháp</Button>} />
           ) : (
             <>
               <div className={styles.row}>
@@ -455,10 +477,10 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
         <section className={styles.section} aria-labelledby="mts-review">
           <h2 id="mts-review">Xem lại</h2>
           <dl className={styles.summary}>
-            <div><dt>Kỳ thi</dt><dd>{form.title.trim() || 'Chưa có tên'}</dd><Button size="sm" variant="text" onClick={() => void changeStep('papers')}>Sửa</Button></div>
-            <div><dt>Kỹ năng và đề</dt><dd>{skillsOn.map((s) => SKILL_NAMES[s]).join(', ') || 'Chưa chọn'}</dd><Button size="sm" variant="text" onClick={() => void changeStep('papers')}>Sửa</Button></div>
-            <div><dt>Người thi</dt><dd>{audienceError ? 'Chưa đọc được danh sách' : audience ? `${summary.selected} người${summary.unselected ? ` · ${summary.unselected} người không chọn` : ''}` : 'Chưa có'}</dd><Button size="sm" variant="text" onClick={() => void changeStep('audience')}>Sửa</Button></div>
-            <div><dt>Cách thi</dt><dd>{MODE_LABELS[form.mode as keyof typeof MODE_LABELS]} · {form.mode === 'live' ? (vnDateTime(vnLocalToIso(form.startsAt)) || 'chưa có ngày giờ') : `${vnDateTime(vnLocalToIso(form.openFrom)) || 'chưa có giờ mở'} – ${vnDateTime(vnLocalToIso(form.openUntil)) || 'chưa có giờ đóng'}`}</dd><Button size="sm" variant="text" onClick={() => void changeStep('mode')}>Sửa</Button></div>
+            <div><dt>Kỳ thi</dt><dd>{form.title.trim() || 'Chưa có tên'}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('papers')}>Sửa</Button></div>
+            <div><dt>Kỹ năng và đề</dt><dd>{skillsOn.map((s) => SKILL_NAMES[s]).join(', ') || 'Chưa chọn'}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('papers')}>Sửa</Button></div>
+            <div><dt>Người thi</dt><dd>{audienceError ? 'Chưa đọc được danh sách' : audience ? `${summary.selected} người${summary.unselected ? ` · ${summary.unselected} người không chọn` : ''}` : 'Chưa có'}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('audience')}>Sửa</Button></div>
+            <div><dt>Cách thi</dt><dd>{MODE_LABELS[form.mode as keyof typeof MODE_LABELS]} · {form.mode === 'live' ? (vnDateTime(vnLocalToIso(form.startsAt)) || 'chưa có ngày giờ') : `${vnDateTime(vnLocalToIso(form.openFrom)) || 'chưa có giờ mở'} – ${vnDateTime(vnLocalToIso(form.openUntil)) || 'chưa có giờ đóng'}`}</dd><Button size="sm" variant="text" disabled={saving} onClick={() => void changeStep('mode')}>Sửa</Button></div>
             <div><dt>Trả kết quả</dt><dd>Giáo viên công bố</dd><span /></div>
           </dl>
           {dirty && <Notice kind="info">Còn thay đổi chưa lưu; bấm Lên lịch sẽ lưu trước.</Notice>}
@@ -470,15 +492,15 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
           )}
           <p className={styles.help}>Bấm xong, {summary.selected} người được chọn thấy kỳ thi trong mục Thi thử.</p>
           <div className={styles.actions}>
-            <Button loading={scheduling} loadingLabel="Đang lên lịch…" disabled={missing.length > 0 || disabled || !exam || Boolean(audienceError)} onClick={() => void schedule()}>Lên lịch</Button>
+            <Button loading={scheduling} loadingLabel="Đang lên lịch…" disabled={saving || missing.length > 0 || disabled || !exam || Boolean(audienceError)} onClick={() => void schedule()}>Lên lịch</Button>
           </div>
         </section>
       )}
 
       <div className={styles.actions}>
-        {step !== 'papers' && <Button variant="secondary" onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) - 1].id)}>Quay lại</Button>}
-        {step !== 'review' && <Button onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) + 1].id)}>Tiếp tục</Button>}
-        {savedAt && <span className={styles.saved}>Đã lưu lúc {savedAt}</span>}
+        {step !== 'papers' && <Button variant="secondary" disabled={saving} onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) - 1].id)}>Quay lại</Button>}
+        {step !== 'review' && <Button disabled={saving} onClick={() => void changeStep(SETUP_STEPS[SETUP_STEPS.findIndex((s) => s.id === step) + 1].id)}>Tiếp tục</Button>}
+        {visibleSavedAt && <span className={styles.saved}>Đã lưu lúc {visibleSavedAt}</span>}
       </div>
 
       {exam && <CohortDialog open={dialog === 'cohorts'} onClose={() => setDialog(null)} onAdd={async (ids) => { setDialog(null); await patchAudience(audienceAddBody({ add_cohort_ids: ids }, form)); }} />}
@@ -489,7 +511,7 @@ export function MockExamSetup({ examId: initialId }: { examId: string | null }) 
 
 /** A self-paced add carries the window so new rows get it too (rows hold the window). */
 function windowOf(form: Form) {
-  const window: Record<string, string> = {};
+  const window: components['schemas']['AudienceWindow'] = {};
   const from = vnLocalToIso(form.openFrom);
   const until = vnLocalToIso(form.openUntil);
   if (from) window.open_from = from;
@@ -498,7 +520,7 @@ function windowOf(form: Form) {
 }
 
 /** Rows added on a self-paced exam carry its window, refresh included (CR #2640). */
-function audienceAddBody(body: Record<string, unknown>, form: Form) {
+function audienceAddBody(body: AudiencePatch, form: Form): AudiencePatch {
   if (form.mode !== 'self_paced') return body;
   const window = windowOf(form);
   return Object.keys(window).length ? { ...body, window } : body;
@@ -509,7 +531,9 @@ async function pushWindow(examId: string, form: Form): Promise<string | null> {
   const body = windowOf(form);
   if (!Object.keys(body).length) return null;
   try {
-    const value = normalizeAudience(await window.api.patch<unknown>(`/admin/mock-exams/${encodeURIComponent(examId)}/audience`, { window: body }));
+    const request: AudiencePatch = { window: body };
+    const response = await patchBrowserJsonAt(AUDIENCE_PATH, `/admin/mock-exams/${encodeURIComponent(examId)}/audience`, request);
+    const value = normalizeAudience(response);
     if (!value) return 'máy chủ trả danh sách sai định dạng';
     if (value.mirrorFailed) return 'đã lưu danh sách nhưng chưa ghi được lượt giao';
     return null;

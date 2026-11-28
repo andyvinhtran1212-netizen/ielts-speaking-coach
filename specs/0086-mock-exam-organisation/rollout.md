@@ -13,6 +13,12 @@
 - Cộng giờ riêng cho kỳ live (FR-146) chưa làm trong T33: `collect` thu cả phòng một lúc, nên route trả 409 `live_extra_time_unsupported`; kỳ tự do (`self_paced`) cộng giờ được **chỉ khi cờ `mock_exam_audiences_learner` bật** (G08-T22 đưa đồng hồ học viên và bộ quét tự nộp `_retake_section_expired` sang `self_paced_timeline`, nơi đọc `extra_seconds`); cờ tắt → 409 `learner_clock_not_ready`, không ghi gì. Đang chờ anh Andy quyết hướng cho kỳ live.
 - Bật `ADMIN_FRAME_V2` chỉ trên staging; chạy các kịch bản của spec bằng tài khoản QA admin có TOTP. Thiếu tài khoản QA → PR ghi "chờ anh Andy kiểm tay trên staging".
 
+### Phạm vi môn của học viên
+
+Giữ `mock_exam_audiences_learner` tắt trong khi thực hiện các bước 445, backend tương thích và 446. Trước khi mở cho học viên, kiểm sổ migration của đúng môi trường và định nghĩa đang cài của cả `public.fn_mock_section_valid(text,jsonb,jsonb)` và `public.fn_guard_owned_mock_attempt(text,jsonb,text)`. Cả hai phải giới hạn theo môn được giao cho từng học viên. Nếu sổ đã ghi 446 nhưng một trong hai hàm còn định nghĩa cũ, bổ sung migration mới theo thứ tự tăng và xin duyệt cho môi trường đó. Giữ nguyên dòng 446 trong sổ.
+
+Dùng hai học viên QA trong cùng kỳ live, một người chỉ được giao Reading, người kia chỉ được giao Listening. Khi giám thị mở từng môn, kiểm cả bước mở đề và bước nộp bài. Cả hai bước phải cho phép học viên được giao môn đó và từ chối học viên còn lại. Ghi kết quả cho cả hai tài khoản trước khi mở cờ cho học viên.
+
 ## Production
 
 - Chỉ qua PR `staging → main`; migration production cần anh Andy duyệt bằng lời, chạy dưới khoá advisory trước khi mã phụ thuộc lên. Cờ khung mới tắt ở production tới khi anh dùng thử trên staging ≥ 1 ngày làm việc (Q6).
