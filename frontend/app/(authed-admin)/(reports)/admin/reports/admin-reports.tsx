@@ -4,9 +4,10 @@
 // Tab and range live in the URL (`?tab=&range=`), so a reload keeps both. Each
 // tab reads one existing API; a failed or foreign answer breaks only that tab.
 // Numbers the APIs cannot give say "chưa có" with the reason, never 0.
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+import { getBrowserJson } from '@/lib/browser-api';
 import { REVIEW_QUEUE_HREF } from '@/lib/admin-incidents-model.mjs';
 import {
   REPORT_RANGES,
@@ -47,9 +48,9 @@ function links(items: [string, string][]) {
 }
 
 /** Reads the open tab's source and turns it into tiles, tables and gaps. */
-async function loadReport(tab: string, range: number): Promise<Report | null> {
+async function loadReport(tab: string, range: number, signal: AbortSignal): Promise<Report | null> {
   if (tab === 'hoat-dong') {
-    const out = activityReport(await window.api.getWith<unknown>('/admin/overview'), range);
+    const out = activityReport(await getBrowserJson('/admin/overview', undefined, signal), range);
     if (!out) return null;
     return {
       tiles: out.tiles,
@@ -67,7 +68,7 @@ async function loadReport(tab: string, range: number): Promise<Report | null> {
     };
   }
   if (tab === 'luu-luong') {
-    const out = trafficReport(await window.api.getWith<unknown>(`/admin/analytics/foot-traffic?${footTrafficQuery(range)}`), range);
+    const out = trafficReport(await getBrowserJson('/admin/analytics/foot-traffic', new URLSearchParams(footTrafficQuery(range)), signal), range);
     if (!out) return null;
     const unavailable = out.status === 'unavailable';
     return {
@@ -84,7 +85,7 @@ async function loadReport(tab: string, range: number): Promise<Report | null> {
     };
   }
   if (tab === 'chi-phi-ai') {
-    const out = aiCostReport(await window.api.getWith<unknown>(`/admin/ai-usage?days=${range}`));
+    const out = aiCostReport(await getBrowserJson('/admin/ai-usage', new URLSearchParams({ days: String(range) }), signal));
     if (!out) return null;
     return {
       tiles: out.tiles,
@@ -121,26 +122,26 @@ export function AdminReports() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [exported, setExported] = useState<string | null>(null);
-  const sequence = useRef(0);
 
   useEffect(() => {
     // Only the newest read fills the page: an older answer for another tab or
     // range is dropped.
-    const id = ++sequence.current;
+    const controller = new AbortController();
     setLoad({ kind: 'loading' });
     setExported(null);
     (async () => {
       try {
-        const report = await loadReport(state.tab, state.range);
-        if (id !== sequence.current) return;
+        const report = await loadReport(state.tab, state.range, controller.signal);
+        if (controller.signal.aborted) return;
         setLoad(report ? { kind: 'ready', report } : { kind: 'error' });
         if (!report) console.warn('[admin-reports] foreign shape', state.tab);
       } catch (caught) {
-        if (id !== sequence.current) return;
+        if (controller.signal.aborted) return;
         console.warn('[admin-reports] load failed', state.tab, caught);
         setLoad({ kind: 'error' });
       }
     })();
+    return () => controller.abort();
   }, [state.tab, state.range, attempt]);
 
   const go = useCallback((next: Partial<typeof state>) => {

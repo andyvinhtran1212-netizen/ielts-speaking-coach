@@ -67,7 +67,7 @@ describe('AdminReports', () => {
   it('opens Hoạt động học viên for 30 days by default: tiles, tables, gaps with reasons, detail links', async () => {
     render(<AdminReports />);
     await settle();
-    expect(api.getWith).toHaveBeenCalledWith('/admin/overview');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/overview', undefined, { signal: expect.any(AbortSignal) });
     const tabs = screen.getByRole('navigation', { name: 'Thẻ báo cáo' });
     expect(within(tabs).getByRole('link', { name: 'Hoạt động học viên' }).getAttribute('aria-current')).toBe('page');
     expect(within(tabs).getByRole('link', { name: 'Chi phí AI' }).getAttribute('href')).toBe('/admin/reports?tab=chi-phi-ai&range=30');
@@ -94,7 +94,7 @@ describe('AdminReports', () => {
     nav.search = 'tab=luu-luong&range=30';
     render(<AdminReports />);
     await settle();
-    expect(api.getWith).toHaveBeenCalledWith(expect.stringMatching(/^\/admin\/analytics\/foot-traffic\?date_from=\d{4}-\d{2}-\d{2}&date_to=\d{4}-\d{2}-\d{2}$/));
+    expect(api.getWith).toHaveBeenCalledWith(expect.stringMatching(/^\/admin\/analytics\/foot-traffic\?date_from=\d{4}-\d{2}-\d{2}&date_to=\d{4}-\d{2}-\d{2}$/), undefined, { signal: expect.any(AbortSignal) });
     fireEvent.click(screen.getByRole('button', { name: '7 ngày' }));
     expect(nav.push).toHaveBeenLastCalledWith('/admin/reports?tab=luu-luong&range=7');
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Thẻ báo cáo' })).getByRole('link', { name: 'Chi phí AI' }));
@@ -105,7 +105,7 @@ describe('AdminReports', () => {
     nav.search = 'tab=chi-phi-ai&range=7';
     render(<AdminReports />);
     await settle();
-    expect(api.getWith).toHaveBeenCalledWith('/admin/ai-usage?days=7');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/ai-usage?days=7', undefined, { signal: expect.any(AbortSignal) });
     expect(screen.getByText('Chi phí trong kỳ').nextElementSibling?.textContent).toBe('1,50 US$');
     expect(screen.getByText('Lượt gọi chưa có chi phí đơn vị').nextElementSibling?.textContent).toBe('2');
     expect(screen.getByRole('rowheader', { name: 'Claude' })).toBeTruthy();
@@ -175,9 +175,11 @@ describe('AdminReports', () => {
     let release: (v: unknown) => void = () => {};
     api.getWith.mockImplementationOnce(() => new Promise((r) => { release = r; }));
     const view = render(<AdminReports />);
+    const previousSignal = api.getWith.mock.calls[0][2].signal;
     nav.search = 'tab=chi-phi-ai&range=7';
     view.rerender(<AdminReports />);
     await settle();
+    expect(previousSignal.aborted).toBe(true);
     release(overview());
     await settle();
     expect(screen.getByText('Chi phí trong kỳ')).toBeTruthy();
