@@ -3,8 +3,9 @@
 // groups, empty groups hidden, the overdue strip with its count, the button by
 // `action`, filters and "Bỏ lọc", the query keeps the choice, flag off renders
 // the legacy tree; plus the T30b button.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { Activity } from 'react';
 
 import { AssignedV2 } from '@/app/(authed-my-class)/course/assigned/assigned-v2';
 import { selfPracticeHref } from '@/app/(authed-my-class)/course/assigned/assigned-v2-open';
@@ -48,12 +49,12 @@ let post: ReturnType<typeof vi.fn>;
 const assign = vi.fn();
 const REAL_LOCATION = window.location;
 
-function mount(body: unknown, search = '') {
+function mount(body: unknown, search = '', page = <AssignedV2 accountId="learner-1" />) {
   get = vi.fn(async () => body);
   post = vi.fn(async () => undefined);
   Object.defineProperty(window, 'api', { configurable: true, value: { get, getWith: get, post } });
   window.history.replaceState(null, '', `/course/assigned${search}`);
-  return render(<AssignedV2 accountId="learner-1" />);
+  return render(page);
 }
 
 beforeEach(() => {
@@ -288,6 +289,56 @@ it('back from the player via the bfcache releases the open lock', async () => {
   await waitFor(() => expect(within(todo).getAllByRole('button', { name: 'Tự luyện bài này' })).toHaveLength(2));
   fireEvent.click(within(todo).getAllByRole('button', { name: 'Tự luyện bài này' })[1]);
   await waitFor(() => expect(assign).toHaveBeenCalledTimes(2));
+});
+
+function cachedAssignments(mode: 'visible' | 'hidden') {
+  return <Activity mode={mode}><AssignedV2 accountId="learner-1" /></Activity>;
+}
+
+it('soft Back after opening a Speaking assignment releases the lock to open another', async () => {
+  const view = mount(payload([
+    item('first', 'overdue', 'self_practice', { skill: 'speaking', due: PAST }),
+    item('second', 'overdue', 'self_practice', { skill: 'speaking', due: PAST }),
+  ]), '', cachedAssignments('visible'));
+
+  post.mockImplementation(async (url: string, body?: { topic?: string }) => (
+    url === '/sessions'
+      ? { id: body?.topic }
+      : { skill: 'speaking', launch: { session_params: {
+        mode: 'practice', part: 1, topic: url.split('/')[4],
+      } } }
+  ));
+
+  let overdue = await screen.findByRole('region', { name: 'Quá hạn' });
+  fireEvent.click(within(overdue).getAllByRole('button', { name: 'Tự luyện bài này' })[0]);
+  await waitFor(() => expect(push).toHaveBeenCalledWith('/practice/session?session_id=first'));
+
+  view.rerender(cachedAssignments('hidden'));
+  view.rerender(cachedAssignments('visible'));
+  overdue = await screen.findByRole('region', { name: 'Quá hạn' });
+  fireEvent.click(within(overdue).getAllByRole('button', { name: 'Tự luyện bài này' })[1]);
+  await waitFor(() => expect(push).toHaveBeenNthCalledWith(2, '/practice/session?session_id=second'));
+});
+
+it('an open pending before soft Back cannot create a session after the route returns', async () => {
+  const view = mount(payload([
+    item('old', 'overdue', 'self_practice', { skill: 'speaking', due: PAST }),
+  ]), '', cachedAssignments('visible'));
+  const overdue = await screen.findByRole('region', { name: 'Quá hạn' });
+  let finish: (value: unknown) => void = () => {};
+  post.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+
+  fireEvent.click(within(overdue).getByRole('button', { name: 'Tự luyện bài này' }));
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+  view.rerender(cachedAssignments('hidden'));
+  view.rerender(cachedAssignments('visible'));
+  await screen.findByRole('region', { name: 'Quá hạn' });
+  await act(async () => {
+    finish({ skill: 'speaking', launch: { session_params: { mode: 'practice', part: 1, topic: 'Old' } } });
+  });
+
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(push).not.toHaveBeenCalled();
 });
 
 it('a pending open is dropped when the page unmounts: no session, no navigation', async () => {
