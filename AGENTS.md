@@ -1,8 +1,14 @@
 # AGENTS.md
 
+## Shared project memory
+
+Start a takeover with [HANDOFF.md](HANDOFF.md). Use [CONTEXT.md](CONTEXT.md) to find the owning code and [TASKS.md](TASKS.md) to pick up an open item. Check [DECISIONS.md](DECISIONS.md) before acting on a merge, HOLD or release. Confirm the current PR head, base and checks on GitHub before changing state.
+
+Update the document whose facts changed. Record a decision with its owner, scope and reason. In a handoff, give the revision, environment, evidence and next action. Detailed results belong with the PR, spec or [shared progress tracker](https://github.com/andyvinhtran1212-netizen/aver-tien-do). Keep credentials and learner data out of these files.
+
 ## Project
 
-IELTS Speaking Coach — a web app for IELTS/English speaking practice:
+IELTS Speaking Coach (Aver Learning) is a four-skill IELTS preparation platform for learners, instructors and administrators.
 - FastAPI backend (Railway.app)
 - Next.js 16 App Router + React/TypeScript frontend (Vercel)
 - Supabase: PostgreSQL + Auth + Storage
@@ -251,6 +257,8 @@ Before claiming a fix is complete:
 ## Parallel work
 
 If explicitly asked to use multiple agents/subagents:
+- Assign one owner, scope and definition of done to each PR or dependency chain. Escalate difficult trade-offs to the coordinating agent with evidence and a recommendation.
+- Use the team and model assignments in the current handoff.
 - Split work by domain: backend / frontend / content / migrations
 - Avoid overlapping edits to the same file
 - Consolidate findings before recommending changes
