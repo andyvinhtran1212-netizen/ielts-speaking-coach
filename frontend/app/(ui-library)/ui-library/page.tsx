@@ -23,6 +23,9 @@ import { ChartSection, DateFieldsSection, FileUploadSection } from './data-secti
 import { AudioPlayerSection, VideoFrameSection } from './media-sections';
 import { LearnerShellSection } from './shell-sections';
 import { FocusShellSection } from './focus-demo';
+import {
+  AnnotatedTextSection, BandScoreSection, FigureSection, QuestionPaletteSection, TimerSection, VocabEntrySection,
+} from './learning-sections';
 import { StaffShellSection } from './staff-sections';
 import { ThemeSection } from './theme-sections';
 import { IconSection } from './icon-sections';
@@ -190,9 +193,14 @@ export default function UiLibraryPage() {
           <LearnerShellSection title={title('learner-shell')} />
           <FocusShellSection title={title('focus-shell')} />
           <StaffShellSection title={title('staff-shell')} />
-          {/* Last on purpose: 16:9 frames give fractional heights, which would shift the text of later sections by a subpixel and break their baselines. */}
           <AudioPlayerSection title={title('audio-player')} />
           <VideoFrameSection title={title('video-frame')} />
+          <BandScoreSection title={title('band-score')} />
+          <TimerSection title={title('timer')} />
+          <QuestionPaletteSection title={title('question-palette')} />
+          <VocabEntrySection title={title('vocab-entry')} />
+          <AnnotatedTextSection title={title('annotated-text')} />
+          <FigureSection title={title('figure')} />
         </main>
       </div>
     </>

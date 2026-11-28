@@ -88,7 +88,7 @@ function StaffAccountMenu({
           <ul className={styles.accountList}>
             <li className={styles.phoneOnly}><a href={LEARNER_VIEW_HREF} className={styles.accountItem}>Xem như học viên</a></li>
             {switchTo.map((s) => (
-              <li key={s.href}><a href={s.href} className={styles.accountItem}>Đổi vai trò: {s.label}</a></li>
+              <li key={s.href}><a href={s.href} className={styles.accountItem}>{s.label}</a></li>
             ))}
           </ul>
           <ThemeChoiceGroup className={cx(styles.accountTheme, styles.phoneOnly)} />
@@ -110,6 +110,8 @@ export type StaffTopBarProps = {
   searchSlot?: ReactNode;
   panel: StaffPanel | null;
   setPanel: (panel: StaffPanel | null) => void;
+  /** 'av2-root' when StaffShell scope="shell". */
+  rootClass?: string;
 };
 
 /**
@@ -118,10 +120,10 @@ export type StaffTopBarProps = {
  * Staging and local draw the bar on --av2-off. Below 768px: menu button,
  * brand, search and account buttons, and the role + environment as a strip.
  */
-export function StaffTopBar({ role, environment, user, switchTo, search, searchSlot, panel, setPanel }: StaffTopBarProps) {
+export function StaffTopBar({ role, environment, user, switchTo, search, searchSlot, panel, setPanel, rootClass }: StaffTopBarProps) {
   const toggle = (name: StaffPanel) => (open: boolean) => setPanel(open ? name : panel === name ? null : panel);
   return (
-    <header className={styles.topbar} data-env={environment}>
+    <header className={rootClass ? `${rootClass} ${styles.topbar}` : styles.topbar} data-env={environment}>
       <div className={styles.topbarInner}>
         <button
           type="button"

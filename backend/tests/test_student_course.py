@@ -1,14 +1,13 @@
 """LEARNERCORE-0063 T15 (amendment 1): GET /api/student/course.
 
-Join points for G04 (/api/me/courses, the public catalogue) and
-COURSELESSON-0064 (lesson progress) are monkeypatched with the shapes of
-0055 plan 5.9; the class read runs on a small in-memory fake Supabase.
+The HTTP tests cover the G04 joins and scoped class reconciliation using
+in-memory PostgREST data. Focused assembly tests isolate individual sources.
 """
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -38,6 +37,14 @@ class _Q:
     def in_(self, f, vs):
         vs = {str(v) for v in vs}
         self.filters.append(lambda r: str(r.get(f)) in vs)
+        return self
+
+    def is_(self, f, value):
+        assert value == "null"
+        self.filters.append(lambda r: r.get(f) is None)
+        return self
+
+    def order(self, _f):
         return self
 
     def limit(self, n):
@@ -97,8 +104,12 @@ def test_class_only_uses_todays_count(monkeypatch):
     rows = [{"assignment": {"due_at": "2026-11-30T00:00:00Z"}, "item_id": "a"},
             {"assignment": {"due_at": None}, "item_id": "b"},
             {"assignment": {"due_at": None}, "item_id": "c", "submitted_at": "2026-11-20T00:00:00Z"}]
-    monkeypatch.setattr(st, "_visible_assignments_for", lambda *_a: (True, rows, False))
-    monkeypatch.setattr(sc, "_courses_for", lambda _u: None)
+    def assigned(user_id, account_name, now, *, read_only):
+        assert user_id == "u-1" and read_only is True
+        return True, rows, False
+
+    monkeypatch.setattr(st, "_visible_assignments_for", assigned)
+    monkeypatch.setattr(sc, "_courses_for", lambda _u, _now: None)
     monkeypatch.setattr(sc, "_catalog_for", lambda: None)
     monkeypatch.setattr(sc, "_class_for", lambda *_a: {"name": "IELTS 6.5 tối", "teacher_name": None,
                                                          "course_title": None, "repractice": []})
@@ -176,8 +187,11 @@ def test_stale_ledger_marks_assigned_open_degraded(monkeypatch):
     assert body["assigned_open"] == 3 and body["degraded"] == ["assigned_open"]
 
 
-def test_missing_sources_are_empty_not_degraded(monkeypatch):
-    # The real join points, untouched: G04 and 0064 not merged.
+def test_empty_g04_sources_are_empty_not_degraded(monkeypatch):
+    from routers import courses_public, me_access
+
+    monkeypatch.setattr(me_access, "_my_courses_reads", lambda _uid: ([], {}, {}, {}, (None, None)))
+    monkeypatch.setattr(courses_public, "supabase_admin", _DB({}))
     monkeypatch.setattr(sc, "_class_for", lambda *_a: None)
     monkeypatch.setattr(sc, "_assigned_open_for", lambda *_a: (0, False))
     body = asyncio.run(sc.get_course_concurrent("u-1", now=NOW))
@@ -255,8 +269,9 @@ def test_route_matches_response_model(monkeypatch):
 
     monkeypatch.setattr(student_home, "get_supabase_user", _user)
     monkeypatch.setattr(activation_gate, "aaccount_is_active", lambda *_a, **_k: _true())
-    monkeypatch.setattr(sc, "_courses_for", lambda u: seen.setdefault("user", u) and {
+    monkeypatch.setattr(sc, "_courses_for", lambda u, _now: seen.setdefault("user", u) and {
         "items": [_item("A", days=5, balance=3)]})
+    monkeypatch.setattr(sc, "_catalog_for", lambda: [])
     monkeypatch.setattr(sc, "_class_for", lambda *_a: {"name": "Lớp A", "teacher_name": None,
                                                          "course_title": None, "repractice": []})
     monkeypatch.setattr(sc, "_assigned_open_for", lambda *_a: (2, False))
@@ -268,3 +283,94 @@ def test_route_matches_response_model(monkeypatch):
     assert body["class"]["name"] == "Lớp A" and "class_" not in body
     assert body["online"][0]["credits_left"] == 3 and body["assigned_open"] == 2
     assert res.headers["cache-control"] == "private, no-store"
+
+
+@pytest.fixture
+def course_client(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from routers import student_home
+
+    async def authenticated(authorization):
+        learner_id = "u-2" if authorization == "Bearer learner-b" else "u-1"
+        return {"id": learner_id, "email": f"{learner_id}@example.com"}
+
+    monkeypatch.setattr(student_home, "get_supabase_user", authenticated)
+    app = FastAPI()
+    app.include_router(student_home.router)
+    return TestClient(app)
+
+
+@pytest.mark.parametrize("has_class", [False, True])
+def test_course_route_reads_owned_g04_entitlement_and_public_catalog(monkeypatch, course_client, has_class):
+    from routers import courses_public, me_access
+    from services import entitlements
+
+    expires = datetime.now(timezone.utc) + timedelta(days=30)
+    db = _DB({
+        "entitlements": [
+            {"id": "grant-a", "user_id": "u-1", "product_id": "own", "course_id": "g1",
+             "source": "enrollment_order", "expires_at": expires.isoformat(), "status": "active"},
+            {"id": "grant-b", "user_id": "u-2", "product_id": "other", "course_id": "g2",
+             "source": "enrollment_order", "expires_at": expires.isoformat(), "status": "active"},
+        ],
+        "courses": [{"id": "g1", "code": "G1"}, {"id": "g2", "code": "G2"}],
+        "course_products": [
+            {"id": "own", "slug": "grammar-one", "title": "Grammar", "kind": "online",
+             "is_public": True, "status": "open"},
+            {"id": "other", "slug": "reading-two", "title": "Reading", "kind": "online",
+             "is_public": True, "status": "coming_soon", "expected_open_on": "2027-01-05"},
+            {"id": "hidden", "slug": "private", "kind": "online", "is_public": False, "status": "open"},
+            {"id": "archived", "slug": "archived", "kind": "online", "is_public": True, "status": "open",
+             "archived_at": "2026-11-01T00:00:00Z"},
+        ],
+    })
+    for module in (entitlements, me_access, courses_public):
+        monkeypatch.setattr(module, "supabase_admin", db)
+    monkeypatch.setattr(entitlements, "fetch_legacy_code_rows", lambda _uid: [])
+    monkeypatch.setattr(me_access, "fetch_credit_balance", lambda _uid: {
+        "total": 30, "items": [{"entitlement_id": "grant-a", "product_kind": "online", "balance": 6}],
+    })
+    klass = {"name": "Lớp A", "teacher_name": None, "course_title": None, "repractice": []}
+    monkeypatch.setattr(sc, "_class_for", lambda *_a: klass if has_class else None)
+    monkeypatch.setattr(sc, "_assigned_open_for", lambda *_a: (0, False))
+
+    response = course_client.get("/api/student/course", headers={"Authorization": "Bearer learner-a"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["degraded"] == []
+    assert body["has_online"] is True and body["has_class"] is has_class
+    assert body["selected"] == "G1"
+    assert [(row["course_code"], row["product_slug"], row["credits_left"]) for row in body["online"]] == [
+        ("G1", "grammar-one", 6),
+    ]
+    assert body["other_products"] == [
+        {"slug": "reading-two", "title": "Reading", "status": "coming_soon", "starts_at": "2027-01-05"},
+    ]
+
+
+def test_course_route_counts_hand_ins_without_writing_any_ledgers(monkeypatch, course_client):
+    import database
+    from routers import class_student
+    from services import quiz_service
+    from test_student_assigned import _two_student_ledger_db
+
+    db, finished = _two_student_ledger_db()
+    next(row for row in db.tables["class_assignment_items"] if row["id"] == "course-s1")["passed_at"] = finished
+    db.tables["reading_test_attempts"] = db.tables["reading_test_attempts"][:1]
+    db.tables["course_writing_submissions"] = db.tables["course_writing_submissions"][:1]
+    for module in (database, class_student, quiz_service):
+        monkeypatch.setattr(module, "supabase_admin", db)
+    monkeypatch.setattr(sc, "_courses_for", lambda *_a: {"items": []})
+    monkeypatch.setattr(sc, "_catalog_for", lambda: [])
+    monkeypatch.setattr(sc, "_class_for", lambda *_a: None)
+
+    for learner, expected_open in (("learner-a", 0), ("learner-b", 2)):
+        response = course_client.get("/api/student/course", headers={"Authorization": f"Bearer {learner}"})
+        assert response.status_code == 200, response.text
+        assert response.json()["degraded"] == []
+        assert response.json()["assigned_open"] == expected_open
+
+    assert db.writes == []
+    assert all(row["submitted_at"] is None for row in db.tables["class_assignment_items"])
