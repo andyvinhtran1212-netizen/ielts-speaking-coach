@@ -137,6 +137,22 @@
     else loc.href = target;
   }
 
+  // ACCOUNTDATA-0100 FR-003 (ui-states.md): while a deletion is pending every
+  // learner route but a few answers 403 `account_deletion_pending`. /account
+  // shows the notice with "Huỷ yêu cầu xoá", so go there once per page. On
+  // /account itself nothing moves: the page reads the request status first.
+  var _deletionPendingRedirected = false;
+  function _toDeletionPending() {
+    if (_deletionPendingRedirected) return;
+    var loc = window.location;
+    if (!loc || loc.pathname === '/account') return;
+    _deletionPendingRedirected = true;
+    try {
+      if (typeof loc.replace === 'function') loc.replace('/account');
+      else loc.href = '/account';
+    } catch (_) {}
+  }
+
   function _announceInactive() {
     try { window.dispatchEvent(new CustomEvent('aver:account-inactive')); } catch (_) {}
   }
@@ -307,6 +323,7 @@
       if (response.status === 403 && !(opts && opts.noRedirect) && !(signal && signal.aborted)) {
         if (code === 'mfa_required') _toAdminMfa();
         else if (detail === 'Tài khoản chưa được kích hoạt') _announceInactive();
+        else if (isObj && detail.error_code === 'account_deletion_pending') _toDeletionPending();
         else if (code === 'step_up_required' && fields.reason !== 'new_factor_cooloff'
                  && !(opts && (opts.keepalive || opts._stepUpResent))) {
           // FR-020: the server refused before any change, so after a fresh

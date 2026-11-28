@@ -25,7 +25,7 @@ jobs:
           # PR validation reads the exact base revision to prove the spec was
           # approved before implementation entered the topic branch.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Install spec parser
