@@ -40,14 +40,17 @@ beforeEach(() => {
 afterEach(() => { cleanup(); });
 
 const dialog = () => screen.getByRole('dialog');
+// G09-T14b adds the G04 /access read; the profile's own reloads are counted on their own.
+const detailCalls = () => api.getWith.mock.calls.filter(([p]) => String(p) === `/admin/learners/${U}`).length;
 
 describe('Khoá và quyền (G09-T11b)', () => {
-  it('shows the role and a danger zone at the end, with no account lock and no revoke for learners yet', async () => {
+  it('shows the role and a danger zone at the end, with no account lock; no access in force → nothing to revoke', async () => {
     render(<AdminLearnerProfile learnerRef={U} />);
     await screen.findByText('Vùng nguy hiểm');
     expect(screen.getByText('Học viên', { selector: 'strong' })).toBeTruthy();
     const zone = screen.getByRole('region', { name: 'Vùng nguy hiểm' });
-    expect((within(zone).getByRole('button', { name: 'Thu hồi quyền học' }) as HTMLButtonElement).disabled).toBe(true);
+    await within(zone).findByText(/Không có quyền học nào đang hiệu lực/);
+    expect(within(zone).queryByRole('button', { name: /^Thu hồi/ })).toBeNull();
     expect((within(zone).getByRole('button', { name: 'Khoá tài khoản' }) as HTMLButtonElement).disabled).toBe(true);
     expect(within(zone).getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' })).toBeTruthy();
     const sections = Array.from(document.querySelectorAll('.lp-access > section'));
@@ -66,7 +69,7 @@ describe('Khoá và quyền (G09-T11b)', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' }));
     await screen.findByText('Đã đổi vai trò sang Giảng viên.');
     expect(api.patch).toHaveBeenCalledWith(`/admin/users/${UID}/role`, { role: 'instructor' });
-    expect(api.getWith).toHaveBeenCalledTimes(2);
+    expect(detailCalls()).toBe(2);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -83,7 +86,7 @@ describe('Khoá và quyền (G09-T11b)', () => {
     await act(async () => { fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' })); });
     expect(screen.queryByText('Đã đổi vai trò sang Giảng viên.')).toBeNull();
     expect(within(dialog()).getByRole('alert').textContent).toContain('Chưa nhận được xác nhận');
-    expect(api.getWith).toHaveBeenCalledTimes(2);
+    expect(detailCalls()).toBe(2);
   });
 
   it('after a reload the role select follows the server, and an unactivated learner can still change role', async () => {
@@ -122,7 +125,7 @@ describe('Khoá và quyền (G09-T11b)', () => {
     expect(dialog().textContent).toMatch(/vào được toàn bộ khu quản trị/);
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' }));
     await waitFor(() => expect(within(dialog()).getByRole('alert').textContent).toMatch(/cần xác minh mã hai bước/));
-    await waitFor(() => expect(api.getWith).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(detailCalls()).toBe(2));
   });
 
   it('no role change for oneself, a suspended account or a profile without an account', async () => {
@@ -146,7 +149,7 @@ describe('Khoá và quyền (G09-T11b)', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Gỡ khỏi lớp' }));
     await screen.findByText('Đã gỡ Nguyễn Minh Anh khỏi lớp Tue–Thu 19:30.');
     expect(api.deleteWith).toHaveBeenCalledWith(`/admin/cohorts/${C}/students/${SID}`, undefined, undefined, expect.objectContaining({ rejectUnauthorized: true }));
-    expect(api.getWith).toHaveBeenCalledTimes(2);
+    expect(detailCalls()).toBe(2);
   });
 
   it('an expired session during removal cannot announce a successful removal', async () => {
@@ -184,7 +187,8 @@ describe('Khoá và quyền (G09-T11b)', () => {
       account: { user_id: UID2, role: 'student', is_active: true },
     });
     const byRef = (path: string) => (String(path).includes(UID2) ? detailB() : detail());
-    const readsOf = (uid: string) => api.getWith.mock.calls.filter(([p]) => String(p).includes(uid)).length;
+    // Profile reads only: the G04 access read of the tab (#2660) is not a reload of the profile.
+    const readsOf = (uid: string) => api.getWith.mock.calls.filter(([p]) => String(p).includes(uid) && !String(p).endsWith('/access')).length;
 
     beforeEach(() => { api.getWith.mockImplementation((path: string) => Promise.resolve(byRef(path))); });
 
