@@ -29,11 +29,6 @@ const readJs = (name) => readFileSync(path.join(__dirname, '..', 'js', name), 'u
 // (js file, wrapper id) — every admin list/table wrapper whose render path
 // toggles visibility by empty/non-empty result.
 const WRAPS = [
-  ['admin-error-logs.js', 'logs-table-wrap'],
-  ['admin-grammar-analytics.js', 'top-wrap'],
-  ['admin-grammar-analytics.js', 'saved-wrap'],
-  ['admin-grammar-analytics.js', 'zero-wrap'],
-  ['admin-grammar-articles.js', 'gra-table-wrap'],
   ['admin-reading.js', 'ar-list-table'],
 ];
 
@@ -78,3 +73,10 @@ for (const [file, wrap] of WRAPS) {
 // /admin/usage owners render their tables from React state, with no
 // hidden-toggle wrapper (admin-ai-usage-next-behavior, admin-alerts-next-behavior,
 // admin-foot-traffic-next-behavior, admin-usage-next-behavior).
+// LEGACYJS-0075 W4b: admin-error-logs.js (#logs-table-wrap),
+// admin-grammar-analytics.js (#top-wrap, #saved-wrap, #zero-wrap) and
+// admin-grammar-articles.js (#gra-table-wrap) are deleted; the Next
+// /admin/error-logs, /admin/grammar/analytics and /admin/grammar/articles owners
+// render from React state, with no hidden-toggle wrapper
+// (admin-error-logs-next-behavior, admin-grammar-analytics-next-behavior,
+// admin-grammar-articles-next-behavior).

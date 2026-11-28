@@ -20,7 +20,6 @@ const CSS = read('public', 'css', 'admin-grammar-analytics-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const HUB = read('app', '(authed-admin)/(grammar)', 'admin', 'grammar', 'page.tsx');
 const LEGACY_HUB = read('public', 'pages', 'admin', 'grammar', 'index.html');
-const LEGACY_CLIENT = read('public', 'js', 'admin-grammar-analytics.js');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -55,11 +54,8 @@ describe('/admin/grammar/analytics native ownership', () => {
     assert.match(CLIENT, /requestId === sequence\.current/);
     assert.match(CLIENT, /không phải số lượt xem phát sinh theo ngày/);
     assert.match(CLIENT, /Dấu — không có nghĩa là 0/);
-    assert.match(LEGACY_CLIENT, /requestId !== loadSequence/);
-    assert.match(LEGACY_CLIENT, /không đồng nghĩa với 0/);
-    assert.match(LEGACY_CLIENT, /'top-empty'\)\.textContent = EMPTY_COPY\.top/);
-    assert.match(LEGACY_CLIENT, /'saved-empty'\)\.textContent = EMPTY_COPY\.saved/);
-    assert.match(LEGACY_CLIENT, /'zero-empty'\)\.textContent = EMPTY_COPY\.zero/);
+    // LEGACYJS-0075 W4b: the rollback client admin-grammar-analytics.js is
+    // deleted; the Next pins above hold the same stale-guard and empty copy.
   });
 
   test('records route ownership and responsive CI coverage', () => {

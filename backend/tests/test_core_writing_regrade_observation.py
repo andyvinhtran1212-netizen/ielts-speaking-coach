@@ -73,6 +73,11 @@ async def test_grading_admission_snapshots_canonical_state(world, monkeypatch, r
         world.getter.assert_not_awaited()
         world.receipt.assert_not_awaited()
         assert world.essay["status"] == ("grading" if stage == "guard_reject" else old_status)
+    elif stage == "job_error" and route == "admin_regrade":
+        # Báo cáo săn lỗi B1-21: không xếp được job ⇒ không reaper nào trả
+        # status về; admin regrade tự trả status cũ thay vì kẹt 'grading'.
+        assert world.essay["status"] == old_status
+        assert world.fake.store.get("writing_jobs", []) == []
     else:
         assert world.essay["status"] == "grading"
         if observation == "recorded":

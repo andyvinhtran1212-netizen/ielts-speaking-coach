@@ -29,6 +29,8 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
   const [canonical, setCanonical] = useState<RevisionRead | null>(null);
   const [preview, setPreview] = useState<RevisionPreview | null>(null);
   const [previewSource, setPreviewSource] = useState('');
+  // SHA-256 của đúng `previewSource`, tính lúc xem trước (báo cáo săn lỗi #135).
+  const [previewSourceHash, setPreviewSourceHash] = useState('');
   const [pending, setPending] = useState<FrozenRevisionCommand | null>(null);
   const [rejected, setRejected] = useState<404 | 409 | 422 | null>(null);
   const [ack, setAck] = useState<RevisionAck | null>(null);
@@ -71,7 +73,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
     if (verified) readButton.current?.focus(); else recoveryButton.current?.focus();
   }, [pending, busy, confirm, verified, ack, rejected, readbackDrift]);
 
-  const clearOperation = () => { setPreview(null); setPreviewSource(''); setPending(null); setRejected(null); setAck(null); setVerified(false); setReadbackDrift(false); setConfirm(false); };
+  const clearOperation = () => { setPreview(null); setPreviewSource(''); setPreviewSourceHash(''); setPending(null); setRejected(null); setAck(null); setVerified(false); setReadbackDrift(false); setConfirm(false); };
   const showError = (caught: unknown) => {
     const error = revisionError(caught);
     if (error.permission) { setDenied(true); setCanonical(null); setSource(''); setFilename(''); clearOperation(); }
@@ -151,7 +153,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
       if (!live(ticket, target)) return;
       const value = normalizeRevisionPreview(raw, expected, digest);
       if (!value) throw new Error('invalid source/preview identity');
-      setCanonical(value.canonical); setPreview(value); setPreviewSource(text);
+      setCanonical(value.canonical); setPreview(value); setPreviewSource(text); setPreviewSourceHash(digest);
       setNotice({ kind: 'info', message: value.canonical.footprint.authoritative_review_required
         ? 'Lịch sử cần kiểm tra có thẩm quyền. Chưa thể xác nhận sửa.' : 'Đã đối chiếu nguồn và bản xem trước. Kiểm tra đầy đủ trước khi xác nhận.' });
       previewButton.current?.focus();
@@ -179,7 +181,7 @@ function GrammarRevisionWorkspace({ actor, imported }: { actor: string; imported
     let command = pending;
     if (!recover) {
       if (!confirm || !preview || previewSource !== sourceRef.current || pending) return;
-      command = freezeRevisionCommand(actor, code, previewSource, preview, secureRandomUuid());
+      command = freezeRevisionCommand(actor, code, previewSource, preview, secureRandomUuid(), previewSourceHash);
       if (!command) { setNotice({ kind: 'error', message: 'Không tạo được thao tác từ bản xem trước hiện tại. Kiểm tra nguồn và lịch sử.' }); return; }
       setPending(command);
     }

@@ -138,6 +138,11 @@ def _pre_320() -> str:
         rf"CREATE TABLE IF NOT EXISTS {table} \(.*?^\);",
         (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
         for filename, table in admin_tables)
+    # 445 (MOCKORG-0086) widens 154's exam_mode CHECK and refuses any other
+    # definition, so the mock_exams shape carries 154's column and CHECK verbatim.
+    exam_mode = re.search(
+        r"^ALTER TABLE mock_exams\s+ADD COLUMN IF NOT EXISTS exam_mode.*?END \$\$;",
+        (MIGRATIONS / "154_mock_exam_retake_mode.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
     admin_helpers = "\n".join(re.search(
         rf"CREATE OR REPLACE FUNCTION public.{helper}\(\).*?"
         r"\$\$ LANGUAGE plpgsql SECURITY DEFINER STABLE;",
@@ -166,6 +171,10 @@ def _pre_320() -> str:
     user_code_assignments = re.search(
         r"CREATE TABLE IF NOT EXISTS user_code_assignments \(.*?^\);",
         (MIGRATIONS / "009_access_code_upgrade.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
+    # 421 adds flag-once indexes to 100's user_feedback (and preflights it).
+    user_feedback = re.search(
+        r"CREATE TABLE IF NOT EXISTS user_feedback \(.*?^\);",
+        (MIGRATIONS / "100_user_feedback.sql").read_text(encoding="utf-8"), re.S | re.M)[0]
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
@@ -219,7 +228,10 @@ def _pre_320() -> str:
             band_lr double precision, band_gra double precision, band_p double precision,
             completed_at timestamptz, error_code text, error_message text, failed_step text,
             last_error_at timestamptz, last_regraded_at timestamptz, last_regraded_by text,
-            regrade_count integer DEFAULT 0, class_assignment_item_id uuid);
+            regrade_count integer DEFAULT 0, class_assignment_item_id uuid,
+            -- 079's retention columns (read by 505's precondition and purge).
+            started_at timestamptz DEFAULT now(), last_accessed_at timestamptz,
+            audio_purged_at timestamptz, content_purged_at timestamptz);
         CREATE TABLE responses (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             session_id uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -335,6 +347,7 @@ def _pre_320() -> str:
             -- staging; 009's backfill reads them) and on 009's assignments.
             ADD COLUMN used_by uuid REFERENCES users(id), ADD COLUMN used_at timestamptz;
         {user_code_assignments}
+        {user_feedback}
         -- 338 minimal shape: 033's trigger function, 306's paper guard, 208's trigger.
         {m338.FUNCTION_033}
         ALTER FUNCTION update_updated_at_column() SET search_path = public, pg_temp;
@@ -417,6 +430,7 @@ def _pre_320() -> str:
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
         {admin_schema}
+        {exam_mode}
         -- 388's timed-start triggers read these (087, 146, 151/154, 280 columns).
         ALTER TABLE class_assignment_items ADD COLUMN timed_expires_at timestamptz;
         ALTER TABLE mock_exams ADD COLUMN listening_started_at timestamptz,

@@ -1,0 +1,162 @@
+/* Skill hub (LEARNERCORE-0063 T25). Tokens only (`--av2-*`); the G03
+   components bring their own styles. The old pages' global CSS stays loaded
+   on these routes, so every colour, margin and link rule here is explicit. */
+
+.page {
+  background: var(--av2-paper);
+  color: var(--av2-ink);
+  box-sizing: border-box;
+}
+
+.main {
+  box-sizing: border-box;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--av2-space-9) var(--av2-space-7) var(--av2-space-11);
+  display: grid;
+  gap: var(--av2-space-9);
+}
+
+.header {
+  display: grid;
+  gap: var(--av2-space-4);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  line-height: var(--av2-lh-tight);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av2-space-4);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--av2-space-7);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  color: var(--av2-ink);
+  text-decoration: none;
+  font-size: var(--av2-fs-14);
+}
+
+.tab[aria-current='page'] {
+  border-color: var(--av2-ink);
+  font-weight: var(--av2-fw-strong);
+}
+
+.tab:focus-visible,
+.card:focus-visible,
+.link:focus-visible {
+  outline: var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+.block {
+  display: grid;
+  gap: var(--av2-space-6);
+  padding-top: var(--av2-space-7);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: var(--av2-fs-16);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--av2-space-6);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-6);
+  min-height: var(--av2-row);
+}
+
+.rowText {
+  display: grid;
+  gap: var(--av2-space-2);
+  min-width: 0;
+}
+
+.itemTitle {
+  margin: 0;
+  font-size: var(--av2-fs-15);
+  color: var(--av2-ink);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--av2-fs-14);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-muted);
+}
+
+.number {
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-18);
+  color: var(--av2-ink);
+}
+
+.result {
+  font-size: var(--av2-fs-14);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--av2-space-6);
+}
+
+.card {
+  display: grid;
+  gap: var(--av2-space-2);
+  padding: var(--av2-space-7);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  text-decoration: none;
+  color: var(--av2-ink);
+}
+
+.link {
+  color: var(--av2-link);
+  text-decoration: underline;
+  font-size: var(--av2-fs-14);
+  justify-self: start;
+}
+
+@media (max-width: 767px) {
+  .main {
+    padding: var(--av2-space-7) var(--av2-space-7) calc(var(--av2-space-11) + var(--av2-bottombar-h, 0px));
+  }
+
+  .row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

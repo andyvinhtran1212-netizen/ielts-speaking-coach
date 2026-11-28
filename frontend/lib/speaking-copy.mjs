@@ -26,6 +26,22 @@ export const TAB_DEFS = [
   { tab: 'fulltest', scope: 'practice_full', label: 'Full Test' },
 ];
 
+/**
+ * Quyền Speaking hiệu lực từ `/auth/me` (COURSEACCESS-0055 FR-019).
+ * `permissions` là danh sách mã truy cập; `speaking_course_access === true`
+ * (khoá học có `speaking`, chỉ khi bật `credit_metering`) mở cả ba chế độ như
+ * backend đã cho vào. `null` khi `/auth/me` không có danh sách quyền: giữ
+ * quyền đang có.
+ */
+export function effectiveSpeakingPermissions(user) {
+  if (!Array.isArray(user?.permissions)) return null;
+  const perms = [...user.permissions];
+  if (user.speaking_course_access === true) {
+    for (const scope of DEFAULT_PERMISSIONS) if (!perms.includes(scope)) perms.push(scope);
+  }
+  return perms;
+}
+
 export const CUE_CARD_LENGTH_WARN_CHARS = 200;
 export const CUE_CARD_LENGTH_WARN_WORDS = 30;
 

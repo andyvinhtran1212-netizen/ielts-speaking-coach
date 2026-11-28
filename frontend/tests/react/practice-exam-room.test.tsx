@@ -109,6 +109,26 @@ describe('flag on', () => {
     expect(requestMicrophone).toHaveBeenCalledTimes(1);
   });
 
+  it('Part 1/3: "Cho phép micro" shows on the question screen before the recorder opens (FR-003)', () => {
+    const requestMicrophone = vi.fn();
+    (window as any).PracticeApp = { requestMicrophone, hasUnsavedWork: () => false };
+    const p = roomPlayer();
+    // `_showPrep()` hides the inline recording section until "Bắt đầu ghi âm".
+    p.updateView('prep', { inlineRecordingVisible: false, startButtonVisible: true });
+    p.updateView('mic', { state: 'prompt' });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-prep > [data-room-slot="prep-mic"]') as HTMLElement;
+    expect(slot).not.toBeNull();
+    expect(slot.closest('#inline-rec-section')).toBeNull();
+    expect(slot.compareDocumentPosition(container.querySelector('#prep-start-btn') as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(slot).getByText(VI.micPrompt)).toBeTruthy();
+    fireEvent.click(within(slot).getByRole('button', { name: VI.micAllow }));
+    expect(requestMicrophone).toHaveBeenCalledTimes(1);
+    // One microphone box on the page: the recorder slot keeps only the recording state.
+    expect(screen.getAllByRole('button', { name: VI.micAllow })).toHaveLength(1);
+    expect(within(container.querySelector('[data-room-slot="recorder"]') as HTMLElement).queryByRole('button', { name: VI.micAllow })).toBeNull();
+  });
+
   it('pending shows before the browser answers, with the button locked', () => {
     const p = roomPlayer();
     p.updateView('mic', { state: 'pending' });
@@ -131,6 +151,16 @@ describe('flag on', () => {
     const { container } = shell(p);
     const slot = container.querySelector('#state-p2a [data-room-slot="part2-cue"]') as HTMLElement;
     expect(within(slot).getByRole('alert').textContent).toMatch(/^Bản ghi 61 giây, Part 2 cần ít nhất 80 giây\./);
+  });
+
+  it('Part 2 preparation shows the microphone, so a denied start keeps its recovery steps', () => {
+    const p = roomPlayer('p2b');
+    p.updateView('mic', { state: 'denied' });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-p2b [data-room-slot="part2-prep"]') as HTMLElement;
+    expect(slot.classList.contains('av2-root')).toBe(true);
+    expect(within(slot).getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(container.querySelectorAll('[data-room-slot]').length).toBe(1);
   });
 
   it('Part 2 speaking shows the recording state in words', () => {

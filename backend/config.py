@@ -1,5 +1,6 @@
 import logging
 from functools import lru_cache
+from typing import Optional
 import ipaddress
 
 from pydantic import Field, field_validator
@@ -68,6 +69,20 @@ def validate_trusted_proxy_cidr_list(value: str) -> tuple[ipaddress.IPv4Network 
             )
         networks.append(network)
     return tuple(networks)
+
+
+# ACCOUNTDATA-0100: bounds from plan section 3. The export cap stays under
+# the account-exports bucket limit (210 MiB, services/storage_limits.py).
+_ACCOUNT_BOUNDS: dict[str, tuple[int, int, int]] = {
+    "ACCOUNT_DELETE_GRACE_DAYS": (7, 90, 30),
+    "ACCOUNT_ERASURE_MAX_ATTEMPTS": (1, 20, 5),
+    "ACCOUNT_ERASURE_LEASE_SECONDS": (60, 3600, 300),
+    "ACCOUNT_EXPORT_READY_HOURS": (1, 168, 24),
+    "ACCOUNT_EXPORT_COOLDOWN_HOURS": (0, 720, 24),
+    "ACCOUNT_EXPORT_MAX_BYTES": (1024 * 1024, 200 * 1024 * 1024, 200 * 1024 * 1024),
+    "ACCOUNT_EXPORT_LINK_DAYS": (1, 30, 7),
+    "ACCOUNT_EXPORT_SIGNED_URL_SECONDS": (10, 600, 60),
+}
 
 
 def _bounded_int_or_default(name: str, value, low: int, high: int, default: int) -> int:
@@ -141,6 +156,17 @@ class Settings(BaseSettings):
     # is sent as ``x-vercel-protection-bypass`` on the invalidation call so the
     # signed request reaches the route instead of the SSO wall.
     VERCEL_AUTOMATION_BYPASS_SECRET: str = ""
+
+    # PUBLICSITE-0059 FR-026 (G05-T23): public contact block and enrolment
+    # texts served by GET /api/public/site-info. Empty → null (the line is
+    # hidden). Never put bank account details here (they belong to an order).
+    SITE_CONTACT_EMAIL: str = ""
+    SITE_CONTACT_PHONE: str = ""
+    SITE_CONTACT_ZALO: str = ""
+    SITE_CONTACT_REPLY_HOURS: str = ""
+    ENROLL_OFFICE_HOURS_TEXT: str = ""
+    ENROLL_CONFIRM_SLA_TEXT: str = ""
+    ENROLL_ESCALATE_AFTER_TEXT: str = ""
 
     # Supabase
     SUPABASE_URL: str = ""
@@ -390,6 +416,9 @@ class Settings(BaseSettings):
     # an Overall only once this many of the four skills carry a final band.
     # Display-only: the stored final_bands.overall is never changed.
     MOCK_OVERALL_MIN_SKILLS: int = 4
+    # MOCKORG-0086 Q31 (b): seconds between two self-paced sections. 0 = the
+    # next section starts the moment the previous one ends.
+    MOCK_SELF_PACED_GAP_SECONDS: int = 0
     MAX_AUDIO_DURATION_SECONDS: int = 300
     # B5 / Mục 5 — daily cap on the expensive grading pipeline (Whisper + Claude)
     # per user. Generous: a real student rarely exceeds a few dozen gradings/day;
@@ -587,6 +616,9 @@ class Settings(BaseSettings):
     CREDIT_SPEAKING_CLUSTER_SIZE: int = 3
     CREDIT_CARRY_PERCENT: int = 100
     CREDIT_CARRY_VALID_DAYS: int = 60
+    # Plan 5.18 / Q4: credits pre-filled in the convert-class box; empty = the
+    # admin types the number (default). Only a suggestion, never applied alone.
+    LEGACY_CLASS_INITIAL_CREDITS: Optional[int] = None
     CREDIT_HOLD_TTL_SPEAKING_SECONDS: int = 600
     CREDIT_HOLD_TTL_WRITING_SECONDS: int = 86400
     # Enrollment orders (plan 5.10, G04-T04). No pay hours or bank account →
@@ -611,6 +643,20 @@ class Settings(BaseSettings):
     # runtime flag retention_by_entitlement is on (FR-048).
     RETENTION_AUDIO_DAYS: int = 15
     RETENTION_CONTENT_DAYS_AFTER_EXPIRY: int = 45
+
+    # ── ACCOUNTDATA-0100 (plan section 3): data export and account deletion ──
+    # Out-of-range or unparseable values fall back to the default with one
+    # error log at startup. ACCOUNT_ERASURE_ENABLED off → the sweep only
+    # reports what it would erase (dry-run).
+    ACCOUNT_DELETE_GRACE_DAYS: int = 30
+    ACCOUNT_ERASURE_ENABLED: bool = False
+    ACCOUNT_ERASURE_MAX_ATTEMPTS: int = 5
+    ACCOUNT_ERASURE_LEASE_SECONDS: int = 300
+    ACCOUNT_EXPORT_READY_HOURS: int = 24
+    ACCOUNT_EXPORT_COOLDOWN_HOURS: int = 24
+    ACCOUNT_EXPORT_MAX_BYTES: int = 200 * 1024 * 1024
+    ACCOUNT_EXPORT_LINK_DAYS: int = 7
+    ACCOUNT_EXPORT_SIGNED_URL_SECONDS: int = 60
 
     class Config:
         env_file = ".env"
@@ -645,6 +691,13 @@ class Settings(BaseSettings):
     @classmethod
     def _strict_carry_percent(cls, value):
         return _bounded_int_or_default("CREDIT_CARRY_PERCENT", value, 0, 100, 100)
+
+    @field_validator("LEGACY_CLASS_INITIAL_CREDITS", mode="before")
+    @classmethod
+    def _legacy_class_initial_credits(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return _bounded_int_or_default("LEGACY_CLASS_INITIAL_CREDITS", value, 0, 100_000, None)
 
     @field_validator("CREDIT_CARRY_VALID_DAYS", mode="before")
     @classmethod
@@ -703,6 +756,25 @@ class Settings(BaseSettings):
         if text in ("false", ""):
             return False
         logger.error("[config] ADMIN_STEP_UP_ENFORCE=%r is not true/false; using false", value)
+        return False
+
+    @field_validator(*_ACCOUNT_BOUNDS, mode="before")
+    @classmethod
+    def _strict_account_ints(cls, value, info):
+        low, high, default = _ACCOUNT_BOUNDS[info.field_name]
+        return _bounded_int_or_default(info.field_name, value, low, high, default)
+
+    @field_validator("ACCOUNT_ERASURE_ENABLED", mode="before")
+    @classmethod
+    def _strict_erasure_enabled(cls, value):
+        if isinstance(value, bool):
+            return value
+        text = value.strip().lower() if isinstance(value, str) else None
+        if text == "true":
+            return True
+        if text in ("false", ""):
+            return False
+        logger.error("[config] ACCOUNT_ERASURE_ENABLED=%r is not true/false; using false", value)
         return False
 
     @property

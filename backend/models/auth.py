@@ -25,11 +25,17 @@ class AuthMeResponse(BaseModel):
     vocab_curated_enabled: bool
     # LEARNERCORE-0063 FR-073: new learner UI flag (FR-072); absent = old UI.
     learner_v2_enabled: bool = False
+    # COURSEACCESS-0055 FR-019: a course entitlement opens every Speaking mode
+    # while credit_metering is on (separate from the access-code permissions).
+    speaking_course_access: bool = False
 
 
 class AuthActiveStatusResponse(BaseModel):
     is_active: bool
     suspended: bool = False
+    # LEARNERCORE-0063 FR-094: inactive accounts may open the learner_v2 open
+    # pages; always false when suspended or when the flag cannot be read.
+    learner_v2_enabled: bool = False
 
 
 class AuthProfileBase(BaseModel):
