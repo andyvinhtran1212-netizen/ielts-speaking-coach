@@ -14,7 +14,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  window.api = { get, post } as unknown as typeof window.api;
+  window.api = { get, post, postWith: (path: string, body: unknown) => post(path, body) } as unknown as typeof window.api;
   window.history.replaceState(null, '', '/admin/mock-tests/e1');
 });
 
@@ -96,7 +96,7 @@ describe('Theo dõi (FR-146, FR-151)', () => {
       '/admin/mock-exams/e1/live': () => ({ exam: liveExam(collected ? { collected_section: 'reading' } : {}), students: [student()], idle_threshold_minutes: 5 }),
       '/admin/mock-exams': { exams: [exam()] },
     });
-    post.mockImplementation(async () => { collected = true; return {}; });
+    post.mockImplementation(async () => { collected = true; return { queued: true, section: 'reading' }; });
     render(<MockExamRecord examId="e1" initialTab="theo-doi" />);
     const row = (await screen.findByText('Hồ Thiên Ân')).closest('tr') as HTMLElement;
     expect(within(row).getByText('Đang làm · 12/40')).toBeTruthy();
@@ -106,6 +106,22 @@ describe('Theo dõi (FR-146, FR-151)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Thu bài' }));
     await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/mock-exams/e1/collect?from_section=reading', {}));
     expect(await screen.findByText('Đang thu bài…')).toBeTruthy();
+    expect(screen.getByText(/Đang thu bài Reading/)).toBeTruthy();
+  });
+
+  it('a null collect reply does not report success even when the room reloads', async () => {
+    routes({
+      '/admin/mock-exams/e1/live': { exam: liveExam(), students: [student()] },
+      '/admin/mock-exams': { exams: [exam()] },
+    });
+    post.mockResolvedValue(null);
+    render(<MockExamRecord examId="e1" initialTab="theo-doi" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Thu bài và sang phần sau…' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Thu bài' })); });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls.filter(([url]) => url === '/admin/mock-exams/e1/live')).toHaveLength(2);
+    expect(screen.queryByText(/Đang thu bài Reading/)).toBeNull();
+    expect(screen.getByText(/Chưa nhận được xác nhận từ máy chủ/)).toBeTruthy();
   });
 
   it('a failed poll keeps the last read dimmed and locks the controls', async () => {
@@ -158,7 +174,7 @@ describe('Theo dõi (FR-146, FR-151)', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('self-paced: four counts; extra time needs a reason and goes to the running part', async () => {
+  it.each([true, false])('self-paced: extra time goes to the running part with event_logged=%s', async (logged) => {
     routes({
       '/admin/mock-exams/e1/live': { exam: liveExam({ exam_mode: 'retake', exam_mode_v2: 'self_paced', active_section: 'not_started' }), students: [
         student({ self_paced_state: 'in_progress', current_section: 'reading', section_time_left_seconds: 900, expected_end_at: '2026-11-25T14:30:00Z' }),
@@ -166,7 +182,7 @@ describe('Theo dõi (FR-146, FR-151)', () => {
       ] },
       '/admin/mock-exams': { exams: [exam({ exam_mode: 'retake', exam_mode_v2: 'self_paced', display_state: 'open' })] },
     });
-    post.mockResolvedValue({});
+    post.mockResolvedValue({ sitting_id: 's1', extra_seconds: { reading: 300 }, event_logged: logged });
     render(<MockExamRecord examId="e1" initialTab={null} />);
     const counts = await screen.findByRole('region', { name: 'Tổng quan' });
     expect(within(counts).getAllByText('1')).toHaveLength(2);
@@ -178,7 +194,10 @@ describe('Theo dõi (FR-146, FR-151)', () => {
     fireEvent.change(within(dialog).getByLabelText('Lý do (bắt buộc)'), { target: { value: 'mất điện' } });
     fireEvent.click(submit);
     await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/mock-exams/e1/extra-time', { sitting_id: 's1', section: 'reading', seconds: 300, reason: 'mất điện' }));
-    expect(await screen.findByText('Đã cộng 5 phút cho Hồ Thiên Ân.')).toBeTruthy();
+    expect(await screen.findByText(logged
+      ? 'Đã cộng 5 phút cho Hồ Thiên Ân.'
+      : 'Đã cộng 5 phút cho Hồ Thiên Ân. Nhật ký chưa ghi được.')).toBeTruthy();
+    expect(post).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -193,7 +212,10 @@ describe('Thí sinh (FR-149)', () => {
   it('flag for retest: the ticked skills go to the server and the roster is read back', async () => {
     let flags: Record<string, boolean> = {};
     routes({ ...base({}), '/admin/mock-exams/e1/roster': () => ({ roster: [{ sitting_id: 's1', review_id: 'r1', retest_flags: flags, retest_skills: ['listening', 'reading'] }] }) });
-    post.mockImplementation(async () => { flags = { reading: true }; return {}; });
+    post.mockImplementation(async () => {
+      flags = { listening: false, reading: true };
+      return { sitting_id: 's1', retest_flags: flags };
+    });
     render(<MockExamRecord examId="e1" initialTab="thi-sinh" />);
     const row = (await screen.findByText('Lớp A')).closest('tr') as HTMLElement;
     fireEvent.click(within(row).getByRole('button', { name: 'Đánh dấu cần thi bù' }));
@@ -202,11 +224,29 @@ describe('Thí sinh (FR-149)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Lưu' }));
     await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/mock-exams/sittings/s1/retest-flags', { retest_flags: { listening: false, reading: true } }));
     await waitFor(() => expect(within(screen.getByText('Lớp A').closest('tr') as HTMLElement).getByText('Reading')).toBeTruthy());
+    expect(screen.getByText('Đã lưu dấu thi bù cho Hồ Thiên Ân.')).toBeTruthy();
   });
 
-  it('make-up: assigns the separate self-paced exam with the window and the source exam', async () => {
+  it('a null retest reply does not report success even when the roster reloads', async () => {
+    routes(base({}));
+    post.mockResolvedValue(null);
+    render(<MockExamRecord examId="e1" initialTab="thi-sinh" />);
+    const row = (await screen.findByText('Lớp A')).closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Đánh dấu cần thi bù' }));
+    await act(async () => { fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Lưu' })); });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls.filter(([url]) => url === '/admin/mock-exams/e1/roster')).toHaveLength(2);
+    expect(screen.queryByText(/Đã lưu dấu thi bù cho/)).toBeNull();
+    expect(screen.getByText(/Chưa nhận được xác nhận từ máy chủ/)).toBeTruthy();
+  });
+
+  it.each([
+    { outcome: 'assigned', assigned: ['u1'], skipped: [], locked: [], text: 'Đã cho Hồ Thiên Ân thi bù.' },
+    { outcome: 'skipped', assigned: [], skipped: ['u1'], locked: [], text: 'Chưa giao được kỳ thi bù cho học viên này.' },
+    { outcome: 'locked', assigned: ['u1'], skipped: [], locked: ['u1'], text: 'Đã lưu lượt thi bù. Lượt thi đang diễn ra chưa nhận thay đổi.' },
+  ])('make-up: handles $outcome after a separate self-paced assignment', async ({ assigned, skipped, locked, text }) => {
     routes(base({ reading: true }));
-    post.mockResolvedValue({});
+    post.mockResolvedValue({ group_id: 'g1', assigned, skipped, locked, refreshed: [], refresh_failed: [] });
     render(<MockExamRecord examId="e1" initialTab="thi-sinh" />);
     const row = (await screen.findByText('Lớp A')).closest('tr') as HTMLElement;
     fireEvent.click(within(row).getByRole('button', { name: 'Cho thi bù…' }));
@@ -219,7 +259,8 @@ describe('Thí sinh (FR-149)', () => {
     const [path, body] = post.mock.calls[0];
     expect(path).toBe('/admin/mock-exams/m1/assignments');
     expect(body).toEqual({ assignments: [{ user_id: 'u1', skills: ['reading'], open_from: null, open_until: expect.stringMatching(/^2026-11-30T/) }], source_exam_id: 'e1' });
-    expect(await screen.findByText('Đã cho Hồ Thiên Ân thi bù.')).toBeTruthy();
+    expect(await screen.findByText(text)).toBeTruthy();
+    if (skipped.length || locked.length) expect(screen.queryByText('Đã cho Hồ Thiên Ân thi bù.')).toBeNull();
   });
 
   it('a roster that cannot be read locks the flag button and says why', async () => {

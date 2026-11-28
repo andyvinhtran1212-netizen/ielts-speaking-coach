@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Dialog, Notice, PageState } from '@/components/ui';
 import { messageOf } from '@/components/admin-directory-ui';
+import { assignMockExamMakeUp, setMockExamRetestFlags } from '@/lib/mock-exam-record-api';
 import {
   SKILLS,
   SKILL_NAMES,
@@ -76,7 +77,7 @@ export function MockExamCandidates({ exam, exams }: { exam: OrgExam; exams: OrgE
   }, [loadMonitor, path]);
   useEffect(() => { void load(); }, [load]);
 
-  const run = async (operation: () => Promise<unknown>, success: string) => {
+  const run = async (operation: () => Promise<void>, success: string) => {
     setBusy(true);
     setNotice(null);
     let failure: unknown = null;
@@ -128,7 +129,10 @@ export function MockExamCandidates({ exam, exams }: { exam: OrgExam; exams: OrgE
           onSubmit={async (ticked) => {
             const target = flagFor;
             setFlagFor(null);
-            await run(() => window.api.post(`/admin/mock-exams/sittings/${encodeURIComponent(target.sittingId || '')}/retest-flags`, retestFlagsBody(target.retestAllowed, ticked)), `Đã lưu dấu thi bù cho ${target.name}.`);
+            await run(async () => {
+              if (!target.sittingId) throw new Error('Không còn lượt thi để đánh dấu.');
+              await setMockExamRetestFlags(target.sittingId, retestFlagsBody(target.retestAllowed, ticked).retest_flags);
+            }, `Đã lưu dấu thi bù cho ${target.name}.`);
           }}
         />
       )}
@@ -140,10 +144,10 @@ export function MockExamCandidates({ exam, exams }: { exam: OrgExam; exams: OrgE
           onSubmit={async (targetId, skills, from, until) => {
             const target = makeupFor;
             setMakeupFor(null);
-            await run(() => window.api.post(`/admin/mock-exams/${encodeURIComponent(targetId)}/assignments`, {
-              assignments: [{ user_id: target.userId, skills, open_from: from, open_until: until }],
-              source_exam_id: exam.id,
-            }), `Đã cho ${target.name} thi bù.`);
+            await run(async () => {
+              if (!target.userId) throw new Error('Thí sinh chưa có tài khoản để giao kỳ thi bù.');
+              await assignMockExamMakeUp(targetId, { user_id: target.userId, skills, open_from: from, open_until: until }, exam.id);
+            }, `Đã cho ${target.name} thi bù.`);
           }}
         />
       )}

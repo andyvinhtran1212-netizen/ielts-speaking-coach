@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, ConfirmDialog, Dialog, Notice, PageState } from '@/components/ui';
 import { messageOf } from '@/components/admin-directory-ui';
+import { addMockExamTime, advanceMockExamRoom, collectMockExamRoom, setMockExamRoomOpen } from '@/lib/mock-exam-record-api';
 import {
   SECTION_NAMES,
   SELF_PACED_LABELS,
@@ -30,8 +31,11 @@ import record from './mock-exam-record.module.css';
 type Monitor = import('@/lib/mock-exam-record-model.mjs').Monitor;
 type MonitorStudent = import('@/lib/mock-exam-record-model.mjs').MonitorStudent;
 type Snapshot = import('@/lib/mock-exam-record-model.mjs').ProctorSnapshot;
+type TimedSection = import('@/lib/mock-exam-record-model.mjs').TimedSection;
 // `at` is the room the proctor was asked about; the command is built from it.
-type Confirm = { kind: 'open' | 'start' | 'collect'; title: string; body: string; label: string; at: Snapshot };
+type Confirm = { title: string; body: string; label: string; at: Snapshot } & (
+  { kind: 'open' | 'collect' } | { kind: 'start'; next: TimedSection }
+);
 
 const POLL_MS = 5_000;
 
@@ -60,7 +64,7 @@ export function useMonitor(examId: string) {
 export function MockExamMonitor({ examId }: { examId: string }) {
   const { monitor, error, load } = useMonitor(examId);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'success' | 'warning' | 'error'; text: string } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [extraFor, setExtraFor] = useState<MonitorStudent | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -94,15 +98,17 @@ export function MockExamMonitor({ examId }: { examId: string }) {
     }
   }, [confirm, monitor, stale]);
 
-  const run = async (operation: () => Promise<unknown>, success: string) => {
+  const run = async (operation: () => Promise<string | void>, success: string) => {
     if (busyRef.current) return;
     setBusy(true);
     setNotice(null);
     let failure: unknown = null;
-    try { await operation(); } catch (caught) { failure = caught; }
+    let warning: string | void = undefined;
+    try { warning = await operation(); } catch (caught) { failure = caught; }
     const fresh = await load();
     setBusy(false);
     if (failure) setNotice({ kind: 'error', text: `${messageOf(failure)}${fresh ? '' : ' Chưa đọc lại được phòng thi; đừng bấm lại, chờ lần cập nhật kế tiếp.'}` });
+    else if (warning) setNotice({ kind: 'warning', text: `${warning}${fresh ? '' : ' Chưa đọc lại được phòng thi; chờ lần cập nhật kế tiếp.'}` });
     else if (!fresh) setNotice({ kind: 'error', text: 'Yêu cầu đã gửi nhưng chưa đọc lại được phòng thi. Đừng bấm lại; chờ lần cập nhật kế tiếp.' });
     else setNotice({ kind: 'success', text: success });
   };
@@ -112,7 +118,6 @@ export function MockExamMonitor({ examId }: { examId: string }) {
   }
   if (!monitor) return <PageState kind="loading" title="Đang tải phòng thi…" />;
 
-  const path = `/admin/mock-exams/${encodeURIComponent(examId)}`;
   const doConfirm = async () => {
     if (!confirm) return;
     const { kind, at } = confirm;
@@ -121,15 +126,15 @@ export function MockExamMonitor({ examId }: { examId: string }) {
       setNotice({ kind: 'error', text: 'Phòng thi vừa thay đổi nên chưa gửi lệnh nào; xem lại rồi bấm lại.' });
       return;
     }
-    if (kind === 'open') await run(() => window.api.post(`${path}/open`, { is_open: !at.isOpen }), at.isOpen ? 'Đã đóng phòng.' : 'Đã mở phòng.');
-    if (kind === 'start') await run(() => window.api.post(`${path}/advance`, { from_section: at.activeSection }), 'Đã bắt đầu phần mới.');
-    if (kind === 'collect') await run(() => window.api.post(`${path}/collect?from_section=${encodeURIComponent(at.activeSection)}`, {}), `Đang thu bài ${SECTION_NAMES[at.activeSection]}. "Bắt đầu phần" bật khi thu xong.`);
+    if (kind === 'open') await run(() => setMockExamRoomOpen(examId, !at.isOpen), at.isOpen ? 'Đã đóng phòng.' : 'Đã mở phòng.');
+    if (confirm.kind === 'start') await run(() => advanceMockExamRoom(examId, at.activeSection, confirm.next), 'Đã bắt đầu phần mới.');
+    if (kind === 'collect') await run(() => collectMockExamRoom(examId, at.activeSection), `Đang thu bài ${SECTION_NAMES[at.activeSection]}. "Bắt đầu phần" bật khi thu xong.`);
   };
 
   return (
     <div className={`${record.monitor}${stale ? ` ${record.stale}` : ''}`} aria-busy={busy}>
       {stale && <Notice kind="error" title="Mất cập nhật">Không đọc được phòng thi: {error}. Bảng dưới là lần đọc lúc {timeCopy(monitor.serverTime)}; các nút đã khoá tới khi đọc lại được.</Notice>}
-      {notice && <Notice kind={notice.kind === 'success' ? 'success' : 'error'}>{notice.text}</Notice>}
+      {notice && <Notice kind={notice.kind}>{notice.text}</Notice>}
       {monitor.exam.mode === 'live'
         ? <LiveMonitor monitor={monitor} now={now} stale={stale} busy={busy} onAsk={setConfirm} />
         : <SelfPacedMonitor monitor={monitor} stale={stale} busy={busy} onExtra={setExtraFor} />}
@@ -152,9 +157,13 @@ export function MockExamMonitor({ examId }: { examId: string }) {
           onSubmit={async (minutes, reason) => {
             const target = extraFor;
             setExtraFor(null);
-            await run(() => window.api.post(`${path}/extra-time`, {
-              sitting_id: target.sittingId, section: target.selfPaced?.currentSection, seconds: minutes * 60, reason,
-            }), `Đã cộng ${minutes} phút cho ${target.name}.`);
+            const added = `Đã cộng ${minutes} phút cho ${target.name}.`;
+            await run(async () => {
+              const section = target.selfPaced?.currentSection;
+              if (!target.sittingId || !section) throw new Error('Không còn phần thi để cộng giờ.');
+              const logged = await addMockExamTime(examId, { sitting_id: target.sittingId, section, seconds: minutes * 60, reason });
+              if (!logged) return `${added} Nhật ký chưa ghi được.`;
+            }, added);
           }}
         />
       )}
@@ -165,6 +174,7 @@ export function MockExamMonitor({ examId }: { examId: string }) {
 function LiveMonitor({ monitor, now, stale, busy, onAsk }: { monitor: Monitor; now: number; stale: boolean; busy: boolean; onAsk: (c: Confirm) => void }) {
   const exam = monitor.exam;
   const bar = proctorState(monitor, stale || busy);
+  const next = bar.next;
   const at = proctorSnapshot(monitor);
   const alerts = liveAlerts(monitor, now);
   const running = exam.activeSection !== 'not_started' && exam.activeSection !== 'done';
@@ -180,7 +190,7 @@ function LiveMonitor({ monitor, now, stale, busy, onAsk }: { monitor: Monitor; n
         </div>
         <div className={styles.actions}>
           <Button variant="secondary" disabled={!bar.open.enabled} onClick={() => onAsk({ kind: 'open', title: `${bar.open.label} "${exam.title}"?`, body: exam.isOpen ? 'Người chưa vào sẽ không vào được nữa.' : 'Người thi vào được phòng chờ; chưa phần nào bắt đầu.', label: bar.open.label, at })}>{bar.open.label}</Button>
-          {bar.next && <Button disabled={!bar.start.enabled} onClick={() => onAsk({ kind: 'start', title: `${bar.start.label} cho cả phòng?`, body: 'Đồng hồ của phần này chạy chung cho mọi người. Không hoàn tác được.', label: bar.start.label, at })}>{bar.start.label}</Button>}
+          {next && <Button disabled={!bar.start.enabled} onClick={() => onAsk({ kind: 'start', next, title: `${bar.start.label} cho cả phòng?`, body: 'Đồng hồ của phần này chạy chung cho mọi người. Không hoàn tác được.', label: bar.start.label, at })}>{bar.start.label}</Button>}
           {running && !bar.paused && <Button variant="secondary" disabled={!bar.collect.enabled} onClick={() => onAsk({ kind: 'collect', title: `Thu bài ${SECTION_NAMES[exam.activeSection]}?`, body: `${working ? `${working} người đang làm sẽ bị thu với phần đã làm. ` : ''}Cả phòng vào phòng chờ không có đồng hồ; sau khi thu xong mới bắt đầu được phần sau. Không hoàn tác được.`, label: 'Thu bài', at })}>{bar.collect.label}</Button>}
         </div>
       </section>
