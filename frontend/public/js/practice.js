@@ -75,6 +75,8 @@
   var _roomMicState = 'unknown';
   var _ROOM_LEVEL_MS = 200;
   var _roomLevelTimer = null;
+  var _roomMicLostDone = false;
+  var _roomMicLostShown = false;
   // FR-006–FR-008: a box the room has open, and what it will do when answered.
   var _roomDialogKind = null;
   var _roomLeaveHref = '';
@@ -286,7 +288,10 @@
   function _roomMic(state) {
     if (!_examRoomMode) return;
     _roomMicState = state;
-    _updateNativeView('mic', { state: state });
+    // R139 CR: "Mất kết nối micro" stays until the microphone works again, so
+    // an error on a later "Thử lại" does not hide why the take stopped.
+    if (state === 'granted') _roomMicLostShown = false;
+    _updateNativeView('mic', { state: state, lost: _roomMicLostShown });
   }
 
   // Recorder error -> mic case (FR-003). Unknown failures keep the old message
@@ -392,8 +397,11 @@
     var analyser = _analyser;
     var buf = analyser ? new Uint8Array(analyser.fftSize || analyser.frequencyBinCount || 256) : null;
     var tick = function () {
+      if (_roomTrackEnded()) { _roomMicLost(); return; }
       _updateNativeView('recording', { level: _roomLevel(analyser, buf), paused: _roomRecorderPaused() });
     };
+    _roomMicLostDone = false;
+    _roomP2Held = false;
     if (_roomLevelTimer) _clearManagedEffect('recording-level', _roomLevelTimer, 'interval');
     tick();
     _roomLevelTimer = _startManagedInterval('recording-level', tick, _ROOM_LEVEL_MS);
@@ -401,8 +409,105 @@
 
   function _stopRoomLevel() {
     if (!_examRoomMode) return;
+    if (_roomLevelTimer && _roomTrackEnded()) _roomMicLost(true);
     if (_roomLevelTimer) { _clearManagedEffect('recording-level', _roomLevelTimer, 'interval'); _roomLevelTimer = null; }
     _updateNativeView('recording', { level: null, paused: false });
+  }
+
+  // EXAMSPEAK-0072 edge case "Micro bị rút giữa lúc ghi" (R139): the audio
+  // track ends while recording. Stop the take and keep it through the usual
+  // recorded path, where the length gate (FR-005) decides whether it can be
+  // sent; say "Mất kết nối micro", and the next take starts at "Không tìm thấy
+  // micro". The 200 ms level tick notices it, so it needs no extra listener.
+  function _roomStreamTrack() {
+    var native = _getNativeRecorder();
+    var stream = native ? native.stream : _stream;
+    try {
+      return stream && typeof stream.getAudioTracks === 'function' ? stream.getAudioTracks()[0] || null : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _roomTrackEnded() {
+    var track = _roomStreamTrack();
+    return !!(track && track.readyState === 'ended');
+  }
+
+  function _roomRecorderActive() {
+    var native = _getNativeRecorder();
+    var rec = native ? native.recorder : _recorder;
+    return !!(rec && rec.state && rec.state !== 'inactive');
+  }
+
+  // `stopping`: called from _stopRoomLevel, i.e. the take is already on its way
+  // to the recorded path (a MediaRecorder stops by itself when its only track
+  // ends, often before the next level tick).
+  function _roomMicLost(stopping) {
+    if (!_examRoomMode || _roomMicLostDone) return false;
+    _roomMicLostDone = true;
+    _roomMicLostShown = true;
+    _roomMicState = 'not_found';
+    _updateNativeView('mic', { state: 'not_found', lost: true });
+    if (stopping) {
+      // The legacy recorder's onstop does not clear the P1/P3 elapsed timer.
+      if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
+      // The Part 2 countdown would otherwise try to stop the recorder again at
+      // the end and report a failure over the kept take.
+      if (_currentState === 'p2c') {
+        if (_p2SpeakTimerId) { _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval'); _p2SpeakTimerId = null; }
+        _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
+      }
+      return true;
+    }
+    // A MediaRecorder whose only track ended may already have stopped by itself;
+    // its onstop then delivers the take, and stopping again would report a
+    // failure and drop it.
+    var active = _roomRecorderActive();
+    if (_currentState === 'p2c') {
+      if (_p2SpeakTimerId) { _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval'); _p2SpeakTimerId = null; }
+      _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
+      if (active) _stopP2SpeakingInternal();
+      else _stopWaveform();
+    } else if (_recSubState === 'recording') {
+      if (active) stopRecording();
+      else {
+        if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
+        _stopWaveform();
+      }
+    } else {
+      _stopWaveform();
+    }
+    return true;
+  }
+
+  // Part 2 sends its take as soon as it ends (Full Test moves on, practice goes
+  // to grading). A take cut by a lost microphone is held on the cue card
+  // instead, under the "Mất kết nối micro" box, so the learner sees the warning
+  // and chooses to send it or record again; the leave box counts it meanwhile.
+  var _roomP2Held = false;
+
+  function _roomHoldLostP2Take() {
+    if (!_examRoomMode || !_roomMicLostDone) return false;
+    _roomP2Held = true;
+    _recordingDirty = true;
+    _showP2SubmissionRetry('Mất kết nối micro giữa lúc nói. Phần đã ghi được giữ lại: nghe lại, rồi gửi bản ghi này hoặc ghi lại.');
+    return true;
+  }
+
+  // "Gửi lại bản ghi" on a held take. Practice sends it the usual way; a Full
+  // Test sends it the way an uncut take would have gone, and moves on.
+  function _roomSendHeldP2Take() {
+    if (!_examRoomMode || !_roomP2Held) return false;
+    _roomP2Held = false;
+    if (_testMode !== 'test_full') return false;
+    var questionId = _p2RetryQuestionId;
+    var blob = _recordedBlob;
+    _clearP2SubmissionRetry();
+    _recordingDirty = false;
+    _submitGradingEager(_sessionId, questionId, blob);
+    _advanceTestMode();
+    return true;
   }
 
   function _roomTooShort(section, part, durationSeconds, minSeconds) {
@@ -514,6 +619,14 @@
   // the box only stays (no same-tab sign-in) and Nộp waits until a send proves
   // the session is back; with nothing unsent it offers "Đăng nhập lại".
   var _roomSignedOut = false;
+  // The React auth effects ask before redirecting or disposing the Full Test
+  // queue. A null Supabase session must not drop the only copy of a take.
+  function retainExpiredSession() {
+    if (!_examRoomMode || !_hasUnsentWork()) return false;
+    _roomExpired({ status: 401 });
+    return true;
+  }
+
   function _roomExpired(err) {
     if (!_examRoomMode || !err) return false;
     // Only a send that succeeds proves the session is back (_roomSessionBack);
@@ -3529,6 +3642,7 @@
       showError('Không còn bản ghi để gửi lại. Hãy ghi âm lại câu trả lời.');
       return;
     }
+    if (_roomSendHeldP2Take()) return;
     _startProcessing(_recordedBlob, _p2RetryQuestionId);
   }
 
@@ -3618,6 +3732,7 @@
     var questionId = _currentQ && (_currentQ.id || _currentQ.question_id);
 
     if (_checkRecordedLength()) return;
+    if (_roomHoldLostP2Take()) return;
 
     // Test modes: advance immediately (no grading spinner)
     if (_testMode === 'test_full') {
@@ -6293,6 +6408,7 @@
     init:                 init,
     destroy:              destroy,
     hasUnsavedWork:       _hasUnsentWork,
+    retainExpiredSession: retainExpiredSession,
     canLeave:             _canLeave,
     requestMicrophone:    requestMicrophone,
     requestLeave:         requestLeave,

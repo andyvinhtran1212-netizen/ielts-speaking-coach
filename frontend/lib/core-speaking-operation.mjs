@@ -4,9 +4,10 @@ import { coreOperationRequest } from './core-operation-intent.mjs';
 // grading. SpeakingSubmissionController still owns ordering and reconciliation.
 export function createSpeakingOperationTransport({ enabled, request = coreOperationRequest,
   crypto = globalThis.crypto, timeoutMs = 500 }) {
-  return function upload({ accountId, path, formData }, send) {
+  return function upload({ accountId, path, formData }, send, assertCurrent = () => {}) {
     let active = false;
     try { active = enabled() === true; } catch { /* observation is optional */ }
+    assertCurrent();
     if (!active) return send({}); // old path has no extra async boundary
     let timer;
     const prepare = async () => {
@@ -27,9 +28,12 @@ export function createSpeakingOperationTransport({ enabled, request = coreOperat
       prepare(),
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('audio observation timeout')), timeoutMs); }),
     ]).then(
-      input => request({ accountId, method: 'POST', path, input, slot: input.question_id,
-        acknowledged: value => typeof value?.response_id === 'string' && !!value.response_id }, send),
-      () => send({}),
+      input => {
+        assertCurrent();
+        return request({ accountId, method: 'POST', path, input, slot: input.question_id,
+          acknowledged: value => typeof value?.response_id === 'string' && !!value.response_id }, send);
+      },
+      () => { assertCurrent(); return send({}); },
     ).finally(() => clearTimeout(timer));
   };
 }
