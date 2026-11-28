@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
+import { postBrowserJsonAt } from '@/lib/browser-api';
 import { resolveCorePlayerAdmissionForNavigation } from '@/lib/core-player-affinity.mjs';
 import {
   SKILLS,
@@ -98,7 +99,7 @@ function StarterButton({ starter }: { starter: SkillHubStarter }) {
     if (busy) return;
     setBusy(true);
     try {
-      const created = await window.api.post<unknown>('/sessions', params);
+      const created = await postBrowserJsonAt('/sessions', '/sessions', params);
       const session = created && typeof created === 'object' ? created as Record<string, unknown> : null;
       const id = typeof session?.id === 'string' && session.id.trim() ? session.id.trim()
         : typeof session?.session_id === 'string' && session.session_id.trim() ? session.session_id.trim() : '';
