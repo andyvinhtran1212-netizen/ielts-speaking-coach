@@ -121,19 +121,25 @@ describe('course page real 404 (proxy.ts)', () => {
     }
   });
 
-  test('only a one-segment course path takes the course branch', async () => {
+  test('the enrol step of an unknown course is the 404 too; deeper paths are not course pages', async () => {
     const calls = [];
     const { proxy } = load(true, async (url) => { calls.push(url); return json(404, COURSE_MISS); });
-    const result = await proxy(request('/courses/khoa-a/enroll'));
-    assert.equal(result.headers.get('x-middleware-rewrite'), null);
-    assert.deepEqual(calls, []);
+    assert.equal((await proxy(request('/courses/khong-co/enroll'))).headers.get('x-middleware-rewrite'), NOT_FOUND);
+    assert.deepEqual(calls, ['https://fixture.invalid/api/courses/khong-co']);
+    const deeper = await proxy(request('/courses/khong-co/enroll/x'));
+    assert.equal(deeper.headers.get('x-middleware-rewrite'), null);
+    assert.equal(calls.length, 1);
+    const off = await load(false, async () => { throw new Error('no call'); }).proxy(request('/courses/khoa-a/enroll'));
+    assert.equal(off.headers.get('x-middleware-rewrite'), NOT_FOUND, 'flag off: the enrol step is the 404');
   });
 
-  test('the matcher takes one course segment only: not /courses, not /courses/<slug>/enroll', () => {
+  test('the matcher takes a course page and its enrol step only: not /courses, nothing deeper', () => {
     const { config } = load(true, async () => json(200, '{}'));
     const on = (url) => matches({ config, url, headers: { host: 'www.averlearning.com' } });
     assert.equal(on('/courses/khoa-a'), true);
     assert.equal(on('/courses'), false);
-    assert.equal(on('/courses/khoa-a/enroll'), false);
+    assert.equal(on('/courses/khoa-a/enroll'), true);
+    assert.equal(on('/courses/khoa-a/enroll/x'), false);
+    assert.equal(on('/courses/khoa-a/other'), false);
   });
 });

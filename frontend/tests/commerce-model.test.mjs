@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 import {
   COURSE_BUNDLE_MIN_OPEN, ORDER_STATUS_LABELS, carryOverSentence, catalogCounts, courseRowLabel, courseRowState,
-  enrollHref, formatViDate, formatVnd, internalHref, nextActionForOrder, orderBlocks, orderScreen,
+  enrollErrorView, enrollHref, formatViDate, formatVnd, internalHref, nextActionForOrder, orderHref, orderBlocks, orderScreen,
 } from '../lib/commerce-model.mjs';
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/commerce/${name}`, import.meta.url), 'utf8'));
@@ -128,4 +128,24 @@ test('internalHref keeps only a path on this site (CR #2637)', () => {
     '/a\\b', '/a\nb', ' /x', '', null, undefined, 42]) {
     assert.equal(internalHref(bad), null, String(bad));
   }
+});
+
+test('orderHref is the one link to an order page (G05-T12a contract)', () => {
+  assert.equal(orderHref('AVER-K7QM2X'), '/enroll/AVER-K7QM2X');
+  assert.equal(orderHref('AVER K7/QM'), '/enroll/AVER%20K7%2FQM');
+  assert.deepEqual(nextActionForOrder({ order_code: 'AVER-K7QM2X', status: 'awaiting_transfer' }), { label: 'Chuyển khoản', href: '/enroll/AVER-K7QM2X' });
+});
+
+test('enrollErrorView words the G04 create-order refusals and keeps retrying open for the rest', () => {
+  const err = (status, error_code) => ({ status, detail: error_code ? { error_code, message: 'x' } : null });
+  assert.deepEqual(enrollErrorView(err(503, 'orders_paused')), { code: 'orders_paused', message: 'Đăng ký khoá đang tạm dừng. Bạn quay lại sau nhé.', final: false, newKey: false });
+  for (const code of ['course_not_found', 'course_not_open', 'already_enrolled', 'account_suspended']) assert.equal(enrollErrorView(err(409, code)).final, true, code);
+  assert.equal(enrollErrorView(err(409, 'request_key_conflict')).newKey, true);
+  for (const e of [err(503, 'orders_unavailable'), err(500, null), new TypeError('network'), null]) {
+    const view = enrollErrorView(e);
+    assert.equal(view.final, false);
+    assert.match(view.message, /Thông tin bạn đã điền vẫn còn/);
+  }
+  assert.equal(enrollErrorView(err(409, 'constructor')).code, 'constructor', 'no prototype key is a known code');
+  assert.equal(enrollErrorView(err(409, 'constructor')).final, false);
 });
