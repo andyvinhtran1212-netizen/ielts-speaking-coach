@@ -90,6 +90,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/full-test-result` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. |
 | `/profile` | student | Profile, band target, study goals. |
 | `/account` | student | v2 Tài khoản: online and class courses (`GET /api/me/courses`, G04), the shared AI-credit balance and the server-labelled credit history (`GET /api/me/credits`); without G04 only the class group from `/api/class/me`. |
+| `/account/orders` | student | The signed-in learner’s enrollment orders, newest first, with the next action for each order. |
+| `/enroll/[orderCode]` | student | Transfer instructions and status for one of the learner’s orders. Shows access details once payment is confirmed. |
 | `/progress` | student | v2 Tiến độ: one row per skill from `/sessions`, `/api/writing/my-essays`, `/api/listening/overview`, `/api/quiz/progress` (band only per FR-077); goal band and exam date via `PATCH /auth/profile`. |
 | `/help` | student | v2 Trợ giúp: static FAQ (six groups, `lib/help-faq.mjs`) with accent-insensitive search. |
 | `/speaking/result` | student | Speaking feedback workspace, separate from the single-question and full-test result entries. |
