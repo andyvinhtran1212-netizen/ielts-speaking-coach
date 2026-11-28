@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
+import { getBrowserJson } from '@/lib/browser-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   formatVnd,
@@ -35,9 +36,10 @@ type State =
   | { kind: 'ready'; items: OrderRow[]; nextCursor: string | null; more: 'idle' | 'loading' | 'error' };
 
 async function readPage(cursor: string | null, signal?: AbortSignal) {
-  const query = `limit=${PAGE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+  const query = new URLSearchParams({ limit: String(PAGE) });
+  if (cursor) query.set('cursor', cursor);
   try {
-    const data = await window.api.getWith<unknown>(`/api/enrollment-orders/me?${query}`, undefined, signal ? { signal } : undefined);
+    const data = await getBrowserJson('/api/enrollment-orders/me', query, signal);
     return normalizeOrderPage(data);
   } catch {
     return null;
