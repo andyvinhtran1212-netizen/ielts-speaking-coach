@@ -207,6 +207,17 @@ def test_no_other_migration_drops_or_bypasses_the_332_guards():
         if path.name in hardening:
             assert not re.search(r"\bDROP\b|DISABLE\s+TRIGGER|aver\.", code, re.I), path.name
             continue
+        if path.name == "504_account_erasure.sql":
+            # The only exception is the scrubbing hook for an inactive
+            # learner with an authenticated erasure transaction. The two
+            # lists select the guard and verify that the hook was installed.
+            pair = "'fn_class_action_log_append_only', 'fn_users_suspension_guard'"
+            assert code.count(f"{pair},") == 2
+            selector = f"WHEN g IN ({pair}) THEN scrub_pass"
+            assert code.count(selector) == 1
+            code = code.replace(f"{pair},", "'fn_class_action_log_append_only',")
+            code = code.replace(selector, "WHEN g = 'fn_class_action_log_append_only' THEN scrub_pass")
+            assert not re.search(r"\bDROP\b|DISABLE\s+TRIGGER|SET\s+session_replication_role", code, re.I), path.name
         for name in ("trg_users_suspension_guard", "fn_users_suspension_guard",
                      "trg_users_privilege_audit", "staff_security_audit", "aver.staff_privilege"):
             assert name not in code, (path.name, name)

@@ -45,6 +45,7 @@ def auth(monkeypatch):
         return {"id": authorization.removeprefix("Bearer "), "email": "x@example.test"}
 
     monkeypatch.setattr(library, "get_supabase_user", fake)
+    return fake
 
 
 @pytest.fixture()
@@ -201,6 +202,7 @@ def test_routes_are_exempt_from_activation_with_a_reason():
 def test_an_account_without_a_class_code_keeps_its_marks(live_activation_gate, db, auth, monkeypatch):
     """Real gate: is_active=false passes on the marks routes (FR-061)."""
     from main import app
+    from routers import auth as auth_router
     from services import activation_gate
 
     class _Users:
@@ -217,6 +219,7 @@ def test_an_account_without_a_class_code_keeps_its_marks(live_activation_gate, d
             return R()
 
     monkeypatch.setattr(activation_gate, "supabase_admin", _Users())
+    monkeypatch.setattr(auth_router, "get_supabase_user", auth)
     client = TestClient(app, raise_server_exceptions=False)
     headers = {"Authorization": f"Bearer {A}"}
     r = client.patch("/api/library/me/marks/writing_sample/read", headers=headers, json={"item_key": "alpha-schools"})

@@ -3,10 +3,8 @@
     GET /api/student/skill-hub?skill=speaking|writing|listening|reading
         -> get_skill_hub_concurrent(...)
 
-Read-only. The one write it can trigger is the class-ledger reconcile that
-routers.class_student._visible_assignments performs for every reader of the
-learner's assignments (FR-078 exception, amendment 3), reached through
-student_today._visible_assignments_for. Every query filters by the caller.
+Read-only. Homework suggestions read the learner’s submission state without
+repairing the class ledger. Every query filters by the caller.
 Each part runs in its own worker thread on its own service-role client; a part
 that raises lands in `degraded` with its empty default (FR-118). A source that
 does not exist yet returns empty and is not degraded.
@@ -163,18 +161,20 @@ def _resume_for(sb, user_id: str, skill: str, now: datetime) -> List[Dict[str, A
                 continue
             title = titles.get(test_id) or {"reading": "Bài Reading", "listening": "Bài Listening",
                                             "dictation": "Chép chính tả"}[kind]
+            class_item = r.get("class_assignment_item_id")
+            scope = {"class_item": str(class_item)} if class_item else {}
             if kind == "reading":
                 code = codes.get(test_id)
                 if not code:
                     continue  # no live paper to resume into: never a 404 link
-                href = today._launch("reading_exam", test_id=code)
+                href = today._launch("reading_exam", test_id=code, **scope)
             elif kind == "listening":
-                href = today._launch("listening_test", id=test_id)
+                href = today._launch("listening_test", id=test_id, **scope)
             else:
                 query = {"test_id": test_id}
                 if r.get("section_num"):
                     query["section"] = str(r["section_num"])
-                href = today._launch("listening_dictation", **query)
+                href = today._launch("listening_dictation", **query, **scope)
             items.append(_resume_row(kind, title, r, href))
     if skill == "writing":
         draft = _writing_draft(sb, user_id)
@@ -603,7 +603,9 @@ async def get_skill_hub_concurrent(
     parts: Dict[str, Callable[[], Any]] = {
         "credits": lambda: _credits_for(user_id, skill),
         "resume": lambda: _resume_for(make_sb(), user_id, skill, now),
-        "assigned": lambda: today._visible_assignments_for(user_id, account_name, now),
+        "assigned": lambda: today._visible_assignments_for(
+            user_id, account_name, now, read_only=True
+        ),
         "groups": lambda: _catalog_groups(make_sb(), skill),
         "attempts": lambda: _attempts_for(make_sb(), user_id, skill),
         "history": lambda: _history_for(make_sb(), user_id, skill),

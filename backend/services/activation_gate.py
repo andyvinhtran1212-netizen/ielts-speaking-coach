@@ -20,7 +20,10 @@ the learner routes declared on the app itself. It:
     activation state, and the handler's own auth already answers 401 (or
     serves its anonymous mode);
   * otherwise verifies the bearer token and answers 403 unless the account's
-    ``users.is_active`` is true.
+    ``users.is_active`` is true;
+  * then (ACCOUNTDATA-0100 FR-003, exempt routes included) answers 403
+    ``account_deletion_pending`` while the account has an open deletion
+    request, except on the routes ``services.account_deletion_gate.allows``.
 
 ``tests/test_activation_gate_inventory.py`` walks the real app and fails when
 a learner route is neither gated nor exempt, so a new learner endpoint is
@@ -50,6 +53,7 @@ from fastapi import HTTPException, Request
 
 from config import settings
 from database import supabase_admin
+from services import account_deletion_gate
 from services.db_async import aexecute
 
 logger = logging.getLogger(__name__)
@@ -68,6 +72,13 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/auth/check-active"): "the activation-status probe itself (AuthProvider, login)",
     ("POST", "/auth/activate"): "redeeming an access code is how an inactive account becomes active",
     ("GET", "/auth/profile"): "caller's own profile read (no learner content, no paid work); read by the G2 authed probe",
+    # LEARNERCORE-0063 FR-094 (G07-T26): an inactive account with learner_v2 on
+    # may open Today and finish "Lần đầu vào". Both handlers re-check the caller
+    # through ``aopen_learner_status`` (503 on a failed read, 403 when suspended,
+    # the gate's own 403 when the flag is off), so the exemption only has an
+    # effect while learner_v2 is on.
+    ("GET", "/api/student/today"): "FR-094: inactive learner_v2 Today; handler re-checks activation, drops work blocks when inactive",
+    ("PATCH", "/auth/profile"): "FR-094: inactive learner_v2 onboarding; handler re-checks activation, inactive may set only onboarding_completed/target_band/exam_date",
     # ── One session per learner (COURSEACCESS-0055 T009) ─────────────────
     # These run the session gate's own state read, so a not-yet-claimed
     # session can see screen 8a/8b, claim, or sign out everywhere.
@@ -99,6 +110,14 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/enrollment-orders/{order_code}/report-transfer"): "caller reports paying their own order",
     ("POST", "/api/enrollment-orders/{order_code}/supplement"): "caller answers an admin's needs_info on their order",
     ("POST", "/api/enrollment-orders/{order_code}/cancel"): "caller cancels their own open order",
+    # ── Account data (ACCOUNTDATA-0100): reachable before activation and,
+    # except where account_deletion_gate says otherwise, while a deletion is open.
+    ("GET", "/api/account/deletion-request"): "caller's own deletion request status",
+    ("POST", "/api/account/deletion-request"): "a learner may ask to delete an account that was never activated",
+    ("POST", "/api/account/deletion-request/cancel"): "caller cancels their own deletion request",
+    ("GET", "/api/account/data-export"): "caller's own export status",
+    ("POST", "/api/account/data-export"): "a learner may take a copy of their data before activation",
+    ("GET", "/api/account/data-export/{export_id}/download"): "caller downloads their own export",
     # ── Public content (Grammar Wiki, Vocabulary library, prompt bank) ───
     ("GET", "/api/grammar/home"): "public Grammar Wiki",
     ("GET", "/api/grammar/categories"): "public Grammar Wiki",
@@ -137,6 +156,10 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("PATCH", "/api/library/me/marks/{shelf}/{kind}"): "own library marks; no paid work (LIBRARY-0061 FR-061)",
     ("DELETE", "/api/library/me/marks/{shelf}/{kind}"): "own library marks; no paid work (LIBRARY-0061 FR-061)",
     ("POST", "/api/feedback"): "content-error reports; anonymous Reading/Vocabulary reports allowed by design",
+    # ── Course open alerts (ENROLL-0060 T22) ─────────────────────────────
+    ("POST", "/api/courses/{slug}/open-alerts"): "\"Báo cho tôi khi mở\": guests subscribe by email; rate limited per hashed IP",
+    ("DELETE", "/api/courses/{slug}/open-alerts"): "unsubscribe by mail token (no session) or by the caller's own session",
+    ("GET", "/api/me/open-alerts"): "caller's own subscriptions; an inactive account may still follow a course",
     # ── Reading share links (anonymous capability, X-Reading-Anon) ───────
     # These accept an anonymous share-link attempt OR the caller's own attempt.
     # An inactive account cannot create an owned attempt (start is gated), so
@@ -276,21 +299,100 @@ async def aensure_account_active(user_id: str) -> None:
 async def _enforce(request: Request) -> None:
     route = request.scope.get("route")
     path = getattr(route, "path", None) or request.url.path
-    if is_staff_path(path) or is_exempt(request.method, path):
+    if is_staff_path(path):
+        return
+    exempt = is_exempt(request.method, path)
+    if exempt and account_deletion_gate.allows(request.method, path):
         return
     authorization = request.headers.get("authorization")
     if not authorization:
         return  # anonymous: the handler's own auth answers (401 or public mode)
     from routers.auth import get_supabase_user  # local — routers.auth imports this module
-    user = await get_supabase_user(authorization)
-    await aensure_account_active(user["id"])
-    # COURSEACCESS-0055 T009: one current session per learner account (no-op
-    # while runtime flag single_session_learners is off).
-    from services import session_gate  # local — session_gate imports this module
-    await session_gate.ensure_current(user["id"], authorization, request.headers.get("user-agent"))
+    if exempt:
+        # Exempt from activation, not from ACCOUNTDATA-0100 FR-003. A token
+        # that does not verify leaves the answer to the handler, as before.
+        try:
+            user = await get_supabase_user(authorization)
+        except HTTPException:
+            return
+    else:
+        user = await get_supabase_user(authorization)
+        await aensure_account_active(user["id"])
+        # COURSEACCESS-0055 T009: one current session per learner account (no-op
+        # while runtime flag single_session_learners is off).
+        from services import session_gate  # local — session_gate imports this module
+        await session_gate.ensure_current(user["id"], authorization, request.headers.get("user-agent"))
+    await account_deletion_gate.aensure_not_pending(user["id"], request.method, path, _memo.get())
 
 
 async def require_active_learner(request: Request) -> None:
     """Router-level dependency: authenticated learner routes need an ACTIVE
     account. See the module docstring for the skip rules."""
     await _enforce(request)
+
+
+# ── LEARNERCORE-0063 FR-094: the two inactive-open routes ────────────────────
+
+OPEN_ACTIVE = "active"
+OPEN_INACTIVE = "inactive_open"
+
+
+def log_inactive_open_request(method: str, path: str, user_id: str) -> None:
+    """Count one admitted request for the LEARNERCORE-0063 T26 rollout."""
+    logger.info("learner_v2_inactive_open_request method=%s path=%s user_id=%s", method, path, user_id)
+
+
+def _open_status_query(user_id: str):
+    # "*" like /auth/check-active: works before migration 332 adds suspended_at
+    # (absent column = not suspended).
+    return lambda db: db.table("users").select("*").eq("id", str(user_id)).limit(1)
+
+
+async def alearner_v2_on(user_id: str, opted_in: bool) -> bool:
+    """FR-072 flag for the caller; any failure reading it is "off"."""
+    from services import feature_flags  # local: keeps this module's imports light
+
+    try:
+        if settings.USE_ASYNC_DB:
+            return await feature_flags.ais_learner_v2_enabled(
+                user_id, run=aexecute, per_user=opted_in)
+        return await asyncio.to_thread(
+            feature_flags.is_learner_v2_enabled, user_id, per_user=opted_in)
+    except Exception as exc:  # noqa: BLE001 - deny on any flag failure
+        logger.warning("[activation_gate] learner_v2 read failed user=%s: %s",
+                       user_id, exc.__class__.__name__)
+        return False
+
+
+async def aopen_learner_status(user_id: str) -> str:
+    """Activation check for the routes ``ACTIVATION_EXEMPT_ROUTES`` opens to an
+    inactive account under FR-094 (the router gate skips them, so no memo is
+    set and none is trusted here).
+
+    Returns ``"active"`` or ``"inactive_open"``. Raises 503 when the users row
+    cannot be read (fail closed, like the gate), 403 ``account_suspended``
+    when the account is suspended (before anything else), and the gate's own
+    403 ``INACTIVE_DETAIL`` for an inactive account without learner_v2.
+    """
+    key = str(user_id)
+    try:
+        if settings.USE_ASYNC_DB:
+            rows = (await aexecute(_open_status_query(key))).data or []
+        else:
+            rows = await asyncio.to_thread(
+                lambda: _open_status_query(key)(supabase_admin).execute().data or [])
+    except Exception as exc:
+        raise _lookup_failed(key, exc)
+    row = rows[0] if rows else {}
+    if row.get("suspended_at"):
+        from services.staff_security import account_suspended_exception
+        raise account_suspended_exception(403)
+    if row.get("is_active") is True:
+        memo = _memo.get()
+        if memo is not None:
+            memo["active"].add(key)
+        return OPEN_ACTIVE
+    flags = row.get("feature_flags") if isinstance(row.get("feature_flags"), dict) else {}
+    if not await alearner_v2_on(key, flags.get("learner_v2") is True):
+        raise HTTPException(status_code=403, detail=INACTIVE_DETAIL)
+    return OPEN_INACTIVE

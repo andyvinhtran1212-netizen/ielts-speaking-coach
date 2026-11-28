@@ -11,7 +11,9 @@ Covers (Pattern #20 schema-aware stub of Supabase + Storage):
   - main() returns a summary; DRY_RUN env parsing.
 """
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -113,10 +115,22 @@ class _StubClient:
 
 
 def _install(monkeypatch, *, dry_run, sessions, responses=None, remove_raises_for=None):
+    @asynccontextmanager
+    async def begin():
+        async def execute(statement, params=None):
+            sql = str(statement)
+            assert sql.startswith("SELECT pg_advisory_xact_lock(") or sql == (
+                "SELECT to_regclass('public.account_deletion_requests')"
+            )
+            return SimpleNamespace(scalar=lambda: None)
+
+        yield SimpleNamespace(execute=execute)
+
     calls: list = []
     client = _StubClient(sessions, responses or {}, calls, remove_raises_for)
     monkeypatch.setattr(sweep, "supabase_admin", client)
     monkeypatch.setattr(sweep, "DRY_RUN", dry_run)
+    monkeypatch.setattr(sweep, "get_engine", lambda: SimpleNamespace(begin=begin))
     return calls
 
 
@@ -136,6 +150,43 @@ def test_audio_eligibility_uses_strict_started_anchor(monkeypatch):
     _install(monkeypatch, dry_run=True, sessions=sessions)
     eligible = sweep._eligible("audio_purged_at", sweep.RETENTION_AUDIO_DAYS, "is_audio_purged")
     assert sorted(s["id"] for s in eligible) == ["old", "reopened"]
+
+
+@pytest.mark.parametrize("condition", ["unconfigured", "stale_schema_cache", "setup_failed"])
+def test_unavailable_direct_lock_preserves_audio_and_signals_failed_run(monkeypatch, condition):
+    sessions = [{"id": "old", "user_id": "u", "started_at": _ago(70), "audio_purged_at": None}]
+    calls = _install(monkeypatch, dry_run=False, sessions=sessions,
+                     responses={"old": [{"audio_storage_path": "u/old/recording.webm"}]})
+    def get_engine():
+        if condition == "setup_failed":
+            raise ValueError("cannot create the direct engine")
+        return None
+
+    monkeypatch.setattr(sweep, "get_engine", get_engine)
+    client = sweep.supabase_admin
+    table = client.table
+
+    def table_with_cache(name):
+        if condition == "stale_schema_cache" and name == "account_deletion_requests":
+            raise RuntimeError("PGRST205: public.account_deletion_requests not in the schema cache")
+        return table(name)
+
+    monkeypatch.setattr(client, "table", table_with_cache)
+    result = {}
+    main = sweep.main
+
+    def capture_summary():
+        result.update(main())
+        return result
+
+    monkeypatch.setattr(sweep, "main", capture_summary)
+    assert sweep.cli() == 1
+    assert result["audio"]["eligible"] == 1 and result["audio"]["purged"] == 0
+    assert result["audio"]["errors"] == [{"error": "erasure_lock_unavailable"}]
+    assert result["content"]["purged"] == 1
+    assert not any(call["type"] == "storage_remove" for call in calls)
+    assert all(not {"audio_storage_path", "audio_url", "audio_purged_at"}.intersection(call["payload"])
+               for call in calls if call["type"] == "update")
 
 
 def test_content_eligibility_uses_max_anchor(monkeypatch):

@@ -6829,6 +6829,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/deletion-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Deletion Request */
+        get: operations["get_deletion_request_api_account_deletion_request_get"];
+        put?: never;
+        /** Create Deletion Request */
+        post: operations["create_deletion_request_api_account_deletion_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/deletion-request/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Deletion Request */
+        post: operations["cancel_deletion_request_api_account_deletion_request_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Data Export */
+        get: operations["get_data_export_api_account_data_export_get"];
+        put?: never;
+        /** Create Data Export */
+        post: operations["create_data_export_api_account_data_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/data-export/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Data Export
+         * @description FR-012. Default: 302 to a short-lived signed URL. A bearer-token client
+         *     (the Next account page, #2613) cannot follow a redirect into a download,
+         *     so ``Accept: application/json`` returns the same link as JSON instead;
+         *     both carry ``Cache-Control: no-store``.
+         */
+        get: operations["download_data_export_api_account_data_export__export_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/grammar/home": {
         parameters: {
             query?: never;
@@ -12634,6 +12710,59 @@ export interface paths {
         patch: operations["admin_patch_feedback_status_api_admin_feedback__feedback_id__patch"];
         trace?: never;
     };
+    "/api/review-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Review Notes */
+        get: operations["list_review_notes_api_review_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Save Review Note */
+        patch: operations["save_review_note_api_review_notes_patch"];
+        trace?: never;
+    };
+    "/api/courses/{slug}/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subscribe Open Alert */
+        post: operations["subscribe_open_alert_api_courses__slug__open_alerts_post"];
+        /** Unsubscribe Open Alert */
+        delete: operations["unsubscribe_open_alert_api_courses__slug__open_alerts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/open-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Open Alerts */
+        get: operations["my_open_alerts_api_me_open_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kp/microcheck-answers": {
         parameters: {
             query?: never;
@@ -14712,6 +14841,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/course": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Course
+         * @description Lộ trình page payload (LEARNERCORE-0063 amendment 1, FR-030..FR-037).
+         *
+         *     Read-only (FR-085); `assigned_open` includes hand-ins that the ledger has
+         *     not recorded yet, without updating it.
+         *     Each part runs in its own worker; a failing part lands in `degraded`.
+         */
+        get: operations["course_api_student_course_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/student/skill-hub": {
         parameters: {
             query?: never;
@@ -15524,6 +15677,12 @@ export interface components {
             created_at: string;
             /** Review Eligible */
             review_eligible: boolean;
+            /** Display State */
+            display_state?: ("draft" | "scheduled" | "open" | "running" | "grading" | "released" | "ended" | "archived") | null;
+            /** Audience Count */
+            audience_count?: number | null;
+            /** Listening Seconds */
+            listening_seconds?: number | null;
         } & {
             [key: string]: unknown;
         };
@@ -16697,6 +16856,11 @@ export interface components {
              * @default false
              */
             suspended: boolean;
+            /**
+             * Learner V2 Enabled
+             * @default false
+             */
+            learner_v2_enabled: boolean;
         };
         /** AuthMeResponse */
         AuthMeResponse: {
@@ -16744,6 +16908,11 @@ export interface components {
              * @default false
              */
             learner_v2_enabled: boolean;
+            /**
+             * Speaking Course Access
+             * @default false
+             */
+            speaking_course_access: boolean;
         };
         /** AuthProfileResponse */
         AuthProfileResponse: {
@@ -18044,6 +18213,17 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** CourseClass */
+        CourseClass: {
+            /** Name */
+            name?: string | null;
+            /** Teacher Name */
+            teacher_name?: string | null;
+            /** Course Title */
+            course_title?: string | null;
+            /** Repractice */
+            repractice?: components["schemas"]["CourseRepractice"][];
+        };
         /** CourseCreate */
         CourseCreate: {
             /** Code */
@@ -18088,6 +18268,46 @@ export interface components {
              */
             duration_sec: number;
         };
+        /** CourseOnlineRow */
+        CourseOnlineRow: {
+            /** Course Code */
+            course_code: string;
+            /** Product Slug */
+            product_slug?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "active" | "expired";
+            /** Days Left */
+            days_left?: number | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /**
+             * Can Renew
+             * @default false
+             */
+            can_renew: boolean;
+            progress?: components["schemas"]["CourseProgress"] | null;
+            /** Credits Left */
+            credits_left?: number | null;
+        };
+        /** CourseOtherProduct */
+        CourseOtherProduct: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "coming_soon";
+            /** Starts At */
+            starts_at?: string | null;
+        };
         /** CoursePatch */
         CoursePatch: {
             /** Code */
@@ -18100,6 +18320,13 @@ export interface components {
             sort_order?: number | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** CourseProgress */
+        CourseProgress: {
+            /** Done */
+            done: number;
+            /** Total */
+            total: number;
         };
         /** CourseReadingBody */
         CourseReadingBody: {
@@ -18116,6 +18343,13 @@ export interface components {
              * @default 0
              */
             duration_sec: number;
+        };
+        /** CourseRepractice */
+        CourseRepractice: {
+            /** Course Code */
+            course_code: string;
+            /** Title */
+            title: string;
         };
         /** CourseStartResponse */
         CourseStartResponse: {
@@ -18437,6 +18671,11 @@ export interface components {
              * @enum {integer}
              */
             window_days: 7 | 30 | 90;
+        };
+        /** DeletionRequestBody */
+        DeletionRequestBody: {
+            /** Confirm Email */
+            confirm_email: string;
         };
         /**
          * DeliverRequest
@@ -19326,6 +19565,58 @@ export interface components {
              */
             user_answer: string | null;
         };
+        /** ExamAudiencePatchResponse */
+        ExamAudiencePatchResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+            /** Mirror Failed */
+            mirror_failed?: boolean;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
+        };
+        /** ExamAudienceResponse */
+        ExamAudienceResponse: {
+            /** Items */
+            items: components["schemas"]["ExamAudienceRow"][];
+            /** Practice Overlap */
+            practice_overlap: null;
+        };
+        /** ExamAudienceRow */
+        ExamAudienceRow: {
+            /** User Id */
+            user_id: string | null;
+            /** Student Id */
+            student_id: string;
+            /** Name */
+            name: string;
+            /** Cohort */
+            cohort: string | null;
+            source: components["schemas"]["ExamAudienceSource"];
+            /** Skills */
+            skills: ("listening" | "reading" | "writing" | "speaking")[];
+            /** Selected */
+            selected: boolean;
+            /** Excluded Reason */
+            excluded_reason: string | null;
+            /** Open From */
+            open_from: string | null;
+            /** Open Until */
+            open_until: string | null;
+        };
+        /** ExamAudienceSource */
+        ExamAudienceSource: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cohort" | "learner" | "group";
+            /** Label */
+            label: string | null;
+        };
         /**
          * ExamContentItem
          * @description Canonical cross-library row returned to the admin catalog.
@@ -19533,6 +19824,46 @@ export interface components {
             draft_state?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ExamScheduleResponse */
+        ExamScheduleResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "published";
+            /** Selected */
+            selected: number;
+            /** Mirror Locked */
+            mirror_locked?: string[];
+            /** Mirror Refresh Failed */
+            mirror_refresh_failed?: string[];
+        };
+        /**
+         * ExamWriteResponse
+         * @description The persisted exam row, with additional columns from the database.
+         */
+        ExamWriteResponse: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "archived";
+        } & {
+            [key: string]: unknown;
+        };
+        /** ExportDownloadLink */
+        ExportDownloadLink: {
+            /** Url */
+            url: string;
+            /** Expires In Seconds */
+            expires_in_seconds: number;
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -21562,6 +21893,8 @@ export interface components {
             result_summary?: {
                 [key: string]: unknown;
             };
+            /** My Flagged Q Nums */
+            my_flagged_q_nums?: number[];
             /**
              * Programme Id
              * @default ielts
@@ -22679,6 +23012,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** MyOpenAlertsOut */
+        MyOpenAlertsOut: {
+            /** Slugs */
+            slugs: string[];
+        };
         /** NextItemResponse */
         NextItemResponse: {
             /** Complete */
@@ -22831,6 +23169,21 @@ export interface components {
             value: number;
             /** Lowest Cohort Id */
             lowest_cohort_id?: string | null;
+        };
+        /** OpenAlertOkOut */
+        OpenAlertOkOut: {
+            /** Ok */
+            ok: boolean;
+        };
+        /** OpenAlertSubscribeIn */
+        OpenAlertSubscribeIn: {
+            /** Email */
+            email?: string | null;
+        };
+        /** OpenAlertUnsubscribeIn */
+        OpenAlertUnsubscribeIn: {
+            /** Unsubscribe Token */
+            unsubscribe_token?: string | null;
         };
         /** OpenBody */
         OpenBody: {
@@ -24440,6 +24793,46 @@ export interface components {
              * @enum {string}
              */
             reason: "applied" | "replayed" | "conflict";
+        };
+        /** ReviewNoteIn */
+        ReviewNoteIn: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "listening" | "reading";
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /** Q Num */
+            q_num: number;
+            /** Body */
+            body: string;
+        };
+        /** ReviewNoteOut */
+        ReviewNoteOut: {
+            /** Q Num */
+            q_num: number;
+            /** Body */
+            body: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** ReviewNoteSavedOut */
+        ReviewNoteSavedOut: {
+            /** Q Num */
+            q_num: number;
+            /** Body */
+            body?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** ReviewNotesOut */
+        ReviewNotesOut: {
+            /** Notes */
+            notes: components["schemas"]["ReviewNoteOut"][];
         };
         /** RevokeAllOut */
         RevokeAllOut: {
@@ -26191,6 +26584,33 @@ export interface components {
             homework_stale: boolean;
             /** Degraded */
             degraded?: ("items" | "repractice")[];
+        };
+        /** StudentCourseResponse */
+        StudentCourseResponse: {
+            /** Online */
+            online?: components["schemas"]["CourseOnlineRow"][];
+            /** Other Products */
+            other_products?: components["schemas"]["CourseOtherProduct"][];
+            class?: components["schemas"]["CourseClass"] | null;
+            /**
+             * Assigned Open
+             * @default 0
+             */
+            assigned_open: number;
+            /**
+             * Has Online
+             * @default false
+             */
+            has_online: boolean;
+            /**
+             * Has Class
+             * @default false
+             */
+            has_class: boolean;
+            /** Selected */
+            selected?: string | null;
+            /** Degraded */
+            degraded?: ("online" | "other_products" | "class" | "assigned_open")[];
         };
         /**
          * StudentQuizQuestion
@@ -39982,6 +40402,206 @@ export interface operations {
             };
         };
     };
+    get_deletion_request_api_account_deletion_request_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_deletion_request_api_account_deletion_request_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeletionRequestBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_deletion_request_api_account_deletion_request_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_data_export_api_account_data_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_data_export_api_account_data_export_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_data_export_api_account_data_export__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                accept?: string | null;
+            };
+            path: {
+                export_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportDownloadLink"];
+                };
+            };
+            /** @description Redirect to the signed URL (default; FR-012) */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_home_api_grammar_home_get: {
         parameters: {
             query?: never;
@@ -49967,6 +50587,180 @@ export interface operations {
             };
         };
     };
+    list_review_notes_api_review_notes_get: {
+        parameters: {
+            query: {
+                skill: "listening" | "reading";
+                attempt_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewNotesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_review_note_api_review_notes_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewNoteSavedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscribe_open_alert_api_courses__slug__open_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertSubscribeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unsubscribe_open_alert_api_courses__slug__open_alerts_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OpenAlertUnsubscribeIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenAlertOkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_open_alerts_api_me_open_alerts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOpenAlertsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_microcheck_answers_api_kp_microcheck_answers_post: {
         parameters: {
             query?: never;
@@ -51440,7 +52234,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51544,7 +52338,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamWriteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51721,7 +52515,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudienceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51758,7 +52552,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamAudiencePatchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -51791,7 +52585,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamScheduleResponse"];
                 };
             };
             /** @description Validation Error */
@@ -53387,6 +54181,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_api_student_course_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentCourseResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
