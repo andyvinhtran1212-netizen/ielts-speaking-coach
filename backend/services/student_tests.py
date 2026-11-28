@@ -155,7 +155,8 @@ def _scan(make_query: Callable[[], Any], ts_col: str, before: Optional[Tuple[dat
     read in full and never again. Rows `convert` drops (drills, programme
     forms, a missing Part 1) do not end the scan. It stops when the source
     is exhausted, or when PAGE + 1 rows sort after the cursor and every
-    unread row is strictly older than the last of them."""
+    unread row is strictly older than the last of them. Hitting the scan
+    limit without either proof degrades the results block."""
 
     def batch(state: Optional[Tuple[Any, Optional[str]]]) -> List[Dict[str, Any]]:
         if state is None:
@@ -186,8 +187,7 @@ def _scan(make_query: Callable[[], Any], ts_col: str, before: Optional[Tuple[dat
         last_ts = student_today._parse_ts(last[ts_col])
         if len(kept) > PAGE and last_ts is not None and last_ts < kept[PAGE]["_ts"]:
             return out
-    logger.warning("[student_tests] %s scan stopped after %d batches", ts_col, _MAX_BATCHES)
-    return out
+    raise RuntimeError(f"{ts_col} scan reached {_MAX_BATCHES} batches before settling the page")
 
 
 def _self_chosen(sb, table: str, user_id: str, cols: str) -> Callable[[], Any]:
@@ -411,6 +411,8 @@ def build_assigned_exams(sb, user_id: str) -> List[Dict[str, Any]]:
                 else f"/mock-exam?{urlencode({'code': str(e.get('code') or '')})}")
         if not mine and not e.get("code"):
             continue
+        # A live sitting supersedes the previous finished sitting in this list.
+        done.pop(exam_id, None)
         out.append({
             "exam_id": exam_id, "title": e.get("title") or "Mock test", "mode": None, "state": "open",
             "opens_at": None, "closes_at": None,

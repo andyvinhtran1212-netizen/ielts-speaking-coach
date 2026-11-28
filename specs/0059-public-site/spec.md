@@ -24,6 +24,7 @@ Status: **approved** — anh Andy duyệt 23/11/2026 18:08 giờ VN (xem `approv
 
 - **Đề công khai và lối chấm thử:** chấm thử miễn phí Writing Task 1, Task 2, Speaking Part 2 là ngoại lệ có chủ đích của "nộp bài AI chấm thì cần khoá" (00 mục 2 điểm 22, FREETRIAL-0047 đã duyệt, TRIALCAP-0080). Tài khoản mã email được chấm thử như Google (gói câu 16, GOI-11 FR-11-031).
 - **Lượt chưa dùng khi đăng ký lại:** chuyển toàn bộ, bảo lưu tối đa 2 tháng, không còn quy tắc 50%; bài làm xem được 45 ngày sau khi khoá hết hạn (00 mục 2 điểm 23). Số đọc từ API G04, không gõ trong mã (FR-024).
+- **Khoá `status: closed` hiện nhãn "Tạm đóng đăng ký"** (anh Andy duyệt 23/11 13:21Z), không gọi là "Sắp mở"; dòng đếm ở `/courses` tách riêng "K khoá tạm đóng đăng ký". Hành vi khác như khoá sắp mở: không hiện học phí, có "Báo cho tôi khi mở".
 - **Nhãn khoá hết hạn là "Đăng ký lại"** ở mọi nơi, lấy từ `course-access-labels.mjs` (GOI-11 phần F).
 - **Khối "Học viên nói gì"** do G13-A10 dựng; spec này chỉ chừa chỗ (gói mục 3, câu 18).
 - **Không viết nội dung pháp lý thật**; chỉ khung và nơi nạp nội dung (gói mục 3).

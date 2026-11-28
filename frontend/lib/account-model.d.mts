@@ -1,0 +1,31 @@
+export type MyCourse = {
+  code: string;
+  title: string;
+  kind: unknown;
+  state: unknown;
+  expiresAt: string | null;
+  daysLeft: number | null;
+  canRenew: boolean;
+  renewOrderCode: string | null;
+  balance: number | null;
+  carryBalance: number | null;
+  carryExpiresAt: string | null;
+};
+export type MyCourses = {
+  online: MyCourse[];
+  classes: MyCourse[];
+  total: number | null;
+  byKind: { online: number | null; class: number | null };
+  contentVisibleUntil: string | null;
+};
+export type CreditRow = { at: string | null; label: string; delta: number | null; balanceAfter: number | null };
+export function formatVnDate(iso: unknown): string | null;
+export function normalizeMyCourses(raw: unknown): MyCourses | null;
+export function courseTimeLine(course: MyCourse): string | null;
+export function carryLine(course: MyCourse): string | null;
+export function contentVisibleLine(courses: { contentVisibleUntil: string | null } | null): string | null;
+export function creditSourceLines(courses: MyCourses): { key: 'online' | 'class'; label: string; value: number | null }[];
+export function normalizeCreditPage(raw: unknown): { items: CreditRow[]; nextCursor: string | null } | null;
+export function formatDelta(delta: number | null): string;
+export function classesFromClassMe(raw: unknown): { id: string; name: string; course: string | null }[];
+export function classMeIncomplete(raw: unknown): boolean;

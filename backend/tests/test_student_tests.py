@@ -370,6 +370,21 @@ def test_assigned_exams_keep_only_real_assignments(exams):
     assert rows[-1]["total_minutes"] == 90 and rows[0]["skills"] == list(stt._BAND_SKILLS)
 
 
+def test_assigned_exams_prefer_the_registered_sitting_to_a_previous_release(exams):
+    exams["open"] = [_open("e1", "LIVE", mine="s-live")]
+    exams["mine"] = [
+        {"sitting_id": "s-live", "mock_exam_id": "e1", "status": "registered", "title": "Kỳ LIVE"},
+        {"sitting_id": "s-done", "mock_exam_id": "e1", "status": "released", "title": "Kỳ LIVE"},
+    ]
+
+    rows = stt.build_assigned_exams(_DB(), ME)
+
+    assert [(row["exam_id"], row["state"], row["href"]) for row in rows] == [
+        ("e1", "open", "/mock-exam?sitting=s-live"),
+    ]
+    assert rows[0]["has_sitting_in_progress"] is True
+
+
 # ── assembly, degraded, join points ───────────────────────────────────────────
 
 
@@ -386,6 +401,25 @@ def _run(monkeypatch, db, *, cursor=None, credits=None, assigned=None):
     monkeypatch.setattr(stt, "build_assigned_exams", _assigned)
     body = asyncio.run(stt.get_tests_concurrent(lambda: db, ME, cursor=cursor))
     return body, calls
+
+
+def test_results_mark_degraded_when_excluded_rows_exhaust_the_scan_budget(monkeypatch):
+    limit = stt._MAX_BATCHES * stt._SCAN
+    attempts = [_attempt(f"drill-{i:04}", "dr", i) for i in range(limit)]
+    attempts.append(_attempt("older-result", "lt", limit, band=7.0, scored=40))
+    db = _DB({
+        "listening_tests": [
+            {"id": "lt", "title": "L", "test_type": "full"},
+            {"id": "dr", "title": "D", "test_type": "drill"},
+        ],
+        "listening_test_attempts": attempts,
+    })
+
+    body, _ = _run(monkeypatch, db, credits={"total": 3})
+
+    assert body["degraded"] == ["results"]
+    assert body["results"] == [] and body["results_next_cursor"] is None
+    assert body["credits"] == {"total": 3}
 
 
 def test_empty_learner_is_empty_not_degraded(monkeypatch):
