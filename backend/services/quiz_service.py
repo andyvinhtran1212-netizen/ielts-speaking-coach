@@ -30,6 +30,7 @@ from services.class_assignment_service import (
     is_accepting_submissions,
     is_assignment_open,
     _at,
+    item_submission_patch,
     mark_item_submitted,
 )
 from services.class_archive_service import (
@@ -3761,10 +3762,53 @@ def reconcile_course_items(db, assignment_ids: list[str], *,
 
     Luỹ đẳng: `mark_item_submitted` chỉ ghi khi `submitted_at IS NULL`.
     """
-    if not assignment_ids:
-        return 0
-
     hurt: list[str] = []
+    fixed = 0
+    repair_scope = {"student_id": student_id} if student_id is not None else {}
+
+    def _stamp(item_id, kind, art, done_at, score):
+        """Đóng dấu thời điểm LÀM XONG, không phải thời điểm vá: bài xong lúc
+        18:00 mà vá lúc 20:00 sẽ bị đọc thành nộp trễ — đường vá tự tạo ra đúng
+        cái kết luận sai mà nó sinh ra để sửa."""
+        nonlocal fixed
+        try:
+            if mark_item_submitted(db, item_id=item_id, artifact_kind=kind,
+                                   artifact_id=art, score=score, now=done_at, **repair_scope):
+                fixed += 1
+        except Exception as exc:  # noqa: BLE001
+            # Thử tiếp những mục còn lại: một mục hỏng không được cản cả lớp.
+            logger.warning("[quiz] reconcile: ghi sổ hỏng item=%s: %s", item_id, exc)
+            hurt.append(f"ghi item={item_id}")
+
+    _visit_course_item_handins(db, assignment_ids, _stamp, hurt, student_id=student_id)
+    if fixed:
+        logger.info("[quiz] đã vá %s mục bài tập theo buổi", fixed)
+    if hurt:
+        raise ReconcileIncomplete("; ".join(hurt))
+    return fixed
+
+
+def course_item_handins(db, assignment_ids: list[str], items: list[dict], *,
+                         student_id: str) -> tuple[dict[str, dict], bool]:
+    """Project this learner's course hand-ins and report incomplete reads."""
+    handins: dict[str, dict] = {}
+    hurt: list[str] = []
+
+    def record(item_id, kind, artifact_id, done_at, score):
+        handins[item_id] = item_submission_patch(
+            artifact_kind=kind, artifact_id=artifact_id, score=score, now=done_at,
+        )
+
+    own_items = [item for item in items if item.get("student_id") == student_id]
+    _visit_course_item_handins(db, assignment_ids, record, hurt, student_id=student_id, items=own_items)
+    return handins, bool(hurt)
+
+
+def _visit_course_item_handins(db, assignment_ids: list[str], stamp, hurt: list[str], *,
+                               student_id: str | None, items: list[dict] | None = None) -> None:
+    """Read the evidence for course hand-ins in both projection and repair."""
+    if not assignment_ids or items == []:
+        return
 
     def _try(what, fn):
         """Chạy một mảnh việc; hỏng thì ghi sổ nợ và đi tiếp.
@@ -3789,27 +3833,24 @@ def reconcile_course_items(db, assignment_ids: list[str], *,
                 "class_assignments", "id, content_id, skill",
                 lambda q, c=c: q.in_("id", c), db=db) if a.get("skill") == "course"}))
     if not course:
-        if hurt:
-            raise ReconcileIncomplete("; ".join(hurt))
-        return 0
+        return
 
-    def assignment_items(query, assignment_ids):
-        query = query.in_("assignment_id", assignment_ids)
-        if student_id is not None:
-            query = query.eq("student_id", student_id)
-        return query
+    if items is None:
+        def assignment_items(query, assignment_ids):
+            query = query.in_("assignment_id", assignment_ids)
+            if student_id is not None:
+                query = query.eq("student_id", student_id)
+            return query
 
-    items: list[dict] = []
-    for c in _chunks(list(course)):
-        _try(f"đọc mục bài giao ({len(c)} bài)", lambda c=c: items.extend(
-            _report_pages("class_assignment_items",
-                          "id, assignment_id, submitted_at",
-                          lambda q, c=c: assignment_items(q, c), db=db)))
-    pending = {i["id"]: i for i in items if not i.get("submitted_at")}
+        items = []
+        for c in _chunks(list(course)):
+            _try(f"đọc mục bài giao ({len(c)} bài)", lambda c=c: items.extend(
+                _report_pages("class_assignment_items",
+                              "id, assignment_id, submitted_at",
+                              lambda q, c=c: assignment_items(q, c), db=db)))
+    pending = {i["id"]: i for i in items if i.get("assignment_id") in course and not i.get("submitted_at")}
     if not pending:
-        if hurt:
-            raise ReconcileIncomplete("; ".join(hurt))
-        return 0
+        return
 
     def _bank_of(item_id):
         return (course.get(pending[item_id]["assignment_id"]) or {}).get("content_id")
@@ -3829,26 +3870,7 @@ def reconcile_course_items(db, assignment_ids: list[str], *,
     pending = {item_id: row for item_id, row in pending.items()
                if _bank_of(item_id) not in gated}
     if not pending:
-        if hurt:
-            raise ReconcileIncomplete("; ".join(hurt))
-        return 0
-
-    fixed = 0
-    repair_scope = {"student_id": student_id} if student_id is not None else {}
-
-    def _stamp(item_id, kind, art, done_at, score):
-        """Đóng dấu thời điểm LÀM XONG, không phải thời điểm vá: bài xong lúc
-        18:00 mà vá lúc 20:00 sẽ bị đọc thành nộp trễ — đường vá tự tạo ra đúng
-        cái kết luận sai mà nó sinh ra để sửa."""
-        nonlocal fixed
-        try:
-            if mark_item_submitted(db, item_id=item_id, artifact_kind=kind,
-                                   artifact_id=art, score=score, now=done_at, **repair_scope):
-                fixed += 1
-        except Exception as exc:  # noqa: BLE001
-            # Thử tiếp những mục còn lại: một mục hỏng không được cản cả lớp.
-            logger.warning("[quiz] reconcile: ghi sổ hỏng item=%s: %s", item_id, exc)
-            hurt.append(f"ghi item={item_id}")
+        return
 
     # ── Bằng chứng 1: bài tự luận ĐÃ CHẤM ───────────────────────────────────
     # Tự nó đủ, kể cả khi bộ đề vừa bị nạp lại và phần viết đã biến mất: lấy
@@ -3881,7 +3903,7 @@ def reconcile_course_items(db, assignment_ids: list[str], *,
     for item_id, w in wrote.items():
         bank = _bank_of(item_id)
         known = bank in w_shapes
-        _stamp(item_id, "course_writing", w["id"], _at(w.get("graded_at")),
+        stamp(item_id, "course_writing", w["id"], _at(w.get("graded_at")),
                course_hand_in_score(
                    has_mcq=(not known) or bool(w_shapes[bank][0]),
                    clean=w.get("clean"), total=w.get("total")))
@@ -3890,13 +3912,8 @@ def reconcile_course_items(db, assignment_ids: list[str], *,
     rest = [i for i in pending if i not in wrote]
     for c in _chunks(rest):
         _try(f"đọc bằng chứng trắc nghiệm ({len(c)} mục)",
-             lambda c=c: _reconcile_chunk(c, _bank_of, _stamp, db))
+             lambda c=c: _reconcile_chunk(c, _bank_of, stamp, db))
 
-    if fixed:
-        logger.info("[quiz] đã vá %s mục bài tập theo buổi", fixed)
-    if hurt:
-        raise ReconcileIncomplete("; ".join(hurt))
-    return fixed
 
 
 def bank_has_mcq(bank_id: str | None) -> bool:
