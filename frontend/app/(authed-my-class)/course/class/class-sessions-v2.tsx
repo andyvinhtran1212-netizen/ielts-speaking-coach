@@ -84,7 +84,7 @@ function Markdown({ value }: { value: string }) {
   useEffect(() => {
     let disposed = false;
     setHtml(null);
-    void whenGlobalReady(() => typeof window.renderMarkdown === 'function', 'window.renderMarkdown (class)')
+    void whenGlobalReady(() => disposed || typeof window.renderMarkdown === 'function', 'window.renderMarkdown (class)')
       .then((ready) => {
         if (!disposed && ready && window.renderMarkdown) setHtml(window.renderMarkdown(value, { breaks: true }));
       });

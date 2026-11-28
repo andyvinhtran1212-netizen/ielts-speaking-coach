@@ -110,6 +110,21 @@ afterEach(() => {
   auth.user = { id: 'learner-1' };
 });
 
+it('stops checking for the Markdown renderer when the lesson closes (FR-121)', async () => {
+  const view = mount(classMe(), assigned([]));
+  await screen.findByText('Nội dung **buổi 2**');
+  view.unmount();
+
+  const renderer = vi.fn(() => vi.fn());
+  Object.defineProperty(window, 'renderMarkdown', { configurable: true, get: renderer });
+  try {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(renderer).not.toHaveBeenCalled();
+  } finally {
+    Reflect.deleteProperty(window, 'renderMarkdown');
+  }
+});
+
 it('reads each API exactly once; changing session or class reads nothing more (FR-124)', async () => {
   mount(classMe(), assigned([work('i1', 'L2')]));
   await screen.findByRole('region', { name: 'Các buổi học' });
