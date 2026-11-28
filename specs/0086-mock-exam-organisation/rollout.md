@@ -9,7 +9,15 @@
 
 - Thứ tự T31 (theo `plan.md` mục Migration): (1) áp 445 lên staging dưới khoá advisory (chỉ nới CHECK và thêm bảng/cột, chưa đổi dữ liệu); (2) deploy backend có lớp tương thích đọc được cả tên cũ (`retake`, `sequential`) lẫn tên mới (`self_paced`, `live`), gồm `mock_exam_service.is_retake()` và vòng quét hết hạn `reap_expired_retake_sittings()`; kiểm trên staging một kỳ cũ đang có lượt làm dở vẫn resume và vẫn được quét hết hạn; (3) chỉ khi bước 2 đạt mới áp 446 (backfill đổi tên chế độ); (4) deploy frontend.
 - 447 và 448 đi cùng T33, sau T31, cũng dưới khoá advisory, test PG17 + postcondition.
+- Route của T33 (`events`, `extra-time`, `room-message`, `release`, `score-edit`, `analysis`) và các dòng nhật ký ghi khi mở phòng, mở/thu phần, thêm người, đổi khung giờ đều nằm sau cờ `mock_exam_audiences`. Vì vậy **chỉ bật cờ này trên một CSDL đã áp đủ 445, 446, 447, 448**; cờ tắt thì không route nào đọc/ghi bảng của 447/448 (dòng nhật ký bỏ qua, không lỗi).
+- Cộng giờ riêng cho kỳ live (FR-146) chưa làm trong T33: `collect` thu cả phòng một lúc, nên route trả 409 `live_extra_time_unsupported`; kỳ tự do (`self_paced`) cộng giờ được **chỉ khi cờ `mock_exam_audiences_learner` bật** (G08-T22 đưa đồng hồ học viên và bộ quét tự nộp `_retake_section_expired` sang `self_paced_timeline`, nơi đọc `extra_seconds`); cờ tắt → 409 `learner_clock_not_ready`, không ghi gì. Đang chờ anh Andy quyết hướng cho kỳ live.
 - Bật `ADMIN_FRAME_V2` chỉ trên staging; chạy các kịch bản của spec bằng tài khoản QA admin có TOTP. Thiếu tài khoản QA → PR ghi "chờ anh Andy kiểm tay trên staging".
+
+### Phạm vi môn của học viên
+
+Giữ `mock_exam_audiences_learner` tắt trong khi thực hiện các bước 445, backend tương thích và 446. Trước khi mở cho học viên, kiểm sổ migration của đúng môi trường và định nghĩa đang cài của cả `public.fn_mock_section_valid(text,jsonb,jsonb)` và `public.fn_guard_owned_mock_attempt(text,jsonb,text)`. Cả hai phải giới hạn theo môn được giao cho từng học viên. Nếu sổ đã ghi 446 nhưng một trong hai hàm còn định nghĩa cũ, bổ sung migration mới theo thứ tự tăng và xin duyệt cho môi trường đó. Giữ nguyên dòng 446 trong sổ.
+
+Dùng hai học viên QA trong cùng kỳ live, một người chỉ được giao Reading, người kia chỉ được giao Listening. Khi giám thị mở từng môn, kiểm cả bước mở đề và bước nộp bài. Cả hai bước phải cho phép học viên được giao môn đó và từ chối học viên còn lại. Ghi kết quả cho cả hai tài khoản trước khi mở cờ cho học viên.
 
 ## Production
 
@@ -21,6 +29,8 @@
 - Trước 446: 445, 447, 448 chỉ thêm bảng/cột nên deploy lại bản trước được, không hạ migration.
 - Sau 446: dữ liệu `exam_mode` đã mang tên mới, nên **mốc lui thấp nhất là bản backend có lớp tương thích hai tên** (bước 2 ở trên); không deploy lại bản chỉ hiểu `retake`/`sequential`. Kiểm lui trên staging bằng một kỳ đã backfill có lượt làm dở: resume được và vẫn được quét hết hạn. Không hạ migration.
 - Backfill 446: chạy lại được (idempotent); sai thì sửa bằng migration mới, không sửa file cũ.
+- Nghiệm thu sau 446 (`audiences ≥ assignments`): đọc kèm NOTICE của 446. NOTICE đếm assignment có user không có dòng `students` (không chép) và kỳ `is_open = true` bị bỏ qua; so sánh với số assignments đã trừ hai số này, rồi chạy lại 446 sau khi các kỳ đang mở đóng.
+- **Chạy lại 446 là việc làm tay, cần anh Andy duyệt.** Khi 446 đã nằm trong sổ `_schema_migrations`, `apply_migrations.sh` bỏ qua file này, nên runner không bao giờ tự chạy lại. Muốn chạy lại (sau khi các kỳ đang mở đóng): xin anh Andy gõ duyệt cho đúng môi trường (staging hoặc production), rồi chạy `psql -f backend/migrations/446_mock_exam_mode_backfill.sql` dưới khoá advisory của runner (giữ `pg_advisory_lock(173204, 1)` trong cùng phiên psql, đúng khoá của `scripts/apply_migration_locked.sql`), đọc NOTICE và postcondition ở cuối file. Không xoá dòng 446 khỏi sổ để ép runner chạy lại.
 
 Ràng buộc của gói liên quan:
 
@@ -31,7 +41,7 @@ Ràng buộc của gói liên quan:
 Cờ cấu hình và nhật ký (gói 5.8):
 
 - `ADMIN_FRAME_V2` (biến môi trường build frontend): `1` → khung mới. Bật ở preview/staging, tắt ở production tới khi anh Andy duyệt (Q6). Đường lui của T08.
-- Runtime flag (qua `services/runtime_flags.py`, mặc định tắt): `mock_exam_audiences` (T31: tắt → `admin_live_monitor` đọc roster theo `cohort_id` như cũ), `assignment_result_v2` (T27/T28: tắt → trang lớp dùng ba tab cũ), `content_import_batches` (T36), `mock_partial_release` (T33: tắt → `release` từ chối `include_partial`).
+- Runtime flag (qua `services/runtime_flags.py`, mặc định tắt): `mock_exam_audiences` (T31: tắt → `admin_live_monitor` đọc roster theo `cohort_id` như cũ), `assignment_result_v2` (T27/T28: tắt → trang lớp dùng ba tab cũ), `content_import_batches` (T36), `mock_partial_release` (T33: tắt → `release` từ chối `include_partial`; cần thêm `mock_exam_audiences` bật vì mọi route T33 nằm sau cờ đó).
 - Cờ của gói khác mà G09 đọc: `mock_exam_audiences_learner` (G08-T22: cổng học viên đọc bảng người dự thi và áp quy tắc chạy liền các phần; tắt → `schedule` từ chối kỳ live nhiều nguồn, T31), `credit_metering` (G04: bật đo lượt ở đường chấm; nhãn "Chưa chuyển sang đo lượt" và thao tác T43 **không** phụ thuộc cờ này — chuyển lớp cũ làm được trước khi bật đo).
 - Env: `CARE_NOTE_EDIT_HOURS` (mặc định 24, Q16), `REVIEW_SOFT_LOCK_MINUTES` (mặc định 30, Q19), `MOCK_SELF_PACED_GAP_SECONDS` (mặc định 0 = phần kế bắt đầu ngay; Q31).
 - Sự kiện log backend (logger, không bảng mới): `admin_search` (độ dài q, số kết quả, không ghi q), `hidden_import_opened` (route, actor id), `incident_group_action`, `assignment_remind` (số người).

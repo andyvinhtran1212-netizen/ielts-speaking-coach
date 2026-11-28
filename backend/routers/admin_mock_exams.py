@@ -26,6 +26,13 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/{id}/assignments       — per-student retake assignments
   POST  /admin/mock-exams/{id}/assignments       — assign retake exam to students
   DELETE /admin/mock-exams/{id}/assignments/{sid}— un-assign one student
+  MOCKORG-0086 G09-T33 (flag mock_exam_audiences; needs migrations 445–448):
+  GET   /admin/mock-exams/{id}/events            — exam timeline (Nhật ký)
+  POST  /admin/mock-exams/{id}/extra-time        — extra time for one person (self-paced)
+  POST  /admin/mock-exams/{id}/room-message      — message to a live room
+  POST  /admin/mock-exams/{id}/release           — release the whole exam (idempotent)
+  POST  /admin/mock-exams/sittings/{id}/score-edit — band change after release, with reason
+  GET   /admin/mock-exams/{id}/analysis          — band distribution, medians, pacing
 """
 from __future__ import annotations
 
@@ -48,6 +55,7 @@ from services import mock_exam_assignment_service as assign_svc
 from services import mock_exam_audience_service as audience_svc
 from services import mock_exam_display_state as display_svc
 from services import mock_exam_modes
+from services import mock_exam_room_service as room_svc
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
@@ -181,6 +189,14 @@ _FIELDS_445 = ("skills", "allow_early_advance", "starts_at", "draft_state")
 
 def _audience_error(exc: "audience_svc.AudienceError") -> HTTPException:
     return HTTPException(exc.status, {"code": exc.code, "message": exc.message, **exc.extra})
+
+
+async def _note(exam_id: str, kind: str, payload: dict, actor_id: str | None) -> None:
+    """Timeline row for an action that has already committed (G09-T33). With
+    the flag off it writes nothing; a failure is logged and never fails the
+    request (mock_exam_room_service.record_event_quietly)."""
+    await asyncio.to_thread(room_svc.record_event_quietly, exam_id, kind, payload,
+                            actor_id=actor_id)
 
 
 def _require_445_flag(payload: dict) -> None:
@@ -445,7 +461,7 @@ async def create_exam(body: ExamCreate, authorization: str | None = Header(defau
         if extra and isinstance(created, dict) and created.get("id"):
             created = await _assignment_write(created["id"], svc.admin_update_exam,
                                               created["id"], extra, admin["id"])
-        return created
+        return mock_exam_modes.with_both_names(created)
     except svc.DuplicateExamCodeError as e:
         raise HTTPException(409, str(e))
     except ValueError as e:
@@ -464,7 +480,8 @@ async def update_exam(
     if body.status is not None and body.status not in ("draft", "published", "archived"):
         raise HTTPException(400, "status không hợp lệ.")
     try:
-        return await _assignment_write(exam_id, svc.admin_update_exam, exam_id, patch, admin["id"])
+        return mock_exam_modes.with_both_names(await _assignment_write(
+            exam_id, svc.admin_update_exam, exam_id, patch, admin["id"]))
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:
@@ -478,11 +495,14 @@ async def set_open(
     """Live toggle — open the exam so students can start, or close it."""
     admin = await require_admin(authorization)
     try:
-        return await asyncio.to_thread(svc.set_open, exam_id, body.is_open, admin["id"])
+        out = mock_exam_modes.with_both_names(
+            await asyncio.to_thread(svc.set_open, exam_id, body.is_open, admin["id"]))
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+    await _note(exam_id, "room_opened" if body.is_open else "room_closed", {}, admin["id"])
+    return out
 
 
 @router.post("/{exam_id}/advance")
@@ -508,6 +528,10 @@ async def advance_section(
         raise HTTPException(409, str(e))
     except svc.MockExamError as e:
         raise HTTPException(503, str(e))
+    await _note(exam_id, "section_started",
+                {"from_section": body.from_section,
+                 "section": out.get("active_section") if isinstance(out, dict) else None},
+                admin["id"])
     return out
 
 
@@ -584,6 +608,10 @@ async def collect_section(
         return info, [(svc.collect_section_after_flush_grace, exam_id, admin["id"], info["section"])]
 
     info = await _claim_then_dispatch(_collect, background_tasks)
+    await _note(exam_id, "section_collected",
+                # Queued, not done: the sweep runs after the flush grace (CR #2612).
+                {"section": info.get("section"), "from_section": from_section, "queued": True},
+                admin["id"])
     return {**info, "queued": True}
 
 
@@ -676,10 +704,19 @@ async def update_audience(
     """Add classes / learners, refresh classes, edit rows, set the window."""
     admin = await require_admin(authorization)
     try:
-        return await _assignment_write(exam_id, audience_svc.update_audience, exam_id,
-                                       body.model_dump(exclude_none=True), admin["id"])
+        out = await _assignment_write(exam_id, audience_svc.update_audience, exam_id,
+                                      body.model_dump(exclude_none=True), admin["id"])
     except audience_svc.AudienceError as e:
         raise _audience_error(e)
+    added = {k: len(v) for k, v in (("cohorts", body.add_cohort_ids),
+                                     ("students", body.add_student_ids),
+                                     ("groups", body.add_group_ids)) if v}
+    if added or body.refresh_cohorts:
+        await _note(exam_id, "audience_added", {**added, "refresh_cohorts": body.refresh_cohorts},
+                    admin["id"])
+    if body.window is not None:
+        await _note(exam_id, "window_changed", body.window.model_dump(mode="json"), admin["id"])
+    return out
 
 
 @router.post("/{exam_id}/schedule", responses={200: {"model": ExamScheduleResponse}})
@@ -702,9 +739,14 @@ async def live_monitor(exam_id: str, authorization: str | None = Header(default=
     holds, last activity). One poll, batched lookups, persisted state only."""
     await require_admin(authorization)
     try:
-        return await asyncio.to_thread(svc.admin_live_monitor, exam_id)
+        out = await asyncio.to_thread(svc.admin_live_monitor, exam_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
+    if isinstance(out, dict):
+        # G09-T33: the live tab marks a learner idle after this many minutes
+        # (ops threshold exam_idle_minutes, migration 440; null = unknown).
+        out["idle_threshold_minutes"] = await asyncio.to_thread(room_svc.idle_threshold_minutes)
+    return out
 
 
 @router.get("/{exam_id}/sittings")
@@ -1052,3 +1094,108 @@ async def void_sitting(
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
+
+
+# --- MOCKORG-0086 G09-T33: timeline, extra time, room messages, release, ------
+# score edits, analysis. Behind mock_exam_audiences (migrations 445–448).
+
+class ExtraTimeBody(BaseModel):
+    sitting_id: str
+    section: Literal["listening", "reading", "writing"]
+    seconds: int = Field(ge=1, le=room_svc.EXTRA_MAX_SECONDS)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class ExtraTimeResult(BaseModel):
+    sitting_id: str
+    extra_seconds: dict[str, int]
+    event_logged: bool
+
+
+class RoomMessageBody(BaseModel):
+    body: str = Field(min_length=1, max_length=500)
+
+
+class ExamReleaseBody(BaseModel):
+    mode: Literal["complete_only", "include_partial"]
+    # The admin types the exam title again before results go out (FR-148).
+    confirm_title: str = Field(min_length=1, max_length=300)
+    # One release per key (unique index, 448): a double click or a retried
+    # request returns the first result instead of releasing twice.
+    request_key: str = Field(min_length=8, max_length=80)
+
+
+class ScoreEditBody(BaseModel):
+    skill: _SKILL
+    new_band: float = Field(ge=0, le=9)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+async def _room(fn, *args, **kwargs):
+    try:
+        return await asyncio.to_thread(fn, *args, **kwargs)
+    except room_svc.AudienceError as e:
+        raise _audience_error(e)
+
+
+@router.get("/{exam_id}/events")
+async def exam_events(
+    exam_id: str,
+    kind: Annotated[list[str] | None, Query(max_length=20)] = None,
+    limit: int = Query(default=200, ge=1, le=500),
+    authorization: str | None = Header(default=None),
+):
+    """Nhật ký tab: the exam timeline, newest first, optionally by kind."""
+    await require_admin(authorization)
+    return await _room(room_svc.list_events, exam_id, kind, limit)
+
+
+@router.post("/{exam_id}/extra-time", response_model=ExtraTimeResult)
+async def add_extra_time(
+    exam_id: str, body: ExtraTimeBody, authorization: str | None = Header(default=None),
+):
+    """FR-146: extra time on the section one person is running (self-paced).
+    A live room returns 409 live_extra_time_unsupported: collect takes the whole
+    room at once (awaiting the owner's decision, see the PR)."""
+    admin = await require_admin(authorization)
+    return await _room(room_svc.add_extra_time, exam_id, body.sitting_id, body.section,
+                       body.seconds, body.reason, admin["id"])
+
+
+@router.post("/{exam_id}/room-message")
+async def send_room_message(
+    exam_id: str, body: RoomMessageBody, authorization: str | None = Header(default=None),
+):
+    """FR-146: a message to everyone in an open live room."""
+    admin = await require_admin(authorization)
+    return await _room(room_svc.send_room_message, exam_id, body.body, admin["id"])
+
+
+@router.post("/{exam_id}/release")
+async def release_exam(
+    exam_id: str, body: ExamReleaseBody, authorization: str | None = Header(default=None),
+):
+    """FR-148: hand results back for the whole exam. PUBLISHES to learners.
+    The per-sitting gates are those of bulk-release; the response lists every
+    skipped sitting with its reason, and the caller must show it."""
+    admin = await require_admin(authorization)
+    return await _room(room_svc.release, exam_id, body.mode, body.confirm_title,
+                       body.request_key, admin["id"])
+
+
+@router.post("/sittings/{sitting_id}/score-edit")
+async def score_edit(
+    sitting_id: str, body: ScoreEditBody, authorization: str | None = Header(default=None),
+):
+    """FR-148: change one band after release, with the reason logged."""
+    admin = await require_admin(authorization)
+    return await _room(room_svc.score_edit, sitting_id, body.skill, body.new_band,
+                       body.reason, admin["id"])
+
+
+@router.get("/{exam_id}/analysis")
+async def exam_analysis(exam_id: str, authorization: str | None = Header(default=None)):
+    """FR-147: band distribution (from band_dist_min_papers papers), medians,
+    pacing. Fields this PR does not compute are null, not empty."""
+    await require_admin(authorization)
+    return await _room(room_svc.analysis, exam_id)
