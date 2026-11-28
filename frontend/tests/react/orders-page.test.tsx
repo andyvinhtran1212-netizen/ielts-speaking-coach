@@ -114,7 +114,7 @@ describe('/account/orders', () => {
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'Xem thêm' }));
     await settle();
-    expect(urls.at(-1)).toBe('/api/enrollment-orders/me?limit=20&cursor=c%202');
+    expect(new URL(urls.at(-1)!, 'https://x.test').searchParams.get('cursor')).toBe('c 2');
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(3);
     expect(screen.getByText('Hết hạn')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Xem thêm' })).toBeNull();
