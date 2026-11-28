@@ -22,61 +22,71 @@ import {
   type QueueKey,
   type QueueRowDef,
 } from '@/lib/admin-todo-model.mjs';
+import { getBrowserJson } from '@/lib/browser-api';
 
 type Load = { kind: 'loading' } | { kind: 'error'; at: Date } | { kind: 'ready'; data: Attention; at: Date };
 
-async function readAttention(): Promise<Attention | null> {
-  return normalizeAttention(await window.api.getWith<unknown>('/admin/attention'));
+async function readAttention(signal: AbortSignal): Promise<Attention | null> {
+  return normalizeAttention(await getBrowserJson('/admin/attention', undefined, signal));
 }
 
 export function AdminTodo() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [rowTried, setRowTried] = useState<Partial<Record<QueueKey, Date>>>({});
   const [rowBusy, setRowBusy] = useState<Partial<Record<QueueKey, true>>>({});
-  /** The page snapshot: a full read bumps it, and every older answer is dropped. */
-  const sequence = useRef(0);
-  /** Per row: only the newest "Tải lại dòng này" of that row may write it. */
-  const rowRequest = useRef<Partial<Record<QueueKey, number>>>({});
-  const rowCounter = useRef(0);
+  const fullRequest = useRef<AbortController | null>(null);
+  const rowRequests = useRef<Partial<Record<QueueKey, AbortController>>>({});
+
+  const cancelRequests = useCallback(() => {
+    fullRequest.current?.abort();
+    fullRequest.current = null;
+    for (const request of Object.values(rowRequests.current)) request.abort();
+    rowRequests.current = {};
+  }, []);
 
   const refresh = useCallback(async () => {
-    const id = ++sequence.current;
-    // A full read makes every row retry still in flight stale.
-    rowRequest.current = {};
+    cancelRequests();
+    const request = new AbortController();
+    fullRequest.current = request;
     setRowBusy({});
     try {
-      const data = await readAttention();
-      if (id !== sequence.current) return;
+      const data = await readAttention(request.signal);
+      if (request.signal.aborted) return;
       if (data) setLoad({ kind: 'ready', data, at: new Date() });
       else { console.warn('[admin-todo] foreign shape'); setLoad({ kind: 'error', at: new Date() }); }
     } catch (caught) {
-      if (id !== sequence.current) return;
+      if (request.signal.aborted) return;
       console.warn('[admin-todo] load failed', caught);
       setLoad({ kind: 'error', at: new Date() });
+    } finally {
+      if (fullRequest.current === request) fullRequest.current = null;
     }
     setRowTried({});
-  }, []);
+  }, [cancelRequests]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+    // The account-keyed AdminAccessGate also unmounts this view on a session change.
+    return cancelRequests;
+  }, [cancelRequests, refresh]);
 
   /**
    * "Tải lại dòng này": reads again and takes only that row from the answer.
-   * The answer is dropped when a full read started after it (the snapshot
-   * moved) or a newer retry of the same row did.
+   * A full read or a newer retry of the same row aborts the old retry.
    */
   const reloadRow = async (key: QueueKey) => {
-    const snapshot = sequence.current;
-    const request = ++rowCounter.current;
-    rowRequest.current = { ...rowRequest.current, [key]: request };
-    const current = () => snapshot === sequence.current && rowRequest.current[key] === request;
+    rowRequests.current[key]?.abort();
+    const request = new AbortController();
+    rowRequests.current[key] = request;
     setRowBusy((prev) => ({ ...prev, [key]: true }));
     let fresh: Attention | null = null;
     try {
-      fresh = await readAttention();
+      fresh = await readAttention(request.signal);
     } catch (caught) {
-      if (current()) console.warn('[admin-todo] row reload failed', key, caught);
+      if (!request.signal.aborted) console.warn('[admin-todo] row reload failed', key, caught);
     }
-    if (!current()) return;
+    if (request.signal.aborted) return;
+    delete rowRequests.current[key];
     if (fresh) {
       const row = fresh.queues[key];
       setLoad((prev) => (prev.kind === 'ready'
@@ -334,4 +344,3 @@ function OpsWeek({ data }: { data: Attention }) {
     </section>
   );
 }
-

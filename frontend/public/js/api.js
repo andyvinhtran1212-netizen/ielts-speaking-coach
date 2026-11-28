@@ -258,7 +258,9 @@
     // a redirect to the login page. opts.noRedirect lets those calls fall
     // through to the throw path below. The default (authed) behaviour is
     // unchanged: bounce to login on 401.
-    if (response.status === 401 && !(opts && opts.noRedirect)) {
+    // A settled fetch can still reach this code after a view has cancelled it.
+    var signal = opts && opts.signal;
+    if (response.status === 401 && !(opts && opts.noRedirect) && !(signal && signal.aborted)) {
       // The canonical login entry lives at the site root (/login). The
       // previous _appRoot+'login.html' build
       // resolved correctly for /pages/X.html but broke for any deeper
@@ -302,7 +304,7 @@
       // is exempt so it can show its own state. An inactive staff 403 is
       // announced so an already-rendered admin page shows its denied state.
       // Both still throw, with .status/.detail, so no caller sees success.
-      if (response.status === 403 && !(opts && opts.noRedirect)) {
+      if (response.status === 403 && !(opts && opts.noRedirect) && !(signal && signal.aborted)) {
         if (code === 'mfa_required') _toAdminMfa();
         else if (detail === 'Tài khoản chưa được kích hoạt') _announceInactive();
         else if (code === 'step_up_required' && fields.reason !== 'new_factor_cooloff'

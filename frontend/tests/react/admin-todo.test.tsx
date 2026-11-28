@@ -1,9 +1,22 @@
 // ADMINIA-0074 FR-090…093 (G09-T18b): Việc cần làm on /admin under ADMIN_FRAME_V2.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminTodo } from '@/app/(authed-admin)/(overview)/admin/admin-todo';
+import { AdminAccessGate } from '@/components/admin-access-gate';
 import { QUEUE_ROWS } from '@/lib/admin-todo-model.mjs';
+
+vi.mock('client-only', () => ({}));
+const auth = vi.hoisted(() => ({ id: 'admin-a' }));
+vi.mock('@/lib/auth/auth-provider', () => ({
+  useAuth: () => ({ status: 'signed-in', user: { id: auth.id } }),
+}));
+vi.mock('@/lib/auth-api', () => ({
+  getAuthorizationIdentity: async () => ({ id: auth.id, role: 'admin', is_active: true }),
+}));
+vi.mock('@/lib/admin-mfa-api', () => ({
+  getAdminMfaStatus: async () => ({ aal: 'aal2', enforce: true, verified_factor_count: 1, next_step: 'none' }),
+}));
 
 const ok = (count: number | null, extra: Record<string, unknown> = {}) => ({
   count, oldest_at: null, overdue: false, error: false, unavailable: false, ...extra,
@@ -18,9 +31,10 @@ const body = (queues: Record<string, unknown> = {}, extra: Record<string, unknow
   ops_week: { on_time_rate: { value: 0.82, lowest_cohort_id: 'c1' }, inactive_learners: 4, review_wait_median_hours: 5.5 },
   sources_failed: [], generated_at: '2026-11-23T10:00:00Z', ...extra,
 });
-const api = { getWith: vi.fn() };
+const api = { get: vi.fn(), getWith: vi.fn() };
 
 beforeEach(() => {
+  auth.id = 'admin-a';
   api.getWith.mockReset();
   Object.assign(window, { api });
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -37,7 +51,7 @@ describe('AdminTodo', () => {
     render(<AdminTodo />);
     await screen.findByRole('heading', { name: 'Việc cần làm' });
     await screen.findByText(/1 loại việc đang chờ/);
-    expect(api.getWith).toHaveBeenCalledWith('/admin/attention');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/attention', undefined, { signal: expect.any(AbortSignal) });
     const writing = row(/^Bài chờ duyệt$/);
     expect(writing.textContent).toContain('Writing 3 · AI lỗi cần chấm tay 1');
     expect(writing.textContent).toContain('3 giờ · quá hạn');
@@ -128,6 +142,17 @@ describe('AdminTodo', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('lets the browser transport use its admin 401 redirect and drops the previous counts', async () => {
+    // The default authenticated transport redirects and returns null on 401.
+    api.getWith.mockResolvedValueOnce(body({ regrade_new: ok(5) })).mockResolvedValueOnce(null);
+    render(<AdminTodo />);
+    await screen.findByRole('rowheader', { name: 'Yêu cầu chấm lại' });
+    fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Chưa tải được việc cần làm');
+    expect(api.getWith).toHaveBeenLastCalledWith('/admin/attention', undefined, { signal: expect.any(AbortSignal) });
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+
   it('a row retry that comes back after a full Làm mới is dropped', async () => {
     let stale: (v: unknown) => void = () => {};
     let full: (v: unknown) => void = () => {};
@@ -139,6 +164,7 @@ describe('AdminTodo', () => {
     await screen.findByRole('button', { name: 'Tải lại dòng này' });
     fireEvent.click(screen.getByRole('button', { name: 'Tải lại dòng này' }));
     fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    expect(api.getWith.mock.calls[1][2].signal.aborted).toBe(true);
     full(body({ regrade_new: ok(7) }));
     await waitFor(() => expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('7'));
     stale(body({ regrade_new: ok(1) }));
@@ -171,9 +197,39 @@ describe('AdminTodo', () => {
     api.getWith.mockReturnValueOnce(new Promise((r) => { first = r; })).mockResolvedValueOnce(body({ regrade_new: ok(5) }));
     render(<AdminTodo />);
     fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    expect(api.getWith.mock.calls[0][2].signal.aborted).toBe(true);
     await waitFor(() => expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('5'));
     first(body({ regrade_new: ok(1) }));
     await new Promise((r) => setTimeout(r, 0));
     expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('5');
+  });
+
+  it('aborts the prior account’s full read and row retry when the admin gate changes account', async () => {
+    let finishFull: (value: unknown) => void = () => {};
+    let finishRow: (value: unknown) => void = () => {};
+    api.getWith
+      .mockResolvedValueOnce(body({ regrade_new: ok(null, { error: true }), feedback_open: ok(3) }))
+      .mockReturnValueOnce(new Promise((resolve) => { finishFull = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { finishRow = resolve; }))
+      .mockResolvedValueOnce(body({ feedback_open: ok(8) }));
+    const view = <AdminAccessGate><AdminTodo /></AdminAccessGate>;
+    const { rerender } = render(view);
+    await screen.findByRole('button', { name: 'Tải lại dòng này' });
+    expect(row(/^Phản hồi$/).textContent).toContain('3');
+    fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tải lại dòng này' }));
+
+    auth.id = 'admin-b';
+    rerender(<AdminAccessGate><AdminTodo /></AdminAccessGate>);
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(api.getWith.mock.calls[1][2].signal.aborted).toBe(true);
+    expect(api.getWith.mock.calls[2][2].signal.aborted).toBe(true);
+    await screen.findByRole('rowheader', { name: 'Phản hồi' });
+    await act(async () => {
+      finishFull(body({ feedback_open: ok(99) }));
+      finishRow(body({ regrade_new: ok(42) }));
+    });
+    expect(row(/^Phản hồi$/).textContent).toContain('8');
+    expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('Không có');
   });
 });
