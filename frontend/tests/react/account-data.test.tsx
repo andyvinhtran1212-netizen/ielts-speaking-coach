@@ -131,6 +131,25 @@ describe('/account: danger zone (FR-001, FR-002)', () => {
     expect(zone().textContent).toContain('Chưa gửi được thư xác nhận.');
   });
 
+  it('an existing request returned on retry leaves session revocation and delivery unconfirmed', async () => {
+    state.postError['/api/account/deletion-request'] = new Error('Lost response');
+    await mount();
+    fireEvent.change(within(zone()).getByLabelText(/Gõ email đăng nhập/), { target: { value: 'minh.anh@x.test' } });
+    await act(async () => { fireEvent.click(sendButton()); });
+    expect(within(zone()).getByRole('alert').textContent).toContain('Chưa gửi được yêu cầu. Thử lại.');
+
+    delete state.postError['/api/account/deletion-request'];
+    state.postReply['/api/account/deletion-request'] = {
+      status: 'pending', requested_at: '2026-11-23T05:00:00Z', erase_after: '2026-12-23T05:00:00Z',
+      sessions_revoked: null, email_sent: null,
+    };
+    await act(async () => { fireEvent.click(sendButton()); });
+    expect(within(zone()).getByText('Đã gửi yêu cầu xoá.')).toBeTruthy();
+    expect(zone().textContent).toContain('Chưa xác nhận được việc đăng xuất khỏi các thiết bị.');
+    expect(zone().textContent).not.toContain('Bạn đã được đăng xuất khỏi mọi thiết bị.');
+    expect(zone().textContent).not.toContain('Chưa gửi được thư xác nhận.');
+  });
+
   it('422 marks the field and focuses it; a network error says retry and signs nothing out', async () => {
     state.postError['/api/account/deletion-request'] = apiError(422, { error_code: 'confirm_email_mismatch' });
     await mount();
@@ -207,10 +226,12 @@ describe('/account: pending deletion (FR-003)', () => {
     state.deletion = { status: 'pending', requested_at: '2026-11-23T05:00:00Z', erase_after: '2026-12-23T05:00:00Z' };
     state.postError['/api/account/deletion-request/cancel'] = apiError(409, { error_code: 'deletion_in_progress' });
     await mount();
+    expect(dataBlock()).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Huỷ yêu cầu xoá' })); });
     await settle();
     expect(screen.getByText('Tài khoản đang được xoá.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Huỷ yêu cầu xoá' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Dữ liệu của tôi' })).toBeNull();
     cleanup();
 
     state.deletion = { status: 'erasing', requested_at: '2026-11-23T05:00:00Z', erase_after: '2026-12-23T05:00:00Z' };

@@ -247,9 +247,11 @@ export function DeleteAccountZone({ email, role }: { email: string | null; role:
             {eraseDateText(sent.eraseAfter) ? `Tài khoản và dữ liệu sẽ bị xoá ngày ${eraseDateText(sent.eraseAfter)}.` : null}
           </Notice>
           <p className={styles.text}>
-            {sent.sessionsRevoked === false
-              ? 'Các thiết bị khác sẽ bị đăng xuất trong ít phút.'
-              : 'Bạn đã được đăng xuất khỏi mọi thiết bị.'}
+            {sent.sessionsRevoked === true
+              ? 'Bạn đã được đăng xuất khỏi mọi thiết bị.'
+              : sent.sessionsRevoked === false
+                ? 'Các thiết bị khác sẽ bị đăng xuất trong ít phút.'
+                : 'Chưa xác nhận được việc đăng xuất khỏi các thiết bị.'}
             {' '}Trước ngày xoá, bạn đăng nhập lại để huỷ yêu cầu được.
           </p>
           {sent.emailSent === false ? (
@@ -287,10 +289,13 @@ export function DeleteAccountZone({ email, role }: { email: string | null; role:
 
 // ── Thông báo trong hạn huỷ ─────────────────────────────────────────────────
 
-export function PendingDeletionNotice({ view, onCancelled }: { view: DeletionView; onCancelled: () => void }) {
+export function PendingDeletionNotice({ view, onCancelled, onErasing }: {
+  view: DeletionView;
+  onCancelled: () => void;
+  onErasing: () => void;
+}) {
   const box = useRef<HTMLDivElement | null>(null);
   const [busy, setBusy] = useState(false);
-  const [erasing, setErasing] = useState(view.status === 'erasing');
   const [failure, setFailure] = useState<string | null>(null);
   useEffect(() => { box.current?.focus(); }, []);
 
@@ -304,7 +309,7 @@ export function PendingDeletionNotice({ view, onCancelled }: { view: DeletionVie
       return;
     } catch (error) {
       const code = errorCode(error);
-      if (code === 'deletion_in_progress') setErasing(true);
+      if (code === 'deletion_in_progress') onErasing();
       else if (code === 'no_pending_deletion_request') { onCancelled(); return; }
       else setFailure('Chưa huỷ được yêu cầu xoá. Thử lại.');
     }
@@ -314,7 +319,7 @@ export function PendingDeletionNotice({ view, onCancelled }: { view: DeletionVie
   const date = eraseDateText(view.eraseAfter);
   return (
     <div ref={box} tabIndex={-1} className={styles.pending}>
-      {erasing ? (
+      {view.status === 'erasing' ? (
         <Notice kind="warning" live="none" title="Tài khoản đang được xoá.">
           Yêu cầu không huỷ được nữa.
         </Notice>

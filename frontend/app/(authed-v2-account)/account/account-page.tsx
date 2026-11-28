@@ -182,6 +182,11 @@ function AccountContent({ email }: { email: string | null }) {
   const learner = useLearnerMe();
   const role = learner.status === 'ready' ? learner.me?.role ?? null : null;
   const onCancelled = useCallback(() => { setCancelled(true); setReload((n) => n + 1); }, []);
+  const onErasing = useCallback(() => {
+    setPhase((current) => current.kind === 'pending'
+      ? { kind: 'pending', deletion: { ...current.deletion, status: 'erasing' } }
+      : current);
+  }, []);
   const onExportAbsent = useCallback(() => setExportAbsent(true), []);
 
   const loadHistory = useCallback(async (signal: AbortSignal) => {
@@ -265,7 +270,7 @@ function AccountContent({ email }: { email: string | null }) {
 
       {phase.kind === 'pending' ? (
         <>
-          <PendingDeletionNotice view={phase.deletion} onCancelled={onCancelled} />
+          <PendingDeletionNotice view={phase.deletion} onCancelled={onCancelled} onErasing={onErasing} />
           {phase.deletion.status === 'pending' ? <DataExportBlock /> : null}
         </>
       ) : null}
