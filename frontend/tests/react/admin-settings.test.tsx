@@ -128,8 +128,13 @@ describe('AdminSettings', () => {
     expect(screen.queryByText(/Đã lưu/)).toBeNull();
   });
 
-  it('a 5xx says the outcome is unknown and reloads the table and the log', async () => {
-    api.patch.mockRejectedValue(Object.assign(new Error('Lỗi máy chủ.'), { status: 503, code: 'internal_error' }));
+  it.each([
+    ['server error', () => api.patch.mockRejectedValue(Object.assign(new Error('Lỗi máy chủ.'), { status: 503, code: 'internal_error' }))],
+    ['empty response', () => api.patch.mockResolvedValue(null)],
+    ['missing changed threshold', () => api.patch.mockResolvedValue({ items: [] })],
+    ['previous value', () => api.patch.mockResolvedValue({ items: items(48) })],
+  ] as const)('an uncertain save (%s) reloads the table and the log', async (_scenario, arrange) => {
+    arrange();
     await editWriting('24');
     fireEvent.click(screen.getByRole('button', { name: 'Lưu…' }));
     const dialog = await screen.findByRole('dialog');
@@ -170,6 +175,15 @@ describe('ThresholdsProvider', () => {
     render(<ThresholdsProvider enabled><Probe /></ThresholdsProvider>);
     await waitFor(() => expect(screen.getByTestId('probe').textContent).toBe('error:null'));
     warn.mockRestore();
+  });
+
+  it('treats an empty transport response as a failed read', async () => {
+    api.getWith.mockResolvedValue(null);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      render(<ThresholdsProvider enabled><Probe /></ThresholdsProvider>);
+      await waitFor(() => expect(screen.getByTestId('probe').textContent).toBe('error:null'));
+    } finally { warn.mockRestore(); }
   });
 
   it('reads nothing while disabled', () => {

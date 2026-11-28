@@ -37,7 +37,7 @@ export function ThresholdsProvider({ enabled, children }: { enabled: boolean; ch
       if (!await whenGlobalReady(() => !!window.api?.getWith, 'Admin API')) return;
       const body = await getThresholds();
       if (mine !== seq.current) return;
-      setItems(Array.isArray(body?.items) ? body.items : []);
+      setItems(body.items);
       setStatus('ready');
     } catch (caught) {
       if (mine !== seq.current) return;

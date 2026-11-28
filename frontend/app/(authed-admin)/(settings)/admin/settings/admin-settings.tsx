@@ -90,7 +90,7 @@ function ThresholdsTab({ onSaved }: { onSaved: () => void }) {
     try {
       const body = await getThresholds();
       if (mine !== seq.current) return;
-      const rows = Array.isArray(body?.items) ? body.items : [];
+      const rows = body.items;
       setItems(rows);
       setDrafts(draftsOf(rows));
       setServerError(null);
@@ -124,7 +124,7 @@ function ThresholdsTab({ onSaved }: { onSaved: () => void }) {
     setDialogError('');
     try {
       const out = await saveThresholds(body);
-      const rows = Array.isArray(out?.items) ? out.items : [];
+      const rows = out.items;
       setItems(rows);
       setDrafts(draftsOf(rows));
       setServerError(null);
