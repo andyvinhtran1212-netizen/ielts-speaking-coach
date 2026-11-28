@@ -70,6 +70,17 @@ describe('flag on', () => {
     return p;
   }
 
+  it('offers a retry only when the resumed completion failed', () => {
+    const p = roomPlayer('error');
+    const retry = vi.fn();
+    (window as any).PracticeApp = { retryResumeCompletion: retry };
+    shell(p);
+    expect(screen.queryByRole('button', { name: 'Thử hoàn tất lại' })).toBeNull();
+    act(() => { p.updateView('frame', { retryResumeCompletionVisible: true }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Thử hoàn tất lại' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
   it('wraps the page in the practice focus bar with "‹ Thoát" and a running clock', () => {
     vi.useFakeTimers();
     const p = roomPlayer();

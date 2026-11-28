@@ -17,6 +17,7 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
   frame: Object.freeze({
     loadingMessage: 'Đang tải...',
     errorMessage: '',
+    retryResumeCompletionVisible: false,
     testModeBannerVisible: false,
     returnHref: '/speaking',
     returnLabel: 'Quay lại',

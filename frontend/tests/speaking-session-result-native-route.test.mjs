@@ -93,7 +93,7 @@ describe('/result — coexistence entry points', () => {
   test('Next player chooses native result and legacy player keeps rollback URL', () => {
     assert.match(PRACTICE, /function _singleSessionResultUrl\(sessionId\)/);
     assert.match(PRACTICE, /_getNativeView\(\) \? '\/result' : '\/pages\/result\.html'/);
-    assert.equal((PRACTICE.match(/_singleSessionResultUrl\(sessionId\)/g) || []).length, 3);
+    assert.equal((PRACTICE.match(/_singleSessionResultUrl\(sessionId\)/g) || []).length, 4);
     assert.match(PRACTICE, /_singleSessionResultUrl\(_sessionId\)/);
   });
 

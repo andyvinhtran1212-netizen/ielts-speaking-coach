@@ -52,7 +52,7 @@ function sandbox({ on, blob = null, slots = null, complete = async () => ({}), n
     $: () => null,
   };
   const api = new Function(...Object.keys(env), `
-    var _examRoomMode = ${on ? 'true' : 'false'};
+    var _examRoomMode = ${on ? 'true' : 'false'}; var _roomWriteRight = true;
     var _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null;
     var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false;
     var _ROOM_LEAVE_RESET_MS = 4000;
@@ -284,7 +284,7 @@ describe('flag on: 401 stays in the page (FR-010)', () => {
     const views = [];
     const fn = new Function('_updateNativeView', '_navigateTo', '_releaseRecorderResources', '_revokeManagedObjectUrl',
       '_completeSpeakingSession', '_singleSessionResultUrl', 'console', `
-      var _examRoomMode = ${on}, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null;
+      var _examRoomMode = ${on}, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomWriteRight = true;
       var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'sess', _feedbackAudioUrl = null, _feedbackAudioIsBlob = false;
       var _recSubState = 'idle', _recordingDirty = false, _sheet = null, _ftAllSessionIds = [], _testMode = null;
@@ -424,7 +424,7 @@ describe('FR-010: 401 on a re-record, sign in on another tab, "Gửi lại bản
     };
     const take = { id: 'new-take' };
     const api = new Function(...Object.keys(env), `
-      var _examRoomMode = true, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null;
+      var _examRoomMode = true, _roomMicState = 'unknown', _ROOM_LEVEL_MS = 200, _roomLevelTimer = null, _roomWriteRight = true;
       var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false;
       var _ROOM_LEAVE_RESET_MS = 4000, _playerGeneration = 1, _playerActive = true, _sessionId = 'sess';
       var _navigate = function () {}, _recordingDirty = false, _recordedBlob = null, _sheetSubmitting = false, _recSubState = 'idle';

@@ -18,6 +18,7 @@ export const PRACTICE_ROOM_OFF = `
   var _roomLevelTimer = null;
   var _roomMicLostDone = false;
   var _roomMicLostShown = false;
+  var _roomWriteRight = true;
   var _roomDialogKind = null;
   var _roomLeaveHref = '';
   var _roomLeaving = false;
