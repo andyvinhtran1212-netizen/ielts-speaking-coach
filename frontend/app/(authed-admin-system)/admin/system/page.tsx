@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AdminAccessGate } from '@/components/admin-access-gate';
+import { redirectUnderAdminFrameV2 } from '@/lib/admin-frame-redirect';
 
 export const metadata: Metadata = {
   title: 'Hệ thống · Admin',
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function AdminSystemPage() {
+  redirectUnderAdminFrameV2('/admin/system');
   return (
     <aver-admin-chrome active="system">
       <AdminAccessGate>
