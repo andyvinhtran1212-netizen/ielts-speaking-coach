@@ -235,7 +235,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/admin/users` | admin | All users (role, activation, sessions-today). |
-| `/admin/students` | admin | Student roster (Tailwind page). |
+| `/admin/learners` | admin | Search and filter the learner directory in the new admin frame. |
+| `/admin/students` | admin | Student roster. With the new admin frame enabled, opens the learner directory and carries over the search query. |
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
 | `/admin/classes/[cohortId]/exercise-book` · `/admin/classes/[cohortId]/exercise-book/grants` | admin (377 grant holders; grants page: the course-2 owner account only) | Exercise-book workspace of one class: catalog with locked activities and reasons, per-activity assignment to named recipients with a Vietnam-time deadline and idempotent `request_id`, the class's book assignments, student × activity progress, teacher review and close-with-reason. The grants page records grant/revoke events in the 377 log; it is a UI gate only, enforced server-side (owner UUID, AAL2 step-up). Links appear on the class Homework tab only when the read route answers 200. |
 | `/admin/activation-codes` | admin | Activation-code ledger (ADMINIA-0074 FR-048): state per code (Chưa dùng · Đã dùng · Hết hạn nhập · Đã thu hồi), grading credits, expiring label; codes are issued from a class, not here. `/admin/access-codes` and `/admin/users?tab=codes` redirect here. Ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |
