@@ -7,6 +7,10 @@ to recover a path on our configured Storage origin; they are never fetched.
 import asyncio
 import logging
 from urllib.parse import unquote, urlsplit
+from uuid import UUID
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from config import settings
 
@@ -47,6 +51,25 @@ def recording_path(row: dict) -> str | None:
     except ValueError:
         pass
     return None
+
+
+async def current_recording_owners(conn: AsyncConnection, paths: set[str]) -> dict[str, str]:
+    """Storage owner IDs for current objects with an identifiable account."""
+    if not paths:
+        return {}
+    rows = (await conn.execute(text("""
+        SELECT o.name, to_jsonb(o) ->> 'owner_id' FROM storage.objects o
+         WHERE o.bucket_id = :bucket AND o.name = ANY(:paths)
+           AND to_jsonb(o) ->> 'archived_at' IS NULL
+    """), {"bucket": BUCKET, "paths": sorted(paths)})).all()
+    owners = {}
+    for path, owner in rows:
+        if owner:
+            try:
+                owners[path] = str(UUID(owner))
+            except ValueError:
+                continue
+    return owners
 
 
 async def attach_playback_urls(client, responses: list[dict]) -> bool:
