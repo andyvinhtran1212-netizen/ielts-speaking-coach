@@ -12686,6 +12686,24 @@ export interface paths {
         patch: operations["admin_patch_feedback_status_api_admin_feedback__feedback_id__patch"];
         trace?: never;
     };
+    "/api/review-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Review Notes */
+        get: operations["list_review_notes_api_review_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Save Review Note */
+        patch: operations["save_review_note_api_review_notes_patch"];
+        trace?: never;
+    };
     "/api/courses/{slug}/open-alerts": {
         parameters: {
             query?: never;
@@ -21829,6 +21847,8 @@ export interface components {
             result_summary?: {
                 [key: string]: unknown;
             };
+            /** My Flagged Q Nums */
+            my_flagged_q_nums?: number[];
             /**
              * Programme Id
              * @default ielts
@@ -24727,6 +24747,46 @@ export interface components {
              * @enum {string}
              */
             reason: "applied" | "replayed" | "conflict";
+        };
+        /** ReviewNoteIn */
+        ReviewNoteIn: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "listening" | "reading";
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /** Q Num */
+            q_num: number;
+            /** Body */
+            body: string;
+        };
+        /** ReviewNoteOut */
+        ReviewNoteOut: {
+            /** Q Num */
+            q_num: number;
+            /** Body */
+            body: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** ReviewNoteSavedOut */
+        ReviewNoteSavedOut: {
+            /** Q Num */
+            q_num: number;
+            /** Body */
+            body?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** ReviewNotesOut */
+        ReviewNotesOut: {
+            /** Notes */
+            notes: components["schemas"]["ReviewNoteOut"][];
         };
         /** RevokeAllOut */
         RevokeAllOut: {
@@ -50211,6 +50271,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminFeedbackStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_review_notes_api_review_notes_get: {
+        parameters: {
+            query: {
+                skill: "listening" | "reading";
+                attempt_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewNotesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_review_note_api_review_notes_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewNoteSavedOut"];
                 };
             };
             /** @description Validation Error */

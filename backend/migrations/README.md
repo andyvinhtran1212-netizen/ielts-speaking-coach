@@ -167,6 +167,10 @@ backend-only `mock_exam_audiences` (RLS on, no policy, service_role only), new
 renaming data (446 does that, after the backend that reads both names). The
 rollback refuses once any exam uses a new name, any audience row exists or a new
 column holds data.
+`421` is `pending_feature review_notes_flag_once` (LEARNERCORE-0063 T31, G07 band 420–439):
+the backend-only `review_notes` table and two partial unique indexes that allow one
+per-question flag per attempt and sender; its preflight stops on existing duplicates,
+which only `scripts/archive_duplicate_feedback_flags.sql` may archive (Andy's typed approval).
 `501` is `pending_feature course_bank_service_write`: since 309 its CHECK
 `quiz_banks_grammar_revision_shape` calls `grammar_quiz_allowed_code`, whose
 EXECUTE the 309/314/339 blanket loops revoke from service_role, so every

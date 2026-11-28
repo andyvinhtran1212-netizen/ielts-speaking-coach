@@ -74,6 +74,11 @@ def test_owned_course_alerts_are_deleted_without_exporting_unsubscribe_tokens():
     assert alert.action == "delete" and not alert.export
 
 
+def test_private_review_notes_follow_their_author_on_export_and_erasure():
+    note = inv.entry_for("review_notes", "user_id")
+    assert note.action == "delete" and note.export
+
+
 def test_storage_is_only_audio_and_exports():
     assert inv.BUCKETS == {"audio-responses", "account-exports"}
     assert inv.entry_for("sessions", "user_id").storage == "audio-responses"
