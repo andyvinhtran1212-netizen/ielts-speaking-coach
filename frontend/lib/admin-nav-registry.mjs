@@ -45,7 +45,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
     id: 'courses', label: 'Khoá học và đăng ký', icon: 'credit-card', items: [
       soon('courses', 'Khoá học', { plannedHref: '/admin/courses' }),
       soon('enrollments', 'Đơn đăng ký', { plannedHref: '/admin/enrollments', countKey: 'enrollments_reported' }),
-      soon('credits', 'Lượt AI', { plannedHref: '/admin/credits' }),
+      item('credits', 'Lượt AI', '/admin/credits'),
     ],
   },
   {

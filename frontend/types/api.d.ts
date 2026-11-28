@@ -15202,6 +15202,19 @@ export interface components {
             /** Unactivated Count */
             unactivated_count?: number | null;
         };
+        /** AdminCourseCreditBalance */
+        AdminCourseCreditBalance: {
+            /** Balance */
+            balance: number;
+            /** Usable From */
+            usable_from: string | null;
+            /** Usable Until */
+            usable_until: string | null;
+            /** Carry Balance */
+            carry_balance: number;
+            /** Carry Expires At */
+            carry_expires_at: string | null;
+        };
         /** AdminCourseListOut */
         AdminCourseListOut: {
             /** Courses */
@@ -15235,6 +15248,60 @@ export interface components {
             updated_at: string;
             /** Kind */
             kind?: ("class" | "online") | null;
+        };
+        /** AdminCreditActor */
+        AdminCreditActor: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+        };
+        /** AdminCreditAdjustResponse */
+        AdminCreditAdjustResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "adjusted" | "replay";
+            /** Balance */
+            balance: number | null;
+        };
+        /** AdminCreditLedgerRow */
+        AdminCreditLedgerRow: {
+            /** At */
+            at: string | null;
+            /** Delta */
+            delta: number;
+            /** Reason */
+            reason: string | null;
+            /** Balance After */
+            balance_after: number;
+            /** Course Code */
+            course_code: string | null;
+            /** Feature */
+            feature: string | null;
+            /** Label Vi */
+            label_vi: string;
+            /** Note */
+            note: string | null;
+            /** Entitlement Id */
+            entitlement_id: string | null;
+            actor: components["schemas"]["AdminCreditActor"] | null;
+        };
+        /** AdminCreditTotals */
+        AdminCreditTotals: {
+            /** Total */
+            total: number;
+            by_kind: components["schemas"]["AdminCreditsByKind"];
+        };
+        /** AdminCreditsByKind */
+        AdminCreditsByKind: {
+            /** Online */
+            online: number;
+            /** Class */
+            class: number;
         };
         /** AdminDictationReportDetailResponse */
         AdminDictationReportDetailResponse: {
@@ -15346,6 +15413,23 @@ export interface components {
             email: string | null;
             /** Display Name */
             display_name: string | null;
+        };
+        /** AdminEntitlementEvent */
+        AdminEntitlementEvent: {
+            /** Entitlement Id */
+            entitlement_id: string;
+            /** Action */
+            action: string | null;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Kind */
+            actor_kind: string | null;
+            before: components["schemas"]["JsonValue"];
+            after: components["schemas"]["JsonValue"];
+            /** Reason */
+            reason: string | null;
+            /** At */
+            at: string | null;
         };
         /** AdminErrorOverviewOut */
         AdminErrorOverviewOut: {
@@ -16095,6 +16179,50 @@ export interface components {
             /** Showing Test Data */
             showing_test_data: boolean;
         };
+        /** AdminUserAccessItem */
+        AdminUserAccessItem: {
+            /** Entitlement Id */
+            entitlement_id: string | null;
+            /** Course Code */
+            course_code: string | null;
+            /** Product Slug */
+            product_slug: string | null;
+            /** Title */
+            title: string | null;
+            /** Short Title */
+            short_title: string | null;
+            /** Kind */
+            kind: string | null;
+            /** Source */
+            source: string | null;
+            /** State */
+            state: string;
+            /** Starts At */
+            starts_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Days Left */
+            days_left: number | null;
+            /** Review Mode */
+            review_mode: string | null;
+            /** Can Renew */
+            can_renew: boolean;
+            /** Renew Order Code */
+            renew_order_code: string | null;
+            credits: components["schemas"]["AdminCourseCreditBalance"] | null;
+        };
+        /** AdminUserAccessResponse */
+        AdminUserAccessResponse: {
+            /** Items */
+            items: components["schemas"]["AdminUserAccessItem"][];
+            credits: components["schemas"]["AdminCreditTotals"];
+            /** Content Visible Until */
+            content_visible_until: string | null;
+            /** Content Days After Expiry */
+            content_days_after_expiry: number | null;
+            /** Events */
+            events: components["schemas"]["AdminEntitlementEvent"][];
+        };
         /** AdminUserCodeSummaryOut */
         AdminUserCodeSummaryOut: {
             /** Codes */
@@ -16122,6 +16250,15 @@ export interface components {
             is_active?: boolean | null;
             /** Created At */
             created_at?: string | null;
+        };
+        /** AdminUserCreditsResponse */
+        AdminUserCreditsResponse: {
+            /** Balance */
+            balance: number;
+            /** Items */
+            items: components["schemas"]["AdminCreditLedgerRow"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** AdminUserDirectoryRowOut */
         AdminUserDirectoryRowOut: {
@@ -21382,6 +21519,7 @@ export interface components {
             /** Translation Available */
             translation_available: boolean;
         };
+        JsonValue: unknown;
         /** KpRef */
         KpRef: {
             /** Type */
@@ -32349,7 +32487,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminUserAccessResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32385,7 +32523,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminUserCreditsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32538,7 +32676,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminCreditAdjustResponse"];
                 };
             };
             /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */

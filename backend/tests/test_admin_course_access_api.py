@@ -175,7 +175,7 @@ def world(monkeypatch):
     def require_recent_mfa(admin, authorization):
         state["step_up"].append(authorization)
         if state.get("refuse_step_up"):
-            raise HTTPException(403, detail={"code": "step_up_required"})
+            raise staff_guard.step_up_required_exception()
 
     state["require_admin"] = AsyncMock(side_effect=require_admin)
     monkeypatch.setattr(admin_commerce, "require_admin", state["require_admin"])
@@ -385,6 +385,7 @@ def test_revoke_and_extend(client, world):
 
 def test_adjust_replays_and_never_goes_negative(client, world):
     res = client.post("/admin/credits/adjust", headers=AUTH, json=ADJUST)
+    assert res.status_code == 200
     assert res.json() == {"status": "adjusted", "balance": 13}
     assert client.post("/admin/credits/adjust", headers=AUTH, json=ADJUST).json() == {"status": "replay",
                                                                                       "balance": 13}
@@ -394,6 +395,18 @@ def test_adjust_replays_and_never_goes_negative(client, world):
     assert res.status_code == 409 and res.json()["detail"]["error_code"] == "would_go_negative"
     assert res.json()["detail"]["balance"] == 13 and world["db"].tables["credit_ledger"] == before
     assert client.post("/admin/credits/adjust", headers=AUTH, json={**ADJUST, "reason": "ngắn quá"}).status_code == 422
+
+
+def test_adjust_replay_preserves_null_balance_after_the_entitlement_closes(client, world):
+    assert client.post("/admin/credits/adjust", headers=AUTH, json=ADJUST).status_code == 200
+    world["db"].tables["entitlements"][0]["status"] = "revoked"
+    before = list(world["db"].tables["credit_ledger"])
+    replay = client.post("/admin/credits/adjust", headers=AUTH, json=ADJUST)
+    assert replay.status_code == 200 and replay.json() == {"status": "replay", "balance": None}
+    refused = client.post("/admin/credits/adjust", headers=AUTH,
+                          json={**ADJUST, "request_key": "f0000000-0000-4000-8000-000000000002"})
+    assert refused.status_code == 409 and refused.json()["detail"]["error_code"] == "not_usable"
+    assert world["db"].tables["credit_ledger"] == before
 
 
 def test_an_adjust_key_reused_for_another_entitlement_or_delta_is_a_conflict(client, world):
@@ -436,6 +449,8 @@ def test_adjust_step_up_pairs(client, world, delta, guarded):
     assert (res.status_code == 403) is guarded, res.text
     assert bool(world["step_up"]) is guarded
     assert (world["db"].rpcs == []) is guarded
+    if guarded:
+        assert res.json() == {"detail": staff_guard.step_up_required_exception().detail}
 
 
 @pytest.mark.parametrize("credits,guarded", [("absent", True), (None, True), (50, False), (51, True)])
@@ -453,9 +468,13 @@ def test_grant_step_up_pairs(client, world, credits, guarded):
 # ── A learner's access and credits ─────────────────────────────────────────
 
 
-def test_user_access_is_the_learner_view_plus_entitlement_and_events(client, world):
+def test_user_access_is_the_learner_view_plus_entitlement_and_events(client, world, monkeypatch):
+    legacy_course = "legacy-course"
+    monkeypatch.setattr(ent, "fetch_membership_course_ids", lambda _user_id: [legacy_course])
     body = client.get(f"/admin/users/{UID}/access", headers=AUTH).json()
+    assert body == admin_commerce.user_access(UID)
     assert body["items"][0]["entitlement_id"] == EID and body["items"][0]["credits"]["balance"] == 8
+    assert body["items"][1]["kind"] is None and body["items"][1]["credits"] is None
     assert body["events"][0]["action"] == "grant" and body["events"][0]["entitlement_id"] == EID
     assert body["content_visible_until"] is None and body["content_days_after_expiry"] is None
     res = client.get("/admin/users/b0000000-0000-4000-8000-0000000000ff/access", headers=AUTH)
@@ -471,6 +490,7 @@ def test_user_access_carries_the_retention_window(client, world, monkeypatch):
 
 def test_user_credits_add_the_entitlement_actor_and_note(client, world):
     body = client.get(f"/admin/users/{UID}/credits", headers=AUTH).json()
+    assert body == admin_commerce.user_credits(UID, 20, None)
     newest = body["items"][0]
     assert newest["reason"] == "admin_adjust" and newest["entitlement_id"] == EID
     assert newest["actor"]["email"] == "admin@example.com" and newest["note"] == "Trừ lượt chấm lỗi"
