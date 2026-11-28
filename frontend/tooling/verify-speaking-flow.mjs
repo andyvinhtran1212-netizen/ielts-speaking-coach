@@ -397,12 +397,16 @@ await browser.close();
 const PRACTICE_SESSION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PRACTICE_QUESTION = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const SHOTS = process.env.SPEAKING_FLOW_SHOTS || '';
-// The flag is turned on by extending the build's own runtime config, so the
-// API base (and the CSP connect-src that allows it) stay those of the build. A
-// hand-written config with apiBase null falls back to localhost:8000, which
-// the enforced CSP blocks before any request is sent.
-const ROOM_CONFIG_SUFFIX = '\nwindow.__AVER_RUNTIME_CONFIG__ = Object.freeze(Object.assign({}, '
-  + 'window.__AVER_RUNTIME_CONFIG__, { examRoomSurfaces: ["speaking"] }));\n';
+// Override only Speaking in both runs. Keep the build's API base for CSP
+// and preserve any other enabled exam rooms.
+function roomConfigSuffix(room) {
+  return `\n(() => {
+    const config = window.__AVER_RUNTIME_CONFIG__;
+    const surfaces = (config.examRoomSurfaces || []).filter((surface) => surface !== 'speaking');
+    if (${room}) surfaces.push('speaking');
+    window.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...config, examRoomSurfaces: surfaces });
+  })();\n`;
+}
 
 async function launchFakeMic() {
   const args = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'];
@@ -425,10 +429,12 @@ async function practicePage(micBrowser, { room, width = 1280, height = 900, them
   await p.route('**/*', async (route) => {
     const req = route.request();
     const url = req.url();
-    if (url.startsWith(BASE) && new URL(url).pathname === '/js/runtime-config.js' && room) {
+    if (url.startsWith(BASE) && new URL(url).pathname === '/js/runtime-config.js') {
       const original = await route.fetch();
       return route.fulfill({
-        status: 200, contentType: 'application/javascript', body: (await original.text()) + ROOM_CONFIG_SUFFIX,
+        response: original,
+        contentType: 'application/javascript',
+        body: (await original.text()) + roomConfigSuffix(room),
       });
     }
     if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('blob:')) return route.continue();
