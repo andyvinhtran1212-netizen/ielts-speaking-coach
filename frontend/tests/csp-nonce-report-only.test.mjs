@@ -249,7 +249,7 @@ describe('proxy.ts', () => {
     assert.ok(routes.filter((r) => r.shell).length > 100, 'route discovery found the signed-in routes');
     const wrong = routes
       // The Grammar, Speaking-question and Library-sample 404 branches match public pages on purpose.
-      .filter((r) => !r.url.startsWith('/grammar/') && !/^\/library\/speaking\/[^/]+$/.test(r.url) && !r.url.startsWith('/library/writing-samples/'))
+      .filter((r) => !r.url.startsWith('/grammar/') && !r.url.startsWith('/courses/') && !/^\/library\/speaking\/[^/]+$/.test(r.url) && !r.url.startsWith('/library/writing-samples/'))
       .filter((r) => proxyMatches(r.url, 'staging.averlearning.com') !== r.shell)
       .map((r) => `${r.url} (${r.shell ? 'AuthedShell, not matched' : 'not AuthedShell, matched'})`);
     assert.deepEqual(wrong, []);

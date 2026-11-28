@@ -61,6 +61,7 @@ export interface CourseDetail extends CourseItem {
   chapters: CourseChapter[] | null;
 }
 
+/** `GET /api/me/courses` (G04 me_access.build_my_courses): only the fields G05 reads. */
 export interface CourseCatalog {
   items: CourseItem[];
 }
