@@ -21,6 +21,7 @@ import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { TextArea } from '@/components/ui/text-area';
+import { getBrowserJson, getBrowserJsonAt, postBrowserJsonAtWith } from '@/lib/browser-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   carryFor,
@@ -97,7 +98,7 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
 
   const read = useCallback(async (signal: AbortSignal): Promise<EnrollOrder | 'missing' | null> => {
     try {
-      const order = normalizeOrder(await window.api.getWith<unknown>(path, undefined, { signal }));
+      const order = normalizeOrder(await getBrowserJsonAt('/api/enrollment-orders/{order_code}', path, signal));
       return order;
     } catch (error) {
       return statusOf(error) === 404 ? 'missing' : null;
@@ -128,17 +129,20 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
 
   // FR-040: screen 3 asks again while the tab is visible; a hidden tab
   // pauses it, and it stops for good 30 minutes after the page opened.
-  const polling = pollsStatus(order) && !pollStopped;
+  const polling = pollsStatus(order) && !pollStopped && !busy;
   useEffect(() => {
     if (!polling) return undefined;
-    const signal = alive.current?.signal;
+    let pending: AbortController | undefined;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const tick = async () => {
+      pending?.abort();
       if (Date.now() - opened.current >= POLL_LIMIT_MS) { setPollStopped(true); return; }
-      if (document.visibilityState === 'visible' && signal && !signal.aborted) {
-        const next = await read(signal);
-        if (signal.aborted) return;
-        show(next, true);
+      if (document.visibilityState === 'visible') {
+        const request = new AbortController();
+        pending = request;
+        const next = await read(request.signal);
+        if (request.signal.aborted) return;
+        if (!inFlight.current) show(next, true);
       }
       timer = setTimeout(tick, POLL_MS);
     };
@@ -150,6 +154,7 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
+      pending?.abort();
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
@@ -162,7 +167,7 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
     const signal = alive.current?.signal;
     (async () => {
       try {
-        const courses = await window.api.getWith<unknown>('/api/me/courses', undefined, signal ? { signal } : undefined);
+        const courses = await getBrowserJson('/api/me/courses', undefined, signal);
         if (!signal?.aborted) setCarry(carryFor(courses, unlockedSlug));
       } catch {
         if (!signal?.aborted) setCarry(null);
@@ -178,7 +183,7 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
     setMessage(null);
     let ok = false;
     try {
-      const reply = await window.api.postWith<unknown>(`${path}/${action}`, body);
+      const reply = await postBrowserJsonAtWith(`/api/enrollment-orders/{order_code}/${action}`, `${path}/${action}`, body, { signal });
       if (signal?.aborted) return false;
       const next = normalizeOrder(reply);
       if (next) { setLoad({ kind: 'ready', order: next }); ok = true; if (done) setMessage({ kind: 'success', text: done }); }
@@ -187,7 +192,9 @@ function OrderContent({ code, email }: { code: string; email: string | null }) {
       if (signal?.aborted) return false;
       if (statusOf(error) === 404) { window.location.replace(NOT_FOUND); return false; }
       if (codeOf(error) === 'invalid_transition' && signal) {
-        show(await read(signal), true);
+        const latest = await read(signal);
+        if (signal.aborted) return false;
+        show(latest, true);
         setMessage({ kind: 'warning', text: 'Đơn đăng ký này vừa đổi trạng thái. Trang đã cập nhật.' });
       } else if (codeOf(error) === 'invalid_note') {
         setMessage({ kind: 'error', text: 'Ghi chú cần ít nhất 3 ký tự.' });

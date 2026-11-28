@@ -44,7 +44,7 @@ const getWith = vi.fn(async (path: string) => {
   if (path === '/api/me/courses') return courses;
   throw new Error(`unexpected ${path}`);
 });
-const postWith = vi.fn(async (path: string, body: unknown) => {
+const postWith = vi.fn(async (path: string, body: unknown, _headers?: unknown, _options?: {signal?: AbortSignal}) => {
   posts.push({ path, body });
   if (postErrors[path]) throw postErrors[path];
   return replies[path] ?? { order: current };
@@ -213,6 +213,25 @@ describe('/enroll/[orderCode] screen 3 (transfer_reported, needs_info)', () => {
     expect(orderReads()).toBe(3);
   });
 
+  it('discards an older poll that returns after a visible-tab refresh confirms the order', async () => {
+    current = order({ status: 'transfer_reported' });
+    vi.useFakeTimers();
+    render(<EnrollOrderPage code={CODE} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    let finishOld!: (value: { order: ReturnType<typeof order> }) => void;
+    getWith.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS); });
+    current = order({ status: 'confirmed' });
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    const unlocked = () => screen.getByRole('heading', { name: 'Khoá Writing for IELTS đã mở' });
+    expect(unlocked()).toBeTruthy();
+    await act(async () => { finishOld({ order: order({ status: 'transfer_reported' }) }); });
+    expect(unlocked()).toBeTruthy();
+    const readsAfterConfirmation = reads.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS * 2); });
+    expect(reads.length).toBe(readsAfterConfirmation);
+  });
+
   it('FR-040: stops for good after 30 minutes and says the learner need not stay; "Kiểm tra lại" reads once more', async () => {
     current = order({ status: 'transfer_reported' });
     vi.useFakeTimers({ shouldAdvanceTime: false });
@@ -351,6 +370,18 @@ describe('/enroll/[orderCode] errors and accounts', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
     await settle();
     expect(screen.getByRole('heading', { level: 1, name: `Chuyển khoản cho đơn ${CODE}` })).toBeTruthy();
+  });
+
+  it('aborts a pending transfer report when another account takes over', async () => {
+    const view = await mount();
+    postWith.mockImplementationOnce(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole('button', { name: 'Tôi đã chuyển khoản' }));
+    const signal = postWith.mock.calls.at(-1)?.[3]?.signal;
+    expect(signal?.aborted).toBe(false);
+    auth.value = { status: 'signed-in', user: { id: 'B', email: 'b@x.test' } };
+    view.rerender(<EnrollOrderPage code={CODE} />);
+    expect(signal?.aborted).toBe(true);
+    await settle();
   });
 
   it('a session switch drops the order in the same render; signed out → /login', async () => {
