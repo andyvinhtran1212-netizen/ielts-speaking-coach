@@ -257,7 +257,7 @@ routers/admin_reading.py::admin_delete_diagram_image::db.execute	1	G6	Existing i
 routers/admin_reading.py::admin_delete_diagram_image::routers.admin_reading._fetch_question_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_reading.py::admin_delete_diagram_image::storage.remove	1	G6	Existing sync Storage network call; offload in G6.
 routers/admin_reading.py::admin_delete_reading_passage::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
-routers/admin_reading.py::admin_delete_reading_test::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_delete_reading_test::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_reading.py::admin_delete_reading_test::routers.admin_reading._fetch_admin_test_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_reading.py::admin_delete_reading_test::services.class_assignment_service.active_exam_assignment_references	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_reading.py::admin_get_reading_test::db.execute	2	G6	Existing inline sync DB execution; offload in G6.

@@ -13,6 +13,7 @@ export { AV2_BREAKPOINTS, av2MinWidth } from './breakpoints';
 export { ConfirmDialog, ConfirmDialogFrame, type ConfirmDialogProps, type ConfirmDialogTone } from './confirm-dialog';
 export { Dialog, DialogFrame, type DialogProps, type DialogVariant } from './dialog';
 export { MediaPlaceholder, PendingValue, type MediaPlaceholderKind, type MediaPlaceholderProps } from './media-placeholder';
+export { ContactChannels, type ContactChannelsProps } from './contact-channels';
 export { Notice, type NoticeKind, type NoticeProps } from './notice';
 export { PageState, type PageStateKind, type PageStateProps } from './page-state';
 export { BackLink, Breadcrumb, type BackLinkProps, type BreadcrumbItem, type BreadcrumbProps } from './breadcrumb';
@@ -26,6 +27,19 @@ export { ThemeChoiceGroup, type ThemeChoiceGroupProps } from './theme-choice';
 export { ThemeMenu, ThemeMenuList, type ThemeMenuListProps, type ThemeMenuProps } from './theme-menu';
 export { THEME_SCRIPT, ThemeScript } from './theme-script';
 export { useThemeChoice, type ThemeChoice, type ThemeChoiceState, type ThemeMode } from './use-theme-choice';
+export {
+  BAND_DISCLAIMER, BandScore, compareSentence, CriteriaList, formatBand, IELTS_SKILLS, ieltsOverall, isValidBand, OverallBlock, overallStatus,
+  type BandCriterion, type BandScoreProps, type BandScoreSize, type BandScoreState, type IeltsSkill, type OverallBlockProps, type OverallSkill, type OverallStatus, type PreviousBand,
+} from './band-score';
+export { activeThreshold, formatClock, Timer, type TimerProps, type TimerThreshold } from './timer';
+export {
+  paletteSummary, QuestionPalette, questionCellName, type QuestionItem, type QuestionPaletteProps, type QuestionState,
+} from './question-palette';
+export { VocabEntry, type VocabEntryProps } from './vocab-entry';
+export {
+  ANNOTATION_KINDS, AnnotatedText, type AnnotatedSegment, type AnnotatedTextProps, type AnnotationMark, type AnnotationNote,
+} from './annotated-text';
+export { Figure, type FigureProps } from './figure';
 export {
   DataTable, DataTableEmpty, givenName, nextSort, sortRows,
   type DataTableAlign, type DataTableColumn, type DataTableFilter, type DataTableProps, type DataTableSort, type DataTableSortDirection,

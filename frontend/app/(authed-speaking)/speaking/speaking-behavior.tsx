@@ -24,6 +24,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import type { AuthMeWire } from '@/lib/auth-api';
+import { readAuthMeShared } from './read-auth-me-shared';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -34,7 +35,7 @@ import { createLearnerTabDrafts, clearLearnerTabDraftAccount, type TabDraft } fr
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
   CUE_CARD_PLACEHOLDER_DEFAULT, CUE_CARD_PLACEHOLDER_PART2,
-  DEFAULT_PERMISSIONS, DEFAULT_TOPICS, TAB_DEFS,
+  DEFAULT_PERMISSIONS, DEFAULT_TOPICS, TAB_DEFS, effectiveSpeakingPermissions,
   cueCardLengthWarning, greetingName, hasPermission,
 } from '@/lib/speaking-copy.mjs';
 
@@ -240,7 +241,8 @@ function renderUser(user: any, api: any, st: State) {
   const g = $('greeting-name');
   if (g) g.textContent = short;
 
-  if (Array.isArray(user?.permissions)) st.perms = user.permissions;
+  const perms = effectiveSpeakingPermissions(user);
+  if (perms) st.perms = perms;
   applyPermissions(st);
   applyVocabBankFlag();
   applyExercisesFlag(user?.d1_enabled, user?.d3_enabled);
@@ -776,7 +778,8 @@ export function SpeakingBehavior() {
       const read = ++profileRead;
       st.permissionsReady = false; st.permissionAccount = null;
       try {
-        const profile = await api.get('/auth/me') as AuthMeWire;
+        // Shared read: publishes the profile the skill hub switch reads (0063 FR-111).
+        const profile = await readAuthMeShared<AuthMeWire>(api);
         if (st.dead || read !== profileRead || st.accountId !== account
             || profile?.id !== account || profile.id !== accountRef.current) return;
         renderUser(profile, api, st);

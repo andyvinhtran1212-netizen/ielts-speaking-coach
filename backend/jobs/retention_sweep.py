@@ -30,18 +30,27 @@ is orphan-safe + idempotent; the only cost is a sub-second window where audio_ur
 404s on a session whose audio is expiring anyway.
 """
 
+import asyncio
 import logging
 import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from sqlalchemy import text
 
 from database import supabase_admin
+from services.account_data_db import get_engine
+from services.account_erasure import export_lock_key
+from services.account_export import StorageAdapter
+from services.recording_audio import current_recording_owners, recording_path
 from services.speaking_submission import submission_id
 from services import retention_policy
 from services.retention import (
     RETENTION_AUDIO_DAYS,
     RETENTION_CONTENT_DAYS,
+    RetentionPolicy,
     compute_expiry,
 )
 
@@ -100,11 +109,14 @@ def _candidate_pages(purged_col: str, cutoff: str):
 def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = False) -> list[dict]:
     """``per_user`` (content only, plan 5.14): after the default pre-filter,
     each row's owner window comes from ``retention_policy.content_windows``.
-    Only owners on today's rule (``default``) are purged; ``open`` and
-    ``until`` owners are never purged by this sweep yet, and an owner whose
-    window could not be read is skipped. Audio never uses it (FR-029)."""
+    ``open`` owners are never purged; ``default`` owners follow today's rule;
+    ``until`` owners are eligible once their window has closed (the same
+    ``compute_expiry`` the UI uses). An owner whose window could not be read
+    is skipped. With the flag on, the purge itself goes through the 505 RPC,
+    which checks again under the learner's locks (G04-T10b). Audio never
+    uses it (FR-029)."""
     cutoff = _cutoff_iso(days)
-    out, skipped, deferred = [], 0, 0
+    out, skipped = [], 0
     for rows in _candidate_pages(purged_col, cutoff):
         # Confirm with the SAME policy the UI uses — never purge what the UI shows safe.
         if not per_user:
@@ -116,31 +128,27 @@ def _eligible(purged_col: str, days: int, expiry_key: str, *, per_user: bool = F
             if window is None:
                 skipped += 1
                 continue
-            if window.mode != "default":
-                # open: nothing to purge. until: hidden at read time only; the real
-                # purge by course access comes with an RPC that checks and purges
-                # under the user's credit lock (follow-up, Andy 23/11 option 1).
-                deferred += 1
-                continue
-            if compute_expiry(r)[expiry_key]:
+            if compute_expiry(r, policy=RetentionPolicy(window=window))[expiry_key]:
                 out.append(r)
     if skipped:
         logger.warning("[sweep] content skipped=%d sessions (retention window unknown)", skipped)
-    if deferred:
-        logger.info("[sweep] content deferred=%d sessions (course-access window, purge not enabled)", deferred)
     return out
 
 
-def _audio_paths(session_id: str, user_id: str | None = None) -> list[str]:
+def _audio_paths(session_id: str, user_id: str | None = None, *,
+                 reference_paths: list[str] | None = None) -> list[str]:
     """Bucket-relative keys for a session's recordings (non-null only)."""
-    rows = (
-        supabase_admin.table("responses")
-        .select("audio_storage_path")
-        .eq("session_id", session_id)
-        .execute()
-        .data
-    ) or []
-    paths = [r["audio_storage_path"] for r in rows if r.get("audio_storage_path")]
+    if reference_paths is None:
+        rows = (
+            supabase_admin.table("responses")
+            .select("audio_storage_path")
+            .eq("session_id", session_id)
+            .execute()
+            .data
+        ) or []
+        paths = [r["audio_storage_path"] for r in rows if r.get("audio_storage_path")]
+    else:
+        paths = list(reference_paths)
     # Immutable take paths may outlive the single canonical row (retakes or a
     # losing concurrent upload). Keep their existing 15-day retention deadline.
     if user_id:
@@ -199,11 +207,11 @@ def _retire_expired_open_session(session: dict) -> None:
     }).eq("id", session["id"]).eq("status", "in_progress").execute()
     session["status"] = "abandoned"
 
-def _purge_audio(session: dict) -> int:
+def _purge_audio(session: dict, *, reference_paths: list[str] | None = None) -> int:
     """Storage-first (orphan-safe): capture paths → remove files → scrub audio
     columns → stamp audio_purged_at. Returns the number of objects removed."""
     sid = session["id"]
-    paths = _audio_paths(sid, session.get("user_id"))              # capture BEFORE scrubbing audio_storage_path
+    paths = _audio_paths(sid, session.get("user_id"), reference_paths=reference_paths)
     if DRY_RUN:
         return len(paths)
     if paths:
@@ -216,6 +224,49 @@ def _purge_audio(session: dict) -> int:
         {"audio_purged_at": _now_iso()}
     ).eq("id", sid).execute()              # 4. stamp completion
     return len(paths)
+
+
+async def _purge_audio_locked(session: dict, engine) -> int | None:
+    """Hold the same learner lock as erasure claim until Storage and SQL finish."""
+    sid, uid = str(session["id"]), str(session["user_id"])
+    async with engine.begin() as conn:
+        await conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                           {"key": export_lock_key(uid)})
+        has_requests = (await conn.execute(text("SELECT to_regclass('public.account_deletion_requests')"))).scalar()
+        if has_requests is None:
+            return await asyncio.to_thread(_purge_audio, session)
+        erasing = (await conn.execute(text("""
+            SELECT 1 FROM public.account_deletion_requests
+             WHERE user_id = CAST(:uid AS uuid) AND (
+                 status = 'erasing' OR (status = 'failed' AND step_done LIKE 'audio:%'))
+             LIMIT 1
+        """), {"uid": uid})).scalar()
+        if erasing:
+            return None
+        fresh = (await conn.execute(text("""
+            SELECT status, resume_expires_at FROM public.sessions
+             WHERE id = CAST(:sid AS uuid) AND user_id = CAST(:uid AS uuid) AND audio_purged_at IS NULL
+        """), {"sid": sid, "uid": uid})).mappings().first()
+        if fresh is None:
+            return None
+        rows = (await conn.execute(text("""
+            SELECT audio_storage_path, audio_url FROM public.responses WHERE session_id = CAST(:sid AS uuid)
+        """), {"sid": sid})).mappings().all()
+        paths = {path for row in rows if (path := recording_path(dict(row)))}
+        same_session = {path for path in paths if path.startswith(f"{uid}/{sid}/")}
+        if any(path.startswith(f"{uid}/") for path in paths - same_session):
+            return None
+        legacy = paths - same_session
+        owners = await current_recording_owners(conn, legacy)
+        storage = StorageAdapter(supabase_admin)
+        for path in sorted(legacy - owners.keys()):
+            if await asyncio.to_thread(storage.object_exists, _AUDIO_BUCKET, path):
+                return None
+        eligible = same_session | {path for path, owner in owners.items() if owner == uid}
+        current = {**session, **fresh}
+        if current["resume_expires_at"] is not None:
+            current["resume_expires_at"] = current["resume_expires_at"].isoformat()
+        return await asyncio.to_thread(_purge_audio, current, reference_paths=sorted(eligible))
 
 
 def _purge_content(session: dict) -> None:
@@ -240,23 +291,44 @@ def _purge_content(session: dict) -> None:
 
 def sweep_audio() -> dict:
     eligible = _eligible("audio_purged_at", RETENTION_AUDIO_DAYS, "is_audio_purged")
+    return asyncio.run(_sweep_audio(eligible))
+
+
+async def _sweep_audio(eligible: list[dict]) -> dict:
     purged, objects, errors = 0, 0, []
+    try:
+        engine = get_engine() if eligible and not DRY_RUN else None
+    except Exception as exc:
+        logger.warning("[sweep] audio lock setup failed: %s", type(exc).__name__)
+        engine = None
+    if eligible and not DRY_RUN and engine is None:
+        logger.warning("[sweep] audio kept=%d reason=erasure_lock_unavailable", len(eligible))
+        return {"op": "audio", "eligible": len(eligible), "purged": 0, "objects": 0,
+                "errors": [{"error": "erasure_lock_unavailable"}]}
     for s in eligible:
         try:
-            objects += _purge_audio(s)
+            count = (await _purge_audio_locked(s, engine) if engine is not None
+                     else await asyncio.to_thread(_purge_audio, s))
+            if count is None:
+                continue
+            objects += count
             purged += 1
         except Exception as exc:  # noqa: BLE001 — isolate; retry next run (#29)
-            errors.append({"session_id": s["id"], "error": str(exc)})
-            logger.warning("[sweep] audio purge failed session=%s: %s", s["id"], exc)
+            code = type(exc).__name__
+            errors.append({"session_id": s["id"], "error": code})
+            logger.warning("[sweep] audio purge failed session=%s: %s", s["id"], code)
     return {"op": "audio", "eligible": len(eligible), "purged": purged,
             "objects": objects, "errors": errors}
 
 
-def _still_purgeable(session: dict) -> bool:
+def _still_purgeable(session: dict, *, default_only: bool = False) -> bool:
     """Guard at the purge itself (FR-048): the batch decision in ``_eligible``
     may be stale once a course is granted or renewed while the run goes on.
     Re-read this session and its owner's window now, through the same client
-    and rule, and purge only if both still say so. Unreadable → keep."""
+    and rule, and purge only if both still say so. Unreadable → keep.
+    ``default_only`` (the unlocked path): any window other than today's rule
+    keeps the content, so a flag that turns on mid-run never sends a
+    course-window learner to the unlocked purge."""
     sid = session["id"]
     fresh = (
         supabase_admin.table("sessions")
@@ -273,21 +345,83 @@ def _still_purgeable(session: dict) -> bool:
     row = fresh[0]
     window = retention_policy.content_windows([row.get("user_id")], db=supabase_admin).get(
         str(row.get("user_id")))
-    if window is None or window.mode != "default":
+    if window is None or (default_only and window.mode != "default"):
         return False
-    return bool(compute_expiry(row)["is_content_purged"])
+    return bool(compute_expiry(row, policy=RetentionPolicy(window=window))["is_content_purged"])
+
+
+_PURGE_RPC = "fn_retention_purge_content"
+
+
+class _NoPurgeFunction(Exception):
+    """505 is not applied on this database: nothing can be purged by window."""
+
+
+def _purge_content_locked(session: dict) -> str:
+    """Flag on (G04-T10b): purge through the 505 RPC, which re-checks the
+    learner's course access and window under their locks and scrubs in the
+    same transaction. Returns the RPC status (``purged``, ``kept``,
+    ``already_purged``, ``not_found``)."""
+    if DRY_RUN:
+        return "purged"
+    _retire_expired_open_session(session)
+    try:
+        result = supabase_admin.rpc(_PURGE_RPC, {
+            "p_session_id": session["id"],
+            "p_after_expiry_days": retention_policy.after_expiry_days(),
+        }).execute().data
+    except Exception as exc:  # noqa: BLE001
+        text = str(exc)
+        if _PURGE_RPC in text and ("PGRST202" in text or "does not exist" in text or "Could not find" in text):
+            raise _NoPurgeFunction() from exc
+        raise
+    status = (result or {}).get("status") if isinstance(result, dict) else None
+    if status is None:
+        raise RuntimeError(f"{_PURGE_RPC} answered {result!r}")
+    if status == "kept":
+        logger.info("[sweep] content kept session=%s reason=%s", session["id"], result.get("reason"))
+    return status
+
+
+def _window_purge_on() -> Optional[bool]:
+    """The flag read straight from the DB once per run: True (on), False
+    (confirmed off) or None (unreadable). This one answer picks the purge
+    path for the whole run; only a confirmed off allows the unlocked one."""
+    try:
+        return retention_policy._flag_from(supabase_admin)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[sweep] content flag read failed: %s", exc)
+        return None
 
 
 def sweep_content() -> dict:
     eligible = _eligible("content_purged_at", RETENTION_CONTENT_DAYS, "is_content_purged", per_user=True)
     purged, kept, errors = 0, 0, []
-    for s in eligible:
+    mode = _window_purge_on() if eligible else False
+    if mode is None:
+        # Not knowing the flag, neither path is safe: keep everything this run.
+        logger.warning("[sweep] content skipped=flag_unreadable kept=%d sessions", len(eligible))
+        return {"op": "content", "eligible": len(eligible), "purged": 0, "kept": len(eligible), "errors": []}
+    locked = mode is True
+    for n, s in enumerate(eligible):
         try:
-            if not _still_purgeable(s):
+            if not _still_purgeable(s, default_only=not locked):
                 kept += 1
                 continue
-            _purge_content(s)
-            purged += 1
+            if not locked:
+                _purge_content(s)
+                purged += 1
+            elif _purge_content_locked(s) == "purged":
+                purged += 1
+            else:
+                kept += 1
+        except _NoPurgeFunction:
+            # Flag on without 505: keep everything (never fall back to an
+            # unlocked purge); the rollout applies 505 before the flag.
+            kept += len(eligible) - n
+            logger.warning("[sweep] content skipped=no_function kept=%d sessions (%s missing)",
+                           len(eligible) - n, _PURGE_RPC)
+            break
         except Exception as exc:  # noqa: BLE001
             errors.append({"session_id": s["id"], "error": str(exc)})
             logger.warning("[sweep] content purge failed session=%s: %s", s["id"], exc)
@@ -312,7 +446,11 @@ def main() -> dict:
     return summary
 
 
-if __name__ == "__main__":
+def cli() -> int:
     result = main()
-    # Non-zero exit if any session errored, so Railway surfaces a failed run.
-    sys.exit(1 if (result["audio"]["errors"] or result["content"]["errors"]) else 0)
+    # Let Railway surface a failed run after both sweeps report their results.
+    return 1 if result["audio"]["errors"] or result["content"]["errors"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(cli())

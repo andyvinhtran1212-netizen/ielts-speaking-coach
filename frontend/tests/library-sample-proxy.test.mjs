@@ -27,6 +27,7 @@ function proxyModule(fetch) {
   }).outputText;
   const modules = {
     '@/lib/backend': { API_BASE: 'https://fixture.invalid' },
+    '@/lib/public-commerce.mjs': { publicCommerceEnabled: () => assert.fail('Library must not read the commerce flag') },
     '@/lib/grammar-article-index.mjs': {
       createArticleIndex: () => ({ has: async () => assert.fail('grammar index must not be read') }),
       articleKeys: () => new Set(),

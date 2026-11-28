@@ -392,17 +392,26 @@ number	filename	state	owner	spec	note
 384	384_credit_ledger_enrollment_rpcs.sql	present	-	COURSEACCESS-0055	G04-T02 (spec label M2/382): credit ledger, reservations, RPCs. Andy 2026-11-20.
 385	385_credit_lifecycle.sql	present	-	COURSEACCESS-0055	G04-T12 (spec label 383): credit lifecycle (expire, carry-over, grant extra). Andy 2026-11-20.
 386	-	abandoned	-	COURSEACCESS-0055	Left empty on purpose (G04-T14 dropped 2026-11-18); do not reuse without asking Andy.
-387	-	reserved	G04-T15	COURSEACCESS-0055	Spec label 388: convert a legacy-code class to credit metering. Andy 2026-11-20.
+387	387_class_credit_conversion.sql	present	G04-T15	COURSEACCESS-0055	Spec label 388: convert a legacy-code class to credit metering (fn_credit_convert_class). Andy 2026-11-20.
 388	388_learner_active_sessions.sql	present	-	COURSEACCESS-0055	G04-T09 (spec label 384): one session per learner account (learner_active_sessions). Andy 2026-11-20.
 389	389_learner_login_events.sql	present	-	COURSEACCESS-0055	G04-T16 (spec label 387): recent sign-ins (learner_login_events). Andy 2026-11-20.
+394	394_course_open_alerts.sql	present	G05-T22	ENROLL-0060	G05 band 390–399 (plan 5.7): course_open_alerts + account/hashed-IP counter + subscribe/unsubscribe/enqueue/rekey/send_check RPCs.
 400	400_public_library.sql	present	G06-T02	LIBRARY-0061	Public Library schema + private library-media bucket; G06 band 400-419.
 401	401_writing_sample_review_signoff.sql	present	G06-T02b	LIBRARY-0061	Writing sample reviewer sign-off (review_status/reviewed_by/reviewed_at) + publish-requires-approved CHECKs; G06 band 400-419.
 420	420_users_today_seen_at.sql	present	G07-T13	LEARNERCORE-0063	Commercialization G07 band 420–439 (01-KE-HOACH-TONG mục 6); users.today_seen_at + today_seen_key (Today last-seen cursor).
+421	421_review_notes_flag_once.sql	present	G07-T31	LEARNERCORE-0063	Commercialization G07 band 420–439; review_notes + one flag per (attempt, question, sender) on user_feedback (amendment 4).
 440	440_admin_settings.sql	present	G09-T22	ADMINIA-0074	Commercialization G09 band 440–459 (01-KE-HOACH-TONG mục 6); admin_settings + append-only admin_settings_log.
 441	441_cohort_teacher_schedule.sql	present	G09-T24	ADMINIA-0074	Commercialization G09 band 440–459; one teacher per class (cohorts.instructor_id) + class schedule.
 442	442_learner_care_notes.sql	present	G09-T35	ADMINIA-0074	Commercialization G09 band 440–459 (plan 5.3 row 442); learner_care_notes (FR-032), soft delete, source column for GOI-13 A12.
+445	445_mock_exam_audiences.sql	present	G09-T31	MOCKORG-0086	Commercialization G09 band 440–459; mock_exam_audiences + mock_exams skills/starts_at/draft_state, mode CHECK widened (data renamed only by 446).
 451	451_incident_groups.sql	present	G09-T07	ADMINIA-0074	Commercialization G09 band 440–459; incident_groups status (new/in_review/resolved/ignored) + append-only incident_group_notes + fn_incident_group_transition.
 452	452_learner_goal_events.sql	present	G09-T04b	ADMINIA-0074	Commercialization G09 reserve band 452–459 (anh Andy chose 452, 20/11); append-only learner_goal_events + fn_learner_goal_resolve.
+500	500_account_data_rights.sql	present	G04-T18	ACCOUNTDATA-0100	Spec label 500 (GOI-04: G04 band 381-389 full). Deletion requests, export jobs, private account-exports bucket. Andy approved spec 2026-11-23.
 501	501_grammar_quiz_allowed_code_service_execute.sql	present	-	-	-
 502	502_response_pronunciation_sample.sql	present	G04-T13	COURSEACCESS-0055	Spec label 385: pronunciation sample window (responses.pronunciation_sample_*). Andy 2026-11-20.
+503	503_credit_attempt_settle.sql	present	G04-T07	COURSEACCESS-0055	Per-attempt settlement of Speaking credit holds (credit_attempt_outcomes + fn_credit_settle_attempt), FR-015 BLOCKER on #2554; Andy approved 2026-11-23.
+504	504_account_erasure.sql	present	G04-T18	ACCOUNTDATA-0100	Erasure function and narrow guard pass (amendments 1 and 2, Andy 2026-11-23).
+505	505_retention_purge_content.sql	present	G04-T10b	COURSEACCESS-0055	FR-048 follow-up of #2550: purge content by course-access window under the learner locks.
+506	-	reserved	G07-T18	COURSELESSON-0064	course_lessons + course_lesson_progress (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.1).
+507	-	reserved	G07-T21	RESULTSHEET-0065	essay_regrade_requests reason_code + note (coordinator, 2026-11-23; replaces the 420–439 band note in plan 5.2).
 509	509_course_give_request_unique.sql	present	REGIVE-HOTFIX	-	Course-bank give idempotency: partial unique index uq_course_give_request (cohort_id, give_request_id) WHERE skill=course (anh Andy 2026-11-25, thread "Cho giao lại bài đã giao, chỉ ghi chú"). 503–507 are held by open PRs.

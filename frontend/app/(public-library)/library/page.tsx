@@ -19,6 +19,7 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 
 import { CourseLinkLine } from '@/components/library/course-link-line';
+import { PUBLIC_HREF } from '@/components/ui/shell/public-links';
 import { API_BASE, ABORT_MS } from '@/lib/backend';
 import { LIBRARY_SHELVES, shelvesWithCounts, type SummaryEntry } from '@/lib/library-shelves.mjs';
 import { routeFor } from '@/lib/route-registry.mjs';
@@ -189,7 +190,7 @@ export default function LibraryPage({ searchParams }: { searchParams: SearchPara
       <Suspense fallback={<Shelves summary={null} sample={null} band="7.5" />}>
         <LibraryBody searchParams={searchParams} />
       </Suspense>
-      <CourseLinkLine href="/" linkLabel="Xem các khoá học">
+      <CourseLinkLine href={PUBLIC_HREF.courses} linkLabel="Xem các khoá học">
         Đọc trong Thư viện luôn miễn phí. Muốn nộp bài Writing và Speaking để được chấm theo bốn tiêu chí, cần một khoá học:
       </CourseLinkLine>
     </div>

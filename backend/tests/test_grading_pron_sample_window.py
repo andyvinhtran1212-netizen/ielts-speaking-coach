@@ -206,7 +206,7 @@ def _entitled(monkeypatch):
 
 
 def _route(monkeypatch, *, part, duration, flag, responses=(), extract=lambda _a: b"WAV",
-           mode="test_part"):
+           mode="test_part", fail_full_save=False):
     session = {"id": str(uuid4()), "user_id": str(uuid4()), "part": part, "mode": mode,
                "status": "in_progress", "full_test_attempt_id": None, "renderer_affinity": "next",
                "resume_expires_at": "2099-01-01T00:00:00Z"}
@@ -254,12 +254,14 @@ def _route(monkeypatch, *, part, duration, flag, responses=(), extract=lambda _a
 
     def fake_save(_db, row, **_kwargs):
         saved.append(dict(row))
+        if fail_full_save and len(saved) == 1:
+            raise RuntimeError("column does not exist")   # bản ghi đủ cột hỏng → đường lùi core-row
         return response_id
     monkeypatch.setattr(grading, "save_response", fake_save)
     result = asyncio.run(grading.grade_response_endpoint(
         session["id"], question["id"], UploadFile(BytesIO(b"fake audio"), filename="a.wav")))
     return SimpleNamespace(result=result, row=saved[0], calls=calls, cuts=cuts, flags=flags,
-                           question_id=question["id"])
+                           question_id=question["id"], saved=saved, db=db, response_id=response_id)
 
 
 SAMPLE_COLS = ("pronunciation_sample_scope", "pronunciation_sample_start_s", "pronunciation_sample_end_s")
@@ -310,7 +312,11 @@ def test_route_part1_second_answer_is_not_sampled(monkeypatch):
     r = _route(monkeypatch, part=1, duration=20.0, flag=True, responses=done)
     assert r.calls == []                                    # Azure (fake) never called
     assert _cols(r.row) == ("not_sampled", None, None)
-    assert "pronunciation_status" not in r.row and "final_band_p" not in r.row
+    # Không lấy mẫu ⇒ không có P của Azure. `final_*` được ghi None (không
+    # bỏ trống) để bản ghi âm lại không mang điểm của lần trước (săn lỗi B2-01).
+    # Dữ liệu phát âm cũ cũng bị xoá (None), không còn "completed" (CR #2696).
+    assert r.row["pronunciation_status"] is None and r.row["pronunciation_score"] is None
+    assert r.row["final_band_p"] is None and r.row["final_overall_band"] is None
     assert r.result["band_p"] is None
     assert r.result["p_feedback"] == grading._PRON_NOT_SAMPLED_FEEDBACK
     assert r.result["overall_band"] == grading._round_band((6.0 + 7.0 + 6.0) / 3)
