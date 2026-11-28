@@ -84,6 +84,8 @@ _UNEXPECTED_ERROR_MESSAGE = "Không xử lý được yêu cầu kỳ thi. Vui l
 
 def _raise_for(e: Exception):
     """Translate a service error into the right HTTP status."""
+    if isinstance(e, svc.AudienceUnavailableError):
+        raise HTTPException(503, str(e))
     if isinstance(e, svc.NotFoundError):
         raise HTTPException(404, str(e))
     if isinstance(e, (svc.WindowClosedError, svc.NotEligibleError, PermissionError)):
@@ -140,7 +142,10 @@ class IntegrityBody(BaseModel):
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
     user = await get_supabase_user(authorization)
-    return {"exams": await asyncio.to_thread(svc.list_open_exams, user["id"])}
+    try:
+        return {"exams": await asyncio.to_thread(svc.list_open_exams, user["id"])}
+    except svc.AudienceUnavailableError as e:
+        raise HTTPException(503, str(e))
 
 
 @router.get("/my-sittings")
@@ -165,7 +170,10 @@ async def get_sitting_state(
     sitting_id: str, authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
-    return await asyncio.to_thread(_sitting_state_sync, sitting_id, user["id"])
+    try:
+        return await asyncio.to_thread(_sitting_state_sync, sitting_id, user["id"])
+    except svc.AudienceUnavailableError as e:
+        raise HTTPException(503, str(e))
 
 
 def _sitting_state_sync(sitting_id: str, user_id) -> dict:
@@ -178,7 +186,26 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
     if str(sitting.get("user_id")) != str(user_id):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
-    if svc.is_retake(exam):
+    self_paced = None
+    if svc.is_retake(exam) and svc.is_self_paced_chain(sitting, exam):
+        # EXAMMOCK-0071 FR-014 / plan 5.5: back to back. The server stamps
+        # each due start first, so the sitting's own clocks below already
+        # hold the next section and there is no "between sections" answer.
+        sitting, timeline = svc.advance_self_paced(sitting, exam)
+        if timeline.current_section:
+            # The shared timeline decides, never the per-section stamps: a
+            # section past its deadline that the reaper has not collected yet
+            # is still started and unsubmitted, but the chain has moved on
+            # (CR #2581, Codex P1). With a gap > 0 this is the next section,
+            # with its future start.
+            active, time_left = timeline.current_section, timeline.section_time_left_seconds
+        else:
+            # Every section has ended: "done", or the last one with 0 s while
+            # the reaper collects it.
+            active, time_left = svc.retake_active_section(sitting, exam)
+        assigned = sitting.get("assigned_skills") or []
+        self_paced = svc.self_paced_state(sitting, exam, timeline)
+    elif svc.is_retake(exam):
         # Per-student: active section + countdown come from THIS sitting's own
         # clocks, and the runner shows only the assigned skills.
         active, time_left = svc.retake_active_section(sitting, exam)
@@ -186,7 +213,9 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
     else:
         active = (exam or {}).get("active_section") or "not_started"
         time_left = svc.section_time_remaining_seconds(exam, active) if exam else None
-        assigned = None
+        assigned = sitting.get("assigned_skills")
+        if assigned is not None and active in svc._LRW_ORDER and active not in assigned:
+            active, time_left = "not_started", None
         # THE PAUSE APPLIES TO THE STUDENT TOO. `/collect` sets
         # collected_section synchronously and sweeps the sittings in the
         # BACKGROUND, and it deliberately leaves active_section alone — so
@@ -223,6 +252,9 @@ def _sitting_state_sync(sitting_id: str, user_id) -> dict:
         "section_duration_seconds": (
             svc.section_duration_seconds(exam, active) if exam else None
         ),
+        # FR-014: per-section state of a back-to-back self-paced sitting
+        # (null for every other sitting, and always while the flag is off).
+        "self_paced": self_paced,
     }
 
 
