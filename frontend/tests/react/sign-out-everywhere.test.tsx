@@ -96,7 +96,8 @@ describe('SignOutEverywhere', () => {
     await flush();
     const dialog = screen.getByRole('alertdialog');
     expect(dialog.textContent).toContain('Thi thử tháng 11 đang làm ở Chrome trên Windows, còn khoảng 38 phút.');
-    expect(dialog.textContent).toContain('Bài có giờ không bị cắt ngang: thiết bị đó đăng xuất ngay khi bài kết thúc. Các thiết bị khác đăng xuất bây giờ.');
+    expect(dialog.textContent).toContain('Bài có giờ không bị cắt ngang: việc đăng xuất ngay trên thiết bị đó được hoãn lại để giữ bài đang làm. Các thiết bị khác đăng xuất bây giờ.');
+    expect(dialog.textContent).not.toContain('đăng xuất ngay khi bài kết thúc');
   });
 
   it('confirm → this page\'s draft savers, then revoke-all → 5c; "Đăng nhập lại" signs out locally and goes to /login', async () => {
@@ -154,7 +155,8 @@ describe('SignOutEverywhere', () => {
     const result = screen.getByRole('dialog', { name: 'Đang chờ bài có giờ kết thúc' });
     expect(result.textContent).toContain('Đã tiếp nhận yêu cầu đăng xuất lúc 09:05, 23/11/2026.');
     expect(result.textContent).toContain('Thi thử tháng 11 đang làm ở Chrome trên Windows, còn khoảng 38 phút.');
-    expect(result.textContent).toContain('thiết bị đó đăng xuất ngay khi bài kết thúc');
+    expect(result.textContent).toContain('việc đăng xuất ngay trên thiết bị đó được hoãn lại để giữ bài đang làm');
+    expect(result.textContent).not.toContain('đăng xuất ngay khi bài kết thúc');
     expect(result.textContent).not.toContain('Đã đăng xuất khỏi mọi thiết bị');
     expect(result.textContent).not.toContain('Các thiết bị khác đăng xuất bây giờ');
     expect(within(result).getAllByRole('button', { name: 'Đăng nhập lại' })).toHaveLength(2);

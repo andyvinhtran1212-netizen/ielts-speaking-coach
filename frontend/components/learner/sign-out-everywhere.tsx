@@ -6,8 +6,8 @@
 //    (`enabled=true` only; 404 = route not there yet, treated as off) and, when
 //    the dialog opens, whether another device is inside timed work (5b);
 //  - `POST /api/account/sessions/revoke-all` ends every session, this one too,
-//    and cancels unused sign-in codes; timed work is not cut (the server signs
-//    that device out when it ends). 404 `single_session_disabled` hides the
+//    and cancels unused sign-in codes; timed work is not cut (the server defers
+//    revoking that session while timed work is active). 404 `single_session_disabled` hides the
 //    button; any other failure says so and keeps the dialog.
 // 5a does not promise that drafts on other devices are kept: no page registers
 // a draft saver yet and other devices cannot be reached, so it warns instead.
@@ -62,7 +62,7 @@ function TimedWarning({ timed, beforeRevoke = false }: { timed: TimedActivity; b
   const lead = `${title} ${where}${left ? `, ${left}` : ''}.`;
   return (
     <Notice kind="warning" live="none">
-      {lead} Bài có giờ không bị cắt ngang: thiết bị đó đăng xuất ngay khi bài kết thúc.
+      {lead} Bài có giờ không bị cắt ngang: việc đăng xuất ngay trên thiết bị đó được hoãn lại để giữ bài đang làm.
       {beforeRevoke ? ' Các thiết bị khác đăng xuất bây giờ.' : null}
     </Notice>
   );

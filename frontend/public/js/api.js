@@ -301,13 +301,23 @@
     // a redirect to the login page. opts.noRedirect lets those calls fall
     // through to the throw path below. The default (authed) behaviour is
     // unchanged: bounce to login on 401.
-    if (response.status === 401 && !(opts && opts.noRedirect)) {
+    // A settled fetch can still reach this code after a view has cancelled it.
+    var signal = opts && opts.signal;
+    if (response.status === 401 && !(opts && opts.noRedirect) && !(signal && signal.aborted)) {
       // ENROLL-0060 G05-T20 (FR-052): another device took this learner's
       // session. Mirrors lib/auth/session-claim.mjs (SESSION_DISPLACED_EVENT /
       // DISPLACED_LOGIN_PATH). The AuthProvider claims the event, keeps the
       // page's drafts, signs out locally and goes to the 8c notice; unclaimed
       // (a page without the provider) → straight to that notice.
       var displaced = await _displacedDetail(response);
+      // Re-check after awaiting the 401 body so a cancellation fired while
+      // parsing cannot announce session_displaced or redirect.
+      if (signal && signal.aborted) {
+        if (signal.reason !== undefined) throw signal.reason;
+        var abortErr = new Error('Aborted');
+        abortErr.name = 'AbortError';
+        throw abortErr;
+      }
       if (displaced) {
         _announceDisplaced(displaced);
         return null;

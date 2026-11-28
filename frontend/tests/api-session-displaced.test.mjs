@@ -10,7 +10,7 @@ import { DISPLACED_LOGIN_PATH, SESSION_DISPLACED_EVENT } from '../lib/auth/sessi
 const source = readFileSync(new URL('../public/js/api.js', import.meta.url), 'utf8');
 const DISPLACED = { error_code: 'session_displaced', displaced_at: '2026-11-23T02:05:00Z' };
 
-function load({ detail = DISPLACED, claim = false, raw = null } = {}) {
+function load({ detail = DISPLACED, claim = false, raw = null, customFetch = null } = {}) {
   const nav = { replaced: [], href: [], events: [] };
   const window = {
     location: {
@@ -26,9 +26,9 @@ function load({ detail = DISPLACED, claim = false, raw = null } = {}) {
       return !event.defaultPrevented;
     },
   };
-  const fetch = async () => (raw !== null
+  const fetch = customFetch || (async () => (raw !== null
     ? new Response(raw, { status: 401, headers: { 'content-type': 'text/html' } })
-    : new Response(JSON.stringify({ detail }), { status: 401, headers: { 'content-type': 'application/json' } }));
+    : new Response(JSON.stringify({ detail }), { status: 401, headers: { 'content-type': 'application/json' } })));
   vm.runInNewContext(source, { window, fetch, console, CustomEvent: globalThis.CustomEvent });
   return { api: window.api, nav };
 }
@@ -72,4 +72,48 @@ test('a 401 whose body is not JSON (a proxy page, or empty) keeps the old bounce
 test('api.js mirrors the model constants it cannot import', () => {
   assert.ok(source.includes(`'${SESSION_DISPLACED_EVENT}'`));
   assert.ok(source.includes(`'${DISPLACED_LOGIN_PATH}'`));
+});
+
+test('aborted displaced 401 (during body read or before 401 check) emits no event and does not navigate', async () => {
+  // 1. Aborted while awaiting _displacedDetail(response)
+  {
+    const controller = new AbortController();
+    const { api, nav } = load({
+      customFetch: async () => ({
+        ok: false,
+        status: 401,
+        clone: () => ({
+          json: async () => {
+            controller.abort('user-navigated');
+            return { detail: DISPLACED };
+          },
+        }),
+        json: async () => ({ detail: DISPLACED }),
+      }),
+    });
+    await assert.rejects(
+      api.getWith('/api/me/courses', undefined, { signal: controller.signal }),
+      (err) => err === 'user-navigated',
+    );
+    assert.deepEqual([...nav.events, ...nav.replaced, ...nav.href], []);
+  }
+
+  // 2. Aborted before 401 check (after fetch settled)
+  {
+    const controller = new AbortController();
+    const { api, nav } = load({
+      customFetch: async () => {
+        controller.abort();
+        return new Response(JSON.stringify({ detail: DISPLACED }), {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        });
+      },
+    });
+    await assert.rejects(
+      api.getWith('/api/me/courses', undefined, { signal: controller.signal }),
+      { status: 401 },
+    );
+    assert.deepEqual([...nav.events, ...nav.replaced, ...nav.href], []);
+  }
 });
