@@ -89,6 +89,37 @@ it('a POST cut off while online backs off, re-reads, submits again and shows the
   expect(submits).toBeGreaterThan(submitFails);
 });
 
+it('recovers a committed mock submit via its sealed receipt without opening scores', async () => {
+  const sittingId = 'sitting-a';
+  const mockAttempt = { ...attempt(), attempt_purpose: 'mock_delivery', mock_sitting_id: sittingId };
+  api.get.mockImplementation(async (path: string) =>
+    path.includes('/in-progress') ? { attempt: mockAttempt } : listening);
+  const committed = new Set<string>();
+  let posts = 0;
+  api.postWith.mockImplementation(async (path: string) => {
+    if (!path.endsWith('/submit')) return { renderer_affinity: 'next' };
+    expect(path).toBe('/api/listening/tests/attempts/attempt-a/submit');
+    posts++;
+    if (!committed.has(path)) {
+      committed.add(path);
+      throw new TypeError('Submit response lost');
+    }
+    return { received: true, sealed: true, sitting_id: sittingId };
+  });
+  api.getWith.mockImplementation(async (path: string) => {
+    if (path.endsWith('/review-flags')) return { attempt_id: 'attempt-a', protocol: 'question-cas-v1', review_flags: [] };
+    if (path.includes('/in-progress')) return { attempt: mockAttempt };
+    throw Object.assign(new Error('Sealed'), { status: 403 });
+  });
+  await submitInRoom();
+  await act(async () => { await vi.advanceTimersByTimeAsync(2500); });
+  expect(await screen.findByText(/Listening answers collected/)).toBeTruthy();
+  expect(posts).toBe(2);
+  expect(committed.size).toBe(1);
+  expect(screen.queryByRole('heading', { name: 'Test results' })).toBeNull();
+  expect(api.getWith.mock.calls.some(([path]) => path === '/api/listening/tests/attempts/attempt-a')).toBe(false);
+});
+
 it('a POST that keeps failing while online ends at "Try again", never waiting forever', async () => {
   submitFails = 99;
   await submitInRoom();

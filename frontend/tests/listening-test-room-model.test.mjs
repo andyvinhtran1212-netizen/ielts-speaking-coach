@@ -41,12 +41,20 @@ describe('listeningSubmitOutcome (FR-010)', () => {
     assert.ok(Object.isFrozen(s));
   });
   test('a sealed mock receipt is confirmed and flagged sealed', () => {
-    const s = listeningSubmitOutcome({ attemptId: ID, reply: { received: true, sitting_id: 's', sealed: true } });
+    const s = listeningSubmitOutcome({ attemptId: ID, sittingId: 's', reply: { received: true, sitting_id: 's', sealed: true } });
     assert.equal(s.outcome, 'confirmed');
     assert.equal(s.sealed, true);
   });
+  test('a sealed reply for a different sitting or attempt cannot acknowledge this submission', () => {
+    for (const reply of [
+      { received: true, sealed: true, sitting_id: 'other', attempt_id: ID },
+      { received: true, sealed: true, sitting_id: 's', attempt_id: 'other' },
+    ]) {
+      assert.equal(listeningSubmitOutcome({ attemptId: ID, sittingId: 's', reply }).next, 'retry');
+    }
+  });
   test('a sealed receipt with a capture envelope (it also carries attempt_id) stays sealed', () => {
-    const s = listeningSubmitOutcome({ attemptId: ID, reply: { received: true, sitting_id: 's', sealed: true, attempt_id: ID, post_test_capture_required: true } });
+    const s = listeningSubmitOutcome({ attemptId: ID, sittingId: 's', reply: { received: true, sitting_id: 's', sealed: true, attempt_id: ID, post_test_capture_required: true } });
     assert.equal(s.outcome, 'confirmed');
     assert.equal(s.sealed, true);
   });
