@@ -232,6 +232,31 @@ def test_early_submit_starts_the_next_section_at_that_moment(fake_db, svc, flag_
     assert done["status"] == "all_submitted"
 
 
+def test_gap_reports_seconds_until_the_next_section_opens(fake_db, svc, flag_on, monkeypatch):
+    # MOCK_SELF_PACED_GAP_SECONDS > 0: the next section opens after the gap.
+    # The block says how long is left, relative, so the runner can show a
+    # fixed countdown instead of opening the section early (FR-014).
+    monkeypatch.setattr(settings, "MOCK_SELF_PACED_GAP_SECONDS", 120)
+    learner = uuid4()
+    exam, sitting = _chain_sitting(fake_db, svc, learner)
+    now = datetime.now(timezone.utc)
+    _set(fake_db, sitting["id"], status="lrw_in_progress",
+         reading_started_at=_iso(now - timedelta(minutes=10)),
+         reading_submitted_at=_iso(now - timedelta(seconds=30)))
+
+    sp = mock_router._sitting_state_sync(sitting["id"], str(learner))["self_paced"]
+    assert sp["current_section"] == "writing" and sp["gap_seconds"] == 120
+    assert 85 <= sp["starts_in_seconds"] <= 90
+    # Not stamped yet: the start is still in the future.
+    assert not svc.get_sitting(sitting["id"]).get("writing_started_at")
+
+    # Gap over: the stamp lands and nothing is left to wait for.
+    _set(fake_db, sitting["id"], reading_submitted_at=_iso(now - timedelta(seconds=200)))
+    sp = mock_router._sitting_state_sync(sitting["id"], str(learner))["self_paced"]
+    assert sp["starts_in_seconds"] == 0
+    assert svc.get_sitting(sitting["id"]).get("writing_started_at")
+
+
 def test_unsubmitted_section_ends_at_its_deadline_and_the_reaper_walks_the_chain(
         fake_db, svc, flag_on):
     learner = uuid4()
@@ -312,6 +337,7 @@ def test_not_started_chain_shows_the_entry_state(fake_db, svc, flag_on):
     assert state["self_paced"]["state"] == "not_started"
     assert state["self_paced"]["total_seconds"] == 120 * 60
     assert state["self_paced"]["sections"] == []
+    assert state["self_paced"]["starts_in_seconds"] == 0
 
 
 # ── old retake sittings keep the menu (option A) ─────────────────────────
