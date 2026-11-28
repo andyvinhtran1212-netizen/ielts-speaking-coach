@@ -48,6 +48,7 @@ function loadModule(filename, env) {
   const modules = {
     '@/lib/backend': { API_BASE: 'https://unused.invalid' },
     '@/lib/grammar-article-index.mjs': articleIndex,
+    '@/lib/public-commerce.mjs': { publicCommerceEnabled: () => false },
     '@/tooling/content-security-policy.mjs': csp,
     './tooling/advanced-vocab-legacy-rewrites.mjs': advancedVocabRewrites,
     './tooling/content-security-policy.mjs': csp,
@@ -179,7 +180,7 @@ describe('enforced proxy behavior', () => {
       // The 404/308 branches (Grammar articles, Speaking questions, Library
       // Writing samples) match public pages on purpose and return before the
       // nonce policy, so they never carry a nonce.
-      if (url.startsWith('/grammar/') || /^\/library\/speaking\/[^/]+$/.test(url) || url.startsWith('/library/writing-samples/')) continue;
+      if (url.startsWith('/grammar/') || url.startsWith('/courses/') || /^\/library\/speaking\/[^/]+$/.test(url) || url.startsWith('/library/writing-samples/')) continue;
       assert.equal(csp.nonceRouteAllowed(url), matches({ config, url, headers: { host: 'staging.averlearning.com' } }), url);
     }
   });
