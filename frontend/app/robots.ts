@@ -5,7 +5,6 @@ const PRIVATE_PREFIXES = [
   '/admin',
   '/api',
   '/core-player',
-  '/course-exercises',
   '/course/',
   '/exam',
   '/exercises',

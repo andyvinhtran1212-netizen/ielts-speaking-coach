@@ -181,8 +181,7 @@ jobs:
               - 'frontend/public/js/vocab-modules/**'
               - 'frontend/app/(authed-vocab-exam)/**'
               - 'frontend/app/(authed)/grammar-checkup/**'
-              - 'frontend/app/(authed)/course-exercises/**'
-              - 'frontend/app/(authed)/grammar-lessons/**'
+              - 'frontend/app/(authed)/course/**'
               - 'frontend/app/next-probe/**'
               - 'frontend/app/(spike)/**'
               - 'frontend/lib/quiz-player-model.mjs'
@@ -985,7 +984,7 @@ jobs:
         if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-next-responsive-flow.mjs "http://localhost:$TEST_PORT"
 
-      # PC-J13 (U-16/BL-01/BL-08/BL-13): /quiz, /mock-exam, /grammar-lessons/assigned
+      # PC-J13 (U-16/BL-01/BL-08/BL-13): /quiz, /mock-exam, /course/grammar-lesson
       # thiếu tham số phải giải thích + chỉ có nút quay lại; 404 của trang debug
       # mang title chung; /grammar-checkup theo tài khoản đổi ở tab khác; modal
       # kích hoạt trên /login có Đăng xuất.

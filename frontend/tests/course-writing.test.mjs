@@ -437,7 +437,7 @@ import { fileURLToPath } from 'node:url';
 
 const PAGE = readFileSync(join(
   dirname(fileURLToPath(import.meta.url)), '..', 'app', '(authed)',
-  'course-exercises', 'course-behavior.tsx'), 'utf8');
+  'course', 'exercises', 'course-behavior.tsx'), 'utf8');
 
 describe('màn kết luận không được vẽ TRƯỚC khi biết có phần tự luận không', () => {
   test('giữ LỜI HỨA của lượt nạp, không chỉ một cờ', () => {

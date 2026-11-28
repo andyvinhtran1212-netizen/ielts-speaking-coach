@@ -403,7 +403,7 @@ export const config = {
     '/library/speaking/:slug',
     '/library/writing-samples/:slug',
     {
-      source: '/:section(account|admin|advanced-vocabulary|course|course-exercises|enroll|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)/:path*',
+      source: '/:section(account|admin|course|enroll|exam|exercises|full-test|full-test-result|grammar-checkup|help|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {

@@ -120,7 +120,7 @@ await context.route('**/*', async (route) => {
 
 const page = await context.newPage();
 page.on('pageerror', (error) => pageErrors.push(error.message));
-const url = `${BASE}/advanced-vocabulary?bank=${BANK}&item=${ITEM}`;
+const url = `${BASE}/course/vocabulary?bank=${BANK}&item=${ITEM}`;
 
 // Vocabulary card parity: click plus Enter/Space, active-face hit testing, 44px audio.
 await page.goto(url);

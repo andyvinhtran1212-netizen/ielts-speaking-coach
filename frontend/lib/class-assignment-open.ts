@@ -79,12 +79,12 @@ export async function openClassAssignment(row: OpenableAssignment, { router, isC
   if (!target) throw new Error('Máy chủ không trả điểm đến hợp lệ cho bài này.');
   if (target.kind === 'course') {
     if (target.advancedVocabulary) {
-      window.location.assign(`/advanced-vocabulary?bank=${encodeURIComponent(target.bankId)}&item=${encodeURIComponent(target.itemId)}`);
+      window.location.assign(`/course/vocabulary?bank=${encodeURIComponent(target.bankId)}&item=${encodeURIComponent(target.itemId)}`);
       return;
     }
     const view = target.reviewOnly ? '&view=writing' : '';
     const item = `&class_item=${encodeURIComponent(target.itemId)}`;
-    window.location.assign(`/course-exercises?bank=${encodeURIComponent(target.bankId)}${view}${item}`);
+    window.location.assign(`/course/exercises?bank=${encodeURIComponent(target.bankId)}${view}${item}`);
     return;
   }
   if (target.kind === 'player') {

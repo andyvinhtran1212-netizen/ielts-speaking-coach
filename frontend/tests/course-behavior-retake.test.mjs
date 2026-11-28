@@ -14,11 +14,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const SRC = readFileSync(
-  new URL('../app/(authed)/course-exercises/course-behavior.tsx', import.meta.url), 'utf8');
+  new URL('../app/(authed)/course/exercises/course-behavior.tsx', import.meta.url), 'utf8');
 const SHELL = readFileSync(
-  new URL('../app/(authed)/course-exercises/page-shell.tsx', import.meta.url), 'utf8');
+  new URL('../app/(authed)/course/exercises/page-shell.tsx', import.meta.url), 'utf8');
 const COPY = readFileSync(
-  new URL('../app/(authed)/course-exercises/course-copy.ts', import.meta.url), 'utf8');
+  new URL('../app/(authed)/course/exercises/course-copy.ts', import.meta.url), 'utf8');
 
 function functionBody(name) {
   const marker = `function ${name}`;

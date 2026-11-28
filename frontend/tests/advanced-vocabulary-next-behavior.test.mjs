@@ -13,7 +13,7 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
-const UI = read('app', '(authed-advanced-vocab)', 'advanced-vocabulary', 'advanced-vocabulary-lesson.tsx');
+const UI = read('app', '(authed-advanced-vocab)', 'course', 'vocabulary', 'advanced-vocabulary-lesson.tsx');
 const CSS = read('public', 'css', 'advanced-vocab-lesson.css');
 const MANIFEST = JSON.parse(read('..', 'backend', 'content', 'advanced_vocab', 'core30-manifest.json'));
 const LESSONS = MANIFEST.lessons.map(({ lesson_id }) => JSON.parse(read('..', 'backend', 'content', 'advanced_vocab', `${lesson_id}.json`)));

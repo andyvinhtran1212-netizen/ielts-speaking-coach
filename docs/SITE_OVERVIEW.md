@@ -191,7 +191,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/course/assigned` | student | My Class workspace for class activity and assigned work. Old `/my-class` 307s to `/course/assigned` (LEARNERNAV-0062). |
-| `/course-exercises` | student | Session-based course exercises; opens the learner exercise/answer/review flow. |
+| `/course/exercises` | student | Session-based course exercises; opens the learner exercise/answer/review flow. Old `/course-exercises` 307s here (LEARNERNAV-0062). |
 
 ### 4.8 Admin — landing + dashboards
 

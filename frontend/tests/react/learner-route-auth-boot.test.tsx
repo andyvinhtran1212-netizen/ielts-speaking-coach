@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { GrammarCheckup } from '@/app/(authed)/grammar-checkup/grammar-checkup';
 import { ReviewRoute } from '@/app/(authed)/grammar-checkup/review/[routeId]/review-route';
-import { AdvancedVocabularyLesson } from '@/app/(authed-advanced-vocab)/advanced-vocabulary/advanced-vocabulary-lesson';
+import { AdvancedVocabularyLesson } from '@/app/(authed-advanced-vocab)/course/vocabulary/advanced-vocabulary-lesson';
 import { VocabExamBehavior } from '@/app/(authed-vocab-exam)/vocabulary/exam/vocab-exam-behavior';
 
 // G-01: a direct load of /grammar-checkup called window.api.get before api.js

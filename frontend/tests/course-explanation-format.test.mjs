@@ -74,7 +74,7 @@ describe('one explanation contract across learner and admin surfaces', () => {
     read('public', 'js', 'course-writing.js'),
     read('public', 'js', 'course-report.js'),
     read('public', 'js', 'quiz-progress.js'),
-    read('app', '(authed)', 'course-exercises', 'course-behavior.tsx'),
+    read('app', '(authed)', 'course', 'exercises', 'course-behavior.tsx'),
     read('app', '(authed-quiz-progress)', 'quiz', 'progress', 'quiz-progress-behavior.tsx'),
   ];
 
@@ -85,7 +85,7 @@ describe('one explanation contract across learner and admin surfaces', () => {
 
   test('immediate feedback announces only the new result region', () => {
     const behavior = sources[3];
-    const shell = read('app', '(authed)', 'course-exercises', 'page-shell.tsx');
+    const shell = read('app', '(authed)', 'course', 'exercises', 'page-shell.tsx');
     assert.match(behavior, /id="cx-why" role="status" aria-live="polite" aria-atomic="true"/);
     assert.match(behavior, /<h2 class="cx-why__label">Giải thích<\/h2>/);
     assert.doesNotMatch(shell, /id="cx-q"[^>]*aria-live/);
