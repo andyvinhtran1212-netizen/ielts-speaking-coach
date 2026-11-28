@@ -201,6 +201,7 @@ function part2({ on = true, mode = 'test_full', lost = true } = {}) {
     showError: (m) => log.push(['error', m]),
   };
   const api = new Function(...Object.keys(env), `
+    var _roomWriteRight = true;
     var _examRoomMode = ${on ? 'true' : 'false'};
     var _roomMicState = 'granted', _ROOM_LEVEL_MS = 200, _roomLevelTimer = 'level', _roomMicLostDone = false, _roomMicLostShown = false;
     var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
