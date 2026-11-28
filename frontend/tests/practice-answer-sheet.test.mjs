@@ -14,6 +14,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { PRACTICE_ROOM_OFF } from './practice-room-off.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(HERE, '..', 'public', 'js', 'practice.js'), 'utf8');
 const HTML = readFileSync(join(HERE, '..', 'public', 'pages', 'practice.html'), 'utf8');
@@ -180,6 +182,7 @@ describe('nút nộp', () => {
       '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${PRACTICE_ROOM_OFF}
       ${COMPLETION}
       ${JS.slice(start, end)}
       return _sheetSubmit;
@@ -212,6 +215,7 @@ describe('nút nộp', () => {
       '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${PRACTICE_ROOM_OFF}
       ${COMPLETION}
       ${JS.slice(start, end)}
       return _sheetSubmit;
@@ -329,6 +333,7 @@ async function recordTake(startState, {
   const body = `
     var MIN_RECORD_SEC = ${minimums[1]};
     function _resetRecorder() { _recordedBlob = null; }
+    ${PRACTICE_ROOM_OFF}
     ${JS.slice(from, to)}
     return { toggle: _sheetToggleRec, onRecorded: _sheetOnRecorded,
       retry: _sheetRetrySubmission, recordedBlob: () => _recordedBlob,

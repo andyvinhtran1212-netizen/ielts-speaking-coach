@@ -36,6 +36,25 @@ const VI = Object.freeze({
   recPausedHint: 'Micro đang bị tắt. Hãy bật lại micro để ghi tiếp.',
   recRecorded: 'Đã ghi',
   elapsed: 'Thời gian',
+  // T003 boxes (FR-006–FR-008, FR-010). No box promises to keep a recording
+  // after a reload: unsent takes live only in this page (FR-009).
+  close: 'Đóng',
+  leaveTitle: 'Bạn có bản ghi chưa gửi',
+  leaveBody: 'Nếu thoát bây giờ, bản ghi chưa gửi sẽ mất. Các câu bạn đã gửi vẫn được giữ.',
+  leaveStay: 'Ở lại',
+  leaveGo: 'Bỏ bản ghi và thoát',
+  rerecordTitle: 'Xoá bản ghi này và ghi lại?',
+  rerecordBody: 'Bản ghi này chưa được gửi. Xoá rồi thì không lấy lại được.',
+  rerecordKeep: 'Giữ bản ghi',
+  rerecordDiscard: 'Xoá và ghi lại',
+  submitBody: 'Nộp bây giờ sẽ dùng bản cũ trên máy chủ và bỏ các bản ghi mới.',
+  submitRetry: 'Gửi lại bản ghi',
+  submitAnyway: 'Vẫn nộp',
+  expiredTitle: 'Phiên đăng nhập đã hết hạn',
+  expiredBody: 'Hãy đăng nhập lại để gửi tiếp.',
+  expiredUnsent: 'Bản ghi chưa gửi chỉ còn trên trang này, nên trang này giữ nguyên. Hãy đăng nhập lại ở một tab khác, rồi quay lại đây bấm Gửi lại bản ghi. Nộp bài mở lại khi bản ghi đã gửi được.',
+  expiredStay: 'Ở lại làm tiếp',
+  expiredSignIn: 'Đăng nhập lại',
 });
 
 const EN = Object.freeze({
@@ -65,6 +84,23 @@ const EN = Object.freeze({
   recPausedHint: 'The microphone is muted. Turn it back on to keep recording.',
   recRecorded: 'Recorded',
   elapsed: 'Time',
+  close: 'Close',
+  leaveTitle: 'You have unsent recordings',
+  leaveBody: 'If you leave now, the unsent recordings will be lost. Answers you have already sent are kept.',
+  leaveStay: 'Stay',
+  leaveGo: 'Discard and leave',
+  rerecordTitle: 'Delete this recording and record again?',
+  rerecordBody: 'This recording has not been sent. Once deleted, it cannot be recovered.',
+  rerecordKeep: 'Keep recording',
+  rerecordDiscard: 'Delete and record again',
+  submitBody: 'Submitting now uses the earlier answers on our server and drops the new recordings.',
+  submitRetry: 'Send recordings again',
+  submitAnyway: 'Submit anyway',
+  expiredTitle: 'You have been signed out',
+  expiredBody: 'Sign in again to keep sending answers.',
+  expiredUnsent: 'Unsent recordings exist only on this page, so this page stays open. Sign in again in another tab, then come back here and click Send recordings again. Submit opens again once they are sent.',
+  expiredStay: 'Stay',
+  expiredSignIn: 'Sign in again',
 });
 
 export const SPEAKING_ROOM_STRINGS_VI = VI;
@@ -102,4 +138,16 @@ export function speakingTooShortReason(durationSeconds, part, minSeconds, mode =
     return `Your recording is ${took} ${took === 1 ? 'second' : 'seconds'}; Part ${part} needs at least ${need} seconds. Record again with a longer answer.`;
   }
   return `Bản ghi ${took} giây, Part ${part} cần ít nhất ${need} giây. Hãy ghi lại với câu trả lời dài hơn.`;
+}
+
+/**
+ * Title of the submit box when re-recorded takes failed to send (FR-008).
+ * @param {number} count
+ * @param {SpeakingRoomMode} [mode]
+ * @returns {string}
+ */
+export function speakingUnsentSubmitTitle(count, mode = 'practice') {
+  const n = Math.max(1, Math.floor(Number(count) || 0));
+  if (mode === 'test') return `${n} new ${n === 1 ? 'recording' : 'recordings'} could not be sent`;
+  return `Còn ${n} bản ghi mới chưa gửi được`;
 }

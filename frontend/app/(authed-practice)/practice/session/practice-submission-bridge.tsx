@@ -22,12 +22,17 @@ export function PracticeSubmissionBridge() {
       ),
       getSession: (path: string, { signal }: { signal: AbortSignal }) => win.api.getWith(path, {}, { noRedirect: true, signal }),
     }), {
-      complete: (sessionId: string) => {
+      // EXAMSPEAK-0072 FR-010: the exam room passes `{ noRedirect: true }` so a
+      // 401 stays in the page; without options the call is exactly as before.
+      complete: (sessionId: string, options?: { noRedirect?: boolean }) => {
         const path = `/sessions/${encodeURIComponent(sessionId)}/complete`;
+        const noRedirect = options?.noRedirect === true;
         return coreOperationRequest({
           accountId: user.id, method: 'PATCH', path, input: {},
           acknowledged: (reply: any) => (reply?.session_id === sessionId || reply?.id === sessionId) && reply?.status === 'completed',
-        }, (headers: Record<string, string>) => win.api.patchWith(path, {}, headers));
+        }, (headers: Record<string, string>) => (noRedirect
+          ? win.api.patchWith(path, {}, headers, { noRedirect: true })
+          : win.api.patchWith(path, {}, headers)));
       },
     });
     win.PracticeSubmission = submission;

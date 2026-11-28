@@ -75,6 +75,12 @@
   var _roomMicState = 'unknown';
   var _ROOM_LEVEL_MS = 200;
   var _roomLevelTimer = null;
+  // FR-006–FR-008: a box the room has open, and what it will do when answered.
+  var _roomDialogKind = null;
+  var _roomLeaveHref = '';
+  var _roomLeaving = false;
+  var _roomConfirmed = false;
+  var _ROOM_LEAVE_RESET_MS = 4000;
   var _timerId      = null;
   var _elapsedSecs  = 0;
 
@@ -405,14 +411,155 @@
     });
   }
 
+  // ── Exam room boxes (EXAMSPEAK-0072 T003) ───────────────────────────────────
+  // In-page boxes instead of window.confirm/alert (FR-012). practice.js decides
+  // when to ask and what each answer does; the room only draws the box.
+
+  function _roomDialog(kind, unsent) {
+    _roomDialogKind = kind;
+    _updateNativeView('dialog', { kind: kind, unsent: unsent || 0 });
+  }
+
+  function _roomCloseDialog() {
+    _roomDialogKind = null;
+    _updateNativeView('dialog', { kind: null, unsent: 0 });
+  }
+
+  function _roomUnsentCount() {
+    var n = (_recSubState === 'recording' || _recordingDirty) ? 1 : 0;
+    n += _roomFullTestUnsent();
+    if (_sheet && Array.isArray(_sheet.slots)) {
+      n += _sheet.slots.filter(function (slot) { return !!slot.retryBlob; }).length;
+    }
+    return n;
+  }
+
+  // Runs `fn` past its own room question once, after the learner answered.
+  function _roomRun(fn) {
+    _roomConfirmed = true;
+    try { return fn(); } finally { _roomConfirmed = false; }
+  }
+
+  // FR-006: "Ghi lại" asks before dropping a take that never reached the server.
+  function _roomAskRerecord(target) {
+    if (!_examRoomMode || _roomConfirmed || !_recordedBlob) return false;
+    _roomLeaveHref = '';
+    _roomDialog(target === 'part2' ? 'rerecord-part2' : 'rerecord', 1);
+    return true;
+  }
+
+  function confirmRerecord(discard) {
+    if (!_examRoomMode) return;
+    var kind = _roomDialogKind;
+    _roomCloseDialog();
+    if (discard !== true) return;
+    if (kind === 'rerecord-part2') _roomRun(discardP2SubmissionRetry);
+    else if (kind === 'rerecord') _roomRun(resetRecording);
+  }
+
+  // FR-007: leaving with unsent work opens the box first; the room's link guard
+  // and the error-state link call this with the place the learner was going.
+  function requestLeave(href) {
+    if (!_examRoomMode || !_hasUnsentWork()) return true;
+    _roomLeaveHref = typeof href === 'string' ? href : '';
+    _roomDialog('leave', _roomUnsentCount());
+    return false;
+  }
+
+  // `leave` true drops the unsent recordings and, when a place is known (link
+  // or `href`), goes there by code; "‹ Thoát" passes no place because the focus
+  // bar navigates itself. Anything else closes the box and keeps everything.
+  function confirmLeave(leave, href) {
+    if (!_examRoomMode) return false;
+    var target = typeof href === 'string' && href ? href : _roomLeaveHref;
+    _roomLeaveHref = '';
+    // Signed out over an unsent take there is no way out of this tab (FR-010).
+    var keepTake = _roomDialogKind === 'expired' && _roomUnsentCount() > 0;
+    if (_roomDialogKind === 'leave' || _roomDialogKind === 'expired') _roomCloseDialog();
+    if (leave !== true || keepTake) return false;
+    _roomLeaving = true;
+    _releaseRecorderResources();
+    if (target) _roomGo(target);
+    // A navigation that never leaves (blocked, failed) must not leave the page
+    // believing nothing is unsent: still here after a while, so guard again.
+    // A real exit destroys the player (soft) or the document, and the timer with it.
+    var generation = _playerGeneration;
+    _startManagedTimeout('room-leave-reset', function () {
+      if (_playerActive && generation === _playerGeneration) _roomLeaving = false;
+    }, _ROOM_LEAVE_RESET_MS);
+    return true;
+  }
+
+  function _roomGo(url) {
+    // Sign-in and v1 pages need a document load; in-app pages use the router.
+    if (url.indexOf('/login') === 0 || !_navigate) { window.location.assign(url); return; }
+    _navigateTo(url);
+  }
+
+  function leaveConfirmed() {
+    return _examRoomMode && _roomLeaving;
+  }
+
+  // FR-008: submitting while re-recorded takes failed to send.
+  function confirmSubmitWithUnsent(choice) {
+    if (!_examRoomMode) return;
+    if (_roomDialogKind === 'submit') _roomCloseDialog();
+    if (choice === 'submit') { _roomRun(_sheetSubmit); return; }
+    if (choice !== 'retry' || !_sheet || !Array.isArray(_sheet.slots)) return;
+    _sheet.slots.forEach(function (slot, i) { if (slot.retryBlob) _sheetRetrySubmission(i); });
+  }
+
+  // FR-010 (0072 amendment 1, after 0066 FR-015 amendment 2): a 401 keeps the
+  // recording in the page. With an unsent take the page holds the only copy, so
+  // the box only stays (no same-tab sign-in) and Nộp waits until a send proves
+  // the session is back; with nothing unsent it offers "Đăng nhập lại".
+  var _roomSignedOut = false;
+  function _roomExpired(err) {
+    if (!_examRoomMode || !err) return false;
+    // Only a send that succeeds proves the session is back (_roomSessionBack);
+    // any other failure (5xx, network) leaves Nộp locked (CR #2615).
+    if (err.status !== 401 && err.code !== 'auth_required') return false;
+    _roomLeaveHref = '';
+    var unsent = _roomUnsentCount();
+    _roomSignedOut = unsent > 0;
+    _roomDialog('expired', unsent);
+    return true;
+  }
+
+  function _roomSessionBack() {
+    _roomSignedOut = false;
+  }
+
+  // Full Test answers already handed to the upload queue but not confirmed
+  // (still uploading, or failed and waiting for a retry) live only in memory.
+  // The room's leave box counts them too (CR #2626, Codex P1); the flag-off
+  // page keeps relying on the Full Test bridge's beforeunload, as today.
+  function _roomFullTestUnsent() {
+    if (!_examRoomMode) return 0;
+    var controller = window.PracticeFullTest;
+    if (!controller) return 0;
+    try {
+      if (typeof controller.getSnapshot === 'function') {
+        var snap = controller.getSnapshot() || {};
+        return (Number(snap.pendingCount) || 0) + (Number(snap.retryCount) || 0);
+      }
+      return typeof controller.hasUnsavedAudio === 'function' && controller.hasUnsavedAudio() ? 1 : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   function _hasUnsentWork() {
+    if (_roomLeaving) return false;
     if (_recSubState === 'recording' || _recordingDirty) return true;
+    if (_roomFullTestUnsent() > 0) return true;
     return !!(_sheet && Array.isArray(_sheet.slots)
       && _sheet.slots.some(function (slot) { return !!slot.retryBlob; }));
   }
 
-  function _canLeave() {
+  function _canLeave(href) {
     if (!_hasUnsentWork()) return true;
+    if (_examRoomMode) return requestLeave(href);
     if (typeof window.confirm !== 'function') return false;
     return window.confirm(
       'Bạn có bản ghi chưa gửi. Nếu rời bài bây giờ, phần ghi âm này sẽ bị mất. Bạn vẫn muốn rời bài?'
@@ -810,9 +957,14 @@
       : null;
   }
 
-  async function _completeSpeakingSession(sessionId) {
+  // `keepRedirect`: callers that cannot show the room's sign-in box (the full
+  // test completes its parts after it has already moved to the result page)
+  // keep the old 401 → /login bounce.
+  async function _completeSpeakingSession(sessionId, keepRedirect) {
     var nativeSubmission = _getNativeSubmission();
     if (nativeSubmission && typeof nativeSubmission.complete === 'function') {
+      // FR-010: in the room a 401 must not bounce to /login and drop the page.
+      if (_examRoomMode && keepRedirect !== true) return nativeSubmission.complete(sessionId, { noRedirect: true });
       return nativeSubmission.complete(sessionId);
     }
     // Existing legacy callers keep their original transport. Next supplies the
@@ -1117,6 +1269,7 @@
   // ── Recording: reset (re-record) ──────────────────────────────────────────────
 
   function resetRecording() {
+    if (_roomAskRerecord('recording')) return;
     _resetRecorder();
     _clearRecError();
     _showRecSub('idle');
@@ -1374,6 +1527,7 @@
                ? 'Chưa thể xác nhận bản ghi đã được lưu. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để kiểm tra và thử lại.'
                : 'Máy chủ chưa nhận bản ghi này. Bản ghi vẫn còn trên máy này; hãy bấm “Gửi” để thử lại.');
         _handlePersistFailure({ message: retryMessage });
+        _roomExpired(err);
         return;
       }
       var errMsg = err.message || 'Lỗi không xác định';
@@ -3379,6 +3533,7 @@
   }
 
   function discardP2SubmissionRetry() {
+    if (_roomAskRerecord('part2')) return;
     _clearP2SubmissionRetry();
     _resetRecorder();
     _showP2Cue();
@@ -4250,7 +4405,7 @@
     // Complete ALL part sessions best-effort (fire and forget).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
     toComplete.forEach(function (sid) {
-      _completeSpeakingSession(sid).catch(function (err) {
+      _completeSpeakingSession(sid, true).catch(function (err) {
         // B1: a failed /complete means that part's band never aggregates. Log
         // it (was a no-op catch) and count it so it isn't invisible.
         console.warn('[practice] session complete failed', sid, err);
@@ -5279,6 +5434,7 @@
         // mạng — nên `catch` bên dưới không bao giờ chạy). Không đọc cờ này thì
         // ô hiện "Đã lưu" mà không có điểm, không một lời giải thích nào.
         var stub = !!(g && g._stub);
+        _roomSessionBack();
         s.state = stub ? 'ungraded' : 'saved';
         s.band = (g && g.overall_band) || null;
         if (stub && g._reason === 'reconciled_pending_grading') {
@@ -5324,6 +5480,7 @@
         s.error = hadWork
           ? 'Lần ghi âm lại này chưa gửi được — bản ghi trước vẫn còn. Bạn có thể gửi lại bản mới.'
           : 'Chưa gửi được câu này. Bản ghi vẫn còn trên thiết bị — hãy gửi lại.';
+        _roomExpired(err);
       })
       .then(function () {
         if (_playerActive && generation === _playerGeneration) _renderSheet();
@@ -5441,7 +5598,15 @@
     var unsent = _sheet && _sheet.slots
       ? _sheet.slots.filter(function (s) { return !!s.retryBlob; }).length
       : 0;
-    if (unsent) {
+    if (_examRoomMode && _roomSignedOut && _roomUnsentCount() > 0) {
+      _roomDialog('expired', _roomUnsentCount());
+      return;
+    }
+    if (unsent && _examRoomMode && !_roomConfirmed) {
+      _roomDialog('submit', unsent);
+      return;
+    }
+    if (unsent && !_examRoomMode) {
       if (typeof window.confirm !== 'function') {
         var unavailableMessage =
           'Còn bản ghi mới chưa gửi được. Hãy gửi lại bản ghi trước khi nộp bài.';
@@ -5471,6 +5636,7 @@
       if (!_playerActive || generation !== _playerGeneration) return;
       _sheetSubmitting = false;
       var failureMessage = 'Chưa nộp được: ' + (err.message || err) + '. Bấm lại giúp nhé.';
+      _roomExpired(err);
       if (_updateNativeView('sheet', {
         submitting: false,
         submitNote: failureMessage,
@@ -5523,6 +5689,7 @@
       return;
     }
     var btn = $('btn-finish');
+    var btnLabel = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Đang lưu...'; }
 
     // Clean up timers and TTS
@@ -5553,6 +5720,13 @@
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       console.warn('[practice] session complete failed:', err.message);
+      // FR-010: signed out in the room: stay and ask, instead of a result page
+      // the learner can no longer open.
+      if (_roomExpired(err)) {
+        // Signed in again on another tab, the learner can press it once more.
+        if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
+        return;
+      }
     }
 
     if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
@@ -5766,6 +5940,11 @@
     _recordingDirty = false;
     _examRoomMode = false;
     _roomMicState = 'unknown';
+    _roomDialogKind = null;
+    _roomLeaveHref = '';
+    _roomLeaving = false;
+    _roomConfirmed = false;
+    _roomSignedOut = false;
     _bindPlayerEffects();
     _bindSheet();
     showState('loading');
@@ -6116,6 +6295,11 @@
     hasUnsavedWork:       _hasUnsentWork,
     canLeave:             _canLeave,
     requestMicrophone:    requestMicrophone,
+    requestLeave:         requestLeave,
+    confirmLeave:         confirmLeave,
+    leaveConfirmed:       leaveConfirmed,
+    confirmRerecord:      confirmRerecord,
+    confirmSubmitWithUnsent: confirmSubmitWithUnsent,
     goToRecording:        goToRecording,
     startRecording:       startRecording,
     stopRecording:        stopRecording,
