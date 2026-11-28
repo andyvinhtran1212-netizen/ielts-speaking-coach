@@ -109,13 +109,12 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   database để mọi đường chấm, kể cả đường thêm sau này, đều được ghi. UPDATE chỉ
   đổi `prompt_version` (đường (b)) không tạo ảnh chụp. Dòng `composed`,
   `partial` không được chụp.
-- **FR-002:** Khi cờ bật, mỗi lần một bài chuyển sang `delivered` qua
+- **FR-002:** Khi cờ bật, mỗi lần bài được giao trong lớp và có người chấm chuyển sang `delivered` qua
   `instructor_workflow.deliver` hoặc `admin_writing._deliver_essay`, hệ thống ghi
   một dòng `writing_score_pairs` gồm: ảnh chụp AI đầu tiên của bài, ảnh chụp AI
   ngay trước khi người duyệt sửa (bản AI gần nhất trong chuỗi tổ tiên của bản
   đang hiện), band của bản đang hiện lúc trả, bản và nguồn đang hiện, người trả,
-  vai trò người trả, `reviewer_can_edit_bands`, đường trả, ngữ cảnh bài (bài lớp,
-  tự luyện), lớp, Task. Ảnh chụp được ghép theo `writing_feedback_id` của các
+  vai trò người trả, `reviewer_can_edit_bands`, đường trả, ngữ cảnh bài lớp, lớp và Task. Ảnh chụp được ghép theo `writing_feedback_id` của các
   dòng trong chuỗi, không theo số version (số version được dùng lại sau
   `_gc_orphan_versions`).
 - **FR-003:** Hai bảng chỉ ghi thêm. UPDATE, DELETE trực tiếp và TRUNCATE bị từ
@@ -140,7 +139,7 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 - **FR-004:** Ghi cặp điểm không bao giờ làm hỏng hay đổi kết quả việc trả bài.
   Mọi lỗi bên trong được nuốt ở `record_delivery`, ghi log
   `[score-pair] failed essay=<id>` (không email, không tên), và để đối soát ghi bù.
-- **FR-005:** Bài đã trả trước khi bật cờ được dựng lại từ chuỗi phiên bản (bản AI
+- **FR-005:** Bài lớp có người chấm đã trả trước khi bật cờ được dựng lại từ chuỗi phiên bản (bản AI
   đầu trong chuỗi, bản đang hiện), đánh dấu `reconstructed=true`,
   `delivery_path='reconcile'`. Bài không dựng được (không còn ảnh chụp AI nào,
   không có phản hồi) bị bỏ qua và đếm theo lý do.
@@ -256,8 +255,7 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
   `legacy=true`; khi chọn `ai_first` thì ưu tiên ảnh chụp không `legacy`.
 - Bài AI lỗi một phần (bốn tiêu chí NULL): ảnh chụp và cặp nhận NULL ở tiêu chí,
   `overall` bắt buộc.
-- Không nối được bài với bài giao: `context='self_practice'`, `cohort_id` NULL;
-  không đoán.
+- Bài tự luyện hoặc thiếu liên kết xác nhận bài được giao trong lớp được bỏ qua và đếm lý do ở cả bước trả bài lẫn đối soát.
 - Cờ đổi giữa chừng (cache 15 s của `runtime_flags`): bài trả trong lúc cache
   còn cũ được đối soát ghi bù.
 - Xoá cứng bài hoặc xoá tài khoản kéo theo xoá bài: hai bảng xoá theo dây chuyền;

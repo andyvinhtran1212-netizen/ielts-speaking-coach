@@ -109,7 +109,7 @@ Seed `runtime_flags('writing_score_pairs_record', false)` và
 `runtime_flags('writing_ai_snapshot_capture', true)`, cả hai `ON CONFLICT DO NOTHING`.
 
 **`record_delivery(essay_id, *, reviewer_id, reviewer_role, delivery_path, delivery_key, extra=None) -> dict`**
-trả `{"status": "recorded"|"duplicate"|"skipped_flag_off"|"no_feedback"|"failed", "pair_id": int | None}`
+trả `{"status": "recorded"|"duplicate"|"skipped_flag_off"|"out_of_scope"|"no_feedback"|"failed", "pair_id": int | None}`
 và không bao giờ ném lỗi. Các bước: đọc cờ (tắt → `skipped_flag_off`); đọc
 `writing_essays` (`current_version`, `task_type`, `delivered_at`, `sitting_id`);
 đọc chuỗi tổ tiên trong `writing_feedback` như `essay_service._ancestor_versions`
@@ -117,7 +117,7 @@ nhưng giữ `id` của từng dòng; không có bản đang hiện → `no_feed
 chụp theo `writing_feedback_id`; tính `context` (bài lớp khi có
 `writing_assignments.essay_id = essay_id` (mig 036), lớp =
 `class_assignments.cohort_id` qua `class_assignment_items.artifact_kind='writing_assignment'
-AND artifact_id = writing_assignments.id` (mig 177); còn lại `self_practice`);
+AND artifact_id = writing_assignments.id` (mig 177); thiếu liên kết lớp, thuộc Mock hoặc chỉ được AI chấm thì trả `out_of_scope` và bỏ qua INSERT, kể cả khi đối soát);
 INSERT … ON CONFLICT (`delivery_key`) DO NOTHING (không có dòng trả về →
 `duplicate`). `reviewer_can_edit_bands = (reviewer_role == 'admin') or INSTRUCTOR_CAN_EDIT_BANDS`.
 

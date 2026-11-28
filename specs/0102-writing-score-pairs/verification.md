@@ -5,7 +5,7 @@
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (snapshot on ai insert, band update, not on prompt_version update or composed) | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_writing_score_pairs.py (instructor keep, admin edit, regrade then edit, version reuse after gc) | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_writing_score_pairs.py (instructor keep, admin edit, regrade then edit, version reuse after gc; class with human marker creates a pair; self-practice, Mock and AI-only releases create zero pairs on delivery and reconciliation) | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_migration_480_writing_score_pairs.py (append-only, cascade delete, guard function is SECURITY DEFINER with pinned search_path checked via pg_proc.prosecdef/proconfig, cascade delete by a role without SELECT on users/writing_essays, shadow table in a session search_path ignored) + backend/tests/test_writing_score_pairs.py (duplicate delivery_key, recording failure → reconcile → identical instructor retry leaves exactly one pair, revoke then redeliver) | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_writing_score_pairs.py (record_delivery raises → deliver still delivered) | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_writing_score_pairs.py (reconcile rebuilds, skips missing snapshot and counts) | PENDING |
