@@ -13,6 +13,7 @@ import { PageState } from '@/components/ui/page-state';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { getAuthMeProfile, subscribeAuthMeProfile } from '@/lib/auth/auth-me-single-flight.mjs';
 import { learnerV2Enabled } from '@/lib/auth-wire-model.mjs';
+import { documentNavigation } from '@/lib/tree-replace';
 
 const ClassSessionsV2 = dynamic(() => import('./class-sessions-v2'), { ssr: false });
 
@@ -50,8 +51,12 @@ export function ClassGate() {
   // read reads as "waiting" and leaves at PROFILE_WAIT_MS.
   const leave = Boolean(accountId) && (flag === 'off' || (flag === 'waiting' && timedOut));
   useEffect(() => {
-    if (leave) router.replace(CLASS_STAND_IN);
-  }, [leave, router]);
+    if (status === 'signed-out') {
+      documentNavigation.replace('/login');
+    } else if (leave) {
+      router.replace(CLASS_STAND_IN);
+    }
+  }, [leave, router, status]);
   if (enabled && accountId) return <ClassSessionsV2 key={accountId} accountId={accountId} />;
   return <PageState kind="loading" title="Đang tải buổi học…" />;
 }

@@ -17,7 +17,7 @@
 import '@/styles/av2/tokens.css';
 import '@/styles/av2/base.css';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import {
   ACTION_LABELS,
+  STALE_NOTE,
   normalizeAssigned,
   openCount,
   skillLabel,
@@ -76,7 +77,7 @@ type ClassRead =
 type WorkRead =
   | { kind: 'loading' }
   | { kind: 'error' }
-  | { kind: 'ready'; owner: string; items: AssignedItem[]; links: Map<string, string>; linksDown: boolean };
+  | { kind: 'ready'; owner: string; items: AssignedItem[]; links: Map<string, string>; linksDown: boolean; stale: boolean };
 
 function Markdown({ value }: { value: string }) {
   const [html, setHtml] = useState<string | null>(null);
@@ -148,6 +149,7 @@ function Homework({ work, lessonId, classId, opening, onOpen, onRetry }: {
         <h3 className={styles.blockTitle}>Bài tập về nhà của buổi</h3>
         <a className={styles.more} href="/course/assigned">Xem trong Bài được giao ›</a>
       </div>
+      {work.stale ? <Notice kind="info" live="none">{STALE_NOTE}</Notice> : null}
       {rows.length ? (
         <ul className={styles.list}>
           {rows.map((entry) => {
@@ -185,29 +187,31 @@ export function ClassSessionsV2({ accountId }: { accountId: string }) {
   const [opening, setOpening] = useState<string | null>(null);
   const accountRef = useRef(accountId);
   accountRef.current = accountId;
-  // False once unmounted: a late start response must not navigate away from
-  // whatever page (or account, the gate keys by it) replaced this one.
-  const mountedRef = useRef(true);
-  const openingRef = useRef<string | null>(null);
+  const openingRef = useRef<symbol | null>(null);
   const classAbort = useRef<AbortController | null>(null);
   const workAbort = useRef<AbortController | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<HTMLElement | null>(null);
   const today = useMemo(() => vnDay(new Date()), []);
+  const clearOpening = useCallback(() => {
+    openingRef.current = null;
+    setOpening(null);
+  }, []);
+
+  // Activity keeps the page and its state on client navigation.
+  useLayoutEffect(() => () => {
+    clearOpening();
+    classAbort.current?.abort();
+    workAbort.current?.abort();
+  }, [clearOpening]);
 
   useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; classAbort.current?.abort(); workAbort.current?.abort(); };
-  }, []);
-  useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
-      if (!event.persisted) return;
-      openingRef.current = null;
-      setOpening(null);
+      if (event.persisted) clearOpening();
     };
     window.addEventListener('pageshow', onShow);
     return () => window.removeEventListener('pageshow', onShow);
-  }, []);
+  }, [clearOpening]);
 
   const loadClass = useCallback(async () => {
     classAbort.current?.abort();
@@ -255,7 +259,8 @@ export function ClassSessionsV2({ accountId }: { accountId: string }) {
       const assigned = normalizeAssigned(raw);
       if (!assigned || assigned.degraded.has('items')) { setWork({ kind: 'error' }); return; }
       const linksDown = Array.isArray(raw.degraded) && raw.degraded.includes('lesson_links');
-      setWork({ kind: 'ready', owner, items: assigned.items, links: lessonLinks(raw.items), linksDown });
+      setWork({ kind: 'ready', owner, items: assigned.items, links: lessonLinks(raw.items),
+        linksDown, stale: assigned.stale });
     } catch {
       if (!stale()) setWork({ kind: 'error' });
     }
@@ -273,8 +278,9 @@ export function ClassSessionsV2({ accountId }: { accountId: string }) {
   const open = useCallback(async (entry: AssignedItem) => {
     if (openingRef.current) return;
     const owner = accountId;
-    const isCurrent = () => mountedRef.current && accountRef.current === owner;
-    openingRef.current = entry.row.itemId;
+    const request = Symbol();
+    const isCurrent = () => openingRef.current === request && accountRef.current === owner;
+    openingRef.current = request;
     setOpening(entry.row.itemId);
     try {
       if (entry.action === 'self_practice') await openSelfPractice(entry.row.itemId, { router, isCurrent });
@@ -284,10 +290,9 @@ export function ClassSessionsV2({ accountId }: { accountId: string }) {
       const message = entry.action === 'self_practice' ? selfPracticeError(caught)
         : caught instanceof Error ? caught.message : String(caught);
       window.showToast?.(`Không mở được bài: ${message}`, 'error', { timeout: 6000 });
-      openingRef.current = null;
-      setOpening(null);
+      clearOpening();
     }
-  }, [accountId, router]);
+  }, [accountId, clearOpening, router]);
 
   const owned = classRead.kind === 'ready' && classRead.owner === accountId ? classRead : null;
   const ownedWork: WorkRead = work.kind === 'ready' && work.owner !== accountId ? { kind: 'loading' } : work;

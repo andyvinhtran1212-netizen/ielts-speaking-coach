@@ -3,8 +3,10 @@
 // Cases from plan.md "T30c" and the HOLD patch for FR-119/FR-124.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { Activity } from 'react';
 
 import { ClassSessionsV2 } from '@/app/(authed-my-class)/course/class/class-sessions-v2';
+import { documentNavigation } from '@/lib/tree-replace';
 
 const replace = vi.fn();
 const push = vi.fn();
@@ -77,7 +79,7 @@ function assigned(items: unknown[], over: Over = {}) {
 let get: ReturnType<typeof vi.fn>;
 let post: ReturnType<typeof vi.fn>;
 
-function mount(me: unknown, work_: unknown, search = '') {
+function mount(me: unknown, work_: unknown, search = '', page = <ClassSessionsV2 accountId="learner-1" />) {
   get = vi.fn(async (path: string) => {
     const body = path === '/api/class/me' ? me : path === '/api/student/assigned' ? work_ : null;
     if (body instanceof Error) throw body;
@@ -86,7 +88,7 @@ function mount(me: unknown, work_: unknown, search = '') {
   post = vi.fn(async () => undefined);
   Object.defineProperty(window, 'api', { configurable: true, value: { get, getWith: get, post } });
   window.history.replaceState(null, '', `/course/class${search}`);
-  return render(<ClassSessionsV2 accountId="learner-1" />);
+  return render(page);
 }
 
 const calls = (path: string) => get.mock.calls.filter(([p]) => p === path).length;
@@ -103,6 +105,8 @@ afterEach(() => {
   replace.mockReset();
   push.mockReset();
   profiles.value = null;
+  auth.status = 'signed-in';
+  vi.restoreAllMocks();
   auth.user = { id: 'learner-1' };
 });
 
@@ -200,6 +204,33 @@ it('homework of the open session by lesson_id, with the FR-097 button (FR-123)',
   expect(within(block).getByRole('link', { name: 'Xem trong Bài được giao ›' }).getAttribute('href')).toBe('/course/assigned');
   fireEvent.click(screen.getByRole('button', { name: /Buổi 1/ }));
   expect(await screen.findByText('Buổi này chưa có bài tập về nhà.')).toBeTruthy();
+});
+
+it('a stale homework read warns alongside the linked assignment button', async () => {
+  mount(classMe(), assigned([work('i1', 'L2')], { homework_stale: true }));
+  const block = await screen.findByRole('region', { name: 'Bài tập về nhà của buổi' });
+  expect(within(block).getByText('Bài bạn vừa nộp có thể chưa hiện ở đây. Nếu đã làm xong, không cần làm lại.')).toBeTruthy();
+  expect(within(block).getByText('Bài i1')).toBeTruthy();
+  expect((within(block).getByRole('button', { name: 'Làm bài' }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('soft Back from a result releases the session homework button', async () => {
+  const page = (mode: 'visible' | 'hidden') => (
+    <Activity mode={mode}><ClassSessionsV2 accountId="learner-1" /></Activity>
+  );
+  const row = work('i1', 'L2', { action: 'result', group: 'returned' });
+  row.assignment.skill = 'speaking';
+  const view = mount(classMe(), assigned([row]), '', page('visible'));
+  const block = await screen.findByRole('region', { name: 'Bài tập về nhà của buổi' });
+  post.mockResolvedValue({ item_id: 'i1', assignment_id: 'a-i1', skill: 'speaking', result_session_id: 'speaking-1' });
+  fireEvent.click(within(block).getByRole('button', { name: 'Xem kết quả' }));
+  await waitFor(() => expect(push).toHaveBeenCalledWith('/result?id=speaking-1'));
+
+  view.rerender(page('hidden'));
+  view.rerender(page('visible'));
+  const restored = await screen.findByRole('region', { name: 'Bài tập về nhà của buổi' });
+  fireEvent.click(within(restored).getByRole('button', { name: 'Xem kết quả' }));
+  await waitFor(() => expect(push).toHaveBeenCalledTimes(2));
 });
 
 it('a start answered after unmount does nothing (no navigation, no toast)', async () => {
@@ -327,4 +358,37 @@ it('gate: another account\'s enabled profile is not accepted', async () => {
   profiles.value = { id: 'other', learner_v2_enabled: true };
   render(<ClassGate />);
   expect(screen.queryByTestId('v2')).toBeNull();
+});
+
+
+it('gate: a direct signed-out visit replaces the whole document with login', async () => {
+  const docReplace = vi.spyOn(documentNavigation, 'replace').mockImplementation(() => {});
+  const { ClassGate } = await import('@/app/(authed-my-class)/course/class/class-gate');
+  auth.status = 'signed-out';
+  auth.user = null;
+  render(<ClassGate />);
+
+  expect(docReplace).toHaveBeenCalledExactlyOnceWith('/login');
+  expect(screen.queryByTestId('v2')).toBeNull();
+  expect(replace).not.toHaveBeenCalled();
+});
+
+it('gate: a cross-tab sign-out clears the open class page and replaces it with login', async () => {
+  const docReplace = vi.spyOn(documentNavigation, 'replace').mockImplementation(() => {});
+  const { ClassGate } = await import('@/app/(authed-my-class)/course/class/class-gate');
+  profiles.value = { id: 'learner-1', learner_v2_enabled: true };
+  const view = render(<ClassGate />);
+  expect((await screen.findByTestId('v2')).textContent).toBe('learner-1');
+
+  auth.status = 'initial-loading';
+  auth.user = null;
+  view.rerender(<ClassGate />);
+  expect(screen.getByRole('status')).toBeTruthy();
+  expect(docReplace).not.toHaveBeenCalled();
+
+  auth.status = 'signed-out';
+  view.rerender(<ClassGate />);
+  expect(docReplace).toHaveBeenCalledExactlyOnceWith('/login');
+  expect(screen.queryByTestId('v2')).toBeNull();
+  expect(replace).not.toHaveBeenCalled();
 });
