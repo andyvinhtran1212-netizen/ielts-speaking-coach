@@ -262,6 +262,9 @@ class CreditHold:
     entitlement_id: Optional[str] = None
     balance_after: Optional[int] = None
     settled: Optional[str] = None
+    # The request key this hold was reserved (or covered) under; the key of
+    # the attempt for fn_credit_settle_attempt (migration 503).
+    request_key: Optional[str] = None
 
     async def commit(self) -> None:
         if self.covered or self.reservation_id is None or self.settled:
@@ -280,6 +283,35 @@ class CreditHold:
         if result["status"] not in ("released", "already_released", "not_open"):
             raise CreditUnavailable(f"release_{result['status']}")
         self.settled = "released"
+
+
+_SETTLE_STATUSES = ("committed", "already_committed", "released", "pending", "not_open")
+
+
+async def settle_attempt(hold: Optional[CreditHold], outcome: str, reason: Optional[str] = None) -> Optional[str]:
+    """Settle one grading attempt of a hold (G04-T07, FR-015, migration 503).
+
+    ``graded`` commits the hold if it is still open. ``failed`` records the
+    attempt and releases the hold only when every answer it covers has failed
+    (a Speaking cluster keeps its credit held while another answer may still
+    be saved). Works for a ``covered`` hold too: the attempt is the covered
+    request key. Returns the RPC status; raises CreditUnavailable on a
+    transport error or an unexpected status."""
+    if hold is None or hold.reservation_id is None or hold.request_key is None or hold.settled:
+        return None
+    if outcome not in ("graded", "failed"):
+        raise ValueError(f"unknown attempt outcome {outcome!r}")
+    if outcome == "failed" and reason not in _RELEASE_REASONS:
+        raise ValueError(f"unknown release reason {reason!r}")
+    result = await _rpc("fn_credit_settle_attempt", {
+        "p_reservation_id": hold.reservation_id, "p_request_key": hold.request_key,
+        "p_outcome": outcome, "p_reason": reason if outcome == "failed" else None,
+    })
+    status = result["status"]
+    if status not in _SETTLE_STATUSES:
+        raise CreditUnavailable(f"settle_{status}")
+    hold.settled = outcome
+    return status
 
 
 async def release_if_open(hold: Optional[CreditHold], reason: str) -> None:
@@ -359,9 +391,9 @@ async def reserve(user_id: UUID | str, feature: str, *, request_key: str, resour
             raise CreditReplay(replay, result.get("reservation_id"))
     if status == "reserved":
         return CreditHold(reservation_id=result.get("reservation_id"), entitlement_id=result.get("entitlement_id"),
-                          balance_after=result.get("balance_after"))
+                          balance_after=result.get("balance_after"), request_key=request_key)
     if status == "covered":
-        return CreditHold(reservation_id=result.get("reservation_id"), covered=True)
+        return CreditHold(reservation_id=result.get("reservation_id"), covered=True, request_key=request_key)
     if status == "replay":
         raise CreditReplay("grading_in_progress", result.get("reservation_id"))
     if status == "already_committed":
@@ -493,6 +525,239 @@ def grant_extra_for(*, admin_id: str, credits: int, reason: str, request_key: st
             raise CreditUnavailable(f"grant_extra_{result['status']}")
     logger.info("[credits] lifecycle=grant_extra count=%s skipped=%s", len(granted), len(skipped))
     return GrantExtraResult(granted=granted, skipped=skipped)
+
+
+# ── Convert a legacy-code class to credit metering (plan 5.18, G04-T15) ─────
+#
+# The reads below classify members with the same rules as 387's
+# fn_credit_convert_class, so the preview and the pending list say what the
+# RPC will do; the RPC re-checks everything under its locks.
+
+_CONVERT_PAGE = 1000
+
+
+class ConvertClassRefused(Exception):
+    """404 ``cohort_not_found``; 409 ``cohort_archived``, ``cohort_has_no_course``,
+    ``no_class_product``, ``product_ambiguous``; 422 ``product_invalid``."""
+
+    def __init__(self, status_code: int, error_code: str):
+        super().__init__(error_code)
+        self.status_code = status_code
+        self.error_code = error_code
+
+
+def _paged_rows(build) -> list[dict]:
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = build().range(start, start + _CONVERT_PAGE - 1).execute().data or []
+        rows.extend(page)
+        if len(page) < _CONVERT_PAGE:
+            return rows
+        start += _CONVERT_PAGE
+
+
+def _rows_in(table: str, columns: str, column: str, values, **eq) -> list[dict]:
+    values = sorted({str(v) for v in values if v})
+    rows: list[dict] = []
+    for start in range(0, len(values), _IN_FILTER_LOT):
+        lot = values[start:start + _IN_FILTER_LOT]
+
+        def build(lot=lot):
+            query = supabase_admin.table(table).select(columns).in_(column, lot)
+            for key, value in eq.items():
+                query = query.eq(key, value)
+            return query.order("id")
+        rows.extend(_paged_rows(build))
+    return rows
+
+
+def _convert_cohort(cohort_id: str) -> dict:
+    cohort = _first(supabase_admin.table("cohorts").select("id, name, course_id, archived_at")
+                    .eq("id", cohort_id).limit(1).execute())
+    if cohort is None:
+        raise ConvertClassRefused(404, "cohort_not_found")
+    if cohort.get("archived_at"):
+        raise ConvertClassRefused(409, "cohort_archived")
+    if not cohort.get("course_id"):
+        raise ConvertClassRefused(409, "cohort_has_no_course")
+    return cohort
+
+
+def _class_products(course_id: str) -> list[dict]:
+    return _paged_rows(lambda: supabase_admin.table("course_products").select("id, title")
+                       .eq("course_id", course_id).eq("kind", "class").is_("archived_at", "null").order("id"))
+
+
+def _course_codes(course_ids) -> dict[str, str]:
+    return {str(r["id"]): r.get("code") for r in _rows_in("courses", "id, code", "id", course_ids)}
+
+
+def _cohort_members(cohort_ids) -> list[dict]:
+    """Active memberships joined to students: {cohort_id, student_id, user_id}
+    (the 387 loop; no legacy ``students.cohort_id`` fallback, like the RPC)."""
+    memberships = _rows_in("student_cohort_memberships", "id, student_id, cohort_id", "cohort_id", cohort_ids,
+                           is_active=True)
+    students = {str(s["id"]): s for s in _rows_in("students", "id, user_id, full_name", "id",
+                                                   (m.get("student_id") for m in memberships))}
+    out = []
+    for m in memberships:
+        student = students.get(str(m.get("student_id"))) or {}
+        out.append({"cohort_id": str(m["cohort_id"]), "student_id": str(m.get("student_id")),
+                    "user_id": str(student["user_id"]) if student.get("user_id") else None,
+                    "full_name": student.get("full_name")})
+    return out
+
+
+def _held_code_expiry(cohort_id: str, user_ids: list[str], now: datetime) -> dict[str, Optional[str]]:
+    """Per member, the expiry the 387 RPC gives: the live legacy codes of this
+    class the member holds (an active assignment, or ``used_by`` with no
+    assignment row at all, as ``access_code_permissions._active_code_rows``).
+    No code, or one without expiry → None (no expiry)."""
+    from services.access_code_permissions import _code_is_live
+
+    codes = _paged_rows(lambda: supabase_admin.table("access_codes")
+                        .select("id, used_by, is_revoked, is_active, expires_at")
+                        .eq("cohort_id", cohort_id).is_("product_id", "null").order("id"))
+    by_id = {str(c["id"]): c for c in codes}
+    assignments = _rows_in("user_code_assignments", "id, user_id, code_id, is_active", "code_id", by_id)
+    assigned: set[tuple[str, str]] = set()
+    active: set[tuple[str, str]] = set()
+    for a in assignments:
+        pair = (str(a.get("user_id")), str(a.get("code_id")))
+        assigned.add(pair)
+        if a.get("is_active"):
+            active.add(pair)
+    out: dict[str, Optional[str]] = {}
+    for user in user_ids:
+        held = [c for cid, c in by_id.items() if _code_is_live(c, now)
+                and ((user, cid) in active or (str(c.get("used_by")) == user and (user, cid) not in assigned))]
+        ends = [ent.parse_ts(c.get("expires_at")) for c in held]
+        out[user] = None if not held or any(e is None for e in ends) else max(ends).isoformat()
+    return out
+
+
+def _converted_users(cohort_ids) -> set[tuple[str, str]]:
+    """(cohort_id, user_id) already converted once in that class, in any state."""
+    rows = _rows_in("entitlements", "id, user_id, source_ref", "source_ref", cohort_ids, source="class_conversion")
+    return {(str(r["source_ref"]), str(r["user_id"])) for r in rows}
+
+
+def _classify(cohort: dict, members: list[dict], converted: set[tuple[str, str]], now: datetime) -> list[dict]:
+    cohort_id, course_id = str(cohort["id"]), str(cohort["course_id"])
+    users = sorted({m["user_id"] for m in members if m["user_id"]})
+    metered = set(_class_entitlements(users, course_id)) if users else set()
+    pending = [u for u in users if u not in metered and (cohort_id, u) not in converted]
+    expiry = _held_code_expiry(cohort_id, pending, now) if pending else {}
+    out, seen = [], set()
+    for m in sorted(members, key=lambda m: (m["user_id"] is None, m["user_id"] or "", m["student_id"])):
+        user = m["user_id"]
+        if user is None:
+            out.append({"user_id": None, "student_id": m["student_id"], "full_name": m.get("full_name"),
+                        "state": "no_account", "expires_at": None})
+            continue
+        state = "to_convert" if user in expiry and user not in seen else "already_metered"
+        seen.add(user)
+        out.append({"user_id": user, "student_id": m["student_id"], "full_name": m.get("full_name"),
+                    "state": state, "expires_at": expiry.get(user) if state == "to_convert" else None})
+    return out
+
+
+def _counts(members: list[dict]) -> dict:
+    return {state: sum(1 for m in members if m["state"] == state)
+            for state in ("to_convert", "already_metered", "no_account")}
+
+
+def convert_class_preview(cohort_id: str) -> dict:
+    """``GET /admin/credits/convert-class/preview`` (plan 5.9), read only."""
+    now = datetime.now(timezone.utc)
+    cohort = _convert_cohort(cohort_id)
+    course_id = str(cohort["course_id"])
+    products = [{"id": str(p["id"]), "title": p.get("title")} for p in _class_products(course_id)]
+    members = _classify(cohort, _cohort_members([cohort_id]), _converted_users([cohort_id]), now)
+    names = {str(u["id"]): u.get("display_name") for u in
+             _rows_in("users", "id, display_name", "id", (m["user_id"] for m in members))}
+    return {
+        "cohort": {"id": str(cohort["id"]), "name": cohort.get("name"),
+                   "course_code": _course_codes([course_id]).get(course_id)},
+        "product": products[0] if len(products) == 1 else None,
+        "products": products,
+        "suggested_credits": settings.LEGACY_CLASS_INITIAL_CREDITS,
+        "members": [{"user_id": m["user_id"],
+                     "display_name": names.get(m["user_id"] or "") or m.get("full_name"),
+                     "state": m["state"], "expires_at": m["expires_at"]} for m in members],
+        "counts": _counts(members),
+    }
+
+
+def list_classes_pending_conversion() -> list[dict]:
+    """``GET /admin/credits/convert-class/pending``: classes not archived, tied to
+    a course, with at least one member the RPC would convert."""
+    now = datetime.now(timezone.utc)
+    cohorts = [c for c in _paged_rows(lambda: supabase_admin.table("cohorts")
+                                      .select("id, name, course_id, archived_at")
+                                      .is_("archived_at", "null").order("id"))
+               if c.get("course_id")]
+    if not cohorts:
+        return []
+    ids = [str(c["id"]) for c in cohorts]
+    members = _cohort_members(ids)
+    converted = _converted_users(ids)
+    codes = _course_codes(c["course_id"] for c in cohorts)
+    out = []
+    for cohort in cohorts:
+        mine = [m for m in members if m["cohort_id"] == str(cohort["id"])]
+        if not any(m["user_id"] for m in mine):
+            continue
+        classified = _classify(cohort, mine, converted, now)
+        pending = _counts(classified)["to_convert"]
+        if pending:
+            out.append({"cohort_id": str(cohort["id"]), "cohort_name": cohort.get("name"),
+                        "course_code": codes.get(str(cohort["course_id"])), "members": len(classified),
+                        "pending_members": pending})
+    return out
+
+
+def convert_class(*, admin_id: str, cohort_id: str, credits_per_member: int, request_key: str,
+                  product_id: Optional[str] = None) -> dict:
+    """``POST /admin/credits/convert-class``: pick the product, then one 387 RPC
+    (one transaction, so a failure leaves nothing half done). Sync.
+
+    A request_key that already converted is sent straight to the RPC with the
+    product it recorded: the class or its products may have changed since
+    (a second product, an archive), and a retry after a lost response must
+    still replay the first result. The RPC compares the other arguments and
+    answers request_key_conflict when they differ."""
+    prior = (supabase_admin.table("credit_class_conversions").select("product_id")
+             .eq("request_key", request_key).limit(1).execute().data or [])
+    if prior:
+        product_id = product_id or str(prior[0]["product_id"])
+    else:
+        cohort = _convert_cohort(cohort_id)
+        products = _class_products(str(cohort["course_id"]))
+        if not products:
+            raise ConvertClassRefused(409, "no_class_product")
+        if product_id is None:
+            if len(products) > 1:
+                raise ConvertClassRefused(409, "product_ambiguous")
+            product_id = str(products[0]["id"])
+    result = _unwrap(supabase_admin.rpc("fn_credit_convert_class", {
+        "p_admin_id": admin_id, "p_cohort_id": cohort_id, "p_product_id": product_id,
+        "p_credits_per_member": credits_per_member, "p_request_key": request_key,
+    }).execute().data)
+    status = result["status"]
+    if status in ("converted", "replay"):
+        logger.info("[credits] convert_class status=%s converted=%s skipped=%s", status,
+                    len(result.get("converted") or []), len(result.get("skipped") or []))
+        return {"status": status, "converted": list(result.get("converted") or []),
+                "skipped": list(result.get("skipped") or [])}
+    if status == "cohort_not_found":
+        raise ConvertClassRefused(404, status)
+    if status in ("cohort_archived", "cohort_has_no_course", "request_key_conflict"):
+        raise ConvertClassRefused(409, status)
+    if status == "product_invalid":
+        raise ConvertClassRefused(422, status)
+    raise CreditUnavailable(f"convert_class_{status}")
 
 
 # ── Settling by resource (Writing BG grader, plan 5.6) ───────────────────

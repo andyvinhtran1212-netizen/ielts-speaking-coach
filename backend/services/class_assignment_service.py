@@ -410,21 +410,10 @@ def _students_without_account(db, student_ids) -> set:
     return out
 
 
-def mark_item_submitted(
-    db,
-    *,
-    item_id: str,
-    artifact_kind: str,
-    artifact_id: str,
-    score: Optional[float] = None,
-    now: Optional[datetime] = None,
-) -> bool:
-    """Record that the student handed this item in. True when a row was written.
-
-    Idempotent by design: the update only fires while `submitted_at IS NULL`, so
-    re-completing a session (or a retry) cannot move the submission time later
-    and turn an on-time hand-in into a late one.
-    """
+def item_submission_patch(
+    *, artifact_kind: str, artifact_id: str, score: Optional[float], now: Optional[datetime],
+) -> Dict[str, Any]:
+    """Fields common to a ledger write and its read-only projection."""
     patch: Dict[str, Any] = {
         "state":         "graded" if score is not None else "submitted",
         "submitted_at":  (now or datetime.now(timezone.utc)).isoformat(),
@@ -433,15 +422,35 @@ def mark_item_submitted(
     }
     if score is not None:
         patch["score"] = score
+    return patch
+
+
+def mark_item_submitted(
+    db,
+    *,
+    item_id: str,
+    artifact_kind: str,
+    artifact_id: str,
+    score: Optional[float] = None,
+    now: Optional[datetime] = None,
+    student_id: Optional[str] = None,
+) -> bool:
+    """Record that the student handed this item in. True when a row was written.
+
+    Idempotent by design: the update only fires while `submitted_at IS NULL`, so
+    re-completing a session (or a retry) cannot move the submission time later
+    and turn an on-time hand-in into a late one.
+    """
+    patch = item_submission_patch(
+        artifact_kind=artifact_kind, artifact_id=artifact_id, score=score, now=now,
+    )
 
     try:
-        r = (
-            db.table("class_assignment_items")
-            .update(patch)
-            .eq("id", item_id)
-            .is_("submitted_at", "null")
-            .execute()
-        )
+        query = (db.table("class_assignment_items").update(patch)
+                 .eq("id", item_id).is_("submitted_at", "null"))
+        if student_id is not None:
+            query = query.eq("student_id", student_id)
+        r = query.execute()
     except Exception as exc:
         # RAISE, do not return False. Callers that must survive this (a graded
         # session has to complete either way) already catch — and catching is a
@@ -1303,7 +1312,8 @@ def _archived_class_by_item(db, assignments: List[Dict[str, Any]],
 
 
 def test_attempt_handins(db, assignments: List[Dict[str, Any]],
-                         items: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Dict[str, Any]]:
+                         items: Optional[List[Dict[str, Any]]] = None, *,
+                         student_id: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
     """The Reading/Listening hand-ins the ledger repair would record, without
     writing: ``{item_id: {attempt, when, artifact_kind}}``. Every rule of the
     repair is here (the attempt's item link, the earliest submitted attempt,
@@ -1311,7 +1321,7 @@ def test_attempt_handins(db, assignments: List[Dict[str, Any]],
     archive), so a read-only caller (the learner directory) and the repair
     decide the same way. ``items`` (``{id, assignment_id}`` rows with an empty
     ledger) narrows the read to those items; by default every empty item of
-    ``assignments`` is read. A DB error propagates.
+    ``assignments`` is read, optionally scoped to one student. A DB error propagates.
     """
     from services.listening_drill_homework import completed_at, drill_config, evidence_by_item
 
@@ -1326,12 +1336,18 @@ def test_attempt_handins(db, assignments: List[Dict[str, Any]],
         return {}
 
     if items is None:
+        def pending_items(query, assignment_ids):
+            query = query.in_("assignment_id", assignment_ids).is_("submitted_at", "null")
+            if student_id is not None:
+                query = query.eq("student_id", student_id)
+            return query
+
         items = []
         for chunk in (item_ids[i:i + _ID_CHUNK]
                       for i in range(0, len(item_ids), _ID_CHUNK)):
             items.extend(_paged(
                 db, "class_assignment_items", "id, assignment_id",
-                lambda q, c=chunk: q.in_("assignment_id", c).is_("submitted_at", "null"),
+                lambda q, c=chunk: pending_items(q, c),
             ))
     else:
         wanted = set(item_ids)
@@ -1400,7 +1416,8 @@ def test_attempt_handins(db, assignments: List[Dict[str, Any]],
     return found
 
 
-def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
+def reconcile_test_attempts(db, assignments: List[Dict[str, Any]], *,
+                            student_id: Optional[str] = None) -> int:
     """Repair Reading/Listening hand-ins whose ledger write failed.
 
     Reading and Listening have no completion hook of their own the way Speaking
@@ -1422,7 +1439,8 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     Idempotent: `mark_item_submitted` only writes while `submitted_at IS NULL`.
     """
     fixed = 0
-    for item_id, hit in test_attempt_handins(db, assignments).items():
+    repair_scope = {"student_id": student_id} if student_id is not None else {}
+    for item_id, hit in test_attempt_handins(db, assignments, **repair_scope).items():
         at, when_value, artifact_kind = hit["attempt"], hit["when"], hit["artifact_kind"]
         when = _at(when_value)
         if when is None:
@@ -1434,7 +1452,7 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
             continue
         if mark_item_submitted(
             db, item_id=item_id, artifact_kind=artifact_kind,
-            artifact_id=at["id"], score=at.get("band_estimate"), now=when,
+            artifact_id=at["id"], score=at.get("band_estimate"), now=when, **repair_scope,
         ):
             fixed += 1
 

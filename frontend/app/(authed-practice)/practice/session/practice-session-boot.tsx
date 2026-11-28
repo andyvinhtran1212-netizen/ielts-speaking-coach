@@ -50,6 +50,8 @@ export function PracticeSessionBoot() {
   useEffect(() => {
     if (status === 'initial-loading') return;
     if (status === 'signed-out') {
+      if (ownerUserId.current && started.current
+          && (window as any).PracticeApp?.retainExpiredSession?.() === true) return;
       window.location.replace('/login');
       return;
     }

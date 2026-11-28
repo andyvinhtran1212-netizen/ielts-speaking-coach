@@ -120,12 +120,73 @@ describe('flag on', () => {
     expect(requestMicrophone).toHaveBeenCalledTimes(1);
   });
 
+  it('Part 1/3: "Cho phép micro" shows on the question screen before the recorder opens (FR-003)', () => {
+    const requestMicrophone = vi.fn();
+    (window as any).PracticeApp = { requestMicrophone, hasUnsavedWork: () => false };
+    const p = roomPlayer();
+    // `_showPrep()` hides the inline recording section until "Bắt đầu ghi âm".
+    p.updateView('prep', { inlineRecordingVisible: false, startButtonVisible: true });
+    p.updateView('mic', { state: 'prompt' });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-prep > [data-room-slot="prep-mic"]') as HTMLElement;
+    expect(slot).not.toBeNull();
+    expect(slot.closest('#inline-rec-section')).toBeNull();
+    expect(slot.compareDocumentPosition(container.querySelector('#prep-start-btn') as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(slot).getByText(VI.micPrompt)).toBeTruthy();
+    fireEvent.click(within(slot).getByRole('button', { name: VI.micAllow }));
+    expect(requestMicrophone).toHaveBeenCalledTimes(1);
+    // One microphone box on the page: the recorder slot keeps only the recording state.
+    expect(screen.getAllByRole('button', { name: VI.micAllow })).toHaveLength(1);
+    expect(within(container.querySelector('[data-room-slot="recorder"]') as HTMLElement).queryByRole('button', { name: VI.micAllow })).toBeNull();
+  });
+
   it('pending shows before the browser answers, with the button locked', () => {
     const p = roomPlayer();
     p.updateView('mic', { state: 'pending' });
     shell(p);
     expect(screen.getByText(VI.micPending)).toBeTruthy();
     expect((screen.getByRole('button', { name: VI.micPendingButton }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a multi-question assignment shows pending permission, silence and mic loss on the active sheet', () => {
+    const p = roomPlayer('sheet');
+    p.updateView('sheet', { slots: [0, 1].map((index) => ({
+      key: `question-${index}`, index, state: 'idle', cueBullets: [], band: null,
+      recordLabel: 'Ghi âm',
+    })), total: 2 });
+    p.updateView('mic', { state: 'pending' });
+    const { container } = shell(p);
+    const sheet = container.querySelector('#state-sheet.active') as HTMLElement;
+    const slot = within(sheet.querySelector('[data-room-slot="answer-sheet"]') as HTMLElement);
+    expect(slot.getByText(VI.micPending)).toBeTruthy();
+    expect((slot.getByRole('button', { name: VI.micPendingButton }) as HTMLButtonElement).disabled).toBe(true);
+    expect(container.querySelectorAll('[data-room-slot]')).toHaveLength(1);
+
+    vi.useFakeTimers();
+    act(() => {
+      p.updateView('mic', { state: 'granted' });
+      p.updateView('recording', { substate: 'recording', timer: '0:04', level: 0 });
+    });
+    expect(slot.getByRole('status').textContent).toContain('0:04');
+    act(() => { vi.advanceTimersByTime(SILENCE_MS + 100); });
+    expect(slot.getByRole('status').textContent).toContain(VI.recSilent);
+    act(() => {
+      p.updateView('mic', { state: 'not_found', lost: true });
+      p.updateView('recording', { substate: 'idle', level: null });
+    });
+    expect(slot.getByText(VI.micLost)).toBeTruthy();
+    expect(slot.getByText(VI.micNotFound)).toBeTruthy();
+    expect(slot.getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(slot.getByRole('status').textContent).toBe(VI.recReady);
+  });
+
+  it('the flag-off answer sheet adds no microphone or recording-status slot', () => {
+    const p = player('sheet');
+    p.updateView('mic', { state: 'not_found', lost: true });
+    const { container } = shell(p);
+    expect(container.querySelector('#state-sheet.active')).not.toBeNull();
+    expect(container.querySelector('[data-room-slot]')).toBeNull();
+    expect(screen.queryByText(VI.micLost)).toBeNull();
   });
 
   it('Part 1 too short: the reason with the numbers practice.js sent, never an alert', () => {
@@ -142,6 +203,16 @@ describe('flag on', () => {
     const { container } = shell(p);
     const slot = container.querySelector('#state-p2a [data-room-slot="part2-cue"]') as HTMLElement;
     expect(within(slot).getByRole('alert').textContent).toMatch(/^Bản ghi 61 giây, Part 2 cần ít nhất 80 giây\./);
+  });
+
+  it('Part 2 preparation shows the microphone, so a denied start keeps its recovery steps', () => {
+    const p = roomPlayer('p2b');
+    p.updateView('mic', { state: 'denied' });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-p2b [data-room-slot="part2-prep"]') as HTMLElement;
+    expect(slot.classList.contains('av2-root')).toBe(true);
+    expect(within(slot).getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(container.querySelectorAll('[data-room-slot]').length).toBe(1);
   });
 
   it('Part 2 speaking shows the recording state in words', () => {
@@ -397,6 +468,20 @@ describe('MicStatus (FR-003)', () => {
     p.updateView('mic', { state: 'granted', lost: false });
     shell(p);
     expect(screen.queryByText(VI.micLost)).toBeNull();
+  });
+
+  it('Part 2 cut by an unplugged mic: the cue card shows the warning and the held take before anything is sent', () => {
+    const p = player('p2a');
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: 'practice' });
+    p.updateView('mic', { state: 'not_found', lost: true });
+    p.updateView('part2', { retryVisible: true, retryMessage: 'Mất kết nối micro giữa lúc nói. Phần đã ghi được giữ lại.', startVisible: false });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-p2a [data-room-slot="part2-cue"]') as HTMLElement;
+    expect(within(slot).getByText(VI.micLost)).toBeTruthy();
+    const held = container.querySelector('#p2a-submit-retry') as HTMLElement;
+    expect(held.style.display).toBe('');
+    expect(within(held).getByRole('button', { name: 'Gửi lại bản ghi' })).toBeTruthy();
+    expect(within(held).getByRole('button', { name: 'Ghi lại' })).toBeTruthy();
   });
 
   it('a plain not-found keeps the info tone', () => {

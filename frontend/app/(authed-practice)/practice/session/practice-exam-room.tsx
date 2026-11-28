@@ -55,10 +55,17 @@ function TooShortReason({ value, mode }: { value: TooShort; mode: SpeakingRoomMo
 
 /** What the room adds inside the existing page; null slots draw nothing. */
 export type SpeakingRoomSlots = {
+  /** P1/P3 microphone box, above "Bắt đầu ghi âm" and outside the inline
+   *  recording section, so "Cho phép micro" shows before the recorder opens. */
+  prepMic: ReactNode;
   /** Above the P1/P3 recorder (inline recording section). */
   recorder: ReactNode;
+  /** Above the multi-question class-assignment answer sheet. */
+  answerSheet: ReactNode;
   /** Above the Part 2 cue card start button. */
   part2Cue: ReactNode;
+  /** Above the Part 2 "speak now" button: the microphone is asked for here. */
+  part2Prep: ReactNode;
   /** Above the Part 2 speaking timer. */
   part2Speaking: ReactNode;
 };
@@ -85,17 +92,37 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
   return {
     mode,
     slots: {
+      // P1/P3: `_showPrep()` hides the inline recording section until
+      // "Bắt đầu ghi âm" opens it and starts the recorder, so the microphone
+      // box sits outside that section (FR-003) and stays there while recording.
+      prepMic: activeState === 'prep' ? (
+        <div className="av2-root" data-room-slot="prep-mic" style={SLOT_STYLE}>
+          {micBox}
+        </div>
+      ) : null,
       recorder: activeState === 'prep' ? (
         <div className="av2-root" data-room-slot="recorder" style={SLOT_STYLE}>
-          {micBox}
           <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
           <TooShortReason value={tooShortOf(rec.tooShort)} mode={mode} />
+        </div>
+      ) : null,
+      answerSheet: activeState === 'sheet' ? (
+        <div className="av2-root" data-room-slot="answer-sheet" style={SLOT_STYLE}>
+          {micBox}
+          <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
         </div>
       ) : null,
       part2Cue: activeState === 'p2a' ? (
         <div className="av2-root" data-room-slot="part2-cue" style={SLOT_STYLE}>
           {micBox}
           <TooShortReason value={tooShortOf(view.part2?.tooShort)} mode={mode} />
+        </div>
+      ) : null,
+      // Part 2 asks for the microphone when preparation ends, on this screen,
+      // so its pending state and any recovery steps show here too.
+      part2Prep: activeState === 'p2b' ? (
+        <div className="av2-root" data-room-slot="part2-prep" style={SLOT_STYLE}>
+          {micBox}
         </div>
       ) : null,
       part2Speaking: activeState === 'p2c' ? (

@@ -1,0 +1,167 @@
+{
+ "items": [
+  {
+   "short_title": "Giả A",
+   "summary": "Tóm tắt khoá (dữ liệu giả).",
+   "tuition_vnd": 1200000,
+   "access_days": 180,
+   "ai_credits": 40,
+   "credit_valid_days": 180,
+   "credits_expire_note": "Dùng trong 180 ngày kể từ ngày mở khoá",
+   "credit_carry_percent": 100,
+   "credit_carry_valid_days": 60,
+   "level_from": "5.0",
+   "level_to": "6.5",
+   "lesson_count": null,
+   "author": {
+    "name": "Người soạn giả",
+    "bio_line": "Một dòng kinh nghiệm (giả).",
+    "photo_url": null
+   },
+   "features": [
+    "writing",
+    "speaking"
+   ],
+   "expected_open_on": null,
+   "viewer": {
+    "state": "guest",
+    "days_left": null,
+    "can_renew": false,
+    "open_order_code": null
+   },
+   "slug": "khoa-a",
+   "title": "Khoá giả A",
+   "status": "open"
+  },
+  {
+   "short_title": null,
+   "summary": "Tóm tắt khoá (dữ liệu giả).",
+   "tuition_vnd": null,
+   "access_days": null,
+   "ai_credits": 0,
+   "credit_valid_days": null,
+   "credits_expire_note": null,
+   "credit_carry_percent": 100,
+   "credit_carry_valid_days": 60,
+   "level_from": null,
+   "level_to": null,
+   "lesson_count": null,
+   "author": null,
+   "features": [],
+   "expected_open_on": "2027-01-15",
+   "viewer": {
+    "state": "guest",
+    "days_left": null,
+    "can_renew": false,
+    "open_order_code": null
+   },
+   "slug": "khoa-b",
+   "title": "Khoá giả B",
+   "status": "coming_soon"
+  },
+  {
+   "short_title": null,
+   "summary": "Tóm tắt khoá (dữ liệu giả).",
+   "tuition_vnd": null,
+   "access_days": null,
+   "ai_credits": 0,
+   "credit_valid_days": null,
+   "credits_expire_note": null,
+   "credit_carry_percent": 100,
+   "credit_carry_valid_days": 60,
+   "level_from": null,
+   "level_to": null,
+   "lesson_count": null,
+   "author": null,
+   "features": [],
+   "expected_open_on": null,
+   "viewer": {
+    "state": "guest",
+    "days_left": null,
+    "can_renew": false,
+    "open_order_code": null
+   },
+   "slug": "khoa-c",
+   "title": "Khoá giả C",
+   "status": "coming_soon"
+  },
+  {
+   "short_title": null,
+   "summary": "Tóm tắt khoá (dữ liệu giả).",
+   "tuition_vnd": null,
+   "access_days": null,
+   "ai_credits": 0,
+   "credit_valid_days": null,
+   "credits_expire_note": null,
+   "credit_carry_percent": 100,
+   "credit_carry_valid_days": 60,
+   "level_from": null,
+   "level_to": null,
+   "lesson_count": null,
+   "author": null,
+   "features": [],
+   "expected_open_on": null,
+   "viewer": {
+    "state": "guest",
+    "days_left": null,
+    "can_renew": false,
+    "open_order_code": null
+   },
+   "slug": "khoa-d",
+   "title": "Khoá giả D",
+   "status": "coming_soon"
+  },
+  {
+   "short_title": null,
+   "summary": "Tóm tắt khoá (dữ liệu giả).",
+   "tuition_vnd": null,
+   "access_days": null,
+   "ai_credits": 0,
+   "credit_valid_days": null,
+   "credits_expire_note": null,
+   "credit_carry_percent": 100,
+   "credit_carry_valid_days": 60,
+   "level_from": null,
+   "level_to": null,
+   "lesson_count": null,
+   "author": null,
+   "features": [],
+   "expected_open_on": null,
+   "viewer": {
+    "state": "guest",
+    "days_left": null,
+    "can_renew": false,
+    "open_order_code": null
+   },
+   "slug": "khoa-e",
+   "title": "Khoá giả E",
+   "status": "coming_soon"
+  },
+  {
+   "short_title": null,
+   "summary": "Tóm tắt khoá (dữ liệu giả).",
+   "tuition_vnd": null,
+   "access_days": null,
+   "ai_credits": 0,
+   "credit_valid_days": null,
+   "credits_expire_note": null,
+   "credit_carry_percent": null,
+   "credit_carry_valid_days": null,
+   "level_from": null,
+   "level_to": null,
+   "lesson_count": null,
+   "author": null,
+   "features": [],
+   "expected_open_on": null,
+   "viewer": {
+    "state": "guest",
+    "days_left": null,
+    "can_renew": false,
+    "open_order_code": null
+   },
+   "slug": "khoa-f",
+   "title": "Khoá giả F",
+   "status": "coming_soon"
+  }
+ ]
+}

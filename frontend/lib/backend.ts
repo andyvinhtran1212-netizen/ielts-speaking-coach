@@ -38,6 +38,16 @@ export const ABORT_MS = 5000;
 export const PUBLIC_CONTENT_LIFE = { stale: 3600, revalidate: 3600, expire: 86400 };
 
 /**
+ * Khoá học công khai (PUBLICSITE-0059): học phí, trạng thái "Sắp mở"/"Đang mở
+ * đăng ký" đổi khi admin sửa, và chưa có lệnh xoá cache nào từ backend cho
+ * `/api/courses*`. TTL 1 giờ nghĩa là khách thấy giá cũ tới 1 giờ (CR #2607,
+ * #2623), nên các đường này giữ ngắn: 60 giây.
+ */
+export const COMMERCE_CONTENT_LIFE = { stale: 60, revalidate: 60, expire: 3600 };
+
+const SHORT_LIVED_PREFIXES = ['/api/courses'] as const;
+
+/**
  * GET một endpoint nội dung công khai.
  *
  * Ngữ nghĩa lỗi CỐ Ý tách đôi, vì hai ca này khác nhau về hậu quả:
@@ -50,13 +60,25 @@ export const PUBLIC_CONTENT_LIFE = { stale: 3600, revalidate: 3600, expire: 8640
  *     chính bảng đo của mình.
  */
 export async function getPublicJson<T = unknown>(path: string): Promise<T | null> {
+  // Site info includes operational switches. Keep the API's own cache window.
+  if (path === '/api/public/site-info') return readPublicJson<T>(path, 'no-store');
+  return getCachedPublicJson<T>(path);
+}
+
+async function getCachedPublicJson<T>(path: string): Promise<T | null> {
   'use cache';
-  cacheLife(PUBLIC_CONTENT_LIFE);
+  if (SHORT_LIVED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) cacheLife(COMMERCE_CONTENT_LIFE);
+  else cacheLife(PUBLIC_CONTENT_LIFE);
   for (const [prefix, tag] of PUBLIC_CACHE_TAGS) {
     if (path.startsWith(prefix)) cacheTag(tag);
   }
 
+  return readPublicJson<T>(path);
+}
+
+async function readPublicJson<T>(path: string, cache?: RequestCache): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
+    cache,
     signal: AbortSignal.timeout(ABORT_MS),
   });
   if (res.status === 404) return null;

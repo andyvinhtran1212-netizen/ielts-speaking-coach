@@ -164,3 +164,105 @@ test('flag off: no level tick, so nothing new happens when the track ends', () =
   assert.deepEqual(views, []);
   assert.deepEqual(log, []);
 });
+
+// Andy's block on #2711 (79bbbef1): a Part 2 take long enough to send used to
+// go straight on (Full Test: next part; practice: grading) before the learner
+// could see "Mất kết nối micro", which the room only draws on the cue card.
+// The real _handleP2RecordedBlob and retryP2Submission run with the room block.
+function slice(from, to) {
+  const a = JS.indexOf(from);
+  const b = JS.indexOf(to, a + 1);
+  assert.ok(a !== -1 && b > a, `practice.js slice ${from}`);
+  return JS.slice(a, b);
+}
+const P2_RECORDED = slice('  function _handleP2RecordedBlob(blob, elapsed) {', '  async function _startP2Speaking() {');
+const P2_RETRY = slice('  function retryP2Submission() {', '  function discardP2SubmissionRetry() {');
+
+function part2({ on = true, mode = 'test_full', lost = true } = {}) {
+  const log = [];
+  const views = [];
+  const audio = track('live');
+  const recorder = { recorder: { state: 'inactive' }, stream: { getAudioTracks: () => [audio] } };
+  const env = {
+    navigator: {}, MediaRecorder: function () {}, window: {}, audio,
+    _updateNativeView: (section, patch) => { views.push([section, patch]); return true; },
+    _getNativeRecorder: () => recorder,
+    _startManagedInterval: (key, fn) => key,
+    _clearManagedEffect: () => true,
+    stopRecording: () => true, _stopP2SpeakingInternal: () => {},
+    _stopWaveform: () => {},
+    _checkRecordedLength: () => false,
+    _showP2SubmissionRetry: (message) => log.push(['heldOnCue', message]),
+    _clearP2SubmissionRetry: () => log.push(['clearHeld']),
+    _submitGradingEager: (sid, qid, blob) => log.push(['eager', qid, blob]),
+    _advanceTestMode: () => log.push(['advance']),
+    _startProcessing: (blob, qid) => log.push(['grade', qid, blob]),
+    discardP2SubmissionRetry: () => log.push(['discard']),
+    showError: (m) => log.push(['error', m]),
+  };
+  const api = new Function(...Object.keys(env), `
+    var _examRoomMode = ${on ? 'true' : 'false'};
+    var _roomMicState = 'granted', _ROOM_LEVEL_MS = 200, _roomLevelTimer = 'level', _roomMicLostDone = false, _roomMicLostShown = false;
+    var _roomDialogKind = null, _roomLeaveHref = '', _roomLeaving = false, _roomConfirmed = false, _ROOM_LEAVE_RESET_MS = 4000;
+    var _playerGeneration = 1, _playerActive = true, _analyser = null, _recorder = null, _stream = null;
+    var _currentState = 'p2c', _recSubState = 'idle', _timerId = null, _p2SpeakTimerId = 'p2';
+    var _testMode = ${JSON.stringify(mode)}, _sessionId = 'S', _currentQ = { id: 'Q2' };
+    var _recordedBlob = null, _elapsedSecs = 0, _recordingDirty = false, _p2RetryQuestionId = null;
+    ${ROOM}
+    ${P2_RECORDED}
+    ${P2_RETRY}
+    return {
+      // MediaRecorder onstop, after the track ended: the take arrives here.
+      recorded: (blob) => { _handleP2RecordedBlob(blob, 95); },
+      // What _showP2SubmissionRetry would store for the cue card's buttons.
+      cueHolds: () => { _p2RetryQuestionId = 'Q2'; },
+      send: () => retryP2Submission(),
+      dirty: () => _recordingDirty,
+      endTrack: () => { audio.readyState = 'ended'; _stopRoomLevel(); },
+    };
+  `)(...Object.values(env));
+  if (lost) api.endTrack();
+  return { api, log, views };
+}
+
+describe('Part 2: a long enough take cut by a lost microphone is shown before it is sent', () => {
+  test('Full Test: held on the cue card with the warning, not sent and not moved on', () => {
+    const { api, log, views } = part2();
+    api.recorded('BLOB');
+    assert.deepEqual(views.filter(([s]) => s === 'mic').map(([, p]) => p), [{ state: 'not_found', lost: true }]);
+    assert.equal(log.length, 1);
+    assert.equal(log[0][0], 'heldOnCue');
+    assert.match(log[0][1], /^Mất kết nối micro/);
+    assert.equal(api.dirty(), true, 'the leave box counts the held take');
+  });
+
+  test('Full Test: "Gửi lại bản ghi" sends the held take as an uncut one would go, then moves on', () => {
+    const { api, log } = part2();
+    api.recorded('BLOB');
+    api.cueHolds();
+    api.send();
+    assert.deepEqual(log.slice(1), [['clearHeld'], ['eager', 'Q2', 'BLOB'], ['advance']]);
+    assert.equal(api.dirty(), false);
+  });
+
+  test('practice: held on the cue card; sending it goes to grading', () => {
+    const { api, log } = part2({ mode: 'practice' });
+    api.recorded('BLOB');
+    assert.equal(log[0][0], 'heldOnCue');
+    api.cueHolds();
+    api.send();
+    assert.deepEqual(log.slice(1), [['grade', 'Q2', 'BLOB']]);
+  });
+
+  test('a take with a live microphone still goes straight on (unchanged)', () => {
+    const { api, log } = part2({ lost: false });
+    api.recorded('BLOB');
+    assert.deepEqual(log, [['eager', 'Q2', 'BLOB'], ['advance']]);
+  });
+
+  test('flag off: an ended track changes nothing (unchanged)', () => {
+    const { api, log } = part2({ on: false });
+    api.recorded('BLOB');
+    assert.deepEqual(log, [['eager', 'Q2', 'BLOB'], ['advance']]);
+  });
+});

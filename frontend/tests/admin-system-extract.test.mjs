@@ -29,7 +29,8 @@ const USERS        = read('pages', 'admin', 'users', 'index.html');
 // /admin/system owners hold the endpoint wiring.
 const JS_AIUSAGE   = read('app', '(authed-admin-system)', 'admin', 'system', 'ai-usage', 'admin-ai-usage.tsx');
 const JS_ALERTS    = read('app', '(authed-admin-system)', 'admin', 'system', 'alerts', 'admin-alerts.tsx');
-const JS_VEX       = read('js', 'admin-vocab-exercises.js');
+// LEGACYJS-0075 W4b: admin-vocab-exercises.js is deleted; the Next owner below.
+const JS_VEX       = read('app', '(authed-admin)', '(vocab)', 'admin', 'vocab', 'exercises', 'admin-vocab-exercises.tsx');
 // LEGACYJS-0075 W3a: admin-users.js is deleted; /admin/users is the Next panel.
 const JS_USERS     = read('app', '(authed-admin)', '(users)', 'admin', 'users', 'admin-users-panel.tsx');
 const USERS_API    = read('lib', 'admin-users-api.ts');
@@ -192,9 +193,9 @@ describe('Sprint 12.8 — system + vocab-exercises JS controllers', () => {
     assert.match(JS_ALERTS, /window\.api\.get<unknown>\('\/admin\/alerts\?limit=30'\)/);
   });
 
-  it('admin-vocab-exercises.js wires the 5 monolith endpoints', () => {
-    assert.match(JS_VEX, /\/admin\/exercises\?/);
-    assert.match(JS_VEX, /\/admin\/exercises\/[^'"]*\/' \+ action|exercises\/[^'"]+\/' \+ action|\/' \+ action/);
+  it('the Next vocab-exercises owner wires the 5 monolith endpoints', () => {
+    assert.match(JS_VEX, /`\/admin\/exercises\?status=\$\{item\}/);
+    assert.match(JS_VEX, /`\/admin\/exercises\/\$\{encodeURIComponent\(ids\[0\]\)\}\/\$\{target\.action\}`/);
     assert.match(JS_VEX, /\/admin\/exercises\/bulk/);
     assert.match(JS_VEX, /\/admin\/exercises\/d1\/generate-batch/);
   });

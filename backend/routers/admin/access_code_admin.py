@@ -472,6 +472,7 @@ async def get_access_code_detail(
     # Enrich assignments with user name/email in a single lookup.
     user_ids = list({a["user_id"] for a in assignments} | set(access_holder_ids or []))
     user_map: dict[str, dict] = {}
+    user_lookup_failed = False
     if user_ids:
         try:
             ur = (
@@ -487,6 +488,9 @@ async def get_access_code_detail(
                 }
         except Exception as exc:
             logger.warning("get_access_code_detail: user lookup failed: %s", exc)
+            # Báo cáo săn lỗi B1-18: nuốt lỗi này thì người dùng thật hiện
+            # với tên/email trống, như thể tài khoản không có hồ sơ. Nói ra.
+            user_lookup_failed = True
 
     for a in assignments:
         info = user_map.get(a["user_id"], {})
@@ -495,6 +499,7 @@ async def get_access_code_detail(
 
     code["assignments"] = assignments
     code["association_lookup_failed"] = association_lookup_failed
+    code["user_lookup_failed"] = user_lookup_failed
     code["access_holders"] = None if access_holder_ids is None else [
         {"user_id": uid, **user_map.get(uid, {"email": "", "display_name": ""})}
         for uid in access_holder_ids

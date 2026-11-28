@@ -113,11 +113,11 @@ describe('account menu', () => {
     expect(menu.textContent).toContain(USER.name);
     expect(menu.textContent).toContain(USER.email);
     expect(within(menu).getAllByRole('link').map((a) => a.textContent))
-      // Registry Q53: Tiến độ, Khoá học và lượt AI and Trợ giúp are planned
-      // routes with no live page yet, so they are hidden until G07 builds them.
-      .toEqual(['Hồ sơ']);
+      // Registry Q53: a link shows only once its route is live. All four are
+      // live since G07-T17 (/help, then /progress and /account).
+      .toEqual(['Tiến độ', 'Khoá học và lượt AI', 'Hồ sơ', 'Trợ giúp']);
     expect(within(menu).queryByText(/Đổi vai trò/)).toBeNull();
-    expect(menu.querySelectorAll('li')).toHaveLength(1);
+    expect(menu.querySelectorAll('li')).toHaveLength(4);
     expect(within(menu).getByRole('button', { name: 'Đăng xuất' })).toBeTruthy();
     expect(within(menu).getByRole('group', { name: 'Giao diện' })).toBeTruthy();
   });
@@ -315,7 +315,7 @@ describe('live links only (registry Q53)', () => {
 
   it('the five sections are all shown, each on a page of its own section', () => {
     expect(LEARNER_NAV.map((s) => [s.label, s.href])).toEqual([
-      ['Hôm nay', '/home'], ['Lộ trình', '/my-class'], ['Luyện tập', '/speaking'],
+      ['Hôm nay', '/home'], ['Lộ trình', '/course'], ['Luyện tập', '/speaking'],
       ['Thi thử', '/full-test'], ['Thư viện', '/library'],
     ]);
     for (const s of LEARNER_NAV) expect(routeFor(s.href)?.section).toBe(s.id);
@@ -323,8 +323,25 @@ describe('live links only (registry Q53)', () => {
 
   it('a planned route wins once live, and a link with no live page is hidden', () => {
     expect(liveHref({ href: '/library', today: '/home' })).toBe('/library');
-    expect(liveHref({ href: '/course', today: '/my-class' })).toBe('/my-class');
-    expect(liveHref({ href: '/help', today: null })).toBeNull();
-    expect(liveHref({ href: '/help', today: '/nowhere' })).toBeNull();
+    expect(liveHref({ href: '/course', today: '/my-class' })).toBe('/course');  // live since 0063 T15
+    expect(liveHref({ href: '/practice', today: '/speaking' })).toBe('/speaking');
+    expect(liveHref({ href: '/help', today: null })).toBe('/help');
+    expect(liveHref({ href: '/progress', today: null })).toBe('/progress');
+    expect(liveHref({ href: '/tests', today: null })).toBeNull();
+    expect(liveHref({ href: '/tests', today: '/nowhere' })).toBeNull();
+  });
+
+  it('/courses is linked only while the build flag AVER_PUBLIC_COMMERCE is on (FR-029)', () => {
+    try {
+      vi.stubEnv('AVER_PUBLIC_COMMERCE', '');
+      expect(liveHref({ href: '/courses', today: null })).toBeNull();
+      expect(liveHref({ href: '/courses/khoa-a', today: null })).toBeNull();
+      expect(liveHref({ href: '/courses', today: '/library' })).toBe('/library');
+      vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
+      expect(liveHref({ href: '/courses', today: null })).toBe('/courses');
+      expect(liveHref({ href: '/courses/khoa-a', today: null })).toBe('/courses/khoa-a');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

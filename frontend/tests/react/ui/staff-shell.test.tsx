@@ -9,7 +9,7 @@ vi.mock('@/lib/auth/shell-sign-out', () => ({ signOutFromShell: signOut }));
 
 import { StaffShell, type StaffNavGroup, type StaffShellProps } from '@/components/ui/shell/staff-shell';
 import {
-  SIDEBAR_COLLAPSED_KEY, currentStaffHref, staffEnvironmentFrom,
+  NAV_GROUPS_KEY, SIDEBAR_COLLAPSED_KEY, currentStaffHref, groupCount, staffEnvironmentFrom,
 } from '@/components/ui/shell/staff-nav';
 import {
   STAFF_SEARCH_EMPTY, STAFF_SEARCH_FAILED, STAFF_SEARCH_PENDING, type StaffSearchGroup,
@@ -191,10 +191,12 @@ describe('top bar', () => {
   });
 
   it('account menu: role switch only when given, sign-out through the shared flow', () => {
-    renderShell({ switchTo: [{ label: 'sang Giáo viên', href: '/instructor' }] });
+    renderShell({ switchTo: [{ label: 'Sang khu giáo viên', href: '/instructor' }, { label: 'Sang khu học viên', href: '/home' }] });
     fireEvent.click(screen.getByRole('button', { name: /^Tài khoản:/ }));
     const menu = screen.getByRole('dialog', { name: 'Tài khoản' });
-    expect(within(menu).getByRole('link', { name: 'Đổi vai trò: sang Giáo viên' }).getAttribute('href')).toBe('/instructor');
+    // The label prints as given (GOI-09 FR-003), no "Đổi vai trò:" prefix.
+    expect(within(menu).getByRole('link', { name: 'Sang khu giáo viên' }).getAttribute('href')).toBe('/instructor');
+    expect(within(menu).getByRole('link', { name: 'Sang khu học viên' }).getAttribute('href')).toBe('/home');
     fireEvent.click(within(menu).getByRole('button', { name: 'Đăng xuất' }));
     expect(signOut).toHaveBeenCalledTimes(1);
     expect(within(menu).getByRole('button', { name: 'Đang đăng xuất…' })).toBeTruthy();
@@ -203,7 +205,7 @@ describe('top bar', () => {
     cleanup();
     renderShell();
     fireEvent.click(screen.getByRole('button', { name: /^Tài khoản:/ }));
-    expect(within(screen.getByRole('dialog', { name: 'Tài khoản' })).queryByText(/Đổi vai trò/)).toBeNull();
+    expect(within(screen.getByRole('dialog', { name: 'Tài khoản' })).queryByText(/^Sang khu/)).toBeNull();
   });
 
   it('instructor: "Giáo viên", five flat entries, no group headings', () => {
@@ -358,5 +360,103 @@ describe('live links only (registry Q53)', () => {
     expect(SAMPLE_ADMIN_NAV.map((g) => g.label)).toEqual([
       'Tổng quan', 'Học viên và quyền truy cập', 'Khoá học và đăng ký', 'Chấm bài', 'Nội dung', 'Thi thử', 'Báo cáo', 'Hệ thống',
     ]);
+  });
+});
+
+describe('G09-T08 additions (GOI-09 FR-003, FR-005, FR-006, FR-007)', () => {
+  const WITH_OFF: StaffNavGroup[] = [
+    ...NAV.slice(0, 2),
+    { id: 'kh', label: 'Khoá học và đăng ký', icon: 'credit-card', items: [
+      { label: 'Khoá học', href: null, available: false, count: 9 },
+      { label: 'Đơn đăng ký', href: '/admin/orders', available: false, count: 2 },
+      { label: 'Lượt AI', href: '/admin/usage' },
+    ] },
+    ...NAV.slice(2),
+  ];
+
+  beforeEach(() => { nav.pathname = '/admin/writing/queue'; window.localStorage.clear(); });
+
+  it('an entry not open yet is dimmed text, not a link, "Chưa mở", no count, never current', () => {
+    nav.pathname = '/admin/orders';
+    renderShell({ nav: WITH_OFF });
+    fireEvent.click(groupButton(/^Khoá học và đăng ký/));
+    const off = within(sidebar()).getAllByText('Khoá học')[0].closest('[aria-disabled]') as HTMLElement;
+    expect(off.tagName).toBe('SPAN');
+    expect(off.getAttribute('aria-disabled')).toBe('true');
+    expect(off.getAttribute('title')).toBe('Chưa mở');
+    expect(off.textContent).toBe('Khoá học (chưa mở)');
+    const orders = within(sidebar()).getAllByText('Đơn đăng ký')[0].closest('[aria-disabled]') as HTMLElement;
+    expect(orders.getAttribute('href')).toBeNull();
+    expect(within(sidebar()).queryByRole('link', { name: /Đơn đăng ký/ })).toBeNull();
+    expect(document.querySelector('[aria-current="page"]')).toBeNull();
+    expect(currentStaffHref(WITH_OFF, '/admin/orders')).toBeNull();
+    expect(groupCount(WITH_OFF[2])).toBe(0);
+  });
+
+  it('folded and opened groups are remembered in this browser; the current group is always open on arrival', () => {
+    const first = renderShell();
+    fireEvent.click(groupButton(/^Hệ thống/));
+    expect(groupButton(/^Hệ thống/).getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(groupButton(/^Chấm bài/));
+    expect(groupButton(/^Chấm bài/).getAttribute('aria-expanded')).toBe('false');
+    expect(JSON.parse(window.localStorage.getItem(NAV_GROUPS_KEY) ?? '{}')).toEqual({ ht: true, cb: false });
+    first.unmount();
+    renderShell();
+    expect(groupButton(/^Hệ thống/).getAttribute('aria-expanded')).toBe('true');
+    // Chấm bài holds the current page, so it opens again whatever was stored.
+    expect(groupButton(/^Chấm bài/).getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('unreadable stored state is ignored', () => {
+    window.localStorage.setItem(NAV_GROUPS_KEY, '{not json');
+    renderShell();
+    expect(groupButton(/^Hệ thống/).getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('scope="shell" puts .av2-root on the chrome only, never on <main>; default adds none', () => {
+    renderShell({ scope: 'shell' });
+    expect(screen.getByRole('banner').classList.contains('av2-root')).toBe(true);
+    expect(sidebar().classList.contains('av2-root')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Bỏ qua tới nội dung' }).classList.contains('av2-root')).toBe(true);
+    const main = screen.getByRole('main');
+    expect(main.closest('.av2-root')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Mở menu quản trị' }));
+    expect(screen.getByRole('dialog', { name: 'Menu quản trị' }).classList.contains('av2-root')).toBe(true);
+    cleanup();
+    renderShell();
+    expect(document.querySelector('.av2-root')).toBeNull();
+  });
+
+  it('current with a query tells two tabs of one page apart and opens their group', () => {
+    nav.pathname = '/admin/reports';
+    const reports: StaffNavGroup[] = [...NAV, { id: 'bc', label: 'Báo cáo', icon: 'chart', items: [
+      { label: 'Hoạt động', href: '/admin/reports?tab=activity' },
+      { label: 'Doanh thu', href: '/admin/reports?tab=revenue' },
+    ] }];
+    renderShell({ nav: reports, current: '/admin/reports?tab=revenue' });
+    const current = Array.from(document.querySelectorAll('[aria-current="page"]'));
+    expect(current.length).toBeGreaterThan(0);
+    expect(current.every((el) => el.getAttribute('href') === '/admin/reports?tab=revenue')).toBe(true);
+    expect(groupButton(/^Báo cáo/).getAttribute('aria-expanded')).toBe('true');
+    nav.pathname = '/admin/writing/queue';
+  });
+
+  it('the demo keeps folds in memory only', () => {
+    render(<StaffShellDemo testId="d" role="admin" />);
+    const demoSidebar = screen.getAllByRole('navigation', { name: 'Điều hướng quản trị' })[0];
+    const head = within(demoSidebar).getAllByRole('button', { name: /^Hệ thống/ }).find((b) => !b.hasAttribute('data-rail-group'))!;
+    fireEvent.click(head);
+    expect(window.localStorage.getItem(NAV_GROUPS_KEY)).toBeNull();
+  });
+
+  it('current: the page names the entry instead of the pathname match', () => {
+    nav.pathname = '/admin/speaking/sessions';
+    renderShell({ current: '/admin/error-logs' });
+    const links = within(sidebar()).getAllByRole('link', { name: /Hộp thư sự cố/ });
+    expect(links.some((a) => a.getAttribute('aria-current') === 'page')).toBe(true);
+    expect(Array.from(document.querySelectorAll('[aria-current="page"]')).every((el) => el.getAttribute('href') === '/admin/error-logs')).toBe(true);
+    cleanup();
+    renderShell({ current: null });
+    expect(document.querySelector('[aria-current="page"]')).toBeNull();
   });
 });

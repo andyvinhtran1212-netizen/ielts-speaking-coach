@@ -19,7 +19,9 @@ student_id filter as defense-in-depth.
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Response
+from typing import Literal
+
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 
 from database import thread_supabase_admin
 from routers.auth import get_supabase_user
@@ -27,8 +29,11 @@ from services.access_code_permissions import aget_account_permissions_summary
 from services.feature_flags import is_learner_v2_enabled
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
+from models.student_course import StudentCourseResponse
 from models.student_today import StudentTodayResponse, TodaySeenRequest
-from services import student_today
+from models.student_assigned import StudentAssignedResponse
+from models.student_skill_hub import StudentSkillHubResponse
+from services import activation_gate, session_gate, student_assigned, student_course, student_skill_hub, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -87,7 +92,7 @@ async def _require_learner_v2(user_id: str) -> None:
 
 
 @router.get("/today", response_model=StudentTodayResponse)
-async def today(response: Response, authorization: str | None = Header(default=None)):
+async def today(request: Request, response: Response, authorization: str | None = Header(default=None)):
     """New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
 
     Writes nothing of its own, not even the seen cursor (FR-078). The only write
@@ -98,12 +103,43 @@ async def today(response: Response, authorization: str | None = Header(default=N
     """
     response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
-    await _require_learner_v2(auth_user["id"])
+    # FR-094: exempt from the router gate, so the caller is checked here
+    # (503 on a failed read, 403 when suspended or inactive without learner_v2).
+    status = await activation_gate.aopen_learner_status(auth_user["id"])
+    await session_gate.ensure_current(auth_user["id"], authorization, request.headers.get("user-agent"))
+    if status == activation_gate.OPEN_ACTIVE:
+        await _require_learner_v2(auth_user["id"])
     email = auth_user.get("email") or ""
     account_name = account_display_name(auth_user)
     name = account_name or (email.split("@", 1)[0] if email else "bạn")
-    return await student_today.get_today_concurrent(
+    result = await student_today.get_today_concurrent(
         thread_supabase_admin, auth_user["id"], name=name, account_name=account_name,
+        active=status == activation_gate.OPEN_ACTIVE,
+    )
+    if status == activation_gate.OPEN_INACTIVE:
+        activation_gate.log_inactive_open_request("GET", "/api/student/today", auth_user["id"])
+    return result
+
+
+@router.get("/assigned", response_model=StudentAssignedResponse)
+async def assigned(response: Response, authorization: str | None = Header(default=None)):
+    """"Bài được giao" page payload (LEARNERCORE-0063 amendment 3, FR-095..FR-099,
+    FR-102, FR-103): the caller's own /my-assignments rows plus `group`,
+    `action`, `accepting` and `self_practice_available`.
+
+    Writes nothing of its own; the only write is the class-ledger reconcile
+    inside `_visible_assignments` (FR-103 exception). A failed list read is
+    `degraded: ["items"]`, never an empty "no work" answer. 404 while
+    `learner_v2` is off for the caller, before any read or reconcile runs
+    (same gate as GET /today).
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    await _require_learner_v2(auth_user["id"])
+    account_name = account_display_name(auth_user)
+    now = datetime.now(timezone.utc)
+    return await asyncio.to_thread(
+        student_assigned.get_assigned, auth_user["id"], account_name, now,
     )
 
 
@@ -123,3 +159,35 @@ async def today_seen(body: TodaySeenRequest, authorization: str | None = Header(
             thread_supabase_admin(), auth_user["id"], body.seen_until, body.seen_key),
     )
     return Response(status_code=204)
+
+
+@router.get("/course", response_model=StudentCourseResponse)
+async def course(response: Response, authorization: str | None = Header(default=None)):
+    """Lộ trình page payload (LEARNERCORE-0063 amendment 1, FR-030..FR-037).
+
+    Read-only (FR-085); `assigned_open` includes hand-ins that the ledger has
+    not recorded yet, without updating it.
+    Each part runs in its own worker; a failing part lands in `degraded`.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    return await student_course.get_course_concurrent(
+        auth_user["id"], account_name=account_display_name(auth_user),
+    )
+
+
+@router.get("/skill-hub", response_model=StudentSkillHubResponse)
+async def skill_hub(
+    response: Response,
+    skill: Literal["speaking", "writing", "listening", "reading"] = Query(...),
+    authorization: str | None = Header(default=None),
+):
+    """One skill hub (LEARNERCORE-0063 T25, FR-111..118). Read-only, the
+    caller's own data; a failing block lands in `degraded`. Any other `skill`
+    is 422 (FastAPI validates the Literal)."""
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    return await student_skill_hub.get_skill_hub_concurrent(
+        thread_supabase_admin, auth_user["id"], skill,
+        account_name=account_display_name(auth_user),
+    )
