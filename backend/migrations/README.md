@@ -167,6 +167,21 @@ backend-only `mock_exam_audiences` (RLS on, no policy, service_role only), new
 renaming data (446 does that, after the backend that reads both names). The
 rollback refuses once any exam uses a new name, any audience row exists or a new
 column holds data.
+`446` is `pending_feature mock_exam_mode_names` (MOCKORG-0086 G09-T31 PR2): run
+only after 445 and the backend that reads both mode names are on that database.
+It rewrites the five functions that compare `exam_mode` (one exact snippet each,
+refusing on drift), makes `fn_set_exam_mode` take four names and store the new
+one, adds a trigger that stores the new name on write, fills `mock_exam_audiences`
+from class rosters and assignments, and renames stored modes. Exams with
+`is_open = true` are skipped until a re-run. The rollback restores the legacy
+names and the 169 `fn_set_exam_mode`; the dual-name rewrites stay.
+`447` is `pending_feature mock_exam_events` and `448` is `pending_feature
+mock_exam_release_parts` (MOCKORG-0086 G09-T33): 447 adds the append-only exam
+timeline `mock_exam_events`, per-section `mock_exam_sittings.extra_seconds` and
+`mock_exam_room_messages`; 448 adds `mock_exam_sittings.released_skills`, the
+append-only `mock_exam_score_edits` and a unique release `request_key` index on
+the timeline. Both are backend-only with SELECT/INSERT only for service_role;
+448 needs 447. Rollbacks refuse while rows exist.
 `421` is `pending_feature review_notes_flag_once` (LEARNERCORE-0063 T31, G07 band 420–439):
 the backend-only `review_notes` table and two partial unique indexes that allow one
 per-question flag per attempt and sender; its preflight stops on existing duplicates,

@@ -71,13 +71,13 @@ describe('list rows', () => {
     const live = normalizeOrgExam(row({ status: 'published', display_state: 'scheduled', starts_at: '2026-11-25T13:00:00Z' }));
     assert.equal(whenCopy(live), '20:00 25/11/2026');
     assert.equal(nextStepCopy(live), 'Chờ giờ mở phòng');
-    assert.equal(examHref(live), '/admin/mock-tests?view=console&tab=live&exam_id=e1');
+    assert.equal(examHref(live), '/admin/mock-tests/e1');
     const self = normalizeOrgExam(row({ exam_mode_v2: 'self_paced', open_from: '2026-11-25T01:00:00Z', open_until: '2026-11-27T16:59:00Z' }));
     assert.equal(whenCopy(self), '08:00 25/11/2026 – 23:59 27/11/2026');
     assert.equal(examHref(self), '/admin/mock-tests/e1/setup');
     assert.equal(whenCopy(normalizeOrgExam(row())), 'Chưa có ngày giờ');
     const grading = normalizeOrgExam(row({ status: 'published', display_state: 'grading' }));
-    assert.equal(examHref(grading), '/admin/mock-tests?view=console&tab=review&exam_id=e1');
+    assert.equal(examHref(grading), '/admin/mock-tests/e1');
   });
 });
 

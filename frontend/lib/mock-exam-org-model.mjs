@@ -157,14 +157,12 @@ export function nextStepCopy(exam) {
 }
 
 /**
- * Where the exam name goes. A draft opens its setup. The one-exam page
- * (G09-T34) is not live yet, so other exams open the current console scoped
- * to that exam: live tab while it runs, review tab after.
+ * Where the exam name goes. A draft opens its setup; every other exam opens
+ * its own page (G09-T34), which picks the tab from the state.
  */
 export function examHref(exam) {
   if (exam.status === 'draft') return `/admin/mock-tests/${encodeURIComponent(exam.id)}/setup`;
-  const tab = exam.state === 'grading' || exam.state === 'released' || exam.state === 'ended' ? 'review' : 'live';
-  return `/admin/mock-tests?view=console&tab=${tab}&exam_id=${encodeURIComponent(exam.id)}`;
+  return `/admin/mock-tests/${encodeURIComponent(exam.id)}`;
 }
 
 // ── Setup: Đề · Người thi · Cách thi · Xem lại (FR-141) ─────────────────────

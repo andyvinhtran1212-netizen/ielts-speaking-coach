@@ -388,10 +388,12 @@ def test_setup_response_schemas_describe_the_existing_http_json(admin, db, monke
         created = {**_exam(db), "id": U(901), "code": "KT2", "title": "Kỳ thi mới"}
         monkeypatch.setattr(exam_svc, "admin_create_exam", lambda *_: created)
         made = client.post(collection, json={"code": created["code"], "title": created["title"]})
-        assert_response("post", collection, made, admin.ExamWriteResponse, created)
+        assert_response("post", collection, made, admin.ExamWriteResponse,
+                        {**created, "exam_mode": "sequential", "exam_mode_v2": "live"})
 
         changed = client.patch(exam_path, json={"title": "Kỳ thi đã sửa"})
-        assert_response("patch", template, changed, admin.ExamWriteResponse, _exam(db))
+        assert_response("patch", template, changed, admin.ExamWriteResponse,
+                        {**_exam(db), "exam_mode": "sequential", "exam_mode_v2": "live"})
         assert changed.json()["title"] == "Kỳ thi đã sửa"
 
         added = client.patch(audience_path, json={"add_cohort_ids": [COH_A]})
