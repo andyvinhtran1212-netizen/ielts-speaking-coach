@@ -2,7 +2,9 @@
 test_migration_394_course_open_alerts.py)."""
 from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI, HTTPException
@@ -91,6 +93,24 @@ def test_bad_session_is_401_not_a_silent_guest_subscribe(client):
 
 @pytest.mark.parametrize("email", ["", "no-at-sign", "a@b", "two@@example.test", "x" * 250 + "@ex.test"])
 def test_guest_email_is_validated_before_any_db_call(client, email):
+    response = client.post("/api/courses/ielts-65/open-alerts", json={"email": email})
+    assert response.status_code == 422 and client.db.calls == []
+
+
+# One table shared with the form (frontend/lib/open-alert-model.mjs, checked by
+# frontend/tests/open-alert-model.test.mjs): the two email checks cannot drift.
+_EMAIL_CASES = json.loads((Path(__file__).resolve().parents[2] / "frontend/tests/fixtures/open-alert/email-cases.json").read_text())
+
+
+@pytest.mark.parametrize("email", _EMAIL_CASES["valid"])
+def test_shared_email_table_valid_addresses_are_accepted(client, email):
+    response = client.post("/api/courses/ielts-65/open-alerts", json={"email": email})
+    assert response.status_code == 202
+    assert client.db.calls[-1][1]["p_email"] == email.strip()
+
+
+@pytest.mark.parametrize("email", _EMAIL_CASES["invalid"])
+def test_shared_email_table_invalid_addresses_are_refused(client, email):
     response = client.post("/api/courses/ielts-65/open-alerts", json={"email": email})
     assert response.status_code == 422 and client.db.calls == []
 
