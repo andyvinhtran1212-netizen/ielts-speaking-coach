@@ -269,6 +269,18 @@ const pageErrors = [];
 const unhandledProductionRequests = [];
 const unstubbedRequests = [];
 
+// Override only Listening in both runs. Keep the build's API base for CSP
+// and preserve any other enabled exam rooms.
+function listeningRoomConfigSuffix(enabled) {
+  return `\n(() => {
+    const config = window.__AVER_RUNTIME_CONFIG__ || {};
+    const surfaces = (Array.isArray(config.examRoomSurfaces) ? config.examRoomSurfaces : [])
+      .filter((surface) => surface !== 'listening');
+    if (${Boolean(enabled)}) surfaces.push('listening');
+    window.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...config, examRoomSurfaces: surfaces });
+  })();\n`;
+}
+
 for (const examRoom of [false, true]) for (const viewport of VIEWPORTS) {
   const context = await browser.newContext({ viewport });
   await context.addInitScript(([key, value]) => {
@@ -284,10 +296,10 @@ for (const examRoom of [false, true]) for (const viewport of VIEWPORTS) {
     const url = new URL(request.url());
     if (url.origin === 'https://audio.fixture') return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() });
     if (url.origin === 'https://img.fixture') return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: fixtureImage() });
-    if (examRoom && request.method() === 'GET' && request.url().startsWith(BASE) && url.pathname === '/js/runtime-config.js') {
+    if (request.method() === 'GET' && request.url().startsWith(BASE) && url.pathname === '/js/runtime-config.js') {
       const original = await route.fetch();
-      const body = `${await original.text()}\nwindow.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...(window.__AVER_RUNTIME_CONFIG__ || {}), examRoomSurfaces: ['listening'] });\n`;
-      return route.fulfill({ response: original, body });
+      const body = `${await original.text()}${listeningRoomConfigSuffix(examRoom)}`;
+      return route.fulfill({ response: original, contentType: 'application/javascript', body });
     }
     if (request.url().startsWith(BASE) || request.url().startsWith('data:')) return route.continue();
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });

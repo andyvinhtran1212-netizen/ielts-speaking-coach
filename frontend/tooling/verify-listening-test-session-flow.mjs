@@ -102,6 +102,18 @@ let interceptedApiRequests = 0;
 page.on('pageerror', (error) => pageErrors.push(String(error)));
 page.on('dialog', async (dialog) => { if (examRoomOn) roomDialogs += 1; await dialog.accept(); });
 
+// Override only Listening in both runs. Keep the build's API base for CSP
+// and preserve any other enabled exam rooms.
+function listeningRoomConfigSuffix(enabled) {
+  return `\n(() => {
+    const config = window.__AVER_RUNTIME_CONFIG__ || {};
+    const surfaces = (Array.isArray(config.examRoomSurfaces) ? config.examRoomSurfaces : [])
+      .filter((surface) => surface !== 'listening');
+    if (${Boolean(enabled)}) surfaces.push('listening');
+    window.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...config, examRoomSurfaces: surfaces });
+  })();\n`;
+}
+
 await page.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
@@ -116,14 +128,14 @@ await page.route('**/*', async (route) => {
       body: `window.__AVER_RUNTIME_CONFIG__ = Object.freeze(${JSON.stringify({
         environment: 'production', apiBase: PRODUCTION_BACKEND,
         supabaseUrl: SB, supabaseAnonKey: null, release: null, gitRef: null,
-        ...(examRoomOn ? { examRoomSurfaces: ['listening'] } : {}),
+        examRoomSurfaces: examRoomOn ? ['listening'] : [],
       })});`,
     });
   }
-  if (examRoomOn && request.method() === 'GET' && url.origin === new URL(BASE).origin && url.pathname === '/js/runtime-config.js') {
+  if (request.method() === 'GET' && url.origin === new URL(BASE).origin && url.pathname === '/js/runtime-config.js') {
     const original = await route.fetch();
-    const body = `${await original.text()}\nwindow.__AVER_RUNTIME_CONFIG__ = Object.freeze({ ...(window.__AVER_RUNTIME_CONFIG__ || {}), examRoomSurfaces: ['listening'] });\n`;
-    return route.fulfill({ response: original, body });
+    const body = `${await original.text()}${listeningRoomConfigSuffix(examRoomOn)}`;
+    return route.fulfill({ response: original, contentType: 'application/javascript', body });
   }
   if (request.url().startsWith(BASE) || request.url().startsWith('data:')) return route.continue();
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
