@@ -19999,6 +19999,17 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ExtraTimeResult */
+        ExtraTimeResult: {
+            /** Sitting Id */
+            sitting_id: string;
+            /** Extra Seconds */
+            extra_seconds: {
+                [key: string]: number;
+            };
+            /** Event Logged */
+            event_logged: boolean;
+        };
         /** FanOutBody */
         FanOutBody: {
             /**
@@ -53309,7 +53320,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExtraTimeResult"];
                 };
             };
             /** @description Validation Error */
