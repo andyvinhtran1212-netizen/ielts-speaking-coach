@@ -1106,6 +1106,12 @@ class ExtraTimeBody(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
 
 
+class ExtraTimeResult(BaseModel):
+    sitting_id: str
+    extra_seconds: dict[str, int]
+    event_logged: bool
+
+
 class RoomMessageBody(BaseModel):
     body: str = Field(min_length=1, max_length=500)
 
@@ -1144,7 +1150,7 @@ async def exam_events(
     return await _room(room_svc.list_events, exam_id, kind, limit)
 
 
-@router.post("/{exam_id}/extra-time")
+@router.post("/{exam_id}/extra-time", response_model=ExtraTimeResult)
 async def add_extra_time(
     exam_id: str, body: ExtraTimeBody, authorization: str | None = Header(default=None),
 ):
