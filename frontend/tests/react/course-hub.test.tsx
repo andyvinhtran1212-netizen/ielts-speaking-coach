@@ -176,8 +176,7 @@ it('eligible expired courses link to the public catalogue when commerce is on (F
   }));
 
   expect((await screen.findByRole('link', { name: 'Đăng ký lại' })).getAttribute('href')).toBe('/courses');
-  // The catalogue index is live, but the individual course pages are still planned.
-  expect(screen.queryByRole('link', { name: 'Xem khoá' })).toBeNull();
+  expect(screen.getByRole('link', { name: 'Xem khoá' }).getAttribute('href')).toBe('/courses/unowned-course');
 });
 
 it('switching to an expired course drops the pending lessons of the previous one (FR-037)', async () => {

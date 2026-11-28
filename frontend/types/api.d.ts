@@ -6805,6 +6805,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/deletion-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Deletion Request */
+        get: operations["get_deletion_request_api_account_deletion_request_get"];
+        put?: never;
+        /** Create Deletion Request */
+        post: operations["create_deletion_request_api_account_deletion_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/deletion-request/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Deletion Request */
+        post: operations["cancel_deletion_request_api_account_deletion_request_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Data Export */
+        get: operations["get_data_export_api_account_data_export_get"];
+        put?: never;
+        /** Create Data Export */
+        post: operations["create_data_export_api_account_data_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account/data-export/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Data Export
+         * @description FR-012. Default: 302 to a short-lived signed URL. A bearer-token client
+         *     (the Next account page, #2613) cannot follow a redirect into a download,
+         *     so ``Accept: application/json`` returns the same link as JSON instead;
+         *     both carry ``Cache-Control: no-store``.
+         */
+        get: operations["download_data_export_api_account_data_export__export_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/grammar/home": {
         parameters: {
             query?: never;
@@ -16716,6 +16792,11 @@ export interface components {
              * @default false
              */
             suspended: boolean;
+            /**
+             * Learner V2 Enabled
+             * @default false
+             */
+            learner_v2_enabled: boolean;
         };
         /** AuthMeResponse */
         AuthMeResponse: {
@@ -18527,6 +18608,11 @@ export interface components {
              */
             window_days: 7 | 30 | 90;
         };
+        /** DeletionRequestBody */
+        DeletionRequestBody: {
+            /** Confirm Email */
+            confirm_email: string;
+        };
         /**
          * DeliverRequest
          * @description POST /admin/instructor/reviews/{id}/deliver payload.
@@ -19707,6 +19793,13 @@ export interface components {
             status: "draft" | "published" | "archived";
         } & {
             [key: string]: unknown;
+        };
+        /** ExportDownloadLink */
+        ExportDownloadLink: {
+            /** Url */
+            url: string;
+            /** Expires In Seconds */
+            expires_in_seconds: number;
         };
         /** ExtendEntitlement */
         ExtendEntitlement: {
@@ -39934,6 +40027,206 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_deletion_request_api_account_deletion_request_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_deletion_request_api_account_deletion_request_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeletionRequestBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_deletion_request_api_account_deletion_request_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_data_export_api_account_data_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_data_export_api_account_data_export_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_data_export_api_account_data_export__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                accept?: string | null;
+            };
+            path: {
+                export_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportDownloadLink"];
+                };
+            };
+            /** @description Redirect to the signed URL (default; FR-012) */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

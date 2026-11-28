@@ -5,7 +5,11 @@ import { SessionResultBehavior } from '@/app/(authed-session-result)/result/sess
 import { AuthProvider } from '@/lib/auth/auth-provider';
 
 const fixture = vi.hoisted(() => ({ sessionId: 's1' }));
-vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(`id=${fixture.sessionId}`) }));
+// AuthProvider reads usePathname for the FR-092 open-page check (null = use window.location).
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(`id=${fixture.sessionId}`),
+  usePathname: () => null,
+}));
 vi.mock('@/lib/when-global-ready.mjs', () => ({ whenGlobalReady: async () => true }));
 vi.mock('@/lib/session-api', () => ({
   getSessionDetail: async () => ({

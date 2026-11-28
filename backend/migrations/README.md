@@ -144,6 +144,14 @@ both service_role only, and the private `account-exports` bucket guarded by a
 RESTRICTIVE `storage.objects` policy. Users rows are anonymised, never deleted, so
 both foreign keys are `ON DELETE RESTRICT`. The rollback refuses while either
 table has a row or the bucket has an object.
+`504` is `pending_feature account_data_rights` too (ACCOUNTDATA-0100 T005,
+amendments 1 and 2): `fn_account_erase_learner(request, owner, plan)`, the one
+transaction of erasure step 5 (SECURITY DEFINER, `service_role` only), and a
+narrow pass injected after the top-level `BEGIN` of the guards that refuse
+DELETE on grading evidence (and of the `class_action_log` append-only guard,
+for `student_name → NULL` only). The pass lets through only rows of the learner
+whose request the current transaction is erasing (`erasing_xact = pg_current_xact_id()`, written only by the function); the pass is a nested IF on a hint GUC, so ordinary DML never needs EXECUTE on the check functions, which are granted to `service_role` explicitly. The rollback removes the
+pass and drops the functions; it refuses while an erasure is running.
 `401` is `pending_feature public_library_signoff` (LIBRARY-0061 T002b, amendment 2):
 Writing sample sign-off columns `review_status`/`reviewed_by`/`reviewed_at` on
 `writing_samples` and CHECKs that a published row is approved and every approval is
