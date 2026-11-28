@@ -8,8 +8,8 @@
 // OpenAPI declares the GET paths but their responses are unknown. Validate
 // the wire payload before letting the pages render personal viewer fields.
 
-import { getBrowserJson, getBrowserJsonAt } from './browser-api';
-import type { CourseCatalog, CourseDetail, CourseItem, Order } from './commerce-types';
+import { getBrowserJson, getBrowserJsonAt, postBrowserJsonAtWith } from './browser-api';
+import type { CourseCatalog, CourseDetail, CourseItem } from './commerce-types';
 import { whenGlobalReady } from './when-global-ready.mjs';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -91,12 +91,15 @@ export async function fetchContentVisibleUntil(): Promise<string | null> {
 }
 
 /** `POST /api/enrollment-orders` (G04 #2526): 201 a new order, 200 the open one (FR-036). */
-export async function createEnrollmentOrder(productSlug: string, requestKey: string): Promise<{ order: Order }> {
+export async function createEnrollmentOrder(productSlug: string, requestKey: string, signal?: AbortSignal) {
   await transportReady();
-  return window.api.postWith<{ order: Order }>(
-    '/api/enrollment-orders',
-    { product_slug: productSlug, request_key: requestKey },
-    undefined,
-    { noRedirect: true },
+  signal?.throwIfAborted();
+  const endpoint = '/api/enrollment-orders';
+  const response = await postBrowserJsonAtWith(
+    endpoint, endpoint, { product_slug: productSlug, request_key: requestKey }, { noRedirect: true, signal },
   );
+  if (!isRecord(response) || !isRecord(response.order) || typeof response.order.order_code !== 'string') {
+    throw new Error('Malformed enrollment order');
+  }
+  return { order: response.order };
 }

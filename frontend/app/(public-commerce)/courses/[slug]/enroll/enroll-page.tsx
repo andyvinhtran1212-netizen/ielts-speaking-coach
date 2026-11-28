@@ -22,7 +22,7 @@
 // here. FR-035's optional phone number is left out: G04's create-order API
 // has no field for it, and the page does not ask for data nobody stores.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { Button, Notice, PageState, Stepper, type Step } from '@/components/ui';
 import { getCurrentUser } from '@/lib/auth-api';
@@ -104,6 +104,16 @@ export function EnrollPage({ course: initial }: { course: CourseDetail }) {
   const { status, user } = useAuth();
   const signedIn = status === 'signed-in';
   const accountId = signedIn ? user?.id ?? null : null;
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace(enrollHref(initial.slug, false));
+  }, [status, initial.slug]);
+  return <EnrollmentForm key={JSON.stringify([accountId, initial.slug])}
+    initial={initial} accountId={accountId} email={user?.email ?? ''} />;
+}
+
+function EnrollmentForm({ initial, accountId, email }: {
+  initial: CourseDetail; accountId: string | null; email: string;
+}) {
   const [course, setCourse] = useState<CourseDetail>(initial);
   const [read, setRead] = useState<ViewerRead>('waiting');
   const [name, setName] = useState<string | null>(null);
@@ -114,10 +124,12 @@ export function EnrollPage({ course: initial }: { course: CourseDetail }) {
   const inFlight = useRef(false);
   const generation = useRef(0);
 
-  // Signed out: sign in first, then come back here (FR-030 `next`).
-  useEffect(() => {
-    if (status === 'signed-out') window.location.replace(enrollHref(initial.slug, false));
-  }, [status, initial.slug]);
+  const lifetime = useRef<AbortController | null>(null);
+  useLayoutEffect(() => {
+    const controller = new AbortController();
+    lifetime.current = controller;
+    return () => { controller.abort(); generation.current += 1; };
+  }, []);
 
   const loadViewer = useCallback((gen: number) => {
     setRead('loading');
@@ -160,12 +172,13 @@ export function EnrollPage({ course: initial }: { course: CourseDetail }) {
   }, [accountId, initial.slug, loadViewer]);
 
   const submit = useCallback(() => {
-    if (!agreed || inFlight.current || failure?.final) return;
+    const signal = lifetime.current?.signal;
+    if (!accountId || read !== 'ready' || !agreed || !signal || signal.aborted || inFlight.current || failure?.final) return;
     inFlight.current = true;
     const gen = generation.current;
     setBusy(true);
     setFailure(null);
-    createEnrollmentOrder(initial.slug, requestKey.current).then(
+    createEnrollmentOrder(initial.slug, requestKey.current, signal).then(
       (answer) => {
         if (gen !== generation.current) return;
         const code = answer?.order?.order_code;
@@ -188,7 +201,7 @@ export function EnrollPage({ course: initial }: { course: CourseDetail }) {
         setFailure(view);
       },
     );
-  }, [agreed, failure, initial.slug]);
+  }, [accountId, read, agreed, failure, initial.slug]);
 
   const catalog = coursesHref() ?? '/';
   const crumb = (
@@ -244,7 +257,6 @@ export function EnrollPage({ course: initial }: { course: CourseDetail }) {
     );
   }
 
-  const email = user?.email ?? '';
   const stopped = !!failure?.final;
   const access = typeof course.access_days === 'number' && course.access_days > 0
     ? ` Khoá có thời hạn ${course.access_days} ngày kể từ ngày mở.`

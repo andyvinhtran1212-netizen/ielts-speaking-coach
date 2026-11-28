@@ -1,5 +1,6 @@
 // ENROLL-0060 FR-035/036, G05-T12 màn 1 — `/courses/[slug]/enroll`.
 // Fixtures are fake (tests/fixtures/commerce); nothing here calls a backend.
+import { useLayoutEffect } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -203,4 +204,29 @@ it('A → B: the next account starts over with a new request_key and an unticked
   await vi.waitFor(() => expect(posts).toHaveLength(2));
   expect(posts[1].body.request_key).not.toBe(posts[0].body.request_key);
   auth.email = 'a@example.test';
+});
+
+it.each(['signed-in', 'signed-out'] as const)('clears the form on the first %s commit and drops the previous order reply', async (status) => {
+  let finish!: (value: unknown) => void;
+  postAnswer = () => new Promise(resolve => { finish = resolve; });
+  function Observe({ capture }: { capture?: () => void }) {
+    useLayoutEffect(() => { capture?.(); }, [capture]);
+    return <EnrollPage course={OPEN} />;
+  }
+  const page = render(<Observe />);
+  fireEvent.click(await screen.findByRole('checkbox'));
+  fireEvent.click(button());
+  await vi.waitFor(() => expect(posts).toHaveLength(1));
+  auth.status = status;
+  auth.id = 'learner-b';
+  const capture = vi.fn(() => {
+    expect(screen.queryByText('Học viên Giả')).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByRole('button', { name: SUBMIT })).toBeNull();
+  });
+  page.rerender(<Observe capture={capture} />);
+  expect(capture).toHaveBeenCalled();
+  await act(async () => { finish({ order: { order_code: 'OLD-ORDER' } }); });
+  expect(replace).not.toHaveBeenCalledWith('/enroll/OLD-ORDER');
+  if (status === 'signed-in') expect((await screen.findByRole('checkbox') as HTMLInputElement).checked).toBe(false);
 });
