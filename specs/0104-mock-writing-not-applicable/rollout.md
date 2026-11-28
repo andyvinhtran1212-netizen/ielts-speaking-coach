@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- Obtain product approval for this draft before implementation and review the separate migration 510 draft in [#2717](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/2717).
+- Product approval is recorded in [the owner decision](approval-decision.md). Review the separate migration 510 draft in [#2717](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/2717).
 - Obtain current authorization for the target environment before applying migration 510. Verify its nullable columns before deploying readers with explicit column selects. A null marker preserves each sitting's original requirements.
 
 ## Staging

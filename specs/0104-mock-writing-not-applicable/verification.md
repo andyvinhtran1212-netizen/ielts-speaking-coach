@@ -1,6 +1,6 @@
 # Verification
 
-All checks below are planned for implementation. This draft has no runtime acceptance evidence.
+All checks below are planned for implementation. Runtime acceptance will be recorded on the implementation PR.
 
 ## Requirement coverage
 

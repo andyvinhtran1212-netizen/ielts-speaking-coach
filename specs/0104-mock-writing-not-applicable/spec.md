@@ -1,7 +1,7 @@
 ---
 id: MOCKLRONLY-0104
 title: Admins can finish review of a closed sequential mock when Writing was never offered
-status: draft
+status: approved
 risk: high
 owner: product
 ---
