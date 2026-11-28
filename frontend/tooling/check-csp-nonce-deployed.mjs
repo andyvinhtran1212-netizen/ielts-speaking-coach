@@ -27,7 +27,7 @@ export const PUBLIC_PATHS = ['/', '/login', '/grammar', '/vocabulary'];
 // (no route, so a 404 like the others; `/admin` itself keeps the nonce).
 // `/nope-top-level` and `/login/nope-xyz` (outside the matcher) are controls.
 export const NOT_FOUND_PATHS = Object.freeze([
-  '/practice', '/home/does-not-exist', '/admin/nope-xyz', '/instructor/nope-xyz',
+  '/practice/nope-xyz', '/home/does-not-exist', '/admin/nope-xyz', '/instructor/nope-xyz',
   '/vocabulary/nope/xyz/abc', '/login/nope-xyz', '/admin/404', '/nope-top-level',
 ]);
 // A real route whose page calls notFound() under <Suspense>: a soft 404 (HTTP

@@ -14,6 +14,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { PRACTICE_ROOM_OFF } from './practice-room-off.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(HERE, '..', 'public', 'js', 'practice.js'), 'utf8');
 const HTML = readFileSync(join(HERE, '..', 'public', 'pages', 'practice.html'), 'utf8');
@@ -180,6 +182,7 @@ describe('nút nộp', () => {
       '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${PRACTICE_ROOM_OFF}
       ${COMPLETION}
       ${JS.slice(start, end)}
       return _sheetSubmit;
@@ -212,6 +215,7 @@ describe('nút nộp', () => {
       '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${PRACTICE_ROOM_OFF}
       ${COMPLETION}
       ${JS.slice(start, end)}
       return _sheetSubmit;
@@ -329,6 +333,7 @@ async function recordTake(startState, {
   const body = `
     var MIN_RECORD_SEC = ${minimums[1]};
     function _resetRecorder() { _recordedBlob = null; }
+    ${PRACTICE_ROOM_OFF}
     ${JS.slice(from, to)}
     return { toggle: _sheetToggleRec, onRecorded: _sheetOnRecorded,
       retry: _sheetRetrySubmission, recordedBlob: () => _recordedBlob,
@@ -482,7 +487,7 @@ describe('lưu hỏng thì nói ra', () => {
     const toggle = new Function(
       '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
       '_getNativeRecorder', '_analyser', '_playerGeneration', '_playerActive',
-      JS.slice(from, to) + ' return _sheetToggleRec;',
+      PRACTICE_ROOM_OFF + JS.slice(from, to) + ' return _sheetToggleRec;',
     )(
       sheet, () => {}, async () => false, () => {},
       () => null, null, 1, true,
@@ -604,7 +609,8 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
     // — nó hạ một bài đã lưu xuống 'chưa làm'. Nay ghim BẤT BIẾN: nhớ trạng
     // thái cũ rồi trả lại đúng nó.
     const i = CODE.indexOf('function _sheetToggleRec');
-    const body = CODE.slice(i, i + 1200);
+    // 1400: the room's read-only guard (R149) adds a line at the top.
+    const body = CODE.slice(i, i + 1400);
     assert.match(body, /var prevState = s\.state;/, 'phải nhớ trạng thái cũ');
     assert.match(body, /s\.state = prevState;/, 'và trả lại đúng nó');
     assert.ok(!/s\.band === null/.test(body),

@@ -90,6 +90,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/full-test-result` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. |
 | `/profile` | student | Profile, band target, study goals. |
 | `/account` | student | v2 Tài khoản: online and class courses (`GET /api/me/courses`, G04), the shared AI-credit balance and the server-labelled credit history (`GET /api/me/credits`); without G04 only the class group from `/api/class/me`. |
+| `/account/orders` | student | The signed-in learner’s enrollment orders, newest first, with the next action for each order. |
+| `/enroll/[orderCode]` | student | Transfer instructions and status for one of the learner’s orders. Shows access details once payment is confirmed. |
 | `/progress` | student | v2 Tiến độ: one row per skill from `/sessions`, `/api/writing/my-essays`, `/api/listening/overview`, `/api/quiz/progress` (band only per FR-077); goal band and exam date via `PATCH /auth/profile`. |
 | `/help` | student | v2 Trợ giúp: static FAQ (six groups, `lib/help-faq.mjs`) with accent-insensitive search. |
 | `/speaking/result` | student | Speaking feedback workspace, separate from the single-question and full-test result entries. |
@@ -182,6 +184,7 @@ to `/`; the historical source file is not a separately served marketing page.
 |---|---|---|
 | `/courses` | all | Course catalogue (PUBLICSITE-0059 T04), 404 until the build flag `AVER_PUBLIC_COMMERCE=1`: one row per course from `GET /api/courses` with its state (open / upcoming / learning / expired), fee only when open, a comparison table and a short chooser; upcoming rows carry "Báo cho tôi khi mở". A signed-in visitor's own states are read in the browser. |
 | `/courses/[slug]` | all | One course (PUBLICSITE-0059 T05), 404 until `AVER_PUBLIC_COMMERCE=1`; an unknown or non-public slug is a 404. Course text, author, chapters (trial lessons are links), how AI credits work, FAQ; a registration panel per viewer state (enrol through login, continue payment, learning, renew, upcoming with "Báo cho tôi khi mở"), sticky from 1024px and a bottom bar below. Handles the mail unsubscribe link `#bo-nhan=`. |
+| `/courses/[slug]/enroll` | student | Enrol step of one course (ENROLL-0060 T12 screen 1), 404 until `AVER_PUBLIC_COMMERCE=1`; signed out goes to sign in and back. Name and email from the account, the terms and refund box turns on "Tạo đơn và xem thông tin chuyển khoản", which creates the order once and opens `/enroll/<order code>`; an open order for the course opens directly. |
 
 ### 4.7b Student — classes and course work
 
@@ -197,6 +200,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin` | admin | Admin Overview (pedagogical: students, skills, errors — `/admin/*` + `admin_overview.py`). |
 | `/admin/dashboard/reading-attempts` | admin | Native Reading-attempts dashboard — frozen snapshot, truthful partial/unavailable states, auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). The old HTML URL now redirects to this native owner. |
 | `/admin/foot-traffic` · `/admin/usage` | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
+| `/admin/incidents` | admin | Incident inbox in the new admin frame. Filter groups by source and open a group to inspect its reports. |
+| `/admin/incidents/[source]/[fingerprint]` | admin | Inspect one incident group and resolve, ignore, or reopen it. The result shows how many reports were updated. |
 | `/admin/error-logs` | admin | Error-report inbox (`/admin/error-logs`). |
 | `/admin/ai-models` | admin | AI và mô hình (ADMINIA-0074 FR-074): per-feature model table (AIOPS-0024 overrides, `/admin/ai-models`); each save opens an in-row confirmation with old → new values and a reason box before the unchanged PATCH. |
 | `/admin/qa-tools` | admin | Công cụ QA (FR-073): links to the recommendation tester and mock answer corrections, plus "Tạo lỗi thử" (`POST /admin/error-logs/test`), shown only on a known non-Production environment; the server refuses Production and unknown tiers with 403. |
@@ -230,7 +235,9 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/admin/users` | admin | All users (role, activation, sessions-today). |
-| `/admin/students` | admin | Student roster (Tailwind page). |
+| `/admin/learners` | admin | Search and filter the learner directory in the new admin frame. |
+| `/admin/learners/[ref]` | admin | Read the learner's profile, shared summary, and five tabs in the new admin frame. Tổng quan reads `/admin/learners/{ref}/overview` and resolves conflicting goals through `…/goal/resolve`. |
+| `/admin/students` | admin | Student roster. With the new admin frame enabled, opens the learner directory and carries over the search query. |
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
 | `/admin/classes/[cohortId]/exercise-book` · `/admin/classes/[cohortId]/exercise-book/grants` | admin (377 grant holders; grants page: the course-2 owner account only) | Exercise-book workspace of one class: catalog with locked activities and reasons, per-activity assignment to named recipients with a Vietnam-time deadline and idempotent `request_id`, the class's book assignments, student × activity progress, teacher review and close-with-reason. The grants page records grant/revoke events in the 377 log; it is a UI gate only, enforced server-side (owner UUID, AAL2 step-up). Links appear on the class Homework tab only when the read route answers 200. |
 | `/admin/activation-codes` | admin | Activation-code ledger (ADMINIA-0074 FR-048): state per code (Chưa dùng · Đã dùng · Hết hạn nhập · Đã thu hồi), grading credits, expiring label; codes are issued from a class, not here. `/admin/access-codes` and `/admin/users?tab=codes` redirect here. Ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |

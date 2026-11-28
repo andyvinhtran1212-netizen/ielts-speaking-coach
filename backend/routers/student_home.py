@@ -30,10 +30,11 @@ from services.feature_flags import is_learner_v2_enabled
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
 from models.student_course import StudentCourseResponse
-from models.student_today import StudentTodayResponse, TodaySeenRequest
+from models.student_today import StudentTodayResponse, StudentTodayResumeResponse, TodaySeenRequest
 from models.student_assigned import StudentAssignedResponse
 from models.student_skill_hub import StudentSkillHubResponse
-from services import activation_gate, session_gate, student_assigned, student_course, student_skill_hub, student_today
+from models.student_tests import StudentTestsResponse
+from services import activation_gate, session_gate, student_assigned, student_course, student_skill_hub, student_tests, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -91,15 +92,17 @@ async def _require_learner_v2(user_id: str) -> None:
                             headers={"Cache-Control": "private, no-store"})
 
 
-@router.get("/today", response_model=StudentTodayResponse)
-async def today(request: Request, response: Response, authorization: str | None = Header(default=None)):
+@router.get("/today", response_model=StudentTodayResponse | StudentTodayResumeResponse)
+async def today(request: Request, response: Response, authorization: str | None = Header(default=None),
+                view: Literal["resume"] | None = Query(default=None)):
     """New Today page payload (LEARNERCORE-0063 FR-019..FR-029, FR-070..FR-078).
 
     Writes nothing of its own, not even the seen cursor (FR-078). The only write
     is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
     amendment 3, #2484). Each part runs in its own worker; a failing part lands
     in `degraded`. 404 while `learner_v2` is off for the caller, before any
-    read or reconcile runs.
+    read or reconcile runs. The optional resume view for Practice (FR-079)
+    reads only resumable work and performs no ledger reconcile.
     """
     response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
@@ -109,13 +112,16 @@ async def today(request: Request, response: Response, authorization: str | None 
     await session_gate.ensure_current(auth_user["id"], authorization, request.headers.get("user-agent"))
     if status == activation_gate.OPEN_ACTIVE:
         await _require_learner_v2(auth_user["id"])
-    email = auth_user.get("email") or ""
-    account_name = account_display_name(auth_user)
-    name = account_name or (email.split("@", 1)[0] if email else "bạn")
-    result = await student_today.get_today_concurrent(
-        thread_supabase_admin, auth_user["id"], name=name, account_name=account_name,
-        active=status == activation_gate.OPEN_ACTIVE,
-    )
+    active = status == activation_gate.OPEN_ACTIVE
+    if view == "resume":
+        result = await student_today.get_resume_view(thread_supabase_admin, auth_user["id"], active=active)
+    else:
+        email = auth_user.get("email") or ""
+        account_name = account_display_name(auth_user)
+        name = account_name or (email.split("@", 1)[0] if email else "bạn")
+        result = await student_today.get_today_concurrent(
+            thread_supabase_admin, auth_user["id"], name=name, account_name=account_name, active=active,
+        )
     if status == activation_gate.OPEN_INACTIVE:
         activation_gate.log_inactive_open_request("GET", "/api/student/today", auth_user["id"])
     return result
@@ -191,3 +197,22 @@ async def skill_hub(
         thread_supabase_admin, auth_user["id"], skill,
         account_name=account_display_name(auth_user),
     )
+
+
+@router.get("/tests", response_model=StudentTestsResponse)
+async def tests(response: Response, cursor: str | None = Query(default=None, max_length=512),
+                authorization: str | None = Header(default=None)):
+    """Thi thử page payload (LEARNERCORE-0063 amendment 1, FR-080..FR-085).
+
+    Read-only. `cursor` is the opaque `results_next_cursor` of the previous
+    page; a "Xem thêm" page carries only `results` (and `credits`). An
+    unreleased mock sitting never carries a score (HOLD FR-082).
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    try:
+        return await student_tests.get_tests_concurrent(
+            thread_supabase_admin, auth_user["id"], cursor=cursor,
+        )
+    except student_tests.BadCursor:
+        raise HTTPException(400, "Con trỏ trang không hợp lệ.")

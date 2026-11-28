@@ -259,7 +259,8 @@ describe('Listening review native controller contract', () => {
   });
 
   test('defaults to wrong answers, but palette jumps reveal filtered cards', () => {
-    assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all' : \(wrong \? 'wrong' : 'all'\)\)/);
+    // Old tree unchanged; the new tree (LEARNERCORE-0063 FR-105) opens on ?only=wrong.
+    assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all'\s*: v2 \? \(onlyWrongFromSearch\(window\.location\.search\) \? 'wrong' : 'all'\)\s*: \(wrong \? 'wrong' : 'all'\)\)/);
     assert.match(CLIENT, /review\.filter\(\(item: any\) => listeningReviewMatchesFilter\(item, 'wrong'\)\)\.length/);
     assert.match(CLIENT, /if \(filter !== 'all' && !listeningReviewMatchesFilter\(item, filter\)\) setFilter\('all'\)/);
     assert.match(CLIENT, /\.filter\(\(item: any\) => listeningReviewMatchesFilter\(item, filter\)\)/);

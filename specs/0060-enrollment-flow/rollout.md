@@ -6,6 +6,7 @@
 - Số 390–395 còn trống trong `backend/migrations/register.tsv`; mỗi PR migration thêm dòng `present` cùng PR. 394 cần G04 mig 383 (đã có trên staging).
 - Cờ tắt mặc định: runtime flag `email_code_login`, cờ build `AVER_PUBLIC_COMMERCE`, `enroll_prelearn_chapter1`.
 - Cờ build `AVER_PUBLIC_COMMERCE` chỉ bật ở một môi trường sau khi G04 #2485 (`courses_public`: `GET /api/courses`, `GET /api/courses/<slug>`) đã chạy ở đó (CR #2637). Trước đó backend trả 404 mặc định của FastAPI, `getPublicJson` coi mọi 404 là "không có khoá", nên mọi trang khoá thành soft 404 (200 + noindex), và kết quả đó còn được cache 60 giây.
+- Bước "Tạo đơn và xem thông tin chuyển khoản" ở `/courses/<slug>/enroll` gọi `POST /api/enrollment-orders` của G04 #2526 và mở `/enroll/<order_code>` (G05-T12a): bật cờ chỉ khi cả hai đã có ở môi trường đó. Thiếu route tạo đơn thì nút chỉ báo "Chưa tạo được đơn đăng ký…", không có đơn nào được tạo.
 - Biến bí mật `LOGIN_CODE_HASH_PEPPER` (rỗng → route trả 503) do anh đặt trên Railway staging rồi production; người thực thi không đặt.
 
 ### Migration và thứ tự áp
@@ -40,6 +41,7 @@ Người thực thi không đổi cài đặt dự án Supabase và không tạo
 
 - Thứ tự bật cờ `email_code_login`: (1) migration 391 đã áp và đọc lại; (2) sáu việc Supabase ở trên xong trên staging; (3) PR T18 lên staging, pytest xanh; (4) người thực thi kiểm sáu điểm `CHƯA KIỂM` của 5.6 trên Supabase staging và ghi kết quả vào PR T18; (5) PR T19 lên; (6) anh bật cờ trên staging; (7) chạy kịch bản 4, 5 với hộp thư thử; (8) kiểm gộp danh tính Google + mã cùng email (không ra hai tài khoản) trước khi coi là xong.
 - Luồng đơn: kịch bản 6–12 với sản phẩm thử của G04 và tài khoản thử; quét QR không bấm chuyển.
+- Chỉ bật luồng đơn (cho người học tạo đơn) sau khi `/enroll/[orderCode]` (T12) đã `live` trong `frontend/lib/route-registry.mjs`. Trước đó `/account/orders` (T13) vẫn liệt kê đơn nhưng các dòng chưa có liên kết hành động, vì liên kết chỉ trỏ tới trang đã live; chỉ dòng "Vào học" có liên kết.
 - Mỗi PR chờ CI tích hợp và Staging E2E xanh đúng SHA.
 
 ## Production

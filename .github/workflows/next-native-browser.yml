@@ -877,7 +877,7 @@ jobs:
 
       - name: Nộp ảnh thư viện component khi lỗi
         if: ${{ failure() && steps.ui_library_artifact_guard.outcome == 'success' && env.RUN_BROWSER == 'true' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ui-library-visual-${{ github.run_id }}-${{ github.run_attempt }}
           path: frontend/test-results/visual
@@ -1697,7 +1697,7 @@ jobs:
 
       - name: Nộp log server khi lỗi
         if: ${{ failure() && steps.native_log_artifact_guard.outcome == 'success' && env.RUN_BROWSER == 'true' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: next-native-browser-log-${{ github.run_id }}
           path: |
@@ -1764,7 +1764,7 @@ jobs:
 
       - name: Nộp ảnh và trace khi lỗi
         if: ${{ failure() && steps.reading_native_artifact_guard.outcome == 'success' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: reading-native-layout-${{ github.run_id }}-${{ github.run_attempt }}
           path: frontend/test-results

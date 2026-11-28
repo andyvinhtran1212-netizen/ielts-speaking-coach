@@ -20,6 +20,7 @@ class AttentionReason(BaseModel):
 
 class LearnerRow(BaseModel):
     ref: str
+    student_id: Optional[str] = None
     name: str
     email: Optional[str]
     student_code: Optional[str]

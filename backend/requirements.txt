@@ -7,7 +7,7 @@ httpx==0.27.2
 # threads. httpx, httpcore, supabase and postgrest are pinned to the versions
 # tests/test_supabase_singleton_threadsafe.py proved; re-run it on any bump.
 httpcore==1.0.9
-python-dotenv==1.2.2
+python-dotenv==1.2.4
 # OpenAPI drift is byte-compared in CI. Pin the schema producer so a new
 # Pydantic minor cannot change JSON Schema without a reviewed repository diff.
 pydantic==2.12.5
@@ -20,7 +20,7 @@ storage3==2.28.3
 
 anthropic==0.39.0
 google-generativeai==0.8.3
-openai==1.55.3
+openai==3.57.0
 google-cloud-texttospeech==2.21.1
 
 # PC-J597: error reporting, initialised only when SENTRY_DSN is set

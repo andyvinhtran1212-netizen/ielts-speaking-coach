@@ -19,10 +19,10 @@ import {
 import { MicStatus, micState } from './mic-status';
 import { RecordingStatus, type RecordingSubstate } from './recording-status';
 
-export function callApp(method: string) {
+export function callApp(method: string, ...args: unknown[]) {
   const app = (window as any).PracticeApp;
   if (!app || typeof app[method] !== 'function') return undefined;
-  return app[method]();
+  return app[method](...args);
 }
 
 /** "m:ss" counting up; "h:mm:ss" past an hour. */
@@ -60,6 +60,8 @@ export type SpeakingRoomSlots = {
   prepMic: ReactNode;
   /** Above the P1/P3 recorder (inline recording section). */
   recorder: ReactNode;
+  /** Above the multi-question class-assignment answer sheet. */
+  answerSheet: ReactNode;
   /** Above the Part 2 cue card start button. */
   part2Cue: ReactNode;
   /** Above the Part 2 "speak now" button: the microphone is asked for here. */
@@ -78,7 +80,7 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
   const strings = speakingRoomStrings(mode);
   const mic = micState(view.mic?.state);
   const requestMic = () => { void callApp('requestMicrophone'); };
-  const micBox = <MicStatus state={mic} strings={strings} onRequest={requestMic} track={trackExamRoomEvent} />;
+  const micBox = <MicStatus state={mic} lost={view.mic?.lost === true} strings={strings} onRequest={requestMic} track={trackExamRoomEvent} />;
   const rec = view.recording || {};
   const substate: RecordingSubstate = rec.substate === 'recording' || rec.substate === 'recorded' ? rec.substate : 'idle';
   const level = typeof rec.level === 'number' ? rec.level : null;
@@ -102,6 +104,12 @@ export function speakingRoomSlots(view: any, activeState: string): { mode: Speak
         <div className="av2-root" data-room-slot="recorder" style={SLOT_STYLE}>
           <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
           <TooShortReason value={tooShortOf(rec.tooShort)} mode={mode} />
+        </div>
+      ) : null,
+      answerSheet: activeState === 'sheet' ? (
+        <div className="av2-root" data-room-slot="answer-sheet" style={SLOT_STYLE}>
+          {micBox}
+          <RecordingStatus substate={substate} timer={rec.timer || '0:00'} duration="" level={level} paused={rec.paused === true} strings={strings} />
         </div>
       ) : null,
       part2Cue: activeState === 'p2a' ? (
