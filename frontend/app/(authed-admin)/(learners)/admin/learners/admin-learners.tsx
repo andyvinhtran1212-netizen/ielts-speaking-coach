@@ -10,8 +10,11 @@ import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-direc
 import { LearnerSummary } from '@/components/admin/learner-summary';
 import { getAdminCohorts } from '@/lib/admin-cohorts-api';
 import {
+  assignLearnersToCohort,
+  createDirectoryLearner,
   getLearnerDirectory,
   getLearnerSummary,
+  importDirectoryLearners,
   type LearnerDirectoryWire,
   type LearnerRowWire,
   type LearnerSummaryWire,
@@ -153,11 +156,10 @@ export function AdminLearners() {
     if (!ids.length) { setBanner({ kind: 'error', text: 'Không ai trong số đã chọn có hồ sơ học viên để thêm vào lớp.' }); return; }
     setBusy(true); setBanner(null);
     try {
-      const out = await window.api.post<{ assigned?: number }>(
-        `/admin/cohorts/${encodeURIComponent(bulkCohort)}/students/bulk`, { student_ids: ids });
+      const assigned = await assignLearnersToCohort(bulkCohort, ids);
       setSelected(new Map()); setBulkCohort('');
       const skippedText = skipped.length ? ` Bỏ qua ${skipped.length} người chưa có hồ sơ học viên: ${skipped.join(', ')}.` : '';
-      await reload(`Đã thêm ${out?.assigned ?? ids.length} học viên vào lớp; các lớp khác giữ nguyên.${skippedText}`);
+      await reload(`Đã thêm ${assigned} học viên vào lớp; các lớp khác giữ nguyên.${skippedText}`);
     } catch (caught) {
       setBanner({ kind: 'error', text: messageOf(caught) });
     } finally { setBusy(false); }
@@ -170,13 +172,12 @@ export function AdminLearners() {
 
   const importCsv = async (file: File | undefined) => {
     if (!file || busy) return;
-    const form = new FormData(); form.append('file', file);
     setBusy(true); setBanner(null); setCsvErrors([]);
     try {
-      const out = await window.api.upload<{ imported?: number; errors?: unknown[] }>('/admin/students/import', form);
-      const errors = (Array.isArray(out?.errors) ? out.errors : []).map((e) => (typeof e === 'string' ? e : JSON.stringify(e)));
+      const out = await importDirectoryLearners(file);
+      const errors = out.errors.map((e) => (typeof e === 'string' ? e : JSON.stringify(e)));
       setCsvErrors(errors);
-      await reload(`Đã import ${out?.imported ?? 0} học viên${errors.length ? `; ${errors.length} dòng cần kiểm tra.` : '.'}`);
+      await reload(`Đã import ${out.imported} học viên${errors.length ? `; ${errors.length} dòng cần kiểm tra.` : '.'}`);
     } catch (caught) { setBanner({ kind: 'error', text: messageOf(caught) }); }
     finally { setBusy(false); if (csvInput.current) csvInput.current.value = ''; }
   };
@@ -184,11 +185,11 @@ export function AdminLearners() {
   const submitDraft = async (event: FormEvent) => {
     event.preventDefault();
     if (!draft || busy) return;
-    const check = validateStudentDraft(draft) as { ok: boolean; error?: string; body?: Record<string, unknown> };
+    const check = validateStudentDraft(draft);
     if (!check.ok || !check.body) { setDraft({ ...draft, error: check.error || 'Dữ liệu không hợp lệ.' }); return; }
     setBusy(true); setBanner(null);
     try {
-      await window.api.post('/admin/students', check.body);
+      await createDirectoryLearner(check.body);
       setDraft(null);
       await reload('Đã tạo học viên.');
     } catch (caught) { setDraft({ ...draft, error: messageOf(caught) }); }

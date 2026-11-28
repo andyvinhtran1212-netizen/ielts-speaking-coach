@@ -29,7 +29,7 @@ const summary = {
   goal: { target_band: 6.5, exam_date: null, source: 'admin' }, overdue: { count: 0, latest_title: null },
   recent_bands: { writing: [6, 6.5], speaking: [] }, last_active_at: null, latest_note: null, sources_failed: [],
 };
-const api = { getWith: vi.fn(), post: vi.fn(), upload: vi.fn() };
+const api = { getWith: vi.fn(), post: vi.fn(), postWith: vi.fn(), upload: vi.fn() };
 
 beforeEach(() => {
   nav.search = '';
@@ -39,7 +39,8 @@ beforeEach(() => {
     if (path.endsWith('/summary')) return Promise.resolve(summary);
     return Promise.resolve(page());
   });
-  api.post.mockReset().mockResolvedValue({ assigned: 2 });
+  api.post.mockReset().mockResolvedValue({ ok: true, cohort_id: C, assigned: 2 });
+  api.postWith.mockReset();
   api.upload.mockReset();
   window.sessionStorage.clear();
   Object.assign(window, { api });
@@ -91,6 +92,64 @@ describe('AdminLearners', () => {
     await act(async () => { fireEvent.click(within(bar).getByRole('button', { name: 'Gán' })); });
     expect(api.post).toHaveBeenCalledWith(`/admin/cohorts/${C}/students/bulk`, { student_ids: ['s-u-1', 's2'] });
     expect(await screen.findByText(/Bỏ qua 1 người chưa có hồ sơ học viên: Người u-3/)).toBeTruthy();
+  });
+
+  it.each([null, { ok: true, cohort_id: 'another-class', assigned: 2 }])(
+    'keeps the selected learners if class assignment is unconfirmed (%j)', async (reply) => {
+      api.post.mockResolvedValueOnce(reply).mockResolvedValueOnce({ ok: true, cohort_id: C, assigned: 0 });
+      render(<AdminLearners />);
+      await screen.findByText('Người u-1');
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn tất cả trên trang' }));
+      const bar = screen.getByRole('toolbar');
+      fireEvent.change(within(bar).getByRole('combobox', { name: 'Lớp cần gán' }), { target: { value: C } });
+      const assign = within(bar).getByRole('button', { name: 'Gán' });
+      await act(async () => { fireEvent.click(assign); });
+      expect(api.post).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText(/Đã thêm .* học viên vào lớp/)).toBeNull();
+      expect(screen.getByRole('alert').textContent).toContain('chưa xác nhận việc gán lớp');
+      expect((screen.getByRole('checkbox', { name: 'Chọn tất cả trên trang' }) as HTMLInputElement).checked).toBe(true);
+      await act(async () => { fireEvent.click(assign); });
+      expect(api.post).toHaveBeenCalledTimes(2);
+      expect(await screen.findByText(/Đã thêm 0 học viên vào lớp/)).toBeTruthy();
+    },
+  );
+
+  it.each([null, { id: 'new-id', student_code: 'wrong-code' }])(
+    'keeps the draft if the server has not confirmed creation (%j)', async (reply) => {
+      api.postWith.mockResolvedValueOnce(reply).mockResolvedValueOnce({ id: 'new-id', student_code: 'HV-1' });
+      render(<AdminLearners />);
+      await screen.findByText('Người u-1');
+      fireEvent.click(screen.getByRole('button', { name: 'Thêm học viên' }));
+      const dialog = within(screen.getByRole('dialog'));
+      fireEvent.change(dialog.getByLabelText('Mã học viên'), { target: { value: 'HV-1' } });
+      fireEvent.change(dialog.getByLabelText('Họ tên'), { target: { value: 'Một học viên' } });
+      const save = dialog.getByRole('button', { name: 'Tạo học viên' });
+      await act(async () => { fireEvent.click(save); });
+      expect(api.postWith).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText('Đã tạo học viên.')).toBeNull();
+      expect(dialog.getByRole('alert').textContent).toContain('chưa xác nhận việc tạo học viên');
+      expect((dialog.getByLabelText('Mã học viên') as HTMLInputElement).value).toBe('HV-1');
+      await act(async () => { fireEvent.click(save); });
+      expect(api.postWith).toHaveBeenCalledTimes(2);
+      expect(await screen.findByText('Đã tạo học viên.')).toBeTruthy();
+    },
+  );
+
+  it('lets the same CSV be selected again after losing the receipt and displays a valid partial import', async () => {
+    api.upload.mockResolvedValueOnce(null).mockResolvedValueOnce({ imported: 1, errors: [{ row: 3, error: 'Already exists' }] });
+    render(<AdminLearners />);
+    await screen.findByText('Người u-1');
+    const file = new File(['student_code,full_name\nHV-1,Một học viên'], 'learners.csv', { type: 'text/csv' });
+    const input = screen.getByLabelText('Chọn tệp CSV học viên') as HTMLInputElement;
+    await act(async () => { fireEvent.change(input, { target: { files: [file] } }); });
+    expect(api.upload).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Đã import .* học viên/)).toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain('chưa xác nhận việc nhập CSV');
+    expect(input.value).toBe('');
+    await act(async () => { fireEvent.change(input, { target: { files: [file] } }); });
+    expect(api.upload).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText('Đã import 1 học viên; 1 dòng cần kiểm tra.')).toBeTruthy();
+    expect(screen.getByText(/Already exists/)).toBeTruthy();
   });
 
   it('hands the reminder over with refs only', async () => {
