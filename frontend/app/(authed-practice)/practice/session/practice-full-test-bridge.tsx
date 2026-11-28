@@ -27,28 +27,39 @@ export function PracticeFullTestBridge() {
     installation.current?.dispose();
     installation.current = null;
     if (status !== 'signed-in' || !user?.id) return;
+    const ownerId = user.id;
+    let active = true;
+    function assertSessionOwner(sessionOwner: string | null) {
+      if (!active || sessionOwner !== ownerId) {
+        throw Object.assign(new Error('Phiên đăng nhập đã thay đổi.'), { status: 401 });
+      }
+    }
     let storage = null;
     try { storage = win.sessionStorage; } catch { /* storage is best-effort */ }
     const controller = new SpeakingFullTestController({
       storage,
       submit: (request: Record<string, unknown>) => {
-        if (typeof win.PracticeSubmission?.submit !== 'function') {
+        const submission = win.PracticeSubmission;
+        if (typeof submission?.submit !== 'function') {
           throw new Error('Speaking submission transport is unavailable');
         }
-        return win.PracticeSubmission.submit(request);
+        assertSessionOwner(submission.ownerId);
+        return submission.submit(request);
       },
       finalize: (body: Record<string, unknown>) => (
         coreOperationRequest({
-          accountId: user.id, method: 'POST', path: '/sessions/finalize-full-test', input: body,
+          accountId: ownerId, method: 'POST', path: '/sessions/finalize-full-test', input: body,
           // Admission acknowledgement, not proof that background grading ended.
           acknowledged: (reply: any) => reply?.accepted === true && Array.isArray(reply?.session_ids),
-        }, (headers: Record<string, string>) => win.api.postWith('/sessions/finalize-full-test', body, headers, { noRedirect: true }))
+        }, (headers: Record<string, string>) => win.api.postWith(
+          '/sessions/finalize-full-test', body, headers, { noRedirect: true, assertSessionOwner },
+        ))
       ),
       getSession: (sessionId: string) => (
         win.api.getWith(
           `/sessions/${encodeURIComponent(sessionId)}`,
           {},
-          { noRedirect: true },
+          { noRedirect: true, assertSessionOwner },
         )
       ),
     });
@@ -63,7 +74,8 @@ export function PracticeFullTestBridge() {
 
     win.PracticeFullTest = controller;
     const releaseNavigationGuard = registerNavigationGuard(warnBeforeUnload);
-    installation.current = { ownerId: user.id, dispose: () => {
+    installation.current = { ownerId, dispose: () => {
+      active = false;
       releaseNavigationGuard();
       controller.destroy();
       if (win.PracticeFullTest === controller) delete win.PracticeFullTest;
