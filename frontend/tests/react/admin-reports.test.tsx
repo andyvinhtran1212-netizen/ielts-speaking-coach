@@ -1,5 +1,6 @@
 // ADMINIA-0074 G09-T41 (FR-164): Báo cáo /admin/reports, one page with four tabs.
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const nav = vi.hoisted(() => ({ search: '', push: vi.fn() }));
@@ -184,5 +185,53 @@ describe('AdminReports', () => {
     await settle();
     expect(screen.getByText('Chi phí trong kỳ')).toBeTruthy();
     expect(screen.queryByText('Học viên hoạt động')).toBeNull();
+  });
+
+  it('first render after changing tab or range hides old tables and disables CSV export before useEffect runs', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const snapshots: { query: string; disabled: boolean; tables: number; loading: boolean; banner: boolean }[] = [];
+    function CommitProbe({ query }: { query: string }) {
+      useLayoutEffect(() => {
+        snapshots.push({
+          query,
+          disabled: (screen.getByRole('button', { name: 'Xuất CSV' }) as HTMLButtonElement).disabled,
+          tables: screen.queryAllByRole('table').length,
+          loading: screen.queryByText('Đang tải số liệu…') !== null,
+          banner: screen.queryByText(/Đã tạo file CSV/) !== null,
+        });
+      });
+      return null;
+    }
+
+    nav.search = 'tab=hoat-dong&range=30';
+    const view = render(<><AdminReports /><CommitProbe query={nav.search} /></>);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'Xuất CSV' }));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(screen.queryAllByRole('table').length).toBeGreaterThan(0);
+
+    snapshots.length = 0;
+    api.getWith.mockImplementationOnce(() => new Promise(() => {}));
+    nav.search = 'tab=chi-phi-ai&range=7';
+    view.rerender(<><AdminReports /><CommitProbe query={nav.search} /></>);
+    expect(snapshots[0]).toEqual({
+      query: 'tab=chi-phi-ai&range=7',
+      disabled: true,
+      tables: 0,
+      loading: true,
+      banner: false,
+    });
+    expect((screen.getByRole('button', { name: 'Xuất CSV' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryAllByRole('table')).toHaveLength(0);
+
+    nav.search = 'tab=chi-phi-ai&range=30';
+    view.rerender(<><AdminReports /><CommitProbe query={nav.search} /></>);
+    expect(snapshots[1]).toEqual({
+      query: 'tab=chi-phi-ai&range=30',
+      disabled: true,
+      tables: 0,
+      loading: true,
+      banner: false,
+    });
   });
 });

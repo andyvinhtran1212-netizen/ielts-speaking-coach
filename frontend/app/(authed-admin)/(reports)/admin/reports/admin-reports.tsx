@@ -32,7 +32,10 @@ type Table = ReportTable;
 type Tile = ReportTile;
 type Missing = { id: string; title: string; reason: string };
 type Report = { tiles: Tile[]; tables: Table[]; missing: Missing[]; warning?: string | null; links: { label: string; href: string }[] };
-type Load = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; report: Report };
+type Load =
+  | { kind: 'loading'; key: string }
+  | { kind: 'error'; key: string }
+  | { kind: 'ready'; key: string; report: Report };
 
 const SOURCE_NAME: Partial<Record<string, string>> = {
   'hoat-dong': 'hoạt động học viên',
@@ -119,36 +122,41 @@ export function AdminReports() {
   const search = useSearchParams();
   const query = search?.toString() ?? '';
   const state = useMemo(() => parseReportsQuery(query), [query]);
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const viewKey = `${state.tab}:${state.range}`;
+  const [load, setLoad] = useState<Load>(() => ({ kind: 'loading', key: viewKey }));
   const [attempt, setAttempt] = useState(0);
-  const [exported, setExported] = useState<string | null>(null);
+  const [exported, setExported] = useState<{ key: string; message: string } | null>(null);
 
   useEffect(() => {
     // Only the newest read fills the page: an older answer for another tab or
     // range is dropped.
     const controller = new AbortController();
-    setLoad({ kind: 'loading' });
+    setLoad({ kind: 'loading', key: viewKey });
     setExported(null);
     (async () => {
       try {
         const report = await loadReport(state.tab, state.range, controller.signal);
         if (controller.signal.aborted) return;
-        setLoad(report ? { kind: 'ready', report } : { kind: 'error' });
+        setLoad(report ? { kind: 'ready', key: viewKey, report } : { kind: 'error', key: viewKey });
         if (!report) console.warn('[admin-reports] foreign shape', state.tab);
       } catch (caught) {
         if (controller.signal.aborted) return;
         console.warn('[admin-reports] load failed', state.tab, caught);
-        setLoad({ kind: 'error' });
+        setLoad({ kind: 'error', key: viewKey });
       }
     })();
     return () => controller.abort();
-  }, [state.tab, state.range, attempt]);
+  }, [state.tab, state.range, viewKey, attempt]);
 
   const go = useCallback((next: Partial<typeof state>) => {
     router.push(reportsHref({ ...state, ...next }));
   }, [router, state]);
 
-  const tables = load.kind === 'ready' ? load.report.tables : [];
+  // Bind rendered data and CSV export synchronously to the current URL tab+range
+  // so the first render after a filter change never exposes the previous view's tables.
+  const activeLoad = load.key === viewKey ? load : ({ kind: 'loading', key: viewKey } as const);
+  const activeExported = exported?.key === viewKey ? exported.message : null;
+  const tables = activeLoad.kind === 'ready' ? activeLoad.report.tables : [];
   const exportCsv = () => {
     if (!tables.length) return;
     const blob = new Blob([`﻿${reportCsv(tables)}`], { type: 'text/csv;charset=utf-8' });
@@ -160,7 +168,10 @@ export function AdminReports() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    setExported(`Đã tạo file CSV của thẻ ${tabLabel(state.tab)} cho ${state.range} ngày gần nhất: mỗi bảng số liệu là một phần trong file.`);
+    setExported({
+      key: viewKey,
+      message: `Đã tạo file CSV của thẻ ${tabLabel(state.tab)} cho ${state.range} ngày gần nhất: mỗi bảng số liệu là một phần trong file.`,
+    });
   };
 
   return (
@@ -181,7 +192,7 @@ export function AdminReports() {
           <button type="button" className="rep-export" disabled={!tables.length} onClick={exportCsv}>Xuất CSV</button>
         </div>
       </header>
-      {exported ? <p className="rep-banner" role="status">{exported}</p> : null}
+      {activeExported ? <p className="rep-banner" role="status">{activeExported}</p> : null}
 
       <nav className="rep-tabs" aria-label="Thẻ báo cáo">
         {REPORT_TABS.map((t) => (
@@ -194,8 +205,8 @@ export function AdminReports() {
       </nav>
 
       <section aria-label={tabLabel(state.tab)} className="rep-body">
-        {load.kind === 'loading' ? <p className="rep-muted" role="status">Đang tải số liệu…</p> : null}
-        {load.kind === 'error' ? (
+        {activeLoad.kind === 'loading' ? <p className="rep-muted" role="status">Đang tải số liệu…</p> : null}
+        {activeLoad.kind === 'error' ? (
           <div className="rep-error" role="alert">
             <h2>Chưa tải được {SOURCE_NAME[state.tab] ?? 'báo cáo'}</h2>
             <p>Không hiện số cũ như số mới. Các thẻ còn lại vẫn xem được.</p>
@@ -205,7 +216,7 @@ export function AdminReports() {
             </div>
           </div>
         ) : null}
-        {load.kind === 'ready' ? <ReportView report={load.report} /> : null}
+        {activeLoad.kind === 'ready' ? <ReportView report={activeLoad.report} /> : null}
       </section>
     </main>
   );
