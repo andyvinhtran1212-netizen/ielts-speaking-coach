@@ -3726,6 +3726,30 @@ export interface paths {
         patch: operations["patch_thresholds_admin_settings_thresholds_patch"];
         trace?: never;
     };
+    "/admin/settings/learner-starters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Learner Starters
+         * @description The starter paper of each skill (LEARNERCORE-0063 FR-126); a teacher reads only.
+         */
+        get: operations["get_learner_starters_admin_settings_learner_starters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Learner Starters
+         * @description Set or clear starters; each paper must be open to public self-practice now.
+         */
+        patch: operations["patch_learner_starters_admin_settings_learner_starters_patch"];
+        trace?: never;
+    };
     "/admin/settings/log": {
         parameters: {
             query?: never;
@@ -25730,6 +25754,23 @@ export interface components {
             uses_credit: boolean;
             /** Href */
             href: string;
+            session_params?: components["schemas"]["SkillHubStarterSession"] | null;
+        };
+        /**
+         * SkillHubStarterSession
+         * @description Speaking: the body for POST /sessions; the hub opens the session
+         *     itself because a topic has no deep link (fallback: ``href``).
+         */
+        SkillHubStarterSession: {
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "practice";
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
         };
         /** SkillHubSuggestion */
         SkillHubSuggestion: {
@@ -26510,6 +26551,43 @@ export interface components {
              * @default 10
              */
             size: number;
+        };
+        /** StarterChange */
+        StarterChange: {
+            /** Skill */
+            skill: string;
+            /** Value */
+            value: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** StarterItem */
+        StarterItem: {
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "speaking" | "writing" | "listening" | "reading";
+            /** Value */
+            value: {
+                [key: string]: string;
+            } | null;
+            /** Title */
+            title: string | null;
+            /** Available */
+            available: boolean | null;
+        };
+        /** StarterList */
+        StarterList: {
+            /** Items */
+            items: components["schemas"]["StarterItem"][];
+        };
+        /** StarterUpdate */
+        StarterUpdate: {
+            /** Changes */
+            changes: components["schemas"]["StarterChange"][];
+            /** Reason */
+            reason: string;
         };
         /** StatusBody */
         StatusBody: {
@@ -34686,6 +34764,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThresholdList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learner_starters_admin_settings_learner_starters_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StarterList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_learner_starters_admin_settings_learner_starters_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StarterUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StarterList"];
                 };
             };
             /** @description Validation Error */

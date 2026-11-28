@@ -15,6 +15,7 @@
 import '@/styles/av2/tokens.css';
 import '@/styles/av2/base.css';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -22,6 +23,8 @@ import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
+import { postBrowserJsonAt } from '@/lib/browser-api';
+import { resolveCorePlayerAdmissionForNavigation } from '@/lib/core-player-affinity.mjs';
 import {
   SKILLS,
   SKILL_HUB_HREFS,
@@ -36,6 +39,7 @@ import {
   type Skill,
   type SkillHub as Hub,
   type SkillHubBlock,
+  type SkillHubStarter,
 } from '@/lib/skill-hub-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -84,6 +88,38 @@ function SkillTabs({ skill }: { skill: Skill }) {
   );
 }
 
+// A Speaking starter opens its session here, the same way the class page
+// does (POST /sessions, then the Speaking admission); the others follow href.
+function StarterButton({ starter }: { starter: SkillHubStarter }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const params = starter.sessionParams;
+  if (!params) return <Button href={starter.href} variant="primary" size="sm">Bắt đầu</Button>;
+  const start = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const created = await postBrowserJsonAt('/sessions', '/sessions', params);
+      const session = created && typeof created === 'object' ? created as Record<string, unknown> : null;
+      const id = typeof session?.id === 'string' && session.id.trim() ? session.id.trim()
+        : typeof session?.session_id === 'string' && session.session_id.trim() ? session.session_id.trim() : '';
+      if (!id) throw new Error('Máy chủ không trả về buổi học hợp lệ.');
+      const destination = await resolveCorePlayerAdmissionForNavigation('speaking', { session_id: id });
+      if (destination.startsWith('/practice/session?')) router.push(destination);
+      else window.location.assign(destination);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      window.showToast?.(`Không mở được bài: ${message}`, 'error', { timeout: 6000 });
+      setBusy(false);
+    }
+  };
+  return (
+    <Button variant="primary" size="sm" onClick={() => { void start(); }} disabled={busy}>
+      {busy ? 'Đang mở…' : 'Bắt đầu'}
+    </Button>
+  );
+}
+
 function Resume({ hub, onRetry }: { hub: Hub; onRetry: () => void }) {
   if (hub.degraded.has('resume')) return <Section title="Làm tiếp"><BlockError onRetry={onRetry} /></Section>;
   if (hub.resume.length) {
@@ -115,7 +151,7 @@ function Resume({ hub, onRetry }: { hub: Hub; onRetry: () => void }) {
           {hub.starter.meta ? <span className={styles.meta}>{hub.starter.meta}</span> : null}
           {hub.starter.usesCredit ? <span className={styles.meta}>Nộp bài để AI chấm sẽ dùng 1 lượt.</span> : null}
         </div>
-        <Button href={hub.starter.href} variant="primary" size="sm">Bắt đầu</Button>
+        <StarterButton starter={hub.starter} />
       </div>
     </Section>
   );

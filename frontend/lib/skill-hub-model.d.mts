@@ -2,7 +2,10 @@ export type Skill = 'speaking' | 'writing' | 'listening' | 'reading';
 export type SkillHubBlock = 'credits' | 'resume' | 'suggestions' | 'catalog' | 'history';
 export type SkillHubCredits = { total: number; metering: 'metered' | 'not_metered' | 'unknown' };
 export type SkillHubResume = { kind: string; title: string; state: string; href: string; updatedAt: string | null };
-export type SkillHubStarter = { title: string; meta: string | null; usesCredit: boolean; href: string };
+export type SkillHubStarterSession = { mode: 'practice'; part: 1 | 2 | 3; topic: string };
+export type SkillHubStarter = {
+  title: string; meta: string | null; usesCredit: boolean; href: string; sessionParams: SkillHubStarterSession | null;
+};
 export type SkillHubSuggestion = { kind: string; title: string; why: string; href: string };
 export type SkillHubGroup = { group: string; label: string; count: number | null; done: number | null; href: string };
 export type SkillHubResult = { band: number | null; correct: number | null; total: number | null; pending: boolean };
