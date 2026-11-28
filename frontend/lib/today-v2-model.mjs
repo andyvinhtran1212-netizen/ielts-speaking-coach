@@ -43,6 +43,15 @@ function normalizeResume(value) {
   };
 }
 
+export function normalizeTodayResume(value) {
+  const row = objectOf(value);
+  if (!row || !Array.isArray(row.resume) || !Array.isArray(row.degraded)) return null;
+  return {
+    resume: row.resume.map(normalizeResume).filter(Boolean),
+    degraded: row.degraded.includes('resume'),
+  };
+}
+
 function normalizeResult(value) {
   const row = objectOf(value);
   const href = safePath(row?.href);

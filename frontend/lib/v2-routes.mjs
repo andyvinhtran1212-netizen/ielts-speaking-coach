@@ -26,6 +26,7 @@ export const V2_ROUTES = Object.freeze([
   '/library/writing-guides',
   '/library/writing-guides/[slug]',
   '/library/writing-samples',
+  '/practice',
   '/library/writing-samples/[slug]',
   '/privacy',
   '/progress',

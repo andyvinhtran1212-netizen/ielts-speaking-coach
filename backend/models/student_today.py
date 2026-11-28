@@ -46,6 +46,11 @@ class TodayRepeatError(BaseModel):
     total_errors: int
 
 
+class StudentTodayResumeResponse(BaseModel):
+    resume: list[TodayResumeItem]
+    degraded: list[Literal["resume"]]
+
+
 class StudentTodayResponse(BaseModel):
     student: TodayStudent
     next_lesson: Optional[dict[str, Any]] = None

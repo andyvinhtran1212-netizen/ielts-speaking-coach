@@ -14756,7 +14756,8 @@ export interface paths {
          *     is the class-ledger reconcile inside `_visible_assignments` (FR-078 exception,
          *     amendment 3, #2484). Each part runs in its own worker; a failing part lands
          *     in `degraded`. 404 while `learner_v2` is off for the caller, before any
-         *     read or reconcile runs.
+         *     read or reconcile runs. The optional resume view for Practice (FR-079)
+         *     reads only resumable work and performs no ledger reconcile.
          */
         get: operations["today_api_student_today_get"];
         put?: never;
@@ -26684,6 +26685,13 @@ export interface components {
             }[];
             /** Degraded */
             degraded?: string[];
+        };
+        /** StudentTodayResumeResponse */
+        StudentTodayResumeResponse: {
+            /** Resume */
+            resume: components["schemas"]["TodayResumeItem"][];
+            /** Degraded */
+            degraded: "resume"[];
         };
         /** StudyAnswer */
         StudyAnswer: {
@@ -53958,7 +53966,9 @@ export interface operations {
     };
     today_api_student_today_get: {
         parameters: {
-            query?: never;
+            query?: {
+                view?: "resume" | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -53973,7 +53983,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StudentTodayResponse"];
+                    "application/json": components["schemas"]["StudentTodayResponse"] | components["schemas"]["StudentTodayResumeResponse"];
                 };
             };
             /** @description Validation Error */

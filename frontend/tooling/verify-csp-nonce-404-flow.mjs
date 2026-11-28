@@ -51,8 +51,9 @@ const BASELINE_SCRIPT = /(^|; )script-src 'self' 'unsafe-inline'(;| |$)/;
 
 const REAL_ROUTES = ['/home', '/admin', '/profile', '/vocabulary/hub', '/instructor'];
 const NOT_FOUND = [
-  // a. a signed-in prefix with no index page; b. nested; c. admin, instructor.
-  '/practice', '/home/does-not-exist', '/vocabulary/nope/xyz/abc', '/admin/nope-xyz', '/instructor/nope-xyz',
+  // a. a signed-in prefix with no such page (`/practice` itself is the G07 hub
+  // since LEARNERCORE-0063 T16); b. nested; c. admin, instructor.
+  '/practice/nope-xyz', '/home/does-not-exist', '/vocabulary/nope/xyz/abc', '/admin/nope-xyz', '/instructor/nope-xyz',
   // Public controls. /login is outside the proxy matcher (SA-1029-CSP1 F1).
   '/nope-top-level', '/login/nope-xyz',
 ];
