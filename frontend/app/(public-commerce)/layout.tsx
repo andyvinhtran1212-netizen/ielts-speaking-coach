@@ -2,7 +2,8 @@
 //
 // Public: no login wall and no activation gate (plan 5.1: a pending online
 // enrollee is inactive until the order is confirmed), so it is not an
-// AuthedShell layout and is not in the `proxy.ts` matcher.
+// AuthedShell layout and gets no CSP nonce. `proxy.ts` matches
+// `/courses/:slug` only for the real-404 check (FR-009).
 //
 // Page frame: the "Bản in" PublicShell (UIBASE-0056 G03-T13), built
 // like the `(public-v2)` layout. No legacy cascade: nothing here loads

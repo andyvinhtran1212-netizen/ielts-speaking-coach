@@ -454,29 +454,37 @@ _DEGRADABLE = ("assigned", "resume", "goal", "new_results")
 
 async def get_today_concurrent(
     make_sb: Callable[[], Any], user_id: str, *, name: str, account_name: str = "",
-    now: Optional[datetime] = None,
+    now: Optional[datetime] = None, active: bool = True,
 ) -> Dict[str, Any]:
+    """``active=False`` (FR-094, inactive learner_v2 account): only the parts
+    that need no practice data run; attempt, class and result tables are never
+    queried and their lists come back empty."""
     now = now or datetime.now(timezone.utc)
     parts: Dict[str, Callable[[], Any]] = {
-        "assigned": lambda: _visible_assignments_for(user_id, account_name, now),
-        "resume": lambda: build_resume(make_sb(), user_id, now),
         "goal": lambda: build_goal(make_sb(), user_id, now),
-        "new_results": lambda: build_new_results(make_sb(), user_id, now),
     }
+    if active:
+        parts.update({
+            "assigned": lambda: _visible_assignments_for(user_id, account_name, now),
+            "resume": lambda: build_resume(make_sb(), user_id, now),
+            "new_results": lambda: build_new_results(make_sb(), user_id, now),
+        })
     outcomes = await asyncio.gather(*(asyncio.to_thread(fn) for fn in parts.values()),
                                     return_exceptions=True)
     for outcome in outcomes:
         if isinstance(outcome, BaseException) and not isinstance(outcome, Exception):
             raise outcome
     results = dict(zip(parts, outcomes))
-    return assemble_today(results, user_id=user_id, name=name, now=now)
+    return assemble_today(results, user_id=user_id, name=name, now=now, active=active)
 
 
 def assemble_today(results: Dict[str, Any], *, user_id: str, name: str,
-                   now: datetime) -> Dict[str, Any]:
+                   now: datetime, active: bool = True) -> Dict[str, Any]:
     degraded: List[str] = []
 
     def take(key: str, default: Any) -> Any:
+        if key not in results:  # not run (inactive account, FR-094)
+            return default
         value = results.get(key)
         if isinstance(value, Exception):
             logger.warning("[today] part %s failed: %s", key, value.__class__.__name__)
@@ -495,6 +503,28 @@ def assemble_today(results: Dict[str, Any], *, user_id: str, name: str,
     orders_open = _orders_open_for(user_id)
     state = derive_state(has_class=has_class, access=access, orders_open=orders_open)
     new = take("new_results", {"new_results": [], "new_results_cursor": None})
+    if not active:
+        # FR-094: no lesson, error book, survey or mock-exam source is read for
+        # an inactive account; those blocks are work, not account state.
+        return {
+            "student": {"name": name},
+            "next_lesson": None,
+            **assigned,
+            "resume": [],
+            "state": state,
+            "banner": derive_banner(state, access, credits, orders_open),
+            "access": access,
+            "credits": credits,
+            "orders_open": orders_open,
+            "goal": take("goal", None),
+            "new_results": [],
+            "new_results_cursor": None,
+            "repeat_error": None,
+            "trial_today_left": _trial_today_left_for(user_id) if state == "no_course" else None,
+            "open_surveys": [],
+            "mock_exams": [],
+            "degraded": [key for key in _DEGRADABLE if key in degraded],
+        }
     return {
         "student": {"name": name},
         "next_lesson": _next_lesson_for(user_id),

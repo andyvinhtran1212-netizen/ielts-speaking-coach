@@ -49,11 +49,15 @@ export function getBrowserJsonAt<Path extends ApiGetPath>(
   _contractPath: Path,
   endpoint: string,
   signal?: AbortSignal,
+  { noRedirect = false }: { noRedirect?: boolean } = {},
 ): Promise<ApiGetJson<Path>> {
+  const opts = signal || noRedirect
+    ? { ...(signal ? { signal } : {}), ...(noRedirect ? { noRedirect: true } : {}) }
+    : undefined;
   return window.api.getWith<ApiGetJson<Path>>(
     endpoint,
     undefined,
-    signal ? { signal } : undefined,
+    opts,
   );
 }
 

@@ -101,6 +101,7 @@ _DELETE_EXPORT = _many(
     export=True,
 )
 
+# Course-open alerts are projected separately in account_export.collect_rows.
 _DELETE_INTERNAL = _many(
     "delete",
     """
@@ -188,12 +189,12 @@ _STAFF_ACTOR = _many(
 # export bucket is swept by prefix ``<user_id>/`` (FR-005 b, FR-014).
 _STORAGE = {
     ("sessions", "user_id"): "audio-responses",
-    ("course_pronunciation_submissions", "user_id"): "audio-responses",
 }
 
 _DELETE_STORAGE = [
-    Entry("course_pronunciation_submissions", "user_id", "delete", export=True,
-          storage="audio-responses"),
+    # Scores only: the learner's take is graded in memory and never stored
+    # (services/course_pronunciation.py), so the row has no object to remove.
+    Entry("course_pronunciation_submissions", "user_id", "delete", export=True),
 ]
 
 INVENTORY: tuple[Entry, ...] = tuple(
@@ -258,8 +259,9 @@ PRE_MIGRATION: frozenset[tuple[str, str]] = frozenset(
 # Tables reached only through a parent's foreign key (no user column of
 # their own). Erasure deletes them before the parent. Completed from the
 # staging catalog 2026-11-23 (T001 gate 2, every FK into a ``delete`` table).
-# All cascade except ``listening_drill_playback`` (ON DELETE RESTRICT, mig
-# 380): it must go before ``class_assignment_items`` or the delete fails.
+# The exercise-book link and drill playback have RESTRICT foreign keys and
+# must be deleted before their parents. Migration 378 verifies that a link's
+# listening attempt and assignment item belong to the same learner.
 CHILD_TABLES: dict[str, str] = {
     "responses": "sessions",
     "questions": "sessions",
@@ -270,6 +272,7 @@ CHILD_TABLES: dict[str, str] = {
     "writing_jobs": "writing_essays",
     "flashcard_cards": "flashcard_stacks",
     "reading_attempt_answers": "reading_test_attempts",
+    "exercise_book_attempt_links": "listening_test_attempts",
     "listening_programme_feedback_reveals": "listening_test_attempts",
     "mock_exam_reviews": "mock_exam_sittings",
     "listening_drill_playback": "class_assignment_items",
