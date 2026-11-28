@@ -22,6 +22,7 @@
 // Chart.js nằm ngoài tầm parity vĩnh viễn; lớp che của chúng là
 // `tests/speaking-charts.test.mjs`.
 import type { Metadata } from 'next';
+import { SkillHubSwitch } from '@/components/learner/skill-hub/skill-hub-switch';
 
 import { SpeakingBehavior } from './speaking-behavior';
 import { SpeakingStats } from './speaking-stats';
@@ -40,9 +41,12 @@ export default function SpeakingPage() {
           bài học PR #897: thiếu dòng này là mất toàn bộ điều hướng mà build vẫn xanh. */}
       {/* @ts-ignore */}
       <aver-chrome active="speaking" role-source="page" />
-      <SpeakingShell />
-      <SpeakingBehavior />
-      <SpeakingStats />
+      {/* LEARNERCORE-0063 FR-111: the page unchanged unless learner_v2 is on. */}
+      <SkillHubSwitch skill="speaking">
+        <SpeakingShell />
+        <SpeakingBehavior />
+        <SpeakingStats />
+      </SkillHubSwitch>
     </>
   );
 }
