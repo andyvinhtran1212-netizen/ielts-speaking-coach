@@ -1,5 +1,5 @@
 // Learner directory API (G09-T03) for the directory page (G09-T10).
-import { getBrowserJson, getBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
+import { deleteBrowserJsonAt, getBrowserJson, getBrowserJsonAt, patchBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
 import type { ApiGetJson } from '@/lib/openapi-contract';
 
 export type LearnerDirectoryWire = ApiGetJson<'/admin/learners'>;
@@ -38,4 +38,18 @@ export function getLearnerOverview(ref: string, signal?: AbortSignal) {
 
 export function resolveLearnerGoal(ref: string, use: 'admin' | 'learner', seen: GoalSeenWire) {
   return postBrowserJsonAt('/admin/learners/{ref}/goal/resolve', `${refPath(ref)}/goal/resolve`, { use, seen });
+}
+
+// Khoá và quyền tab (G09-T11b): existing write routes only.
+export function changeUserRole(userId: string, role: string) {
+  return patchBrowserJsonAt('/admin/users/{user_id}/role', `/admin/users/${encodeURIComponent(userId)}/role`, { role });
+}
+
+export function removeFromCohort(cohortId: string, studentId: string) {
+  return deleteBrowserJsonAt(
+    '/admin/cohorts/{cohort_id}/students/{student_id}',
+    `/admin/cohorts/${encodeURIComponent(cohortId)}/students/${encodeURIComponent(studentId)}`,
+    undefined,
+    { rejectUnauthorized: true },
+  );
 }

@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import {
-  PROFILE_TABS, TAB_PENDING, alertsView, assignedView, canonicalHref, continuityView, failedText,
+  PROFILE_TABS, ROLE_OPTIONS, TAB_PENDING, alertsView, removeConfirmText, roleChangeBlocked, roleConfirmText,
+  roleErrorText, roleLabel, roleResultText, assignedView, canonicalHref, continuityView, failedText,
   goalConfirmText, goalErrorText, goalSeen, goalView, parseTab, scoresView, sideView, tabHref,
 } from '../lib/admin-learner-profile-model.mjs';
 import { adminRouteFor } from '../lib/admin-nav-registry.mjs';
@@ -108,11 +109,57 @@ describe('Tổng quan blocks (FR-024)', () => {
 });
 
 describe('page wiring', () => {
-  it('is a context page of Học viên, 404 with the flag off, and has no danger zone (T11b)', () => {
+  it('is a context page of Học viên, 404 with the flag off; the danger zone lives only in Khoá và quyền', () => {
     assert.equal(adminRouteFor('/admin/learners/[ref]')?.kind, 'context');
     const page = read('app/(authed-admin)/(learners)/admin/learners/[ref]/page.tsx');
     assert.match(page, /requireAdminFrameV2\(\);/);
     const view = read('app/(authed-admin)/(learners)/admin/learners/[ref]/admin-learner-profile.tsx');
-    assert.doesNotMatch(view, /Thu hồi quyền|Khoá tài khoản|Gỡ khỏi lớp|DELETE|\/active/);
+    assert.doesNotMatch(view, /Vùng nguy hiểm|Thu hồi quyền|Gỡ khỏi lớp|changeUserRole|removeFromCohort/);
+    const access = read('app/(authed-admin)/(learners)/admin/learners/[ref]/learner-access-tab.tsx');
+    assert.match(access, /Vùng nguy hiểm/);
+    // No new write route, and no account lock for learners (the route accepts staff only).
+    const api = read('lib/admin-learners-api.ts');
+    assert.doesNotMatch(api + access, /\/active'|\/active`|revoke-sessions/);
+  });
+});
+
+describe('Khoá và quyền (FR-033; G09-T11b)', () => {
+  it('offers the three roles the API accepts, and says a self-signed-up account is a learner', () => {
+    assert.deepEqual(ROLE_OPTIONS.map((o) => o.value), ['student', 'instructor', 'admin']);
+    assert.equal(roleLabel('user'), 'Học viên (tự đăng ký)');
+    assert.equal(roleLabel('instructor'), 'Giảng viên');
+  });
+
+  it('blocks a role change for no account, oneself and a suspended account', () => {
+    const account = { user_id: 'u1', role: 'student', is_active: true };
+    assert.equal(roleChangeBlocked(account, 'admin-1'), '');
+    assert.match(roleChangeBlocked(null, 'admin-1'), /chưa có tài khoản/);
+    assert.match(roleChangeBlocked(account, 'u1'), /chính mình/);
+    // is_active is the activation flag for a learner, not a suspension: never a block.
+    assert.equal(roleChangeBlocked({ ...account, is_active: false }, 'admin-1'), '');
+  });
+
+  it('the confirm says what happens: demotion revokes sessions, admin opens everything', () => {
+    assert.match(roleConfirmText('Lan', 'instructor', 'student'), /từ Giảng viên sang Học viên\? Mọi phiên đăng nhập/);
+    assert.match(roleConfirmText('Lan', 'student', 'admin'), /toàn bộ khu quản trị/);
+    assert.match(roleConfirmText('Lan', 'student', 'instructor'), /nhật ký bảo mật\.$/);
+  });
+
+  it('the result is truthful: unchanged, revocation failed, refused', () => {
+    const response = { ok: true, id: 'u1', role: 'student' };
+    assert.equal(roleResultText({ ...response, changed: false }, 'student', 'u1').text, 'Vai trò đã là Học viên; không có gì thay đổi.');
+    assert.equal(roleResultText({ ...response, changed: true, sessions_revoked: false }, 'student', 'u1').kind, 'error');
+    // A retried demotion: role already matches but revocation still failed.
+    assert.deepEqual(roleResultText({ ...response, changed: false, sessions_revoked: false }, 'student', 'u1'),
+      { kind: 'error', text: 'Vai trò đã là Học viên nhưng chưa thu hồi được phiên đăng nhập. Thu hồi phiên ở trang Người dùng.' });
+    assert.equal(roleResultText({ ...response, changed: true, sessions_revoked: true }, 'student', 'u1').text, 'Đã đổi vai trò sang Học viên.');
+    assert.match(roleErrorText({ code: 'step_up_required' }), /mã hai bước/);
+    assert.equal(roleErrorText({ code: 'step_up_required', reason: 'new_factor_cooloff', message: 'Mã hai bước vừa đổi; thử lại sau 23 giờ.' }),
+      'Chưa đổi vai trò: Mã hai bước vừa đổi; thử lại sau 23 giờ.');
+    assert.equal(roleErrorText({ code: 'last_admin', message: 'Phải còn ít nhất một admin.' }), 'Chưa đổi vai trò: Phải còn ít nhất một admin.');
+  });
+
+  it('"Gỡ khỏi lớp" names what stays', () => {
+    assert.match(removeConfirmText('Lan', 'Tue–Thu'), /Quyền khoá học và lịch sử bài làm giữ nguyên/);
   });
 });

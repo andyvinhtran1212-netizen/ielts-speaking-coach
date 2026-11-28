@@ -121,7 +121,13 @@ async def _detail(ref: str, person: directory.Person, scope: StaffScope | None =
     cohort_ids = None if scope is None or scope.is_admin else (scope.cohort_ids or frozenset())
     summary, failed = await asyncio.to_thread(
         functools.partial(directory.summary, person, thresholds, cohort_ids=cohort_ids))
-    return {"ref": ref, "canonical_ref": person.ref, "summary": summary, "sources_failed": failed}
+    out = {"ref": ref, "canonical_ref": person.ref, "summary": summary, "sources_failed": failed}
+    if scope is None or scope.is_admin:
+        user = person.user
+        out["student_id"] = person.student_id
+        out["account"] = ({"user_id": str(user["id"]), "role": user.get("role"),
+                           "is_active": bool(user.get("is_active", True))} if user else None)
+    return out
 
 
 @router.get("/admin/learners/{ref}", response_model=LearnerDetail)

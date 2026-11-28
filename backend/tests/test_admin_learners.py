@@ -510,8 +510,12 @@ def test_an_unreadable_directory_is_503(db):
 def test_profile_ref_of_a_person_with_an_account_points_to_the_account(db):
     out = asyncio.run(mod.get_learner(f"s-{S_LAN}", "Bearer x"))
     assert out["ref"] == f"s-{S_LAN}" and out["canonical_ref"] == f"u-{U_LAN}"
+    assert out["student_id"] == S_LAN
+    assert out["account"]["user_id"] == U_LAN and out["account"]["is_active"] is True
+    assert out["account"]["role"] == next(u["role"] for u in db.rows["users"] if u["id"] == U_LAN)
     offline = asyncio.run(mod.get_learner(f"s-{S_OFFLINE}", "Bearer x"))
     assert offline["canonical_ref"] == f"s-{S_OFFLINE}"
+    assert offline["student_id"] == S_OFFLINE and offline["account"] is None
     for ref in ("x-123", f"u-{S_OFFLINE}", "u-not-a-uuid"):
         with pytest.raises(HTTPException) as caught:
             asyncio.run(mod.get_learner(ref, "Bearer x"))
@@ -580,6 +584,8 @@ def test_teacher_sees_only_learners_of_their_classes(db, monkeypatch):
     _as(monkeypatch, db, U_TEACH)
     out = asyncio.run(mod.get_instructor_learner(f"u-{U_LAN}", "Bearer x"))
     assert out["summary"]["name"] == "Nguyễn Thị Lan"
+    # The account and profile ids are admin detail only (G09-T11b).
+    assert "account" not in out and "student_id" not in out
     assert asyncio.run(mod.get_learner_summary(f"s-{S_OFFLINE}", "Bearer x"))["name"] == "Đỗ Anh Đức"
     for call in (mod.get_instructor_learner, mod.get_learner_summary):
         for ref in (f"u-{U_MINH}", f"u-{U_ONLY}"):   # another class; no class at all
