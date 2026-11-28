@@ -52,15 +52,17 @@ describe('admin navigation registry', () => {
           }
           continue;
         }
-        const route = adminRouteFor(item.href);
+        // A tab of one page (`/admin/reports?tab=…`, G09-T41) is matched with its query.
+        const [path, query = ''] = item.href.split('?');
+        const route = adminRouteFor(path);
         assert.equal(route?.kind, 'nav', `${item.label} → ${item.href}`);
-        assert.equal(route.group, group.id, item.label);
-        assert.equal(route.item, item.id, item.label);
+        assert.deepEqual(adminNavMatch(path, query ? `?${query}` : ''), { groupId: group.id, itemId: item.id }, item.label);
       }
     }
     // An available item always points at a page that exists today.
     for (const item of ADMIN_NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.available)) {
-      assert.ok(ADMIN_PAGES.includes(item.href), `${item.label}: ${item.href} has no page.tsx`);
+      const path = item.href.split('?')[0];
+      assert.ok(ADMIN_PAGES.includes(path), `${item.label}: ${item.href} has no page.tsx`);
     }
   });
 
