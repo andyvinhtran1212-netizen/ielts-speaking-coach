@@ -1,7 +1,7 @@
 'use client';
 
 // Luyện tập `/practice` (LEARNERCORE-0063 amendment 1, FR-079). One read of
-// `GET /api/student/today` for its `resume` part (same rule as FR-023; no new
+// `GET /api/student/today?view=resume` for its `resume` part (same rule as FR-023; no new
 // API), then exactly four skill cards in the order Speaking · Writing ·
 // Listening · Reading. The cards are drawn whatever the read does and never
 // show a band or a credit count. Writes nothing.
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { getBrowserJson } from '@/lib/browser-api';
-import { normalizeToday, resumeKindCopy, type TodayResume } from '@/lib/today-v2-model.mjs';
+import { normalizeTodayResume, resumeKindCopy, type TodayResume } from '@/lib/today-v2-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import styles from './practice-hub.module.css';
@@ -86,11 +86,11 @@ export function PracticeHubPage({ accountId }: { accountId: string }) {
     if (stale()) return;
     if (!ok) { setPhase({ kind: 'error' }); return; }
     try {
-      const raw: unknown = await getBrowserJson('/api/student/today', undefined, controller.signal);
+      const raw = await getBrowserJson('/api/student/today', new URLSearchParams({ view: 'resume' }), controller.signal);
       if (stale()) return;
-      const today = normalizeToday(raw);
-      if (!today) { setPhase({ kind: 'error' }); return; }
-      setPhase({ kind: 'ready', resume: today.resume, degraded: today.degraded.has('resume'), owner });
+      const resume = normalizeTodayResume(raw);
+      if (!resume) { setPhase({ kind: 'error' }); return; }
+      setPhase({ kind: 'ready', ...resume, owner });
     } catch {
       if (stale()) return;
       setPhase({ kind: 'error' });

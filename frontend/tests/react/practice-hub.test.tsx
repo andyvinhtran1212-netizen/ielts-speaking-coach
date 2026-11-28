@@ -23,14 +23,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 function today(over: Record<string, unknown> = {}) {
-  return {
-    student: { name: 'Minh Anh' }, next_lesson: null,
-    assigned: [], assigned_total_open: 0, assigned_due_soon: 0, assigned_due_later: 0,
-    resume: [], state: 'learning', banner: null, access: [], credits: { total: 7, by_kind: [] }, orders_open: [],
-    goal: null, new_results: [], new_results_cursor: null, repeat_error: null,
-    trial_today_left: null, open_surveys: [], mock_exams: [], degraded: [],
-    ...over,
-  };
+  return { resume: [], degraded: [], ...over };
 }
 
 const RESUME = [{ kind: 'listening', title: 'Test 2', href: '/core-player/launch?surface=listening_test&id=lt1', progress: { done: 1, total: 4 } }];
@@ -68,7 +61,7 @@ it('"Làm tiếp" lists the resume rows from Today', async () => {
   expect(within(block).getByText('Test 2')).toBeTruthy();
   expect(within(block).getByText(/1 trên 4 phần/)).toBeTruthy();
   expect(within(block).getByRole('link', { name: 'Làm tiếp' }).getAttribute('href')).toBe(RESUME[0].href);
-  expect(getWith).toHaveBeenCalledWith('/api/student/today', undefined, expect.anything());
+  expect(getWith).toHaveBeenCalledWith('/api/student/today?view=resume', undefined, expect.anything());
 });
 
 it('nothing in progress: no "Làm tiếp" block, the cards stay', async () => {
