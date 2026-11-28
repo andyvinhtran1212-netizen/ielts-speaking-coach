@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Response
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 
 logger = logging.getLogger(__name__)
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ from models.auth import (
     AuthProfileResponse,
     AuthProfileUpdateResponse,
 )
-from services import activation_gate, staff_security
+from services import activation_gate, session_gate, staff_security
 from services.db_async import aexecute
 from services.errors import new_ref, safe_error
 from services.request_context import current_request_id
@@ -83,6 +83,10 @@ class ProfileUpdate(BaseModel):
     timezone: str | None = None
     weekly_goal: int | None = None        # 1–14 sessions/week
     notification_email: bool | None = None
+
+
+# LEARNERCORE-0063 FR-094: what an inactive learner_v2 account may write.
+INACTIVE_PROFILE_FIELDS = frozenset({"onboarding_completed", "target_band", "exam_date"})
 
 
 # ── W-2 instructor-promote helpers (Option B, email-bound) ────────────────────
@@ -432,14 +436,23 @@ async def check_active(authorization: str | None = Header(default=None)):
         ) from None
 
     if not result.data:
-        return {"is_active": False, "suspended": False}
+        return {"is_active": False, "suspended": False, "learner_v2_enabled": False}
 
     row = result.data[0]
+    suspended = bool(row.get("suspended_at"))
+    # LEARNERCORE-0063 FR-094: the client gate opens /home, /start, /account,
+    # /profile and /help to an inactive account only when this is true. Same
+    # formula as /auth/me (FR-072); a failed flag read is false; a suspended
+    # account is always false, so it keeps the /login suspended path.
+    flags = row.get("feature_flags") if isinstance(row.get("feature_flags"), dict) else {}
+    learner_v2 = (not suspended) and await activation_gate.alearner_v2_on(
+        user_id, flags.get("learner_v2") is True)
     return {
         "is_active": bool(row.get("is_active", False)),
         # ADMINAAL2-0032 FR-018: /login shows the suspended message instead
         # of the activation dialog.
-        "suspended": bool(row.get("suspended_at")),
+        "suspended": suspended,
+        "learner_v2_enabled": learner_v2,
     }
 
 
@@ -1132,6 +1145,7 @@ async def activate_account(
     dependencies=[Depends(require_flag("profile_update"))],
 )
 async def update_profile(
+    request: Request,
     payload: ProfileUpdate,
     response: Response,
     authorization: str | None = Header(default=None),
@@ -1140,6 +1154,16 @@ async def update_profile(
     response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+    # LEARNERCORE-0063 FR-094: this route is exempt from the router gate, so it
+    # re-checks the caller itself: 503 on a failed read, 403 when suspended,
+    # the gate's 403 for an inactive account without learner_v2. An inactive
+    # learner_v2 account ("Lần đầu vào") may set only these three fields.
+    status = await activation_gate.aopen_learner_status(user_id)
+    await session_gate.ensure_current(user_id, authorization, request.headers.get("user-agent"))
+    if status == activation_gate.OPEN_INACTIVE:
+        extra = payload.model_fields_set - INACTIVE_PROFILE_FIELDS
+        if extra:
+            raise HTTPException(status_code=403, detail=activation_gate.INACTIVE_DETAIL)
 
     updates: dict = {}
     if payload.target_band is not None:
@@ -1184,6 +1208,8 @@ async def update_profile(
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
 
     user = result.data[0]
+    if status == activation_gate.OPEN_INACTIVE:
+        activation_gate.log_inactive_open_request("PATCH", "/auth/profile", user_id)
     return {
         "id": user["id"],
         "email": user.get("email"),

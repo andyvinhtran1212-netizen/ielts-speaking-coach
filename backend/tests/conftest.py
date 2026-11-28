@@ -104,6 +104,9 @@ def _activation_gate_defaults_active(monkeypatch):
     _ACTIVATION_GATE_ORIGINALS.setdefault("lookup_is_active", activation_gate.lookup_is_active)
     # PC-J05 — the async twin used with USE_ASYNC_DB on gets the same default.
     _ACTIVATION_GATE_ORIGINALS.setdefault("alookup_is_active", activation_gate.alookup_is_active)
+    # LEARNERCORE-0063 FR-094: the two inactive-open routes check their caller
+    # in the handler; by default that caller is active too.
+    _ACTIVATION_GATE_ORIGINALS.setdefault("aopen_learner_status", activation_gate.aopen_learner_status)
 
     async def _gate_passes(_request):
         return None
@@ -114,6 +117,11 @@ def _activation_gate_defaults_active(monkeypatch):
     monkeypatch.setattr(activation_gate, "_enforce", _gate_passes)
     monkeypatch.setattr(activation_gate, "lookup_is_active", lambda _user_id: True)
     monkeypatch.setattr(activation_gate, "alookup_is_active", _active)
+
+    async def _open_active(_user_id):
+        return activation_gate.OPEN_ACTIVE
+
+    monkeypatch.setattr(activation_gate, "aopen_learner_status", _open_active)
 
 
 # ACCOUNTDATA-0100 FR-003 — the deletion gate reads account_deletion_requests
@@ -185,6 +193,8 @@ def live_activation_gate(monkeypatch):
                         _ACTIVATION_GATE_ORIGINALS["lookup_is_active"])
     monkeypatch.setattr(activation_gate, "alookup_is_active",
                         _ACTIVATION_GATE_ORIGINALS["alookup_is_active"])
+    monkeypatch.setattr(activation_gate, "aopen_learner_status",
+                        _ACTIVATION_GATE_ORIGINALS["aopen_learner_status"])
     return activation_gate
 
 

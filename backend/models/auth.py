@@ -33,6 +33,9 @@ class AuthMeResponse(BaseModel):
 class AuthActiveStatusResponse(BaseModel):
     is_active: bool
     suspended: bool = False
+    # LEARNERCORE-0063 FR-094: inactive accounts may open the learner_v2 open
+    # pages; always false when suspended or when the flag cannot be read.
+    learner_v2_enabled: bool = False
 
 
 class AuthProfileBase(BaseModel):

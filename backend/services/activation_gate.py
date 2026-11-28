@@ -72,6 +72,13 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/auth/check-active"): "the activation-status probe itself (AuthProvider, login)",
     ("POST", "/auth/activate"): "redeeming an access code is how an inactive account becomes active",
     ("GET", "/auth/profile"): "caller's own profile read (no learner content, no paid work); read by the G2 authed probe",
+    # LEARNERCORE-0063 FR-094 (G07-T26): an inactive account with learner_v2 on
+    # may open Today and finish "Lần đầu vào". Both handlers re-check the caller
+    # through ``aopen_learner_status`` (503 on a failed read, 403 when suspended,
+    # the gate's own 403 when the flag is off), so the exemption only has an
+    # effect while learner_v2 is on.
+    ("GET", "/api/student/today"): "FR-094: inactive learner_v2 Today; handler re-checks activation, drops work blocks when inactive",
+    ("PATCH", "/auth/profile"): "FR-094: inactive learner_v2 onboarding; handler re-checks activation, inactive may set only onboarding_completed/target_band/exam_date",
     # ── One session per learner (COURSEACCESS-0055 T009) ─────────────────
     # These run the session gate's own state read, so a not-yet-claimed
     # session can see screen 8a/8b, claim, or sign out everywhere.
@@ -322,3 +329,70 @@ async def require_active_learner(request: Request) -> None:
     """Router-level dependency: authenticated learner routes need an ACTIVE
     account. See the module docstring for the skip rules."""
     await _enforce(request)
+
+
+# ── LEARNERCORE-0063 FR-094: the two inactive-open routes ────────────────────
+
+OPEN_ACTIVE = "active"
+OPEN_INACTIVE = "inactive_open"
+
+
+def log_inactive_open_request(method: str, path: str, user_id: str) -> None:
+    """Count one admitted request for the LEARNERCORE-0063 T26 rollout."""
+    logger.info("learner_v2_inactive_open_request method=%s path=%s user_id=%s", method, path, user_id)
+
+
+def _open_status_query(user_id: str):
+    # "*" like /auth/check-active: works before migration 332 adds suspended_at
+    # (absent column = not suspended).
+    return lambda db: db.table("users").select("*").eq("id", str(user_id)).limit(1)
+
+
+async def alearner_v2_on(user_id: str, opted_in: bool) -> bool:
+    """FR-072 flag for the caller; any failure reading it is "off"."""
+    from services import feature_flags  # local: keeps this module's imports light
+
+    try:
+        if settings.USE_ASYNC_DB:
+            return await feature_flags.ais_learner_v2_enabled(
+                user_id, run=aexecute, per_user=opted_in)
+        return await asyncio.to_thread(
+            feature_flags.is_learner_v2_enabled, user_id, per_user=opted_in)
+    except Exception as exc:  # noqa: BLE001 - deny on any flag failure
+        logger.warning("[activation_gate] learner_v2 read failed user=%s: %s",
+                       user_id, exc.__class__.__name__)
+        return False
+
+
+async def aopen_learner_status(user_id: str) -> str:
+    """Activation check for the routes ``ACTIVATION_EXEMPT_ROUTES`` opens to an
+    inactive account under FR-094 (the router gate skips them, so no memo is
+    set and none is trusted here).
+
+    Returns ``"active"`` or ``"inactive_open"``. Raises 503 when the users row
+    cannot be read (fail closed, like the gate), 403 ``account_suspended``
+    when the account is suspended (before anything else), and the gate's own
+    403 ``INACTIVE_DETAIL`` for an inactive account without learner_v2.
+    """
+    key = str(user_id)
+    try:
+        if settings.USE_ASYNC_DB:
+            rows = (await aexecute(_open_status_query(key))).data or []
+        else:
+            rows = await asyncio.to_thread(
+                lambda: _open_status_query(key)(supabase_admin).execute().data or [])
+    except Exception as exc:
+        raise _lookup_failed(key, exc)
+    row = rows[0] if rows else {}
+    if row.get("suspended_at"):
+        from services.staff_security import account_suspended_exception
+        raise account_suspended_exception(403)
+    if row.get("is_active") is True:
+        memo = _memo.get()
+        if memo is not None:
+            memo["active"].add(key)
+        return OPEN_ACTIVE
+    flags = row.get("feature_flags") if isinstance(row.get("feature_flags"), dict) else {}
+    if not await alearner_v2_on(key, flags.get("learner_v2") is True):
+        raise HTTPException(status_code=403, detail=INACTIVE_DETAIL)
+    return OPEN_INACTIVE
