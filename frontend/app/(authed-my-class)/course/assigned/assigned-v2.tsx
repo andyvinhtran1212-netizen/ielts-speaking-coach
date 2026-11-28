@@ -20,7 +20,7 @@
 import '@/styles/av2/tokens.css';
 import '@/styles/av2/base.css';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
@@ -210,26 +210,28 @@ export function AssignedV2({ accountId }: { accountId: string }) {
   const [opening, setOpening] = useState<string | null>(null);
   const accountRef = useRef(accountId);
   accountRef.current = accountId;
-  const openingRef = useRef<string | null>(null);
+  const openingRef = useRef<symbol | null>(null);
   const loadRef = useRef<AbortController | null>(null);
-  // Unmounted (account switch remounts by key, or the learner left): every
-  // pending load and open is stale, so nothing navigates or creates a session.
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; loadRef.current?.abort(); };
+  const clearOpening = useCallback(() => {
+    openingRef.current = null;
+    setOpening(null);
   }, []);
-  // Back from the player can restore this page from the bfcache with the
-  // open lock still held; release it so every button works again.
+
+  // Next keeps the page state when Activity hides it on client navigation.
+  // Invalidate the old request and its button state before the page can return.
+  useLayoutEffect(() => () => {
+    clearOpening();
+    loadRef.current?.abort();
+  }, [clearOpening]);
+
+  // A browser bfcache restore does not restart React effects.
   useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
-      if (!event.persisted) return;
-      openingRef.current = null;
-      setOpening(null);
+      if (event.persisted) clearOpening();
     };
     window.addEventListener('pageshow', onShow);
     return () => window.removeEventListener('pageshow', onShow);
-  }, []);
+  }, [clearOpening]);
 
   const load = useCallback(async () => {
     loadRef.current?.abort();
@@ -267,8 +269,9 @@ export function AssignedV2({ accountId }: { accountId: string }) {
   const open = useCallback(async (entry: AssignedItem) => {
     if (openingRef.current) return;
     const owner = accountId;
-    const isCurrent = () => mountedRef.current && accountRef.current === owner;
-    openingRef.current = entry.row.itemId;
+    const request = Symbol();
+    const isCurrent = () => openingRef.current === request && accountRef.current === owner;
+    openingRef.current = request;
     setOpening(entry.row.itemId);
     try {
       if (entry.action === 'self_practice') await openSelfPractice(entry.row.itemId, { router, isCurrent });
@@ -278,10 +281,9 @@ export function AssignedV2({ accountId }: { accountId: string }) {
       const message = entry.action === 'self_practice' ? selfPracticeError(caught)
         : caught instanceof Error ? caught.message : String(caught);
       window.showToast?.(`Không mở được bài: ${message}`, 'error', { timeout: 6000 });
-      openingRef.current = null;
-      setOpening(null);
+      clearOpening();
     }
-  }, [accountId, router]);
+  }, [accountId, clearOpening, router]);
 
   const count = useMemo(() => (owned && !owned.degraded.has('items') ? openCount(owned.items) : 0), [owned]);
 
