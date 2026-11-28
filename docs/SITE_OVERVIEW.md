@@ -72,6 +72,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/` | all | Landing / entry; routes to login or app. |
 | `/login` | all | Google OAuth + access-code activation → `POST /auth/activate` (sets `users.is_active`, permissions, marks `access_codes` used). |
 | `/onboarding` | new user | First-time setup (band target, level, goals) → `/auth/*` profile write. |
+| `/start` | new learner | "Lần đầu vào" (LEARNERCORE-0063 amendment 2, behind `learner_v2`): three skippable steps on plain pages; the optional goal saves `target_band`/`exam_date` via `PATCH /auth/profile`; step 3 is chosen from `/api/class/me` and the learner's courses; every exit writes `onboarding_completed=true`. Shown once; signed out → `/login`; `noindex`. |
 | `/pricing` | public | Pre-launch server redirect to `/`; no pricing controls or payment promise are currently served here. |
 | `/terms` | public | Draft Terms of use skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
 | `/privacy` | public | Draft Privacy policy skeleton (articles from the PhapLy design sheet, bodies `XXX`); `noindex` until legal review. |
@@ -88,6 +89,9 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/result` | student | Single-question speaking result (band + feedback panels + audio replay). |
 | `/full-test-result` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. |
 | `/profile` | student | Profile, band target, study goals. |
+| `/account` | student | v2 Tài khoản: online and class courses (`GET /api/me/courses`, G04), the shared AI-credit balance and the server-labelled credit history (`GET /api/me/credits`); without G04 only the class group from `/api/class/me`. |
+| `/progress` | student | v2 Tiến độ: one row per skill from `/sessions`, `/api/writing/my-essays`, `/api/listening/overview`, `/api/quiz/progress` (band only per FR-077); goal band and exam date via `PATCH /auth/profile`. |
+| `/help` | student | v2 Trợ giúp: static FAQ (six groups, `lib/help-faq.mjs`) with accent-insensitive search. |
 | `/speaking/result` | student | Speaking feedback workspace, separate from the single-question and full-test result entries. |
 
 ### 4.3 Student — Writing
@@ -171,6 +175,13 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/library/writing-samples` | all | Writing sample list, no login: filter by Task, Task 2 question type, topic and search (all kept in the URL), 12 per page, from `/api/library/writing-samples`. |
 | `/library/writing-guides` | all | Kiến thức Writing, no login: guides in four groups (Task 1, Task 2, Tiêu chí chấm, Dạng đề) from `/api/library/writing-guides`. |
 | `/library/writing-guides/[slug]` | all | One Writing guide, no login: reading layout with contents, quotes from published Writing samples, prev/next within its group. |
+
+### 4.7a2 Public — Courses
+
+| Page | Audience | Purpose · operation |
+|---|---|---|
+| `/courses` | all | Course catalogue (PUBLICSITE-0059 T04), 404 until the build flag `AVER_PUBLIC_COMMERCE=1`: one row per course from `GET /api/courses` with its state (open / upcoming / learning / expired), fee only when open, a comparison table and a short chooser; upcoming rows carry "Báo cho tôi khi mở". A signed-in visitor's own states are read in the browser. |
+| `/courses/[slug]` | all | One course (PUBLICSITE-0059 T05), 404 until `AVER_PUBLIC_COMMERCE=1`; an unknown or non-public slug is a 404. Course text, author, chapters (trial lessons are links), how AI credits work, FAQ; a registration panel per viewer state (enrol through login, continue payment, learning, renew, upcoming with "Báo cho tôi khi mở"), sticky from 1024px and a bottom bar below. Handles the mail unsubscribe link `#bo-nhan=`. |
 
 ### 4.7b Student — classes and course work
 

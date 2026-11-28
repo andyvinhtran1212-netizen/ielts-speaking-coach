@@ -4893,7 +4893,7 @@ def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> d
         table, columns = "reading_tests", "id,test_id,title,is_public"
         search_columns = ["test_id", "title"]
     elif kind == "listening":
-        table, columns = "listening_tests", "id,test_id,title,is_public"
+        table, columns = "listening_tests", "id,test_id,title,is_public,full_audio_duration_seconds"
         search_columns = ["test_id", "title"]
     else:
         table, columns = "writing_prompts", "id,title,task_type"

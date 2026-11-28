@@ -6,6 +6,7 @@
 // lại — chúng KHÔNG nạp tailwind — nên hai thứ này là việc của TỪNG TRANG chứ
 // không đặt được ở layout dùng chung.
 import type { Metadata } from 'next';
+import { SkillHubSwitch } from '@/components/learner/skill-hub/skill-hub-switch';
 
 import { ListeningLandingShell } from './page-shell';
 import { ListeningLandingBehavior } from './listening-landing-behavior';
@@ -22,9 +23,12 @@ export default function ListeningLandingPage() {
       {/* Chrome chung. Layout chỉ NẠP script; phần tử phải do từng trang dựng. */}
       {/* @ts-ignore */}
       <aver-chrome active="listening" />
-      <ListeningLandingShell>
-        <ListeningLandingBehavior />
-      </ListeningLandingShell>
+      {/* LEARNERCORE-0063 FR-111: the page unchanged unless learner_v2 is on. */}
+      <SkillHubSwitch skill="listening">
+        <ListeningLandingShell>
+          <ListeningLandingBehavior />
+        </ListeningLandingShell>
+      </SkillHubSwitch>
     </>
   );
 }
