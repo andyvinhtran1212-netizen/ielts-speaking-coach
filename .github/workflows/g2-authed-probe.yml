@@ -162,7 +162,7 @@ jobs:
 
       - name: Nộp sổ làm chứng cứ
         if: ${{ always() && steps.guard_g2_artifacts.outcome == 'success' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: g2-ledger-${{ github.run_id }}
           path: frontend/out/g2-ledger-*.jsonl
