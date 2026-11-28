@@ -9,6 +9,7 @@
 import type { Metadata } from 'next';
 
 import { ProfileShell } from './page-shell';
+import { ProfileTreeSwitch } from './profile-tree-switch';
 import { ProfileBehavior } from './profile-behavior';
 
 export const metadata: Metadata = {
@@ -21,9 +22,10 @@ export const metadata: Metadata = {
 
 export default function ProfilePreviewPage() {
   return (
-    <>
+    // LEARNERCORE-0063 FR-090: the legacy tree unchanged unless learner_v2 is on.
+    <ProfileTreeSwitch>
       <ProfileShell />
       <ProfileBehavior />
-    </>
+    </ProfileTreeSwitch>
   );
 }

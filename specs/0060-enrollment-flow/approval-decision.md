@@ -11,3 +11,15 @@ Approved text: `specs/0060-enrollment-flow/spec.md` at PR #2463 head `9f53176a`,
 Scope of the approval:
 - It allows the task PRs of this spec to be written and opened into `staging`, as `high`-risk PRs that cite `Spec: ENROLL-0060`.
 - It does not authorize applying any of this spec's migrations on staging or production, writing to any database, turning on a feature flag, changing env vars or Supabase Auth settings, or merging. Each of those still needs Andy's own approval at the time.
+
+## Amendment 1, 2026-11-23 11:33 UTC (18:33 Vietnam time)
+
+**State: APPROVED by the owner's direct reply.** CR+SA of #2582 (G05-T22) asked for the open-alert rate limit to count a signed-in learner per account instead of per IP. The coordinator relayed Andy's own message, copied verbatim by the server (2026-11-23 11:33:09 UTC):
+
+> duyệt sửa 0060: giới hạn theo tài khoản khi đã đăng nhập, theo IP với khách
+
+Changed text (plan.md section 5.7, the `POST` and `DELETE …/open-alerts` rows):
+- `POST /api/courses/{slug}/open-alerts`: still 3 per hour; a signed-in caller is counted per account, a guest per hashed IP.
+- `DELETE /api/courses/{slug}/open-alerts`: still 20 per hour; with a session per account, a mail-link unsubscribe without a session per hashed IP.
+
+Limits, response shapes and error codes are unchanged. Implemented in #2582 (migration 394 counter key `user:<id>` / `ip:<hash>`). This amendment authorizes no migration apply, flag, env change or merge.

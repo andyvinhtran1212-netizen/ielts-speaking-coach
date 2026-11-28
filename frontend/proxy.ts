@@ -26,6 +26,9 @@
 //    the current slug → a 308 to the current page. Anything else (200, other
 //    statuses, timeout) passes through to the page's own handling.
 //
+// Public course detail also checks for an exact backend 404, with the
+// commerce flag off by default (PUBLICSITE-0059 FR-009 and FR-029).
+//
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
 //    response header also supplies the nonce to Vercel's PPR resume render;
@@ -33,6 +36,7 @@
 //    routes retain the baseline from next.config.ts. So do URLs under those
 //    prefixes that no route answers (PC-J566): Next serves them the static
 //    root 404, whose scripts cannot carry a request nonce. See the CSP runbook.
+import { publicCommerceEnabled } from '@/lib/public-commerce.mjs';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { API_BASE } from '@/lib/backend';
@@ -249,6 +253,71 @@ async function writingSample(request: NextRequest) {
   return NextResponse.next();
 }
 
+// G04 `courses_public.get_course`: 404 `{"detail": {"error_code": "course_not_found"}}`
+// for an unknown slug and for a course that is not public (Course 1–5). A
+// gateway or framework 404 is not evidence here; it reaches the page, whose
+// read (getPublicJson) treats any 404 as "no course", so the visitor gets the
+// soft 404 (200 + noindex) rather than a false real one. That is why the flag
+// is turned on only once G04 #2485 (the route itself) is deployed.
+type CourseCheck = 'miss' | 'found' | 'unknown';
+
+async function courseCheck(res: Response): Promise<CourseCheck> {
+  if (res.ok) {
+    await res.body?.cancel();
+    return 'found';
+  }
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
+    await res.body?.cancel();
+    return 'unknown';
+  }
+  const body = (await res.json().catch(() => null)) as { detail?: { error_code?: unknown } } | null;
+  return body?.detail?.error_code === 'course_not_found' ? 'miss' : 'unknown';
+}
+
+// One course check per slug per minute in this proxy instance (CR #2637): the
+// same 60 s as the page's own cached read (COMMERCE_CONTENT_LIFE), so the
+// proxy adds at most one backend call per slug and minute, not one per view.
+// Only definite answers are kept: an outage or a foreign 404 is asked again.
+const COURSE_CHECK_TTL_MS = 60_000;
+const COURSE_CHECK_MAX = 500;
+const courseChecks = new Map<string, { result: 'miss' | 'found'; at: number }>();
+
+async function checkCourse(slug: string): Promise<CourseCheck> {
+  const now = Date.now();
+  const kept = courseChecks.get(slug);
+  if (kept && now - kept.at < COURSE_CHECK_TTL_MS) return kept.result;
+  let result: CourseCheck = 'unknown';
+  try {
+    const res = await fetch(`${API_BASE}/api/courses/${encodeURIComponent(slug)}`, {
+      signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+    result = await courseCheck(res);
+  } catch {
+    // Backend/network errors stay with the page's own error handling.
+  }
+  if (result === 'unknown') {
+    courseChecks.delete(slug);
+  } else {
+    if (courseChecks.size >= COURSE_CHECK_MAX) courseChecks.clear();
+    courseChecks.set(slug, { result, at: now });
+  }
+  return result;
+}
+
+/** Exactly the matcher's `/courses/:slug`: one segment after `/courses/`. */
+const COURSE_PAGE = /^\/courses\/[^/]+$/;
+
+async function coursePage(request: NextRequest) {
+  const notFoundUrl = new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url);
+  if (!publicCommerceEnabled()) return NextResponse.rewrite(notFoundUrl);
+  const slug = segment(request.nextUrl.pathname.split('/')[2] ?? '');
+  // Not valid percent-encoding: no course has that slug (the route would 500 decoding it).
+  if (!slug) return NextResponse.rewrite(notFoundUrl);
+  return (await checkCourse(slug)) === 'miss' ? NextResponse.rewrite(notFoundUrl) : NextResponse.next();
+}
+
 // Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
 // Unusable → null, which keeps the nonce policy on every prefixed URL.
 const nonceRoutes = parseNonceRouteTable(process.env.AVER_CSP_NONCE_ROUTES);
@@ -312,6 +381,7 @@ function noncePolicy(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (COURSE_PAGE.test(request.nextUrl.pathname)) return coursePage(request);
   // One segment only, as the matcher; never a nonce route (public Library).
   if (request.nextUrl.pathname.startsWith('/library/speaking/')) return speakingQuestion(request);
   if (request.nextUrl.pathname.startsWith(SAMPLE_PAGE_PATH)) return writingSample(request);
@@ -328,10 +398,11 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/grammar/:category/:slug',
+    '/courses/:slug',
     '/library/speaking/:slug',
     '/library/writing-samples/:slug',
     {
-      source: '/:section(admin|course|exam|exercises|full-test|full-test-result|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|quiz|reading|result|speaking|writing)/:path*',
+      source: '/:section(account|admin|course|exam|exercises|full-test|full-test-result|help|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {
