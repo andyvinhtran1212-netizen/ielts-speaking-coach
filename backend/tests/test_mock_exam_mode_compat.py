@@ -117,3 +117,61 @@ def test_mode_change_rpc_gets_the_legacy_name(monkeypatch):
     monkeypatch.setattr(svc, "supabase_admin", _Rpc(calls))
     svc.admin_update_exam("e1", {"exam_mode": "self_paced"})
     assert calls == [("fn_set_exam_mode", {"p_exam_id": "e1", "p_mode": "retake"})]
+
+
+class _Select:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def table(self, _name):
+        return self
+
+    def select(self, *_a):
+        return self
+
+    def eq(self, *_a):
+        return self
+
+    def execute(self):
+        class R:
+            pass
+        r = R()
+        r.data = self.rows
+        return r
+
+
+@pytest.mark.parametrize("stored, legacy, new", [
+    ("sequential", "sequential", "live"), ("live", "sequential", "live"),
+    ("retake", "retake", "self_paced"), ("self_paced", "retake", "self_paced"),
+])
+def test_learner_exam_list_answers_legacy_and_new_names(monkeypatch, stored, legacy, new):
+    """PR2: after 446 stores the new name, the full-test entry page still reads
+    ``exam_mode == 'retake'`` for a self-paced exam."""
+    monkeypatch.setattr(svc, "supabase_admin", _Select([{
+        "id": "e1", "code": "C", "title": "T", "exam_mode": stored, "is_open": True,
+        "active_section": "listening", "cohort_id": None}]))
+    monkeypatch.setattr(svc, "_retake_assigned_exam_ids", lambda _u: {"e1"})
+    monkeypatch.setattr(svc, "live_sitting_for_user", lambda _u: None)
+    [row] = svc.list_open_exams("u1")
+    assert (row["exam_mode"], row["exam_mode_v2"]) == (legacy, new)
+
+
+@pytest.mark.parametrize("stored, legacy, new", [
+    ("live", "sequential", "live"), ("self_paced", "retake", "self_paced"),
+])
+def test_admin_write_responses_answer_both_names(admin, monkeypatch, stored, legacy, new):
+    async def fake_write(_exam_id, fn, exam_id, patch, actor):
+        return {"id": exam_id, "exam_mode": stored}
+    monkeypatch.setattr(admin_router, "_assignment_write", fake_write)
+    monkeypatch.setattr(svc, "admin_create_exam", lambda payload, actor: {"id": "e1", "exam_mode": stored})
+    monkeypatch.setattr(svc, "set_open", lambda exam_id, is_open, actor: {"id": exam_id, "exam_mode": stored})
+    outs = [
+        asyncio.run(admin_router.update_exam("e1", admin_router.ExamPatch(title="T2"),
+                                             authorization="Bearer x")),
+        asyncio.run(admin_router.create_exam(admin_router.ExamCreate(code="C1", title="T"),
+                                             authorization="Bearer x")),
+        asyncio.run(admin_router.set_open("e1", admin_router.OpenBody(is_open=True),
+                                          authorization="Bearer x")),
+    ]
+    for out in outs:
+        assert (out["exam_mode"], out["exam_mode_v2"]) == (legacy, new)

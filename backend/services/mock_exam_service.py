@@ -199,8 +199,9 @@ def list_open_exams(user_id: str) -> list[dict]:
                 continue
             if e.get("cohort_id") and not _user_in_cohort(user_id, e["cohort_id"]):
                 continue
-        row = {k: v for k, v in e.items()
-               if k not in ("cohort_id", "is_open", "active_section")}
+        # Legacy ``exam_mode`` plus ``exam_mode_v2``, before and after 446.
+        row = mock_exam_modes.with_both_names(
+            {k: v for k, v in e.items() if k not in ("cohort_id", "is_open", "active_section")})
         blocked = bool(live and str(live.get("mock_exam_id")) != str(e["id"]))
         row["blocked_by_sitting_id"] = str(live["id"]) if blocked else None
         # Their own in-progress sitting on THIS exam — the entry page turns the
