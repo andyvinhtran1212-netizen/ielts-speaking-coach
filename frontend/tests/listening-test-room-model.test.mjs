@@ -41,12 +41,20 @@ describe('listeningSubmitOutcome (FR-010)', () => {
     assert.ok(Object.isFrozen(s));
   });
   test('a sealed mock receipt is confirmed and flagged sealed', () => {
-    const s = listeningSubmitOutcome({ attemptId: ID, reply: { received: true, sitting_id: 's', sealed: true } });
+    const s = listeningSubmitOutcome({ attemptId: ID, sittingId: 's', reply: { received: true, sitting_id: 's', sealed: true } });
     assert.equal(s.outcome, 'confirmed');
     assert.equal(s.sealed, true);
   });
+  test('a sealed reply for a different sitting or attempt cannot acknowledge this submission', () => {
+    for (const reply of [
+      { received: true, sealed: true, sitting_id: 'other', attempt_id: ID },
+      { received: true, sealed: true, sitting_id: 's', attempt_id: 'other' },
+    ]) {
+      assert.equal(listeningSubmitOutcome({ attemptId: ID, sittingId: 's', reply }).next, 'retry');
+    }
+  });
   test('a sealed receipt with a capture envelope (it also carries attempt_id) stays sealed', () => {
-    const s = listeningSubmitOutcome({ attemptId: ID, reply: { received: true, sitting_id: 's', sealed: true, attempt_id: ID, post_test_capture_required: true } });
+    const s = listeningSubmitOutcome({ attemptId: ID, sittingId: 's', reply: { received: true, sitting_id: 's', sealed: true, attempt_id: ID, post_test_capture_required: true } });
     assert.equal(s.outcome, 'confirmed');
     assert.equal(s.sealed, true);
   });
@@ -56,16 +64,42 @@ describe('listeningSubmitOutcome (FR-010)', () => {
     assert.equal(s.next, 'results');
   });
   test('offline / network error stays in the test and retries when online', () => {
-    const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch') });
+    const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), online: false });
     assert.equal(s.outcome, 'unconfirmed');
     assert.equal(s.next, 'retry');
     assert.equal(s.waitFor, 'online');
     assert.equal(listeningSubmitOutcome({ attemptId: ID, error: httpError(503), online: false }).waitFor, 'online');
   });
-  test('401 retries after sign-in', () => {
-    const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(401) });
-    assert.equal(s.outcome, 'unconfirmed');
-    assert.equal(s.waitFor, 'signin');
+  test('a request cut off while the browser is still online backs off; it never waits for an online event (CR #2557)', () => {
+    for (const autoRetries of [0, 1, 2]) {
+      const s = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), online: true, autoRetries });
+      assert.deepEqual([s.outcome, s.next, s.waitFor], ['unconfirmed', 'retry', null], String(autoRetries));
+    }
+    const spent = listeningSubmitOutcome({ attemptId: ID, error: new TypeError('Failed to fetch'), online: true, autoRetries: 3 });
+    assert.deepEqual([spent.outcome, spent.next], ['unconfirmed_manual', 'manual']);
+  });
+  test('401 stops the automatic retries and keeps "Try again" (CR #2557 F1)', () => {
+    for (const autoRetries of [0, 1, 3]) {
+      const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(401), autoRetries });
+      assert.equal(s.outcome, 'unconfirmed_manual');
+      assert.equal(s.next, 'manual');
+      assert.equal(s.waitFor, 'signin');
+    }
+  });
+  test('a failed re-read keeps the automatic tries while they last (CR #2557 F4)', () => {
+    const lost = { status: 'unknown' };
+    for (const autoRetries of [0, 1, 2]) {
+      const s = listeningSubmitOutcome({ attemptId: ID, error: httpError(409), reread: lost, autoRetries });
+      assert.equal(s.outcome, 'unconfirmed', String(autoRetries));
+      assert.equal(s.next, 'retry');
+      assert.equal(s.waitFor, null);
+    }
+    assert.equal(listeningSubmitOutcome({ attemptId: ID, error: httpError(409), reread: lost, online: false }).waitFor, 'online');
+    const spent = listeningSubmitOutcome({ attemptId: ID, error: httpError(409), reread: lost, autoRetries: 3 });
+    assert.equal(spent.outcome, 'unconfirmed_manual');
+    assert.equal(spent.next, 'manual');
+    const signedOut = listeningSubmitOutcome({ attemptId: ID, error: httpError(409), reread: { status: 'unknown', signin: true } });
+    assert.deepEqual([signedOut.outcome, signedOut.next, signedOut.waitFor], ['unconfirmed_manual', 'manual', 'signin']);
   });
   test('temporary errors retry after backoff', () => {
     for (const status of [408, 425, 429, 500, 502, 503]) {
