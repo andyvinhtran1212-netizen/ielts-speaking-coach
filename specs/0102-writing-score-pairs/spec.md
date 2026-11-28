@@ -1,21 +1,19 @@
 ---
 id: SCOREPAIR-0102
 title: Every Writing essay a teacher returns keeps an immutable record of the original AI bands and the bands the teacher released
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Mỗi bài Writing giáo viên trả có bản ghi bất biến gồm điểm AI gốc và điểm giáo viên chốt
 
-Status: **draft**. Soạn ngày 23/11/2026 theo nhiệm vụ G12-C01 của
+Status: **approved**. Soạn ngày 23/11/2026 theo nhiệm vụ G12-C01 của
 `docs/proposals/commercialization-2026-11/GOI-12-huong-phat-trien.md` (phần C,
 mục 2.2, 4 và 5.C). Anh Andy đã đưa G12-C01…C03 vào đợt D, làm cùng G09-T17
 (`00-QUY-UOC-CHUNG.md` điểm 24, 18/11). Số spec 0102 được cấp lại ngày 23/11 vì
 0088 đã thuộc WRITINGGPT-0088 (sổ ở `01-KE-HOACH-TONG.md` mục 6). Chưa dòng mã
-nào chạy theo spec này. Chỉ anh Andy duyệt. Khi anh duyệt, câu trả lời được ghi
-nguyên văn kèm thời điểm vào `approval-decision.md`, và `status` đổi sang
-`approved`. Bản thực thi gồm hai PR `high-risk` riêng (migration 480, rồi
+nào chạy theo spec này. Andy đã duyệt ngày 28/11/2026. [Quyết định duyệt](approval-decision.md). Bản thực thi gồm hai PR `high-risk` riêng (migration 480, rồi
 backend), mở sau khi spec đã được duyệt trên `staging`.
 
 Spec liên quan, không sửa: [WRITINGBAND-0050](../0050-writing-band-save-consistency/spec.md)
