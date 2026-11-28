@@ -58,7 +58,7 @@ describe('AdminFrame', () => {
     renderFrame();
     const group = within(sidebar()).getByRole('group', { name: 'Chấm bài' });
     await waitFor(() => expect(within(group).getByRole('link', { name: /Writing/ }).textContent).toContain('3'));
-    expect(api.getWith).toHaveBeenCalledWith('/admin/attention');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/attention', undefined, undefined);
     expect(within(group).getByRole('link', { name: /Yêu cầu chấm lại/ }).textContent).not.toMatch(/\d/);
     // "Speaking" grading has no page yet: dimmed, not a link, no number.
     const speaking = within(group).getByText('Speaking').closest('[aria-disabled="true"]');

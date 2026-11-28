@@ -28,6 +28,7 @@ function proxyFor(fetch, indexed) {
   let made = 0;
   const modules = {
     '@/lib/backend': { API_BASE: 'https://fixture.invalid' },
+    '@/lib/public-commerce.mjs': { publicCommerceEnabled: () => assert.fail('Library must not read the commerce flag') },
     '@/lib/grammar-article-index.mjs': {
       // proxy.ts builds the Grammar index first, then the Speaking one.
       createArticleIndex: (options) => {

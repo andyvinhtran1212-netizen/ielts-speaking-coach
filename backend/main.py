@@ -44,6 +44,7 @@ from routers.sessions import router as sessions_router
 from routers.courses_public import router as courses_public_router
 from routers.me_access import router as me_access_router
 from routers.enrollment import router as enrollment_router
+from routers.account_data import router as account_data_router
 from routers.admin_commerce import router as admin_commerce_router
 from routers.questions import router as questions_router
 from routers.grading import router as grading_router
@@ -123,6 +124,8 @@ from routers.quiz import router as quiz_player_router
 from routers.course_pronunciation import router as course_pronunciation_router
 from routers.reading_student import router as reading_student_router
 from routers.feedback import router as feedback_router
+from routers.review_notes import router as review_notes_router
+from routers.course_open_alerts import router as course_open_alerts_router
 from routers.kp import router as kp_router
 from routers.exams import router as exams_router
 from routers.admin_exams import router as admin_exams_router
@@ -334,6 +337,7 @@ app.include_router(writing_student_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(courses_public_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(me_access_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(enrollment_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(account_data_router, dependencies=_ACTIVE_LEARNER)  # ACCOUNTDATA-0100
 app.include_router(grammar_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)
@@ -362,6 +366,8 @@ app.include_router(course_pronunciation_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(reading_student_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(mock_attempt_flags_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(feedback_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(review_notes_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(course_open_alerts_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(kp_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exams_router)
