@@ -26,6 +26,10 @@ const getWithImpl = async (path: string) => {
     if (!page) throw Object.assign(new Error('HTTP 404'), { status: 404 });
     return page;
   }
+  if (path === '/api/account/deletion-request') {
+    // ACCOUNTDATA-0100 routes not deployed (staging today): blocks hidden.
+    throw Object.assign(new Error('HTTP 404'), { status: 404 });
+  }
   if (path.startsWith('/api/class/me')) {
     if (state.clsFails) throw Object.assign(new Error('HTTP 503'), { status: 503 });
     return state.cls;
