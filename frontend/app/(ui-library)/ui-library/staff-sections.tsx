@@ -33,7 +33,7 @@ export function StaffShellSection({ title }: { title: string }) {
         <EnvBadge environment="local" />
       </div>
       <p className={styles.demoCrumb}>
-        Mục chưa có trang chạy thật nên chưa hiện (G09 thêm khi trang có): {PLANNED_ONLY.join(' · ')}.
+        Mục mờ “Chưa mở”: trang chưa chạy thật, không phải liên kết, không có số (G09 bật khi trang có): {PLANNED_ONLY.join(' · ')}.
       </p>
     </section>
   );

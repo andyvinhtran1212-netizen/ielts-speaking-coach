@@ -3,6 +3,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { AuthProvider, useAuth } from '@/lib/auth/auth-provider';
 
+// next/dynamic resolves the lazy screen asynchronously; render it directly here.
+vi.mock('next/dynamic', async () => {
+  const screenModule = await import('@/components/ui/needs-course-screen');
+  return { default: () => screenModule.NeedsCourseScreen };
+});
+
 // W-03: learner layouts (AuthedShell → <AuthProvider activationGate>) must send
 // an INACTIVE account to /login (activation dialog) before `signed-in` is ever
 // exposed, so a learner page never renders or calls learner APIs first. The
@@ -177,4 +183,75 @@ it('hybrid/public layouts (no activationGate) are never redirected', async () =>
   await screen.findByText('signed-in:A');
   expect(getWith).not.toHaveBeenCalled();
   expect(location.replace).not.toHaveBeenCalled();
+});
+
+
+// ── LEARNERCORE-0063 FR-091…FR-093 (G07-T26) ────────────────────────────────
+
+const OPEN = { is_active: false, suspended: false, learner_v2_enabled: true };
+
+function Page() {
+  const auth = useAuth();
+  return <span>page:{auth.status}:{auth.user?.id || ''}</span>;
+}
+const mountPage = () => render(<AuthProvider activationGate><Page /></AuthProvider>);
+
+it.each(['/home', '/start', '/account/orders', '/profile', '/help'])(
+  'an inactive learner_v2 account opens %s, signed in, without a redirect', async (path) => {
+    location.pathname = path;
+    installApi(respond(OPEN));
+    mountPage();
+    await screen.findByText('page:signed-in:A');
+    expect(location.replace).not.toHaveBeenCalled();
+    expect(screen.queryByText('Cần có khoá')).toBeNull();
+  });
+
+it.each(['/listening', '/practice', '/tests', '/homework', '/profile/v2'])(
+  'an inactive learner_v2 account sees "Cần có khoá" at %s and the page never mounts', async (path) => {
+    location.pathname = path;
+    installApi(respond(OPEN));
+    mountPage();
+    await screen.findByText('Cần có khoá');
+    expect(screen.queryByText(/^page:/)).toBeNull();
+    expect(location.replace).not.toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: 'Nhập mã kích hoạt' }).getAttribute('href')).toBe('/login');
+    expect(screen.getByRole('link', { name: 'Về Hôm nay' }).getAttribute('href')).toBe('/home');
+    // /courses is not live yet: the link is hidden, as with the commerce flag off.
+    expect(screen.queryByRole('link', { name: 'Xem các khoá' })).toBeNull();
+  });
+
+it('inactive_open is never remembered: the next load probes again', async () => {
+  const getWith = respond(OPEN);
+  installApi(getWith);
+  const first = mountPage();
+  await screen.findByText('page:signed-in:A');
+  first.unmount();
+  mountPage();
+  await screen.findByText('page:signed-in:A');
+  expect(getWith).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ['suspended', { is_active: false, suspended: true, learner_v2_enabled: true }],
+  ['flag off', { is_active: false, suspended: false, learner_v2_enabled: false }],
+  ['field missing (old backend)', { is_active: false, suspended: false }],
+])('an inactive account goes to /login as today when %s', async (_label, body) => {
+  installApi(respond(body));
+  mountPage();
+  await waitFor(() => expect(location.replace).toHaveBeenCalledWith('/login'));
+  expect(screen.queryByText(/^page:signed-in/)).toBeNull();
+  expect(screen.queryByText('Cần có khoá')).toBeNull();
+});
+
+it('switching to another account drops the open-page state', async () => {
+  location.pathname = '/listening';
+  const getWith = vi.fn()
+    .mockResolvedValueOnce(OPEN)
+    .mockResolvedValueOnce({ is_active: true });
+  installApi(getWith);
+  mountPage();
+  await screen.findByText('Cần có khoá');
+  act(() => notify('SIGNED_IN', session('B')));
+  await screen.findByText('page:signed-in:B');
+  expect(screen.queryByText('Cần có khoá')).toBeNull();
 });

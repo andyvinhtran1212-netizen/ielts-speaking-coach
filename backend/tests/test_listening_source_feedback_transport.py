@@ -73,7 +73,8 @@ def boundary(monkeypatch):
                     'listening_content': [db.section],
                     'listening_exercises': [{'content_id': 'section', 'status': db.exercise_status, 'payload': db.payload}],
                     'listening_programme_feedback_reveals': [{'attempt_id': str(ATTEMPT), 'q_num': 1, 'first_answer': db.answers[0]['user_answer'],
-                        'revealed_at': '2026-10-01T01:00:00Z'}]}
+                        'revealed_at': '2026-10-01T01:00:00Z'}],
+                    'user_feedback': []}
             selected = deepcopy(rows[self.name])
             for kind, column, value in self.filters:
                 selected = [row for row in selected if (row.get(column) == value if kind == 'eq' else row.get(column) in value)]

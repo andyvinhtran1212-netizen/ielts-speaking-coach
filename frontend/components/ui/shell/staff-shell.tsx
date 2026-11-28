@@ -21,13 +21,14 @@ export type StaffShellProps = {
   /**
    * The sidebar, supplied by G09: eight groups for admins, one group without
    * a label (five flat entries) for instructors. Every href must be a live
-   * route; the shell renders what it is given.
+   * route; an entry whose page is not open yet has `available: false` (and
+   * may have `href: null`): it shows dimmed with "Chưa mở", never as a link.
    */
   nav: readonly StaffNavGroup[];
   /** From `runtimeStaffEnvironment()`; never hidden. */
   environment: StaffEnvironment;
   user: StaffUser;
-  /** "Đổi vai trò" entries, only for roles the server profile grants. */
+  /** Role entries of the account menu ("Sang khu giáo viên"), printed as given; only roles the server profile grants. */
   switchTo?: readonly StaffRoleSwitch[];
   /** Built-in quick search field (data from G09); without it there is no field. */
   search?: StaffSearchFn;
@@ -39,11 +40,26 @@ export type StaffShellProps = {
    */
   searchSlot?: ReactNode;
   /**
+   * The current entry's href when the page knows it better than the
+   * pathname (G09's registry: /admin/speaking/sessions belongs to Báo cáo ›
+   * Hoạt động). Absent: matched from the pathname. Unlike `demo`, the page
+   * still gets <main> and localStorage.
+   */
+  current?: string | null;
+  /**
    * /ui-library and tests only: the current entry instead of the pathname's,
    * the content in a <div> (the library page has its own <main>), and the
    * collapsed state kept in memory, not in localStorage.
    */
   demo?: { current: string | null; collapsed?: boolean };
+  /**
+   * Where `.av2-root` sits. 'inherit' (default): a v2 ancestor provides it.
+   * 'shell': the shell puts it on its own chrome (skip link, top bar, sidebar,
+   * drawer) and never on <main>, so legacy v1 pages framed by the shell keep
+   * their cascade (base.css `.av2-root h1` / `.av2-root a` would beat their
+   * classes). The page still loads styles/av2 tokens.css and base.css.
+   */
+  scope?: 'shell' | 'inherit';
   children: ReactNode;
 };
 
@@ -68,9 +84,12 @@ function writeCollapsed(collapsed: boolean) {
  * quick search, account menu and drawer is open. The content area never
  * scrolls the page sideways; wide tables scroll inside their own frame.
  */
-export function StaffShell({ role, nav, environment, user, switchTo = [], search, searchSlot, demo, children }: StaffShellProps) {
+export function StaffShell({
+  role, nav, environment, user, switchTo = [], search, searchSlot, current: currentProp, demo, scope = 'inherit', children,
+}: StaffShellProps) {
+  const chrome = scope === 'shell' ? 'av2-root' : undefined;
   const pathname = usePathname() ?? '';
-  const current = demo ? demo.current : currentStaffHref(nav, pathname);
+  const current = demo ? demo.current : currentProp !== undefined ? currentProp : currentStaffHref(nav, pathname);
   const [collapsed, setCollapsed] = useState(demo?.collapsed ?? false);
   const [panel, setPanelState] = useState<StaffPanel | null>(null);
   const setPanel = useCallback((next: StaffPanel | null) => setPanelState(next), []);
@@ -85,7 +104,7 @@ export function StaffShell({ role, nav, environment, user, switchTo = [], search
 
   return (
     <div className={styles.shell} data-demo={demo ? '' : undefined}>
-      {demo ? null : <a href="#main-content" className={styles.skip}>Bỏ qua tới nội dung</a>}
+      {demo ? null : <a href="#main-content" className={chrome ? `${chrome} ${styles.skip}` : styles.skip}>Bỏ qua tới nội dung</a>}
       <StaffTopBar
         role={role}
         environment={environment}
@@ -95,14 +114,15 @@ export function StaffShell({ role, nav, environment, user, switchTo = [], search
         searchSlot={searchSlot}
         panel={panel}
         setPanel={setPanel}
+        rootClass={chrome}
       />
       <div className={styles.body}>
-        <StaffSidebar role={role} nav={nav} current={current} collapsed={collapsed} onCollapsedChange={onCollapsedChange} />
+        <StaffSidebar role={role} nav={nav} current={current} collapsed={collapsed} onCollapsedChange={onCollapsedChange} persist={!demo} rootClass={chrome} />
         {demo
           ? <div className={styles.main}>{children}</div>
           : <main id="main-content" tabIndex={-1} className={styles.main}>{children}</main>}
       </div>
-      <StaffDrawer role={role} nav={nav} current={current} open={panel === 'drawer'} onClose={() => setPanel(null)} />
+      <StaffDrawer role={role} nav={nav} current={current} open={panel === 'drawer'} onClose={() => setPanel(null)} persist={!demo} rootClass={chrome} />
     </div>
   );
 }

@@ -16,6 +16,8 @@ import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
 import { getBrowserJson } from '@/lib/browser-api';
+import { COURSE_ACCESS_ACTIONS } from '@/lib/course-access-labels.mjs';
+import { coursesHref } from '@/lib/public-commerce.mjs';
 import { replaceAcrossTrees } from '@/lib/tree-replace';
 import {
   assignedCardLabel,
@@ -36,7 +38,6 @@ import styles from './course-hub.module.css';
 /** FR-030: "Bài được giao" is /course/assigned once Đợt 8 runs, /my-class before. */
 export const ASSIGNED_HREF = liveHref({ href: '/course/assigned', today: '/my-class' }) ?? '/my-class';
 const CLASS_HREF = liveHref({ href: '/course/class', today: null });
-const COURSES_HREF = liveHref({ href: '/courses', today: null });
 const ACTIVATE_HREF = liveHref({ href: '/activate', today: null });
 
 const ONLINE_NOTE = 'AI chấm và trả nhận xét ngay';
@@ -94,6 +95,8 @@ function OnlineGroup({ course, current, collapsed, onToggle, onSelect }: {
   course: Course; current: string | null; collapsed: boolean | null;
   onToggle: () => void; onSelect: (code: string) => void;
 }) {
+  const catalogHref = coursesHref();
+  const catalog = catalogHref ? liveHref({ href: catalogHref, today: null }) : null;
   let body: React.ReactNode;
   if (course.degraded.has('online')) {
     body = <BlockError title="Khoá online của bạn" />;
@@ -104,7 +107,7 @@ function OnlineGroup({ course, current, collapsed, onToggle, onSelect }: {
           Bạn chưa đăng ký khoá online nào. Sáu khoá kỹ năng dự kiến: Grammar, Listening, Reading,
           Writing, Speaking, Vocabulary Skills + Ideas.
         </p>
-        {COURSES_HREF ? <Button href={COURSES_HREF} variant="secondary" size="sm">Xem các khoá</Button> : null}
+        {catalog ? <Button href={catalog} variant="secondary" size="sm">Xem các khoá</Button> : null}
       </>
     );
   } else {
@@ -117,11 +120,14 @@ function OnlineGroup({ course, current, collapsed, onToggle, onSelect }: {
               <span className={styles.meta}>{onlineMeta(row)}</span>
               {row.expired ? <span className={styles.meta}>Đăng ký lại để học tiếp từ bài đang dở.</span> : null}
             </div>
-            {row.expired ? null : row.code === current ? (
+            {row.expired && row.canRenew && catalog ? (
+              <Button href={catalog} variant="secondary" size="sm">{COURSE_ACCESS_ACTIONS.renew}</Button>
+            ) : null}
+            {!row.expired && (row.code === current ? (
               <span className={styles.meta}>Đang xem</span>
             ) : (
               <Button variant="secondary" size="sm" onClick={() => onSelect(row.code)}>Xem bài học</Button>
-            )}
+            ))}
           </li>
         ))}
       </ul>

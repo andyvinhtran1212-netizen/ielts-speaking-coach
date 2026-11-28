@@ -69,6 +69,12 @@
   var _audioCtx     = null;
   var _analyser     = null;
   var _waveAnimId   = null;
+  // EXAMSPEAK-0072 FR-002: set only from the Next bootstrap (`examRoomMode`);
+  // false keeps every event, string and call of the page as it was.
+  var _examRoomMode = false;
+  var _roomMicState = 'unknown';
+  var _ROOM_LEVEL_MS = 200;
+  var _roomLevelTimer = null;
   var _timerId      = null;
   var _elapsedSecs  = 0;
 
@@ -261,6 +267,142 @@
       return;
     }
     window.location.href = url;
+  }
+
+  // ── Exam room (EXAMSPEAK-0072) ───────────────────────────────────────────────
+  // One line at each call site; nothing here runs while the flag is off.
+
+  function _roomView(section, patch) {
+    if (!_examRoomMode) return false;
+    return _updateNativeView(section, patch);
+  }
+
+  function _roomMic(state) {
+    if (!_examRoomMode) return;
+    _roomMicState = state;
+    _updateNativeView('mic', { state: state });
+  }
+
+  // Recorder error -> mic case (FR-003). Unknown failures keep the old message
+  // in the recording box and put the mic back where it was before the request.
+  function _roomMicFromError(err, before) {
+    var code = err && err.code;
+    var name = err && err.name;
+    if (code === 'permission_denied' || name === 'NotAllowedError' || name === 'PermissionDeniedError') return 'denied';
+    if (code === 'device_missing' || name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'not_found';
+    if (code === 'device_busy' || name === 'NotReadableError') return 'busy';
+    if (code === 'unsupported_media' || code === 'unsupported_recorder') return 'unsupported';
+    return before === 'pending' ? 'prompt' : before;
+  }
+
+  function _roomMicBlocked() {
+    if (!_examRoomMode) return false;
+    return _roomMicState === 'denied' || _roomMicState === 'not_found'
+      || _roomMicState === 'busy' || _roomMicState === 'unsupported';
+  }
+
+  function _roomMicBeforeStart() {
+    if (!_examRoomMode) return 'unknown';
+    var before = _roomMicState;
+    if (before !== 'granted') _roomMic('pending');
+    return before;
+  }
+
+  function _roomMicSettled(started, before) {
+    if (!_examRoomMode) return;
+    if (started) _roomMic('granted');
+    else if (_roomMicState === 'pending') _roomMic(before === 'pending' || before === 'unknown' ? 'prompt' : before);
+  }
+
+  function _roomDetectMic() {
+    if (!_examRoomMode) return;
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getUserMedia !== 'function' || typeof MediaRecorder === 'undefined') {
+      _roomMic('unsupported');
+      return;
+    }
+    _roomMic('prompt');
+    var generation = _playerGeneration;
+    try {
+      if (!navigator.permissions || typeof navigator.permissions.query !== 'function') return;
+      navigator.permissions.query({ name: 'microphone' }).then(function (status) {
+        if (!_examRoomMode || generation !== _playerGeneration || _roomMicState !== 'prompt') return;
+        if (status && status.state === 'granted') _roomMic('granted');
+        else if (status && status.state === 'denied') _roomMic('denied');
+      }, function () { /* Firefox/Safari may not know "microphone": stay at prompt */ });
+    } catch (_) { /* stay at prompt */ }
+  }
+
+  // "Cho phép micro" (FR-003): ask the browser once, then let go of the device;
+  // the recorder opens its own stream on "Bắt đầu ghi âm".
+  async function requestMicrophone() {
+    if (!_examRoomMode || _roomMicState === 'pending') return false;
+    var before = _roomMicState;
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getUserMedia !== 'function') { _roomMic('unsupported'); return false; }
+    _roomMic('pending');
+    var generation = _playerGeneration;
+    try {
+      var stream = await md.getUserMedia({ audio: true, video: false });
+      try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {}
+      if (generation !== _playerGeneration) return false;
+      _roomMic('granted');
+      return true;
+    } catch (err) {
+      if (generation !== _playerGeneration) return false;
+      _roomMic(_roomMicFromError(err, before));
+      return false;
+    }
+  }
+
+  function _roomRecorderPaused() {
+    var native = _getNativeRecorder();
+    var rec = native ? native.recorder : _recorder;
+    var stream = native ? native.stream : _stream;
+    if (rec && rec.state === 'paused') return true;
+    try {
+      var track = stream && typeof stream.getAudioTracks === 'function' ? stream.getAudioTracks()[0] : null;
+      return !!(track && track.muted);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Level 0..1 = RMS of the time-domain bytes, |b - 128| / 128 (FR-004). No
+  // analyser means no level (null), and the room then never reports silence.
+  function _roomLevel(analyser, buf) {
+    if (!analyser || !buf) return null;
+    analyser.getByteTimeDomainData(buf);
+    var sum = 0;
+    for (var i = 0; i < buf.length; i++) {
+      var v = (buf[i] - 128) / 128;
+      sum += v * v;
+    }
+    return buf.length ? Math.sqrt(sum / buf.length) : null;
+  }
+
+  function _startRoomLevel() {
+    if (!_examRoomMode) return;
+    var analyser = _analyser;
+    var buf = analyser ? new Uint8Array(analyser.fftSize || analyser.frequencyBinCount || 256) : null;
+    var tick = function () {
+      _updateNativeView('recording', { level: _roomLevel(analyser, buf), paused: _roomRecorderPaused() });
+    };
+    if (_roomLevelTimer) _clearManagedEffect('recording-level', _roomLevelTimer, 'interval');
+    tick();
+    _roomLevelTimer = _startManagedInterval('recording-level', tick, _ROOM_LEVEL_MS);
+  }
+
+  function _stopRoomLevel() {
+    if (!_examRoomMode) return;
+    if (_roomLevelTimer) { _clearManagedEffect('recording-level', _roomLevelTimer, 'interval'); _roomLevelTimer = null; }
+    _updateNativeView('recording', { level: null, paused: false });
+  }
+
+  function _roomTooShort(section, part, durationSeconds, minSeconds) {
+    return _roomView(section, {
+      tooShort: { part: part, durationSeconds: Number(durationSeconds), minSeconds: Number(minSeconds) },
+    });
   }
 
   function _hasUnsentWork() {
@@ -779,6 +921,7 @@
     _recordedBlob = null;
     _elapsedSecs = 0;
     _renderTimer();
+    var micBefore = _roomMicBeforeStart();
     try {
       var started = await nativeRecorder.start({
         maxSeconds: MAX_RECORD_SEC[_sessionData ? _sessionData.part : 1] || 90,
@@ -792,6 +935,7 @@
         nativeRecorder.reset();
         return false;
       }
+      _roomMicSettled(started, micBefore);
       if (!started) {
         // A concurrent click may still own the pending permission request; a
         // sheet slot may also deliberately cancel it. Neither is a mic error.
@@ -808,6 +952,7 @@
       return true;
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return false;
+      _roomMic(_roomMicFromError(err, micBefore));
       _showRecError(err && err.message ? err.message : 'Không thể mở microphone.');
       return false;
     }
@@ -1037,6 +1182,7 @@
     var part   = _sessionData ? _sessionData.part : null;
     var minSec = part ? (MIN_RECORD_SEC[part] || 0) : 0;
     if (!minSec || _elapsedSecs >= minSec) {
+      _roomView('recording', { tooShort: null });
       if (_updateNativeView('recording', {
         lengthHint: '',
         lengthHintVisible: false,
@@ -1052,6 +1198,11 @@
     }
 
     var needMore = minSec - _elapsedSecs;
+    // Exam room (FR-005): the room words the reason; submit stays blocked.
+    if (_roomTooShort('recording', part, _elapsedSecs, minSec)) {
+      _updateNativeView('recording', { lengthHint: '', lengthHintVisible: false, submitDisabled: true });
+      return;
+    }
     var hintText =
       'Quá ngắn cho Part ' + part + ' — cần ít nhất ' + minSec +
       ' giây (còn thiếu ~' + needMore + 's). Hãy ghi lại trước khi nộp.';
@@ -1079,6 +1230,7 @@
       _revokeManagedObjectUrl('recorded-playback', _recordedPlaybackUrl);
       _recordedPlaybackUrl = null;
     }
+    _roomView('recording', { tooShort: null });
     if (_updateNativeView('recording', {
       playbackUrl: '',
       lengthHint: '',
@@ -1147,6 +1299,7 @@
   }
 
   function _clearRecError() {
+    _roomView('recording', { tooShort: null });
     if (_updateNativeView('recording', { error: '', errorVisible: false })) return;
     var el = $('rec-error');
     if (el) el.style.display = 'none';
@@ -1323,6 +1476,8 @@
       _clearP2SubmissionRetry();
       _resetRecorder();   // discard blob + clear playback URL
       showState('p2a');
+      // Exam room (EXAMSPEAK-0072 FR-005): the reason stays on the page.
+      if (_roomTooShort('part2', 2, detail.duration_seconds, detail.min_seconds)) return;
       // p2a has no inline error region — surface via alert as a stopgap.
       // (A proper inline banner is a Phase B follow-up; the hard floor
       // is rare enough on a full 2-min P2 attempt that this is fine.)
@@ -1337,6 +1492,7 @@
     _showRecSub('recorded');
     _renderRecordedPlayback();
     _renderRecordedLengthHint();
+    if (_roomTooShort('recording', part, detail.duration_seconds, detail.min_seconds)) return;
     _showRecError(msg);
   }
 
@@ -3229,6 +3385,7 @@
   }
   function startP2Prep() {
     _clearP2SubmissionRetry();
+    _roomView('part2', { tooShort: null });
     _stopAITts();
     _cancelSpeech();
 
@@ -3329,6 +3486,7 @@
     _elapsedSecs = 0;
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
+      var micBefore = _roomMicBeforeStart();
       try {
         var started = await nativeRecorder.start({
           // Part 2 owns its 120-second countdown + "Thank you" delay below.
@@ -3339,6 +3497,7 @@
           nativeRecorder.reset();
           return;
         }
+        _roomMicSettled(started, micBefore);
         if (!started) {
           // A concurrent start is still in charge and should stay silent. Any
           // settled false result otherwise needs a visible recovery path.
@@ -3350,6 +3509,10 @@
         _analyser = nativeRecorder.getAnalyser();
       } catch (err) {
         if (!_playerActive || generation !== _playerGeneration) return;
+        _roomMic(_roomMicFromError(err, micBefore));
+        // Exam room: a known mic case stays on the preparation screen, whose
+        // mic box shows the steps and "Thử lại"; "Bắt đầu nói ngay" starts again.
+        if (_roomMicBlocked()) return;
         showError(err && err.message ? err.message : 'Không thể mở microphone.');
         return;
       }
@@ -3489,6 +3652,7 @@
   }
 
   function _startP2Waveform() {
+    _startRoomLevel();
     var canvas = $('p2c-canvas');
     if (!canvas || !_analyser) return;
     var ctx = canvas.getContext('2d');
@@ -4962,7 +5126,10 @@
   // trong, không có con số nào trong CSS. Ghim một hằng số ở đây là ghim một
   // giá trị sẽ sai ngay lần đầu ai đó đổi cỡ chữ trong thanh.
   function _syncMeterTop() {
-    var bar = document.querySelector('.practice-context-bar');
+    // The exam room (EXAMSPEAK-0072) swaps the context bar for FocusShell's
+    // sticky bar, which mounts lazily; the next render or resize measures it.
+    var bar = document.querySelector('.practice-context-bar')
+      || document.querySelector('[data-speaking-room-root] header');
     var sheet = $('state-sheet');
     if (!bar || !sheet) return;
     sheet.style.setProperty('--practice-meter-top', bar.offsetHeight + 'px');
@@ -5414,6 +5581,7 @@
     _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
     _clearManagedEffect('recording-error-hide', null, 'timeout');
     _clearManagedEffect('grammar-entry-flash', null, 'timeout');
+    if (_roomLevelTimer) { _clearManagedEffect('recording-level', _roomLevelTimer, 'interval'); _roomLevelTimer = null; }
 
     _ttsGeneration++;
     _stopAITts();
@@ -5474,6 +5642,7 @@
   // ── Waveform visualiser ───────────────────────────────────────────────────────
 
   function _startWaveform() {
+    _startRoomLevel();
     var canvas = $('rec-canvas');
     if (!canvas || !_analyser) return;
     var ctx = canvas.getContext('2d');
@@ -5501,6 +5670,7 @@
   }
 
   function _stopWaveform() {
+    _stopRoomLevel();
     if (_waveAnimId) { cancelAnimationFrame(_waveAnimId); _waveAnimId = null; }
   }
 
@@ -5594,6 +5764,8 @@
     _rendererAffinity = null;
     _navigate = null;
     _recordingDirty = false;
+    _examRoomMode = false;
+    _roomMicState = 'unknown';
     _bindPlayerEffects();
     _bindSheet();
     showState('loading');
@@ -5619,6 +5791,8 @@
       _sessionId = bootstrap.sessionId;
       _rendererAffinity = 'next';
       _navigate = typeof bootstrap.navigate === 'function' ? bootstrap.navigate : null;
+      _examRoomMode = bootstrap.examRoomMode === true;
+      _roomDetectMic();
     } else {
       var sb = window.getSupabase && window.getSupabase();
       if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }
@@ -5677,6 +5851,7 @@
       if (hasNextBootstrap) {
         _sessionData = bootstrap.sessionData;
         _assertFullTestResponseLookup(_sessionData);
+        _roomView('frame', { examRoomSessionMode: (_sessionData && _sessionData.mode) || '' });
         questions = bootstrap.questions.slice();
       } else {
         if (loadMsg) loadMsg.textContent = 'Đang tải session...';
@@ -5940,6 +6115,7 @@
     destroy:              destroy,
     hasUnsavedWork:       _hasUnsentWork,
     canLeave:             _canLeave,
+    requestMicrophone:    requestMicrophone,
     goToRecording:        goToRecording,
     startRecording:       startRecording,
     stopRecording:        stopRecording,

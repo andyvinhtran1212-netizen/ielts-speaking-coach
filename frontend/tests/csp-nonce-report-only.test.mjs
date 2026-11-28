@@ -203,7 +203,8 @@ describe('Report-Only policy builder', () => {
     // to '0' for production builds; covered by csp-nonce-enforce.test.mjs).
     // PC-J566: plus the route table, inlined only when the render flag is on.
     // PC-J597: plus the two Sentry tags (environment, release); neither is a CSP input.
-    assert.match(read('next.config.ts'), /env: \{\s*\[NONCE_REPORT_ONLY_FLAG\]: nonceReportOnlyEnabled\(process\.env\) \? '1' : '0',\s*\[NONCE_ENFORCE_FLAG\]: nonceEnforceEnabled\(process\.env\) \? '1' : '0',(?:\s*\/\/[^\n]*)*\s*get \[NONCE_ROUTE_TABLE_ENV\]\(\) \{\s*return nonceReportOnlyEnabled\(process\.env\) \? JSON\.stringify\(collectNonceRoutes\(__dirname\)\) : '';\s*\},(?:\s*\/\/[^\n]*)*\s*AVER_SENTRY_ENVIRONMENT: resolveRuntimeOrigins\(process\.env\)\.environment \|\| 'development',\s*AVER_SENTRY_RELEASE: process\.env\.VERCEL_GIT_COMMIT_SHA \|\| '',\s*\}/);
+    // PUBLICSITE-0059 FR-029: plus the public-commerce build flag, not a CSP input either.
+    assert.match(read('next.config.ts'), /env: \{\s*\[NONCE_REPORT_ONLY_FLAG\]: nonceReportOnlyEnabled\(process\.env\) \? '1' : '0',\s*\[NONCE_ENFORCE_FLAG\]: nonceEnforceEnabled\(process\.env\) \? '1' : '0',(?:\s*\/\/[^\n]*)*\s*get \[NONCE_ROUTE_TABLE_ENV\]\(\) \{\s*return nonceReportOnlyEnabled\(process\.env\) \? JSON\.stringify\(collectNonceRoutes\(__dirname\)\) : '';\s*\},(?:\s*\/\/[^\n]*)*\s*AVER_SENTRY_ENVIRONMENT: resolveRuntimeOrigins\(process\.env\)\.environment \|\| 'development',\s*AVER_SENTRY_RELEASE: process\.env\.VERCEL_GIT_COMMIT_SHA \|\| '',(?:\s*\/\/[^\n]*)*\s*AVER_PUBLIC_COMMERCE: process\.env\.AVER_PUBLIC_COMMERCE === '1' \? '1' : '0',\s*\}/);
     assert.doesNotMatch(PROXY + SHELL, /nonceReportOnlyEnabled/, 'a runtime re-read could disagree with the build');
   });
 
@@ -248,7 +249,7 @@ describe('proxy.ts', () => {
     assert.ok(routes.filter((r) => r.shell).length > 100, 'route discovery found the signed-in routes');
     const wrong = routes
       // The Grammar, Speaking-question and Library-sample 404 branches match public pages on purpose.
-      .filter((r) => !r.url.startsWith('/grammar/') && !/^\/library\/speaking\/[^/]+$/.test(r.url) && !r.url.startsWith('/library/writing-samples/'))
+      .filter((r) => !r.url.startsWith('/grammar/') && !r.url.startsWith('/courses/') && !/^\/library\/speaking\/[^/]+$/.test(r.url) && !r.url.startsWith('/library/writing-samples/'))
       .filter((r) => proxyMatches(r.url, 'staging.averlearning.com') !== r.shell)
       .map((r) => `${r.url} (${r.shell ? 'AuthedShell, not matched' : 'not AuthedShell, matched'})`);
     assert.deepEqual(wrong, []);
