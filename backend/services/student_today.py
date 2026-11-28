@@ -82,15 +82,15 @@ def _launch(surface: str, **query: str) -> str:
 
 
 def _visible_assignments_for(user_id: str, account_name: str, now: datetime,
-                             *, reconcile_student_only: bool = False):
+                             *, reconcile_student_only: bool = False, read_only: bool = False):
     """Thin wrapper over routers.class_student: returns
     (has_class, rows, stale). Imported here to avoid an import cycle. `stale`
     is the router's own flag (a ledger refresh or the Writing lookup failed);
     the page then marks `assigned` degraded, as /api/class/me sets
     homework_stale.
 
-    _visible_assignments reconciles the class ledger as it reads (the FR-078
-    exception of amendment 3, #2484); nothing else in this module writes."""
+    Today may reconcile the class ledger under FR-078. With `read_only`,
+    existing hand-ins are reflected in the reply without updating the ledger."""
     from routers.class_student import _student_for_user, _visible_assignments
     from services.class_membership_service import active_cohort_ids_for_student
     from database import supabase_admin
@@ -101,8 +101,10 @@ def _visible_assignments_for(user_id: str, account_name: str, now: datetime,
     cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
     if not cohort_ids:
         return False, [], False
-    repair_scope = {"reconcile_student_only": True} if reconcile_student_only else {}
-    rows, stale = _visible_assignments(student, now, cohort_ids, **repair_scope)
+    options = {"reconcile_student_only": True} if reconcile_student_only else {}
+    if read_only:
+        options = {"read_only": True}
+    rows, stale = _visible_assignments(student, now, cohort_ids, **options)
     return True, rows, bool(stale)
 
 

@@ -14799,6 +14799,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/course": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Course
+         * @description Lộ trình page payload (LEARNERCORE-0063 amendment 1, FR-030..FR-037).
+         *
+         *     Read-only (FR-085); `assigned_open` includes hand-ins that the ledger has
+         *     not recorded yet, without updating it.
+         *     Each part runs in its own worker; a failing part lands in `degraded`.
+         */
+        get: operations["course_api_student_course_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public-stats": {
         parameters: {
             query?: never;
@@ -18125,6 +18149,17 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** CourseClass */
+        CourseClass: {
+            /** Name */
+            name?: string | null;
+            /** Teacher Name */
+            teacher_name?: string | null;
+            /** Course Title */
+            course_title?: string | null;
+            /** Repractice */
+            repractice?: components["schemas"]["CourseRepractice"][];
+        };
         /** CourseCreate */
         CourseCreate: {
             /** Code */
@@ -18169,6 +18204,46 @@ export interface components {
              */
             duration_sec: number;
         };
+        /** CourseOnlineRow */
+        CourseOnlineRow: {
+            /** Course Code */
+            course_code: string;
+            /** Product Slug */
+            product_slug?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "active" | "expired";
+            /** Days Left */
+            days_left?: number | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /**
+             * Can Renew
+             * @default false
+             */
+            can_renew: boolean;
+            progress?: components["schemas"]["CourseProgress"] | null;
+            /** Credits Left */
+            credits_left?: number | null;
+        };
+        /** CourseOtherProduct */
+        CourseOtherProduct: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "coming_soon";
+            /** Starts At */
+            starts_at?: string | null;
+        };
         /** CoursePatch */
         CoursePatch: {
             /** Code */
@@ -18181,6 +18256,13 @@ export interface components {
             sort_order?: number | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** CourseProgress */
+        CourseProgress: {
+            /** Done */
+            done: number;
+            /** Total */
+            total: number;
         };
         /** CourseReadingBody */
         CourseReadingBody: {
@@ -18197,6 +18279,13 @@ export interface components {
              * @default 0
              */
             duration_sec: number;
+        };
+        /** CourseRepractice */
+        CourseRepractice: {
+            /** Course Code */
+            course_code: string;
+            /** Title */
+            title: string;
         };
         /** CourseStartResponse */
         CourseStartResponse: {
@@ -26223,6 +26312,33 @@ export interface components {
             homework_stale: boolean;
             /** Degraded */
             degraded?: ("items" | "repractice")[];
+        };
+        /** StudentCourseResponse */
+        StudentCourseResponse: {
+            /** Online */
+            online?: components["schemas"]["CourseOnlineRow"][];
+            /** Other Products */
+            other_products?: components["schemas"]["CourseOtherProduct"][];
+            class?: components["schemas"]["CourseClass"] | null;
+            /**
+             * Assigned Open
+             * @default 0
+             */
+            assigned_open: number;
+            /**
+             * Has Online
+             * @default false
+             */
+            has_online: boolean;
+            /**
+             * Has Class
+             * @default false
+             */
+            has_class: boolean;
+            /** Selected */
+            selected?: string | null;
+            /** Degraded */
+            degraded?: ("online" | "other_products" | "class" | "assigned_open")[];
         };
         /**
          * StudentQuizQuestion
@@ -53633,6 +53749,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_api_student_course_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentCourseResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

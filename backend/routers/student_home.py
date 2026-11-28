@@ -27,9 +27,10 @@ from services.access_code_permissions import aget_account_permissions_summary
 from services.feature_flags import is_learner_v2_enabled
 from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
+from models.student_course import StudentCourseResponse
 from models.student_today import StudentTodayResponse, TodaySeenRequest
 from models.student_assigned import StudentAssignedResponse
-from services import activation_gate, session_gate, student_assigned, student_today
+from services import activation_gate, session_gate, student_assigned, student_course, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -155,3 +156,18 @@ async def today_seen(body: TodaySeenRequest, authorization: str | None = Header(
             thread_supabase_admin(), auth_user["id"], body.seen_until, body.seen_key),
     )
     return Response(status_code=204)
+
+
+@router.get("/course", response_model=StudentCourseResponse)
+async def course(response: Response, authorization: str | None = Header(default=None)):
+    """Lộ trình page payload (LEARNERCORE-0063 amendment 1, FR-030..FR-037).
+
+    Read-only (FR-085); `assigned_open` includes hand-ins that the ledger has
+    not recorded yet, without updating it.
+    Each part runs in its own worker; a failing part lands in `degraded`.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    return await student_course.get_course_concurrent(
+        auth_user["id"], account_name=account_display_name(auth_user),
+    )
