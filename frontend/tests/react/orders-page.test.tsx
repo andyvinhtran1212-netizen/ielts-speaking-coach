@@ -61,7 +61,7 @@ describe('/account/orders', () => {
     expect(screen.queryByRole('button', { name: 'Xem thêm' })).toBeNull();
   });
 
-  it('one next step per row, linked only to a live page: /enroll is planned, "Vào học" goes to /home', async () => {
+  it('one next step per row, linked only to a live page: /enroll is planned, "Vào học" opens the learner course hub', async () => {
     pages.first = { items: [order(), order({ order_code: 'AV-0002', status: 'confirmed' })], next_cursor: null };
     await mount();
     const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
@@ -69,7 +69,7 @@ describe('/account/orders', () => {
     const links = within(rows[1]).getAllByRole('link');
     expect(links).toHaveLength(1);
     expect(links[0].textContent).toBe('Vào học');
-    expect(links[0].getAttribute('href')).toBe('/home');
+    expect(links[0].getAttribute('href')).toBe('/course');
   });
 
   it('empty: the message, no table, and no link to a page that is not live', async () => {
