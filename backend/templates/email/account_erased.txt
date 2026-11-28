@@ -1,0 +1,11 @@
+Subject: Tài khoản Aver Learning của bạn đã được xoá
+
+{greeting}
+
+Tài khoản {email} đã được xoá theo yêu cầu của bạn. Bài làm, bản ghi âm, nhận xét và tiến độ học đã bị xoá. Đơn đăng ký và lịch sử lượt chấm được giữ lại theo luật kế toán, gắn với một mã ẩn danh.
+
+Bạn có thể đăng ký lại bằng email này bất cứ lúc nào; tài khoản mới không có dữ liệu cũ.
+
+Aver Learning
+
+Đây là thư cuối cùng chúng tôi gửi tới địa chỉ này về tài khoản đã xoá.

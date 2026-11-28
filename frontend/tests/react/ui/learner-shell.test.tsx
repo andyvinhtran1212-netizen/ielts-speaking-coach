@@ -315,7 +315,7 @@ describe('live links only (registry Q53)', () => {
 
   it('the five sections are all shown, each on a page of its own section', () => {
     expect(LEARNER_NAV.map((s) => [s.label, s.href])).toEqual([
-      ['Hôm nay', '/home'], ['Lộ trình', '/my-class'], ['Luyện tập', '/speaking'],
+      ['Hôm nay', '/home'], ['Lộ trình', '/course'], ['Luyện tập', '/speaking'],
       ['Thi thử', '/full-test'], ['Thư viện', '/library'],
     ]);
     for (const s of LEARNER_NAV) expect(routeFor(s.href)?.section).toBe(s.id);
@@ -323,7 +323,8 @@ describe('live links only (registry Q53)', () => {
 
   it('a planned route wins once live, and a link with no live page is hidden', () => {
     expect(liveHref({ href: '/library', today: '/home' })).toBe('/library');
-    expect(liveHref({ href: '/course', today: '/my-class' })).toBe('/my-class');
+    expect(liveHref({ href: '/course', today: '/my-class' })).toBe('/course');  // live since 0063 T15
+    expect(liveHref({ href: '/practice', today: '/speaking' })).toBe('/speaking');
     expect(liveHref({ href: '/help', today: null })).toBe('/help');
     expect(liveHref({ href: '/progress', today: null })).toBe('/progress');
     expect(liveHref({ href: '/tests', today: null })).toBeNull();
@@ -338,6 +339,7 @@ describe('live links only (registry Q53)', () => {
       expect(liveHref({ href: '/courses', today: '/library' })).toBe('/library');
       vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
       expect(liveHref({ href: '/courses', today: null })).toBe('/courses');
+      expect(liveHref({ href: '/courses/khoa-a', today: null })).toBe('/courses/khoa-a');
     } finally {
       vi.unstubAllEnvs();
     }
