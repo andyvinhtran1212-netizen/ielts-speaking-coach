@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { corePlayerUrl } from '@/lib/core-player-affinity.mjs';
+import { examRoomEnabled } from '@/lib/exam-room/flags.mjs';
 import {
   createPracticeBootstrapOnce,
   loadPracticeBootstrap,
@@ -106,8 +107,17 @@ export function PracticeSessionBoot() {
       .then(async (bootstrap) => {
         if (!active || started.current) return;
         started.current = true;
+        // EXAMSPEAK-0072 FR-002: the only place the Speaking flag is decided.
+        // practice.js reads `bootstrap.examRoomMode === true`; the page shell
+        // reads the same value from the player view.
+        const examRoomMode = examRoomEnabled('speaking');
+        const player = (window as any).PracticePlayer;
+        if (examRoomMode && typeof player?.updateView === 'function') {
+          player.updateView('frame', { examRoomMode: true });
+        }
         bootstrap = {
           ...bootstrap,
+          examRoomMode,
           // practice.js still owns the remaining orchestration, but navigation
           // is a route concern. Hand it a same-origin Next callback so finishing
           // a session does not hard-reload the authenticated application shell.

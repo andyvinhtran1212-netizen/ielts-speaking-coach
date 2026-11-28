@@ -6,6 +6,7 @@
 // this block: the rest of Hồ sơ still shows. No place column.
 import { useEffect, useState } from 'react';
 
+import { getBrowserJson } from '@/lib/browser-api';
 import { loginEventRows, type LoginEventRow } from '@/lib/profile-v2-model.mjs';
 
 import styles from './profile-v2.module.css';
@@ -15,8 +16,7 @@ export function LoginEventsBlock() {
 
   useEffect(() => {
     const abort = new AbortController();
-    window.api
-      .getWith<unknown>('/api/account/login-events?limit=3', undefined, { signal: abort.signal })
+    getBrowserJson('/api/account/login-events', new URLSearchParams({ limit: '3' }), abort.signal)
       .then(
         (raw) => { if (!abort.signal.aborted) setRows(loginEventRows(raw)); },
         () => { if (!abort.signal.aborted) setRows(null); },

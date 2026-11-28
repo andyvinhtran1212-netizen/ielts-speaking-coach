@@ -21,7 +21,7 @@ export function StaffShellDemo({ children, testId, ...props }: DemoProps) {
         nav={role === 'admin' ? SAMPLE_ADMIN_NAV : SAMPLE_INSTRUCTOR_NAV}
         environment="production"
         user={role === 'admin' ? SAMPLE_STAFF_ADMIN : SAMPLE_STAFF_INSTRUCTOR}
-        switchTo={role === 'admin' ? [{ label: 'sang Giáo viên', href: '/instructor' }] : []}
+        switchTo={role === 'admin' ? [{ label: 'Sang khu giáo viên', href: '/instructor' }, { label: 'Sang khu học viên', href: '/home' }] : []}
         search={sampleStaffSearch}
         demo={{ current: role === 'admin' ? '/admin/writing/queue' : '/instructor' }}
         {...props}

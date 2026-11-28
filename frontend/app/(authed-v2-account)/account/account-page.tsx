@@ -17,6 +17,9 @@
 // - Every link goes through `liveHref`: a planned page is never linked.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { getBrowserJson } from '@/lib/browser-api';
+import type { ApiGetJson, ApiGetPath } from '@/lib/openapi-contract';
+
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
@@ -41,7 +44,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import styles from './account.module.css';
 
-type Read = { ok: true; data: unknown } | { ok: false; status: number | null };
+type Read<Path extends ApiGetPath> = { ok: true; data: ApiGetJson<Path> } | { ok: false; status: number | null };
 type ClassRow = ReturnType<typeof classesFromClassMe>[number];
 type Phase =
   | { kind: 'loading' }
@@ -58,9 +61,9 @@ const COURSES = liveHref({ href: '/courses', today: null });
 const ORDERS = liveHref({ href: '/account/orders', today: null });
 const PROGRESS = liveHref({ href: '/progress', today: null });
 
-async function read(path: string, signal?: AbortSignal): Promise<Read> {
+async function read<Path extends ApiGetPath>(path: Path, signal?: AbortSignal, query?: URLSearchParams): Promise<Read<Path>> {
   try {
-    const data = await window.api.getWith<unknown>(path, undefined, signal ? { signal } : undefined);
+    const data = await getBrowserJson(path, query, signal);
     return { ok: true, data };
   } catch (error) {
     const status = (error as { status?: unknown })?.status;
@@ -165,7 +168,7 @@ function AccountContent() {
 
   const loadHistory = useCallback(async (signal: AbortSignal) => {
     setHistory({ kind: 'loading' });
-    const res = await read('/api/me/credits?limit=20', signal);
+    const res = await read('/api/me/credits', signal, new URLSearchParams({ limit: '20' }));
     if (signal.aborted) return;
     const page = res.ok ? normalizeCreditPage(res.data) : null;
     setHistory(page ? { kind: 'ready', items: page.items, nextCursor: page.nextCursor, more: 'idle' } : { kind: 'error' });
@@ -189,7 +192,7 @@ function AccountContent() {
       let classesIncomplete = false;
       if (!courses) {
         // A failed or degraded class read is not "no class": warn instead.
-        const cls = await read('/api/class/me?summary=true', abort.signal);
+        const cls = await read('/api/class/me', abort.signal, new URLSearchParams({ summary: 'true' }));
         if (abort.signal.aborted) return;
         classes = cls.ok ? classesFromClassMe(cls.data) : [];
         classesIncomplete = !cls.ok || classMeIncomplete(cls.data);
@@ -204,7 +207,7 @@ function AccountContent() {
     if (history.kind !== 'ready' || !history.nextCursor || history.more === 'loading') return;
     const signal = alive.current?.signal;
     setHistory({ ...history, more: 'loading' });
-    const res = await read(`/api/me/credits?limit=20&cursor=${encodeURIComponent(history.nextCursor)}`, signal);
+    const res = await read('/api/me/credits', signal, new URLSearchParams({ limit: '20', cursor: history.nextCursor }));
     if (signal?.aborted) return;
     const page = res.ok ? normalizeCreditPage(res.data) : null;
     setHistory(page

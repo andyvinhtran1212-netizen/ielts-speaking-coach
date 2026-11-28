@@ -151,8 +151,10 @@ draft -> approved -> implementing -> verified -> shipped
 | MOCKORG-0086 | Admins organise assigned mock exams for classes, single learners and saved groups, run live or self-paced sittings without breaks, and release results from one tab | approved | high | [spec](0086-mock-exam-organisation/spec.md) |
 | CONTENTBATCH-0087 | Admins see every content import script run as a read-only batch and work one review queue per question on the four-tab content pages | draft | high | [spec](0087-content-import-batches/spec.md) |
 | WRITINGGPT-0088 | Writing grades that Claude cannot serve fall back to GPT before Gemini | draft | high | [spec](0088-writing-gpt-fallback/spec.md) |
+| ACCOUNTDATA-0100 | Learners download a copy of their data and request account deletion, which a sweep carries out after a cancellable grace period while payment records stay on an anonymised id | approved | high | [spec](0100-account-data-rights/spec.md) |
 | SENTLAB-0101 | Course 5 learners practise 45 sentence-writing sessions with AI coaching that never reveals the answer before they rewrite | approved | high | [spec](0101-course5-sentence-lab/spec.md) |
 | REGIVE-0103 | A teacher can give a class a course lesson bank it already received, and a retried give still creates it once | approved | high | [spec](0103-course-bank-regive/spec.md) |
+| MOCKLRONLY-0104 | Admins can finish review of a closed sequential mock when Writing was never offered | approved | high | [spec](0104-mock-writing-not-applicable/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
