@@ -144,6 +144,7 @@ describe('AdminCredits', () => {
     expect(api.post.mock.calls[0][1].delta).toBe(-500);
     expect(api.post.mock.calls[1][1].request_key).toBe(api.post.mock.calls[0][1].request_key);
     expect(cardBalance()).toBe('42 lượt');
+    expect(screen.queryByText('Đã ghi điều chỉnh vào sổ lượt.')).toBeNull();
   });
   it('a late "Tải thêm" answer for an earlier learner is dropped', async () => {
     const U2 = '40000000-0000-4000-8000-000000000002';

@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from config import settings
 from database import supabase_admin
+from models.admin_credits import AdminCreditAdjustResponse, AdminUserAccessResponse, AdminUserCreditsResponse
 from routers.admin import require_admin
 from services import credits
 from services import enrollment_orders as eo
@@ -798,13 +799,13 @@ def user_credits(user_id: str, limit: int, cursor: Optional[int]) -> dict:
     return history
 
 
-@router.get("/users/{user_id}/access")
+@router.get("/users/{user_id}/access", response_model=AdminUserAccessResponse)
 async def get_user_access(user_id: str = Path(pattern=_UUID), authorization: Optional[str] = Header(None)):
     await require_admin(authorization)
     return await _run(user_access, user_id)
 
 
-@router.get("/users/{user_id}/credits")
+@router.get("/users/{user_id}/credits", response_model=AdminUserCreditsResponse)
 async def get_user_credits(user_id: str = Path(pattern=_UUID), limit: int = Query(20, ge=1, le=100),
                            cursor: Optional[str] = Query(None, max_length=20),
                            authorization: Optional[str] = Header(None)):
@@ -1009,7 +1010,7 @@ async def post_extend(body: ExtendEntitlement, entitlement_id: str = Path(patter
     return await _run(extend_entitlement, str(admin["id"]), entitlement_id, body.days, body.reason)
 
 
-@router.post("/credits/adjust", responses=staff_guard.STEP_UP_RESPONSES)
+@router.post("/credits/adjust", response_model=AdminCreditAdjustResponse, responses=staff_guard.STEP_UP_RESPONSES)
 async def post_adjust(body: AdjustCredits, authorization: Optional[str] = Header(None)):
     admin = await require_admin(authorization)
     step_up_credits = abs(body.delta)
