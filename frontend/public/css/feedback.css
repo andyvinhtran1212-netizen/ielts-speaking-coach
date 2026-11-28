@@ -150,6 +150,8 @@
 .fb-flag-btn:hover, .fb-flag-btn.is-on, .fb-flag-btn.is-flagged {
   border-color: var(--fb-flag); color: var(--fb-flag); background: var(--fb-flag-wash);
 }
+/* Sent once (LEARNERCORE-0063 FR-108): the state stays readable, not greyed out. */
+.fb-flag-btn:disabled { cursor: default; }
 .fb-pop {
   margin-top: 12px; background: var(--fb-flag-wash); border: 1px solid var(--fb-flag);
   border-radius: var(--fb-r-sm); padding: 12px;

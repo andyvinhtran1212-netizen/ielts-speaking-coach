@@ -29,7 +29,7 @@ assert.ok(completionStart !== -1 && completionEnd > completionStart, 'completion
 const COMPLETION = JS.slice(completionStart, completionEnd);
 
 /** Chạy THẬT _renderSheet với DOM giả. */
-function render(slots, session) {
+function render(slots, session, bars = { '.practice-context-bar': 52 }) {
   const start = JS.indexOf('  var _SHEET_LABEL = {');
   const end = JS.indexOf('  function _sheetListen(');
   assert.ok(start !== -1 && end > start, 'render block not found');
@@ -46,8 +46,7 @@ function render(slots, session) {
   // Thanh tiến độ phải dính DƯỚI thanh ngữ cảnh, nên bộ khung phải dựng được cả
   // hai: một thanh có chiều cao thật, và khối #state-sheet để nhận số đo.
   nodes['state-sheet'] = { style: { _p: {}, setProperty(k, v) { this._p[k] = v; } } };
-  const bar = { offsetHeight: 52 };
-  const document = { querySelector: (sel) => (sel === '.practice-context-bar' ? bar : null) };
+  const document = { querySelector: (sel) => (sel in bars ? { offsetHeight: bars[sel] } : null) };
 
   const $ = (id) => nodes[id];
   const _esc = (s) => String(s == null ? '' : s);
@@ -741,6 +740,14 @@ describe('phiếu làm bài — CSS thật sự tới được trang', () => {
       // Bộ khung dựng thanh cao 52px; hằng số trong CSS/JS nào khác cũng sẽ lệch.
       assert.equal(p(4)[VAR[1]], '52px', 'bài ≥4 câu: meter hiện, phải có số đo');
       assert.equal(p(2)[VAR[1]], undefined, 'bài 2 câu: meter ẩn, không cần đo');
+    });
+
+    test('phòng thi (EXAMSPEAK-0072): đo thanh FocusShell khi không có thanh ngữ cảnh', () => {
+      const slots = Array.from({ length: 4 }, () => S('idle'));
+      const room = render(slots, undefined, { '[data-speaking-room-root] header': 64 })['state-sheet'].style._p;
+      assert.equal(room[VAR[1]], '64px', 'meter phải dính dưới thanh của phòng thi');
+      const none = render(slots, undefined, {})['state-sheet'].style._p;
+      assert.equal(none[VAR[1]], undefined, 'chưa có thanh nào (phòng thi đang tải): để CSS lui về 0px');
     });
   });
 

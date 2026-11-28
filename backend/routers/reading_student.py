@@ -1932,7 +1932,15 @@ async def review_reading_test_attempt(
                 409, "Hãy hoàn tất confidence trước khi xem đáp án và chữa bài."
             )
 
-    return _assemble_reading_review(attempt, attempt_id)
+    review = _assemble_reading_review(attempt, attempt_id)
+    # LEARNERCORE-0063 FR-109: the questions the caller already flagged here
+    # (a share-link taker by its anon_id capability token).
+    from services.review_notes import my_flagged_q_nums
+    anon_id = None if user else ((x_reading_anon or "").strip() or None)
+    review["my_flagged_q_nums"] = await asyncio.to_thread(
+        my_flagged_q_nums, supabase_admin, attempt_id=attempt_id,
+        user_id=user["id"] if user else None, anon_id=anon_id)
+    return review
 
 
 # ── Sprint 20.6 — resilience: in-progress lookup + auto-save PATCH ────
