@@ -19,7 +19,7 @@ function load(status = 200, payload = { ok: true }) {
   };
   const fetch = async (url, init) => {
     sent.push({ url, method: init.method, body: init.body, contentType: init.headers['Content-Type'] });
-    return new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });
+    return new Response(status === 204 ? null : JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });
   };
   vm.runInNewContext(source, { window, fetch, console, CustomEvent: globalThis.CustomEvent });
   return { api: window.api, sent, nav };
@@ -39,4 +39,21 @@ test('deleteWith with noRedirect rejects a 401 instead of bouncing to /login', a
   const { api, nav } = load(401, { detail: { error_code: 'login_required', message: 'x' } });
   await assert.rejects(api.deleteWith('/api/courses/ielts-7/open-alerts', {}, undefined, { noRedirect: true }), (e) => e.status === 401);
   assert.deepEqual(nav, []);
+});
+
+test('a removal can distinguish a 204 from a 401 while retaining the login redirect', async () => {
+  const path = '/admin/cohorts/c1/students/st1';
+  const options = { rejectUnauthorized: true };
+  const success = load(204);
+  assert.equal(await success.api.deleteWith(path, undefined, undefined, options), null);
+  assert.deepEqual(success.nav, []);
+  assert.equal(success.sent[0].body, null);
+
+  const expired = load(401, { detail: 'Phiên đăng nhập đã kết thúc.' });
+  await assert.rejects(expired.api.deleteWith(path, undefined, undefined, options), { status: 401 });
+  assert.deepEqual(expired.nav, ['/login']);
+
+  const legacy = load(401, { detail: 'Phiên đăng nhập đã kết thúc.' });
+  assert.equal(await legacy.api.delete(path), null);
+  assert.deepEqual(legacy.nav, ['/login']);
 });

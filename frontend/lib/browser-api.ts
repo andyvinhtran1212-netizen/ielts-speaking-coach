@@ -93,13 +93,17 @@ export function postBrowserJsonAtWith<Path extends ApiPostPath>(
   return window.api.postWith<ApiPostSuccessJson<Path>>(endpoint, body, undefined, opts);
 }
 
-/** Typed DELETE with a JSON body (e.g. a mail-link token that must stay out of the URL). */
+/** Typed DELETE. `rejectUnauthorized` rejects a 401 after the usual login redirect. */
 export function deleteBrowserJsonAt<Path extends ApiDeletePath>(
   _contractPath: Path,
   endpoint: string,
-  body: unknown = {},
-  { noRedirect = false, signal }: { noRedirect?: boolean; signal?: AbortSignal } = {},
+  body?: unknown,
+  { noRedirect = false, rejectUnauthorized = false, signal }: {
+    noRedirect?: boolean; rejectUnauthorized?: boolean; signal?: AbortSignal;
+  } = {},
 ): Promise<ApiDeleteJson<Path>> {
-  const opts = signal || noRedirect ? { signal, noRedirect } : undefined;
+  const opts = signal || noRedirect || rejectUnauthorized
+    ? { signal, noRedirect, ...(rejectUnauthorized ? { rejectUnauthorized } : {}) }
+    : undefined;
   return window.api.deleteWith<ApiDeleteJson<Path>>(endpoint, body, undefined, opts);
 }
