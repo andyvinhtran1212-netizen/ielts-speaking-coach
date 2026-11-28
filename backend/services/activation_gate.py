@@ -20,7 +20,10 @@ the learner routes declared on the app itself. It:
     activation state, and the handler's own auth already answers 401 (or
     serves its anonymous mode);
   * otherwise verifies the bearer token and answers 403 unless the account's
-    ``users.is_active`` is true.
+    ``users.is_active`` is true;
+  * then (ACCOUNTDATA-0100 FR-003, exempt routes included) answers 403
+    ``account_deletion_pending`` while the account has an open deletion
+    request, except on the routes ``services.account_deletion_gate.allows``.
 
 ``tests/test_activation_gate_inventory.py`` walks the real app and fails when
 a learner route is neither gated nor exempt, so a new learner endpoint is
@@ -50,6 +53,7 @@ from fastapi import HTTPException, Request
 
 from config import settings
 from database import supabase_admin
+from services import account_deletion_gate
 from services.db_async import aexecute
 
 logger = logging.getLogger(__name__)
@@ -99,6 +103,14 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/enrollment-orders/{order_code}/report-transfer"): "caller reports paying their own order",
     ("POST", "/api/enrollment-orders/{order_code}/supplement"): "caller answers an admin's needs_info on their order",
     ("POST", "/api/enrollment-orders/{order_code}/cancel"): "caller cancels their own open order",
+    # ── Account data (ACCOUNTDATA-0100): reachable before activation and,
+    # except where account_deletion_gate says otherwise, while a deletion is open.
+    ("GET", "/api/account/deletion-request"): "caller's own deletion request status",
+    ("POST", "/api/account/deletion-request"): "a learner may ask to delete an account that was never activated",
+    ("POST", "/api/account/deletion-request/cancel"): "caller cancels their own deletion request",
+    ("GET", "/api/account/data-export"): "caller's own export status",
+    ("POST", "/api/account/data-export"): "a learner may take a copy of their data before activation",
+    ("GET", "/api/account/data-export/{export_id}/download"): "caller downloads their own export",
     # ── Public content (Grammar Wiki, Vocabulary library, prompt bank) ───
     ("GET", "/api/grammar/home"): "public Grammar Wiki",
     ("GET", "/api/grammar/categories"): "public Grammar Wiki",
@@ -280,18 +292,30 @@ async def aensure_account_active(user_id: str) -> None:
 async def _enforce(request: Request) -> None:
     route = request.scope.get("route")
     path = getattr(route, "path", None) or request.url.path
-    if is_staff_path(path) or is_exempt(request.method, path):
+    if is_staff_path(path):
+        return
+    exempt = is_exempt(request.method, path)
+    if exempt and account_deletion_gate.allows(request.method, path):
         return
     authorization = request.headers.get("authorization")
     if not authorization:
         return  # anonymous: the handler's own auth answers (401 or public mode)
     from routers.auth import get_supabase_user  # local — routers.auth imports this module
-    user = await get_supabase_user(authorization)
-    await aensure_account_active(user["id"])
-    # COURSEACCESS-0055 T009: one current session per learner account (no-op
-    # while runtime flag single_session_learners is off).
-    from services import session_gate  # local — session_gate imports this module
-    await session_gate.ensure_current(user["id"], authorization, request.headers.get("user-agent"))
+    if exempt:
+        # Exempt from activation, not from ACCOUNTDATA-0100 FR-003. A token
+        # that does not verify leaves the answer to the handler, as before.
+        try:
+            user = await get_supabase_user(authorization)
+        except HTTPException:
+            return
+    else:
+        user = await get_supabase_user(authorization)
+        await aensure_account_active(user["id"])
+        # COURSEACCESS-0055 T009: one current session per learner account (no-op
+        # while runtime flag single_session_learners is off).
+        from services import session_gate  # local — session_gate imports this module
+        await session_gate.ensure_current(user["id"], authorization, request.headers.get("user-agent"))
+    await account_deletion_gate.aensure_not_pending(user["id"], request.method, path, _memo.get())
 
 
 async def require_active_learner(request: Request) -> None:

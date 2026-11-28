@@ -116,6 +116,38 @@ def _activation_gate_defaults_active(monkeypatch):
     monkeypatch.setattr(activation_gate, "alookup_is_active", _active)
 
 
+# ACCOUNTDATA-0100 FR-003 — the deletion gate reads account_deletion_requests
+# on every authenticated learner request. Default: no open request, so tests
+# with a fake DB (and live_activation_gate tests) are unchanged. Tests of the
+# deletion gate itself use the live_deletion_gate fixture.
+_DELETION_GATE_ORIGINALS: dict = {}
+
+
+@pytest.fixture(autouse=True)
+def _deletion_gate_defaults_none(monkeypatch):
+    try:
+        from services import account_deletion_gate
+    except Exception:
+        return
+    _DELETION_GATE_ORIGINALS.setdefault("lookup_open_request", account_deletion_gate.lookup_open_request)
+    _DELETION_GATE_ORIGINALS.setdefault("alookup_open_request", account_deletion_gate.alookup_open_request)
+
+    async def _none(_user_id):
+        return False
+
+    monkeypatch.setattr(account_deletion_gate, "lookup_open_request", lambda _user_id: False)
+    monkeypatch.setattr(account_deletion_gate, "alookup_open_request", _none)
+
+
+@pytest.fixture
+def live_deletion_gate(monkeypatch):
+    """Run the REAL account_deletion_requests lookup in this test."""
+    from services import account_deletion_gate
+    for name, fn in _DELETION_GATE_ORIGINALS.items():
+        monkeypatch.setattr(account_deletion_gate, name, fn)
+    return account_deletion_gate
+
+
 # Codex r4427781861 — /auth/activate runs Steps 5–6 in its worker thread on
 # that thread's own client (database.thread_supabase_admin). Tests replace
 # routers.auth.supabase_admin with a fake; let the per-thread client follow it,
