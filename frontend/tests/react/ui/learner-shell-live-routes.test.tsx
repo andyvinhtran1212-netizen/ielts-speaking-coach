@@ -14,25 +14,32 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import type { ReactElement } from 'react';
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const nav = vi.hoisted(() => ({ pathname: '/library' }));
 vi.mock('next/navigation', () => ({ usePathname: () => nav.pathname }));
 
+import { CommerceFrame } from '@/app/(public-commerce)/commerce-frame';
 import { LibraryFrame } from '@/app/(public-library)/library-frame';
 import { routeFor } from '@/lib/route-registry.mjs';
 
 const APP = join(__dirname, '..', '..', '..', 'app');
 const DIAGNOSTIC = ['(ui-library)/', '(authed-v2-pilot)/'];
 
-type Frame = { pathname: string; render: () => ReactElement };
+type Frame = { pathname: string; render: () => ReactElement; roleSwitch: string };
 
 /** Real frames that mount LearnerShell, by path under app/. */
 const FRAMES: Record<string, Frame> = {
+  '(public-commerce)/commerce-frame.tsx': {
+    pathname: '/courses',
+    render: () => <CommerceFrame><p>Danh sách khoá</p></CommerceFrame>,
+    roleSwitch: 'Quản trị',
+  },
   '(public-library)/library-frame.tsx': {
     pathname: '/library',
     render: () => <LibraryFrame><p>kệ sách</p></LibraryFrame>,
+    roleSwitch: 'Giáo viên',
   },
 };
 
@@ -61,6 +68,7 @@ const me = {
 };
 
 beforeEach(() => {
+  vi.stubEnv('AVER_PUBLIC_COMMERCE', '1');
   Object.assign(window, {
     api: { getWith: vi.fn(async () => me) },
     aver: { reportError: vi.fn() },
@@ -73,6 +81,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
   delete (window as any).getSupabase;
   delete (window as any).aver;
   delete (window as any).api;
@@ -83,13 +92,22 @@ describe('real pages with LearnerShell link only to live routes (registry Q53)',
     expect(framesInApp()).toEqual(Object.keys(FRAMES).sort());
   });
 
+  it('the public catalogue keeps the five learner tabs without selecting one', async () => {
+    nav.pathname = '/courses';
+    render(<CommerceFrame><p>Danh sách khoá</p></CommerceFrame>);
+    const learnerNav = await screen.findByRole('navigation', { name: 'Mục chính' });
+    const links = within(learnerNav).getAllByRole('link');
+    expect(links.map((link) => link.textContent)).toEqual(['Hôm nay', 'Lộ trình', 'Luyện tập', 'Thi thử', 'Thư viện']);
+    expect(links.every((link) => !link.hasAttribute('aria-current'))).toBe(true);
+  });
+
   it.each(Object.entries(FRAMES))('%s: no href points to a planned or unknown route', async (_file, frame) => {
     nav.pathname = frame.pathname;
     render(frame.render());
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    // Signed in as an admin: both role switches are in the menu.
+    // Signed in as an admin: check the links each frame exposes.
     fireEvent.click(screen.getByRole('button', { name: 'Tài khoản: Trần Quốc Bảo' }));
-    expect(screen.getByRole('link', { name: 'Đổi vai trò: sang Giáo viên' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: `Đổi vai trò: sang ${frame.roleSwitch}` })).toBeTruthy();
 
     const hrefs = [...document.querySelectorAll('a[href]')]
       .map((a) => a.getAttribute('href') as string)

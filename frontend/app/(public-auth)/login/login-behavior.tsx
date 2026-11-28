@@ -32,6 +32,7 @@ type LoginProfile = {
   id: string;
   isActive: boolean;
   onboardingCompleted: boolean;
+  learnerV2: boolean;
   suspended: boolean;
 };
 
@@ -317,7 +318,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
             ? `${mutationError.message} Chưa kiểm tra lại được trạng thái tài khoản.`
             : `Đã gửi kích hoạt nhưng chưa xác nhận được trạng thái tài khoản. ${messageOf(caught, '')}`.trim());
         }
-        profile = { id: '', isActive: false, onboardingCompleted: false, suspended: true };
+        profile = { id: '', isActive: false, onboardingCompleted: false, learnerV2: false, suspended: true };
       }
 
       // The backend refused before claiming the code, so the typed code stays

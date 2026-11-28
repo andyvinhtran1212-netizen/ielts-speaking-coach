@@ -1,0 +1,29 @@
+{
+ "short_title": null,
+ "summary": "Tóm tắt khoá (dữ liệu giả).",
+ "tuition_vnd": null,
+ "access_days": null,
+ "ai_credits": 0,
+ "credit_valid_days": null,
+ "credits_expire_note": null,
+ "credit_carry_percent": null,
+ "credit_carry_valid_days": 60,
+ "level_from": null,
+ "level_to": null,
+ "lesson_count": null,
+ "author": null,
+ "features": [],
+ "expected_open_on": null,
+ "viewer": {
+  "state": "guest",
+  "days_left": null,
+  "can_renew": false,
+  "open_order_code": null
+ },
+ "slug": "khoa-c",
+ "title": "Khoá giả C",
+ "status": "coming_soon",
+ "course_code": null,
+ "faq": null,
+ "chapters": null
+}

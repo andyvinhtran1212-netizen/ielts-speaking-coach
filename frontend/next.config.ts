@@ -76,6 +76,9 @@ const nextConfig: NextConfig = {
     // PC-J597: Sentry tags, from the same resolution as runtime-config.js.
     AVER_SENTRY_ENVIRONMENT: resolveRuntimeOrigins(process.env).environment || 'development',
     AVER_SENTRY_RELEASE: process.env.VERCEL_GIT_COMMIT_SHA || '',
+    // PUBLICSITE-0059 FR-029: the public course pages. Off unless the build sets
+    // AVER_PUBLIC_COMMERCE=1; lib/public-commerce.mjs is its only reader.
+    AVER_PUBLIC_COMMERCE: process.env.AVER_PUBLIC_COMMERCE === '1' ? '1' : '0',
   },
 
   async rewrites() {
