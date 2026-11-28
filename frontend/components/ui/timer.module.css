@@ -1,0 +1,34 @@
+/* UIBASE-0056 Timer (ThanhPhanHocTap §4). Only var(--av2-*). No animation, ever. */
+.timer {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--av2-space-1);
+  padding: var(--av2-space-3) var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-ink);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+}
+.timer p { margin: 0; }
+.label { display: inline-flex; align-items: center; gap: var(--av2-space-2); font-size: var(--av2-fs-14); font-weight: var(--av2-fw-strong); }
+.icon { flex: none; }
+.clock { font-size: var(--av2-fs-24); font-weight: var(--av2-fw-strong); }
+.digits { font-variant-numeric: tabular-nums; }
+.limit { font-size: var(--av2-fs-15); font-weight: var(--av2-fw-regular); color: var(--av2-muted); }
+.note { font-size: var(--av2-fs-14); color: var(--av2-muted); }
+
+/* A reached mark: thicker rule in the mark colour, words and icon change. */
+.marked { border: var(--av2-rule-strong-w) solid var(--av2-mark); }
+.marked .label { color: var(--av2-mark); }
+
+.live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
