@@ -1,4 +1,4 @@
-import type { StaffNavGroup } from '@/components/ui/shell/staff-nav';
+import type { StaffNavGroup, StaffNavItem } from '@/components/ui/shell/staff-nav';
 import type { StaffSearchGroup } from '@/components/ui/shell/staff-quick-search';
 import { routeFor } from '@/lib/route-registry.mjs';
 
@@ -6,7 +6,8 @@ import { routeFor } from '@/lib/route-registry.mjs';
 // G09 supplies the real `nav`. Counts are the sheet's sample numbers, never
 // real queues. Registry Q53: the library links only to live routes, so each
 // entry names its planned screen and a live page standing in for it today;
-// an entry with no live page yet is left out (listed in PLANNED_ONLY).
+// an entry with no live page yet shows as "Chưa mở" (`available: false`,
+// GOI-09 FR-005) and is listed in PLANNED_ONLY.
 export const SAMPLE_STAFF_ADMIN = { name: 'Vũ Thanh Tâm', email: 'thanhtam@example.com', initials: 'VT' };
 export const SAMPLE_STAFF_INSTRUCTOR = { name: 'Trần Thu Hà', email: 'thuha@example.com', initials: 'TH' };
 
@@ -17,10 +18,10 @@ const isLive = (href: string) => routeFor(href)?.status === 'live';
 const missing: string[] = [];
 
 function group(id: string, label: string | undefined, icon: StaffNavGroup['icon'], plan: Plan[]): StaffNavGroup {
-  const items = plan.flatMap(({ label: itemLabel, today, count }) => {
-    if (today && isLive(today)) return [{ label: itemLabel, href: today, count }];
+  const items = plan.map(({ label: itemLabel, today, count }): StaffNavItem => {
+    if (today && isLive(today)) return { label: itemLabel, href: today, count };
     missing.push(label ? `${label} › ${itemLabel}` : itemLabel);
-    return [];
+    return { label: itemLabel, href: null, available: false };
   });
   return { id, label, icon, items };
 }

@@ -11,7 +11,8 @@ import { useRouter } from 'next/navigation';
 import { PageState } from '@/components/ui/page-state';
 import { useLearnerMe } from '@/components/learner/learner-frame';
 import { learnerV2Enabled } from '@/lib/auth-wire-model.mjs';
-import { replaceAcrossTrees } from '@/lib/tree-replace';
+import { useAuth } from '@/lib/auth/auth-provider';
+import { documentNavigation, replaceAcrossTrees } from '@/lib/tree-replace';
 
 import { PracticeHubPage } from './practice-hub';
 
@@ -20,17 +21,22 @@ const PRACTICE_STAND_IN = '/speaking';
 
 function PracticeGate() {
   const router = useRouter();
+  const { status: authStatus } = useAuth();
   const { status, me } = useLearnerMe();
   const accountId = status === 'ready' ? me.id || null : null;
-  const enabled = status === 'ready' && learnerV2Enabled(me);
+  const enabled = authStatus === 'signed-in' && status === 'ready' && learnerV2Enabled(me);
   // A ready profile without an id cannot own any data: treated as an error.
   const leave = status === 'error' || (status === 'ready' && (!enabled || !accountId));
   useEffect(() => {
+    if (authStatus === 'signed-out') {
+      documentNavigation.replace('/login');
+      return;
+    }
     // An unreadable (or id-less) profile is treated as flag off: the stand-in page works
     // for everyone, the new page only for opted-in learners. `/speaking` is in
     // the legacy tree, so this is a full document replacement (UIBASE-0056 FR-015).
-    if (leave) replaceAcrossTrees(router, PRACTICE_STAND_IN);
-  }, [leave, router]);
+    if (authStatus === 'signed-in' && leave) replaceAcrossTrees(router, PRACTICE_STAND_IN);
+  }, [authStatus, leave, router]);
   if (!enabled || !accountId) return <PageState kind="loading" title="Đang tải Luyện tập" />;
   return <PracticeHubPage key={accountId} accountId={accountId} />;
 }

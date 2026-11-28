@@ -238,6 +238,7 @@ test('actual AuthProvider transitions clear account hints without erasing capabi
   const transition = actualHandler('auth', 'applySession', { clearCoreOperationIntents, window: browser,
     activationGate: false, // W-03 gate is exercised in tests/react/auth-activation-gate.test.tsx
     sessionReadRef: { current: 0 }, confirmedAccountRef: { current: null }, chromeSignOutRef: { current: false },
+    inactiveOpenRef: { current: null }, setInactiveOpenAccount() {}, // FR-092 state (G07-T26)
     // EXAMROOM-0066 FR-035 (R162): the exam-room copy sweep runs on window.localStorage, absent here.
     lastSignedInAccountRef: { current: null }, clearForeignLocalCopies,
     clearLearnerTabDraftAccount: account => clearLearnerTabDraftAccount(account, browser),

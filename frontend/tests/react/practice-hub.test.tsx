@@ -12,6 +12,8 @@ import { documentNavigation } from '@/lib/tree-replace';
 
 const learnerMe = vi.hoisted(() => ({ current: { status: 'loading', me: null } as { status: string; me: Record<string, unknown> | null } }));
 vi.mock('@/components/learner/learner-frame', () => ({ useLearnerMe: () => learnerMe.current }));
+const auth = vi.hoisted(() => ({ status: 'signed-in' }));
+vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth }));
 
 const replace = vi.hoisted(() => vi.fn());
 const router = vi.hoisted(() => ({ replace, push: () => {} }));
@@ -41,7 +43,11 @@ function install(fn: (...args: unknown[]) => unknown) {
   Object.defineProperty(window, 'api', { configurable: true, value: { getWith, post: vi.fn() } });
 }
 
-beforeEach(() => { docReplace = vi.spyOn(documentNavigation, 'replace').mockImplementation(() => {}); });
+beforeEach(() => {
+  auth.status = 'signed-in';
+  learnerMe.current = { status: 'loading', me: null };
+  docReplace = vi.spyOn(documentNavigation, 'replace').mockImplementation(() => {});
+});
 afterEach(() => { cleanup(); replace.mockReset(); docReplace.mockRestore(); });
 
 it('four skill cards in the order Speaking, Writing, Listening, Reading, to the existing hubs, with no band or credit count', async () => {
@@ -160,4 +166,28 @@ it('flag on: the hub loads for this account', async () => {
   expect(await screen.findByText('Test 2')).toBeTruthy();
   expect(docReplace).not.toHaveBeenCalled();
   expect(replace).not.toHaveBeenCalled();
+});
+
+
+it('a signed-out visit replaces the document with login without reading Today', () => {
+  auth.status = 'signed-out';
+  install(async () => today());
+  render(<PracticePage />);
+
+  expect(docReplace).toHaveBeenCalledExactlyOnceWith('/login');
+  expect(replace).not.toHaveBeenCalled();
+  expect(getWith).not.toHaveBeenCalled();
+});
+
+it('another tab signing out removes the learner’s practice data and sends this tab to login', async () => {
+  install(async () => today({ resume: RESUME }));
+  learnerMe.current = { status: 'ready', me: { id: 'learner-1', learner_v2_enabled: true } };
+  const view = render(<PracticePage />);
+  await screen.findByText('Test 2');
+
+  auth.status = 'signed-out';
+  view.rerender(<PracticePage />);
+  expect(screen.queryByText('Test 2')).toBeNull();
+  expect(docReplace).toHaveBeenCalledExactlyOnceWith('/login');
+  expect(getWith).toHaveBeenCalledTimes(1);
 });
