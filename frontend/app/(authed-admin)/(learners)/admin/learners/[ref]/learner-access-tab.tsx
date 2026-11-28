@@ -94,8 +94,9 @@ export function LearnerAccessTab({ learnerRef, detail, onChanged }: {
       if (sent.kind === 'role') {
         const out = await changeUserRole(sent.userId, sent.to);
         if (!current()) return;
+        const result = roleResultText(out, sent.to, sent.userId);
         setPending(null);
-        await onChanged(roleResultText(out, sent.to));
+        await onChanged(result);
       } else {
         await removeFromCohort(sent.cohortId, sent.studentId);
         if (!current()) return;

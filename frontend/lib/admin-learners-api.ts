@@ -1,5 +1,5 @@
 // Learner directory API (G09-T03) for the directory page (G09-T10).
-import { getBrowserJson, getBrowserJsonAt, patchBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
+import { deleteBrowserJsonAt, getBrowserJson, getBrowserJsonAt, patchBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
 import type { ApiGetJson } from '@/lib/openapi-contract';
 
 export type LearnerDirectoryWire = ApiGetJson<'/admin/learners'>;
@@ -45,7 +45,11 @@ export function changeUserRole(userId: string, role: string) {
   return patchBrowserJsonAt('/admin/users/{user_id}/role', `/admin/users/${encodeURIComponent(userId)}/role`, { role });
 }
 
-/** 204 on success. The generated contract has no typed DELETE adapter; the shared transport still authenticates. */
 export function removeFromCohort(cohortId: string, studentId: string) {
-  return window.api.delete<unknown>(`/admin/cohorts/${encodeURIComponent(cohortId)}/students/${encodeURIComponent(studentId)}`);
+  return deleteBrowserJsonAt(
+    '/admin/cohorts/{cohort_id}/students/{student_id}',
+    `/admin/cohorts/${encodeURIComponent(cohortId)}/students/${encodeURIComponent(studentId)}`,
+    undefined,
+    { rejectUnauthorized: true },
+  );
 }

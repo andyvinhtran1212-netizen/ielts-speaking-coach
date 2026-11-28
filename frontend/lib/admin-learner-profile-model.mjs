@@ -278,15 +278,18 @@ export function roleConfirmText(name, from, to) {
  * The answer of the role change, said truthfully: a revocation that failed is a warning, not a success.
  * @returns {{ kind: 'success' | 'error', text: string }}
  */
-export function roleResultText(response, to) {
+export function roleResultText(response, to, userId) {
+  if (response?.ok !== true || response.id !== userId || response.role !== to || typeof response.changed !== 'boolean') {
+    throw new Error('Chưa nhận được xác nhận đổi vai trò từ máy chủ. Kiểm tra hồ sơ trước khi thử lại.');
+  }
   // Checked first: a retried demotion can answer changed:false with
   // sessions_revoked:false (the route retries revocation when the role
   // already matches), and that failure must not read as "nothing changed".
-  if (response && response.sessions_revoked === false) {
+  if (response.sessions_revoked === false) {
     const head = response.changed === false ? `Vai trò đã là ${roleLabel(to)}` : `Đã đổi vai trò sang ${roleLabel(to)}`;
     return { kind: 'error', text: `${head} nhưng chưa thu hồi được phiên đăng nhập. Thu hồi phiên ở trang Người dùng.` };
   }
-  if (response && response.changed === false) return { kind: 'success', text: `Vai trò đã là ${roleLabel(to)}; không có gì thay đổi.` };
+  if (!response.changed) return { kind: 'success', text: `Vai trò đã là ${roleLabel(to)}; không có gì thay đổi.` };
   return { kind: 'success', text: `Đã đổi vai trò sang ${roleLabel(to)}.` };
 }
 

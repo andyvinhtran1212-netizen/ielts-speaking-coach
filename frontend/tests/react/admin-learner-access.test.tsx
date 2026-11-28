@@ -1,5 +1,5 @@
 // ADMINIA-0074 G09-T11b (FR-033): Khoá và quyền: role change and danger zone.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const nav = vi.hoisted(() => ({ search: 'tab=khoa-va-quyen', push: vi.fn(), replace: vi.fn() }));
@@ -27,14 +27,14 @@ const detail = (extra: Record<string, unknown> = {}) => ({
   ref: U, canonical_ref: U, summary, sources_failed: [], student_id: SID,
   account: { user_id: UID, role: 'student', is_active: true }, ...extra,
 });
-const api = { getWith: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() };
+const api = { getWith: vi.fn(), post: vi.fn(), patch: vi.fn(), deleteWith: vi.fn() };
 
 beforeEach(() => {
   nav.search = 'tab=khoa-va-quyen';
   me.id = 'admin-1';
   api.getWith.mockReset().mockResolvedValue(detail());
   api.patch.mockReset().mockResolvedValue({ ok: true, id: UID, role: 'instructor', changed: true, audit_id: 'a1', sessions_revoked: null, revoke_error: null });
-  api.delete.mockReset().mockResolvedValue(undefined);
+  api.deleteWith.mockReset().mockResolvedValue(null);
   Object.assign(window, { api });
 });
 afterEach(() => { cleanup(); });
@@ -68,6 +68,22 @@ describe('Khoá và quyền (G09-T11b)', () => {
     expect(api.patch).toHaveBeenCalledWith(`/admin/users/${UID}/role`, { role: 'instructor' });
     expect(api.getWith).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it.each([
+    { name: 'missing', reply: null },
+    { name: 'another user', reply: { ok: true, id: 'other', role: 'instructor', changed: true } },
+    { name: 'another role', reply: { ok: true, id: UID, role: 'admin', changed: true } },
+  ])('a $name role reply cannot report success even when the profile reloads', async ({ reply }) => {
+    api.patch.mockResolvedValue(reply);
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.change(screen.getByRole('combobox', { name: /Vai trò mới/ }), { target: { value: 'instructor' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đổi vai trò' }));
+    await act(async () => { fireEvent.click(within(dialog()).getByRole('button', { name: 'Đổi vai trò' })); });
+    expect(screen.queryByText('Đã đổi vai trò sang Giảng viên.')).toBeNull();
+    expect(within(dialog()).getByRole('alert').textContent).toContain('Chưa nhận được xác nhận');
+    expect(api.getWith).toHaveBeenCalledTimes(2);
   });
 
   it('after a reload the role select follows the server, and an unactivated learner can still change role', async () => {
@@ -126,11 +142,22 @@ describe('Khoá và quyền (G09-T11b)', () => {
     await screen.findByText('Vùng nguy hiểm');
     fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
     expect(dialog().textContent).toMatch(/Quyền khoá học và lịch sử bài làm giữ nguyên/);
-    expect(api.delete).not.toHaveBeenCalled();
+    expect(api.deleteWith).not.toHaveBeenCalled();
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Gỡ khỏi lớp' }));
     await screen.findByText('Đã gỡ Nguyễn Minh Anh khỏi lớp Tue–Thu 19:30.');
-    expect(api.delete).toHaveBeenCalledWith(`/admin/cohorts/${C}/students/${SID}`);
+    expect(api.deleteWith).toHaveBeenCalledWith(`/admin/cohorts/${C}/students/${SID}`, undefined, undefined, expect.objectContaining({ rejectUnauthorized: true }));
     expect(api.getWith).toHaveBeenCalledTimes(2);
+  });
+
+  it('an expired session during removal cannot announce a successful removal', async () => {
+    api.deleteWith.mockRejectedValue(Object.assign(new Error('Phiên đăng nhập đã kết thúc.'), { status: 401 }));
+    render(<AdminLearnerProfile learnerRef={U} />);
+    await screen.findByText('Vùng nguy hiểm');
+    fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
+    await act(async () => { fireEvent.click(within(dialog()).getByRole('button', { name: 'Gỡ khỏi lớp' })); });
+    expect(screen.queryByText(/Đã gỡ Nguyễn Minh Anh/)).toBeNull();
+    expect(within(dialog()).getByRole('alert').textContent).toContain('Chưa gỡ được khỏi lớp');
+    expect(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' })).toBeTruthy();
   });
 
   it('Huỷ sends nothing; a person without a learner profile has no class to leave', async () => {
@@ -138,7 +165,7 @@ describe('Khoá và quyền (G09-T11b)', () => {
     await screen.findByText('Vùng nguy hiểm');
     fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Huỷ' }));
-    expect(api.delete).not.toHaveBeenCalled();
+    expect(api.deleteWith).not.toHaveBeenCalled();
     cleanup();
     api.getWith.mockResolvedValue(detail({ student_id: null }));
     render(<AdminLearnerProfile learnerRef={U} />);
@@ -189,12 +216,12 @@ describe('Khoá và quyền (G09-T11b)', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
       await screen.findByText(/Trần Bảo Ngọc/, { selector: '.lp-crumb' });
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(api.delete).not.toHaveBeenCalled();
+      expect(api.deleteWith).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
       expect(dialog().textContent).toMatch(/Gỡ Trần Bảo Ngọc khỏi lớp/);
       fireEvent.click(within(dialog()).getByRole('button', { name: 'Gỡ khỏi lớp' }));
       await screen.findByText('Đã gỡ Trần Bảo Ngọc khỏi lớp Tue–Thu 19:30.');
-      expect(api.delete).toHaveBeenCalledWith(`/admin/cohorts/${C2}/students/${SID2}`);
+      expect(api.deleteWith).toHaveBeenCalledWith(`/admin/cohorts/${C2}/students/${SID2}`, undefined, undefined, expect.objectContaining({ rejectUnauthorized: true }));
     });
 
     it('while B is still loading, nothing of A is on screen and no action can start', async () => {
@@ -210,13 +237,13 @@ describe('Khoá và quyền (G09-T11b)', () => {
       expect(screen.queryByRole('combobox', { name: /Vai trò mới/ })).toBeNull();
       expect(screen.queryByRole('button', { name: /^Đổi vai trò$|^Gỡ khỏi / })).toBeNull();
       expect(api.patch).not.toHaveBeenCalled();
-      expect(api.delete).not.toHaveBeenCalled();
+      expect(api.deleteWith).not.toHaveBeenCalled();
       answerB(detailB());
       await screen.findByText(/Trần Bảo Ngọc/, { selector: '.lp-crumb' });
       fireEvent.click(screen.getByRole('button', { name: 'Gỡ khỏi Tue–Thu 19:30' }));
       fireEvent.click(within(dialog()).getByRole('button', { name: 'Gỡ khỏi lớp' }));
       await screen.findByText('Đã gỡ Trần Bảo Ngọc khỏi lớp Tue–Thu 19:30.');
-      expect(api.delete).toHaveBeenCalledWith(`/admin/cohorts/${C2}/students/${SID2}`);
+      expect(api.deleteWith).toHaveBeenCalledWith(`/admin/cohorts/${C2}/students/${SID2}`, undefined, undefined, expect.objectContaining({ rejectUnauthorized: true }));
     });
 
     it('an answer that arrives after the switch shows nothing on B and does not reload A over B', async () => {
