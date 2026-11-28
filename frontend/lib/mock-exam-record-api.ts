@@ -38,8 +38,8 @@ export async function collectMockExamRoom(examId: string, from: string): Promise
 }
 
 export async function addMockExamTime(examId: string, body: ExtraTimeBody): Promise<boolean> {
-  const ack = object(await postBrowserJsonAt('/admin/mock-exams/{exam_id}/extra-time', `${examPath(examId)}/extra-time`, body));
-  const total = object(ack?.extra_seconds)?.[body.section];
+  const ack = await postBrowserJsonAt('/admin/mock-exams/{exam_id}/extra-time', `${examPath(examId)}/extra-time`, body);
+  const total = ack?.extra_seconds?.[body.section];
   requireAck(ack?.sitting_id === body.sitting_id && typeof total === 'number' && total >= body.seconds
     && typeof ack.event_logged === 'boolean');
   return ack?.event_logged === true;
