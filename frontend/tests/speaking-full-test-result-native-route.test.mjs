@@ -6,8 +6,8 @@ import { describe, test } from 'node:test';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const BEHAVIOR = readFileSync(join(ROOT, 'app/(authed-full-test-result)/full-test-result/full-test-result-behavior.tsx'), 'utf8');
-const PAGE = readFileSync(join(ROOT, 'app/(authed-full-test-result)/full-test-result/page.tsx'), 'utf8');
+const BEHAVIOR = readFileSync(join(ROOT, 'app/(authed-full-test-result)/speaking/full-test/result/full-test-result-behavior.tsx'), 'utf8');
+const PAGE = readFileSync(join(ROOT, 'app/(authed-full-test-result)/speaking/full-test/result/page.tsx'), 'utf8');
 const LAYOUT = readFileSync(join(ROOT, 'app/(authed-full-test-result)/layout.tsx'), 'utf8');
 const PRACTICE = readFileSync(join(ROOT, 'public/js/practice.js'), 'utf8');
 const BACKEND = readFileSync(join(ROOT, '../backend/routers/sessions.py'), 'utf8');
@@ -49,7 +49,7 @@ describe('/full-test-result — native ownership and safety', () => {
 
 describe('/full-test-result — coexistence boundary', () => {
   test('Next player selects the native route while legacy keeps the rollback URL', () => {
-    assert.match(PRACTICE, /var path = _getNativeView\(\) \? '\/full-test-result' : '\/pages\/full-test-result\.html'/);
+    assert.match(PRACTICE, /var path = _getNativeView\(\) \? '\/speaking\/full-test\/result' : '\/pages\/full-test-result\.html'/);
     assert.match(PRACTICE, /_navigateTo\(_fullTestResultUrl\(_ftAllSessionIds\)\)/);
   });
 

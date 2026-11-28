@@ -249,7 +249,7 @@
   }
 
   function _fullTestResultUrl(sessionIds) {
-    var path = _getNativeView() ? '/full-test-result' : '/pages/full-test-result.html';
+    var path = _getNativeView() ? '/speaking/full-test/result' : '/pages/full-test-result.html';
     var url = path + '?p1=' + encodeURIComponent(sessionIds[0] || '');
     if (sessionIds[1]) url += '&p2=' + encodeURIComponent(sessionIds[1]);
     if (sessionIds[2]) url += '&p3=' + encodeURIComponent(sessionIds[2]);

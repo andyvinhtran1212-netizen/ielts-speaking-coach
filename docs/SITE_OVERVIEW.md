@@ -87,7 +87,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/speaking` | student | Speaking dashboard — session history + create new (`POST /sessions`, daily cap 24). |
 | `/practice/session` | student | Recording state machine; submit audio → `POST /sessions/{id}/responses` (`grading.py`: Whisper + Claude). Full-test chains 3 sessions. |
 | `/result` | student | Single-question speaking result (band + feedback panels + audio replay). |
-| `/full-test-result` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. |
+| `/speaking/full-test/result` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. Old `/full-test-result` 307s here (LEARNERNAV-0062). |
 | `/profile` | student | Profile, band target, study goals. |
 | `/account` | student | v2 Tài khoản: online and class courses (`GET /api/me/courses`, G04), the shared AI-credit balance and the server-labelled credit history (`GET /api/me/credits`); without G04 only the class group from `/api/class/me`. |
 | `/progress` | student | v2 Tiến độ: one row per skill from `/sessions`, `/api/writing/my-essays`, `/api/listening/overview`, `/api/quiz/progress` (band only per FR-077); goal band and exam date via `PATCH /auth/profile`. |

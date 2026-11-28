@@ -7,7 +7,6 @@ const PRIVATE_PREFIXES = [
   '/core-player',
   '/course/',
   '/exercises',
-  '/full-test-result',
   '/help',
   '/home',
   '/instructor',

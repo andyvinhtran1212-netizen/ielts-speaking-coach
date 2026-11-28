@@ -50,7 +50,7 @@ describe('/admin/mock-reviews native ownership', () => {
   });
 
   test('preserves skill review, Writing, Speaking and final-band capabilities', () => {
-    for (const token of ['/api/reading/test/attempts/', '/api/listening/tests/attempts/', '/admin/writing/essays/', '/start-grading', '/speaking-assessment', '/final-bands', '/release-claim', '/full-test-result?session_id=', '/admin/writing/grade?essay_id=', 'Cần test lại', 'Overall xem trước']) assert.ok(COMPONENT.includes(token), token);
+    for (const token of ['/api/reading/test/attempts/', '/api/listening/tests/attempts/', '/admin/writing/essays/', '/start-grading', '/speaking-assessment', '/final-bands', '/release-claim', '/speaking/full-test/result?session_id=', '/admin/writing/grade?essay_id=', 'Cần test lại', 'Overall xem trước']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /requiredSkills\.includes\(skill\)\s*&&\s*<em>/);
     // Each band box carries the restored caption from the model (bandCaption), not a fixed string.
     assert.match(COMPONENT, /\{bandCaption\(detail, skill\) && <small>\{bandCaption\(detail, skill\)\}<\/small>\}/);
