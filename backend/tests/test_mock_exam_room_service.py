@@ -423,6 +423,28 @@ def admin(monkeypatch):
     return r
 
 
+@pytest.mark.parametrize("event_logged", [True, False])
+def test_extra_time_http_ack_preserves_changed_clock_and_log_status(admin, db, monkeypatch, event_logged):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    _start_reading(db)
+    if not event_logged:
+        monkeypatch.setattr(room, "record_event_quietly", lambda *args, **kwargs: False)
+    app = FastAPI()
+    app.include_router(admin.router)
+    with TestClient(app) as client:
+        reply = client.post(
+            f"/admin/mock-exams/{EXAM}/extra-time",
+            json={"sitting_id": S_DONE, "section": "reading", "seconds": 120, "reason": "mất mạng"},
+        )
+    assert reply.status_code == 200
+    assert reply.json() == {
+        "sitting_id": S_DONE, "extra_seconds": {"reading": 120}, "event_logged": event_logged,
+    }
+    assert _sitting(db, S_DONE)["extra_seconds"] == {"reading": 120}
+
+
 def test_router_maps_service_errors(admin, db):
     with pytest.raises(HTTPException) as e:
         asyncio.run(admin.release_exam(
