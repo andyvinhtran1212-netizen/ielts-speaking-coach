@@ -20,6 +20,12 @@ one still runs; any failure makes the exit code non-zero.
    FR-050). The function and its table belong to G05-T22; until that
    migration exists the step is skipped with a log line.
 7. Learner outbox dispatch (``services.learner_email.dispatch_due``).
+8. Account data (ACCOUNTDATA-0100, ``jobs.account_data_sweep``): erasure
+   (dry-run until ``ACCOUNT_ERASURE_ENABLED``), export packages, export
+   cleanup. Skipped with a log line until migrations 500 and 504 exist.
+   With the flag on, this step erases for real: the cron needs no
+   ``--erase``, which only the manual ``python -m jobs.account_data_sweep``
+   takes.
 
 Step 6 (login-event retention, G04-T16) is added by that task. Logs carry
 counts only: no e-mail, name, amount or order code.
@@ -100,6 +106,11 @@ def dispatch_mail() -> None:
         raise RuntimeError("learner mail transport unconfigured: " + ",".join(summary.unconfigured))
 
 
+def account_data() -> None:
+    from jobs import account_data_sweep
+    account_data_sweep.run()
+
+
 def run(*, no_mail: bool = False) -> int:
     steps: list[tuple[str, Callable[[], None]]] = [
         ("expire_orders", expire_orders),
@@ -110,6 +121,7 @@ def run(*, no_mail: bool = False) -> int:
     ]
     if not no_mail:
         steps.append(("dispatch_mail", dispatch_mail))
+    steps.append(("account_data", account_data))
     failed = 0
     for name, step in steps:
         try:

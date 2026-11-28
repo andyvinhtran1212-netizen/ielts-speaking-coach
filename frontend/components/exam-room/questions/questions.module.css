@@ -1,0 +1,68 @@
+/* EXAMROOM-0066 FR-025–FR-027: shared question types. Only var(--av2-*), no hex
+   (UIBASE-0056 tokens); G03 ChoiceGroup and Select bring their own styles. */
+.question { margin: 0 0 var(--av2-space-6); scroll-margin-top: var(--av2-space-8); }
+.group { display: flex; flex-direction: column; gap: var(--av2-space-5); margin: 0 0 var(--av2-space-6); }
+.prompt, .prose { margin: 0; line-height: 2.2; }
+.hint { margin: var(--av2-space-2) 0 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+
+.qNum {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; padding: 0 var(--av2-space-2);
+  border: var(--av2-rule-w) solid var(--av2-rule); border-radius: var(--av2-radius);
+  font-size: var(--av2-fs-13); font-weight: var(--av2-fw-strong);
+}
+.numberedGap { display: inline-flex; align-items: center; gap: var(--av2-space-2); scroll-margin-top: var(--av2-space-8); }
+
+.gap, .inlineSelect {
+  min-width: 9em; max-width: 100%; min-height: var(--av2-control-sm); margin: 0 var(--av2-space-1);
+  padding: 0 var(--av2-space-3);
+  border: var(--av2-rule-w) solid var(--av2-control-border); border-radius: var(--av2-radius);
+  background: var(--av2-surface); color: var(--av2-ink);
+  font: var(--av2-fw-regular) var(--av2-fs-16) / var(--av2-lh-tight) var(--av2-font-sans);
+}
+.gap:focus-visible, .inlineSelect:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.gap:disabled, .inlineSelect:disabled { color: var(--av2-muted); cursor: not-allowed; }
+
+.bank { padding: var(--av2-space-5); border: var(--av2-rule-w) solid var(--av2-rule); border-radius: var(--av2-radius); background: var(--av2-tint); }
+.bankTitle { margin: 0 0 var(--av2-space-3); font-weight: var(--av2-fw-strong); }
+.bankList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--av2-space-2); }
+/* A used option: struck through and dimmed (FR-025), the "(used in Q6)" text is for screen readers. */
+.used { text-decoration: line-through; opacity: 0.6; }
+
+.rows { display: flex; flex-direction: column; gap: var(--av2-space-4); }
+.row { display: flex; align-items: flex-end; gap: var(--av2-space-4); scroll-margin-top: var(--av2-space-8); }
+.row > :last-child { flex: 1; min-width: 0; }
+
+.tableWrap { overflow-x: auto; max-width: 100%; }
+.tableWrap:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.table { border-collapse: collapse; min-width: 100%; }
+.table caption { text-align: left; font-weight: var(--av2-fw-strong); padding-bottom: var(--av2-space-3); }
+.table th, .table td { padding: var(--av2-space-3) var(--av2-space-4); border: var(--av2-rule-w) solid var(--av2-rule); text-align: left; vertical-align: top; }
+.table thead th { background: var(--av2-tint); }
+.table td:has(> .radio) { text-align: center; vertical-align: middle; }
+.radio { width: 20px; height: 20px; margin: 0; accent-color: var(--av2-accent); }
+
+.notes { display: flex; flex-direction: column; gap: var(--av2-space-3); padding: var(--av2-space-5); border: var(--av2-rule-w) solid var(--av2-rule); border-radius: var(--av2-radius); }
+.noteTitle { margin: 0; font-weight: var(--av2-fw-strong); font-size: var(--av2-fs-18); }
+.noteHeading { font-weight: var(--av2-fw-strong); margin-top: var(--av2-space-3); }
+.noteLine { line-height: 2.2; }
+.noteBullet { line-height: 2.2; padding-left: var(--av2-space-6); position: relative; }
+.noteBullet::before { content: '•'; position: absolute; left: var(--av2-space-2); }
+
+.mapLayout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--av2-space-6); align-items: start; }
+.mapFigure { margin: 0; }
+.mapFigure img { display: block; max-width: 100%; height: auto; border: var(--av2-rule-w) solid var(--av2-rule); }
+@media (max-width: 767px) { .mapLayout { grid-template-columns: minmax(0, 1fr); } }
+
+.result { padding: var(--av2-space-4) 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.verdict { margin: 0 0 var(--av2-space-2); }
+.result[data-verdict='correct'] .verdict { color: var(--av2-ok); }
+.result[data-verdict='incorrect'] .verdict { color: var(--av2-danger); }
+.resultList { margin: 0; display: grid; gap: var(--av2-space-1); }
+.resultList > div { display: flex; gap: var(--av2-space-3); }
+.resultList dt { color: var(--av2-muted); }
+.resultList dd { margin: 0; font-weight: var(--av2-fw-strong); }
+.explanation { margin: var(--av2-space-2) 0 0; }
+.score { margin: 0 0 var(--av2-space-5); font-weight: var(--av2-fw-strong); font-size: var(--av2-fs-18); }
+
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
