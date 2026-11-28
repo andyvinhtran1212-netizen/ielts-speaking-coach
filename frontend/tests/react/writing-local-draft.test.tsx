@@ -69,6 +69,19 @@ it('displaced: the registered saver keeps the open text and counts as saved; the
   expect(readLocalDraft(window.sessionStorage, ACCOUNT, ASSIGNMENT)?.text).toBe('First para. Second para typed just now.');
 });
 
+it('keeps the copy when the session-displaced redirect returns no draft acknowledgment', async () => {
+  const { ms, api } = setup();
+  open(ms, { draft_text: 'First para.', updated_at: BASE });
+  textarea().value = 'Text typed before the session ended.';
+  keepModalLocalDraft(ms);
+  api.patchWith.mockImplementationOnce(async () => null as any);
+
+  await saveDraft(ms);
+
+  expect(readLocalDraft(window.sessionStorage, ACCOUNT, ASSIGNMENT)?.text).toBe(textarea().value);
+  expect(document.getElementById('modal-save-status')?.classList.contains('hidden')).toBe(true);
+});
+
 it('the saver reports nothing kept when no editor is open or it is blank, so /login claims no draft', async () => {
   const { ms } = setup();
   registerDraftSaver(() => keepModalLocalDraft(ms));

@@ -1173,11 +1173,13 @@ async function saveDraft(ms: ModalState) {
   try {
     const path = '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/draft';
     const body = { draft_text: textarea ? textarea.value || '' : '' };
+    const acknowledged = (reply: { assignment_id?: string } | null | undefined) => reply?.assignment_id === assignmentId;
     const reply: any = await coreOperationRequest({
-      accountId: ms.accountId, method: 'PATCH', path, input: body,
-      acknowledged: (reply: any) => reply?.assignment_id === assignmentId,
+      accountId: ms.accountId, method: 'PATCH', path, input: body, acknowledged,
     }, (headers: Record<string, string>) => (window as any).api.patchWith(path, body, headers));
     if (!isCurrent()) return;
+    // The browser transport returns null when a displaced session is sent to login.
+    if (!acknowledged(reply)) throw new Error('Máy chủ chưa xác nhận bản nháp.');
     settleModalLocalDraft(ms, assignmentId, body.draft_text, reply?.updated_at);
     if (pending) pending.classList.add('hidden');
     if (saved) saved.classList.remove('hidden');
