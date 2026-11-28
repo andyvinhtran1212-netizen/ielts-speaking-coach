@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Response
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 
 logger = logging.getLogger(__name__)
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ from models.auth import (
     AuthProfileResponse,
     AuthProfileUpdateResponse,
 )
-from services import activation_gate, staff_security
+from services import activation_gate, session_gate, staff_security
 from services.db_async import aexecute
 from services.errors import new_ref, safe_error
 from services.request_context import current_request_id
@@ -83,6 +83,10 @@ class ProfileUpdate(BaseModel):
     timezone: str | None = None
     weekly_goal: int | None = None        # 1–14 sessions/week
     notification_email: bool | None = None
+
+
+# LEARNERCORE-0063 FR-094: what an inactive learner_v2 account may write.
+INACTIVE_PROFILE_FIELDS = frozenset({"onboarding_completed", "target_band", "exam_date"})
 
 
 # ── W-2 instructor-promote helpers (Option B, email-bound) ────────────────────
@@ -330,12 +334,32 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     from services.access_code_permissions import (  # local — avoid import cycle
         aget_user_access_code_permissions_cached,
         get_user_access_code_permissions_cached,
+        has_permission,
     )
     if settings.USE_ASYNC_DB:
         live_permissions = await aget_user_access_code_permissions_cached(user_id)
     else:
         live_permissions = await asyncio.to_thread(
             get_user_access_code_permissions_cached, user_id,
+        )
+    # COURSEACCESS-0055 FR-019 (G04-T07b): while ``credit_metering`` is on, a
+    # course entitlement with ``speaking`` admits every Speaking mode
+    # (sessions._require_permission). Expose it so the Speaking page opens the
+    # tabs the backend already admits. ``permissions`` stays the live
+    # access-code list (single source with /api/student/permissions); this is
+    # a separate field. Read only for an active account still missing a
+    # Speaking scope, so a code holder's /auth/me does no extra read.
+    # Fail-closed: a flag or entitlement read error gives False.
+    from routers.sessions import (  # local — avoid import cycle
+        _MODE_SCOPE,
+        _course_speaking_entitlement,
+    )
+    speaking_course_access = False
+    if user.get("is_active") and not user.get("suspended_at") and not all(
+        has_permission(live_permissions, scope) for scope in _MODE_SCOPE.values()
+    ):
+        speaking_course_access = await asyncio.to_thread(
+            _course_speaking_entitlement, user_id,
         )
     # Phase D Wave 2 — strict default-deny via the canonical helper so
     # frontends can rely on `=== true` without re-implementing the rule.
@@ -382,6 +406,7 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "flashcard_enabled": flashcard_enabled,
         "vocab_curated_enabled": vocab_curated_enabled,
         "learner_v2_enabled": learner_v2_enabled,
+        "speaking_course_access": speaking_course_access,
     }
 
 
@@ -411,14 +436,23 @@ async def check_active(authorization: str | None = Header(default=None)):
         ) from None
 
     if not result.data:
-        return {"is_active": False, "suspended": False}
+        return {"is_active": False, "suspended": False, "learner_v2_enabled": False}
 
     row = result.data[0]
+    suspended = bool(row.get("suspended_at"))
+    # LEARNERCORE-0063 FR-094: the client gate opens /home, /start, /account,
+    # /profile and /help to an inactive account only when this is true. Same
+    # formula as /auth/me (FR-072); a failed flag read is false; a suspended
+    # account is always false, so it keeps the /login suspended path.
+    flags = row.get("feature_flags") if isinstance(row.get("feature_flags"), dict) else {}
+    learner_v2 = (not suspended) and await activation_gate.alearner_v2_on(
+        user_id, flags.get("learner_v2") is True)
     return {
         "is_active": bool(row.get("is_active", False)),
         # ADMINAAL2-0032 FR-018: /login shows the suspended message instead
         # of the activation dialog.
-        "suspended": bool(row.get("suspended_at")),
+        "suspended": suspended,
+        "learner_v2_enabled": learner_v2,
     }
 
 
@@ -1111,6 +1145,7 @@ async def activate_account(
     dependencies=[Depends(require_flag("profile_update"))],
 )
 async def update_profile(
+    request: Request,
     payload: ProfileUpdate,
     response: Response,
     authorization: str | None = Header(default=None),
@@ -1119,6 +1154,16 @@ async def update_profile(
     response.headers["Cache-Control"] = "private, no-store"
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
+    # LEARNERCORE-0063 FR-094: this route is exempt from the router gate, so it
+    # re-checks the caller itself: 503 on a failed read, 403 when suspended,
+    # the gate's 403 for an inactive account without learner_v2. An inactive
+    # learner_v2 account ("Lần đầu vào") may set only these three fields.
+    status = await activation_gate.aopen_learner_status(user_id)
+    await session_gate.ensure_current(user_id, authorization, request.headers.get("user-agent"))
+    if status == activation_gate.OPEN_INACTIVE:
+        extra = payload.model_fields_set - INACTIVE_PROFILE_FIELDS
+        if extra:
+            raise HTTPException(status_code=403, detail=activation_gate.INACTIVE_DETAIL)
 
     updates: dict = {}
     if payload.target_band is not None:
@@ -1163,6 +1208,8 @@ async def update_profile(
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
 
     user = result.data[0]
+    if status == activation_gate.OPEN_INACTIVE:
+        activation_gate.log_inactive_open_request("PATCH", "/auth/profile", user_id)
     return {
         "id": user["id"],
         "email": user.get("email"),

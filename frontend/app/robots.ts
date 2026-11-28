@@ -1,12 +1,14 @@
 import type { MetadataRoute } from 'next';
 
 const PRIVATE_PREFIXES = [
+  '/account',
   '/admin',
   '/api',
   '/core-player',
   '/course/',
   '/exercises',
   '/full-test-result',
+  '/help',
   '/home',
   '/instructor',
   '/listening',
@@ -18,11 +20,13 @@ const PRIVATE_PREFIXES = [
   '/practice',
   '/pricing',
   '/profile',
+  '/progress',
   '/quiz',
   '/reading',
   '/recorder-spike',
   '/result',
   '/speaking',
+  '/start',
   '/tests',
   '/vocabulary/exam',
   '/vocabulary/fill-in',

@@ -452,9 +452,9 @@ def test_resolve_staff_with_the_facade_read_never_grants(pg, failure):
 
 
 @pytest.mark.parametrize("user_id,expected", [
-    ("u-active", {"is_active": True, "suspended": False}),
-    ("u-inactive", {"is_active": False, "suspended": False}),
-    ("u-nobody", {"is_active": False, "suspended": False}),
+    ("u-active", {"is_active": True, "suspended": False, "learner_v2_enabled": False}),
+    ("u-inactive", {"is_active": False, "suspended": False, "learner_v2_enabled": False}),
+    ("u-nobody", {"is_active": False, "suspended": False, "learner_v2_enabled": False}),
 ])
 def test_check_active_reads_over_the_real_client(pg, user_id, expected):
     r = _get(pg, "/auth/check-active", user_id)
@@ -475,4 +475,4 @@ def test_check_active_empty_body_is_inactive(pg):
     pg.fail("users", "empty")
     r = _get(pg, "/auth/check-active", "u-active")
     assert r.status_code == 200, r.text
-    assert r.json() == {"is_active": False, "suspended": False}
+    assert r.json() == {"is_active": False, "suspended": False, "learner_v2_enabled": False}

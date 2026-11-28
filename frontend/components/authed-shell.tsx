@@ -31,6 +31,9 @@ import { RedirectNotice } from '@/components/redirect-notice';
 import { StaffQuickSearch, type QuickSearchDoor } from '@/components/staff-quick-search';
 import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
 import { AuthProvider } from '@/lib/auth/auth-provider';
+// ADMINIA-0074 G09-T08: a tiny client loader; AdminFrame and its CSS load
+// only in the browser and only when the flag is on.
+import { AdminFrameLoader } from '@/components/admin/admin-frame-loader';
 
 type PageStylesheet =
   | string
@@ -170,6 +173,15 @@ export async function AuthedShell({
   children: ReactNode;
 }) {
   const nonce = await requestNonce();
+  // G09-T08 (plan 5.2): server env, read per request (these routes are
+  // dynamic). On → AdminFrame draws the frame and the body class tells
+  // <aver-admin-chrome> to render only its slot; off → nothing changes.
+  // The class and the wrapper are applied to the props themselves so the
+  // markup below (pinned by tests) is the same element tree either way.
+  if (design === 'v1' && chrome === 'admin' && process.env.ADMIN_FRAME_V2 === '1') {
+    bodyClass = `${bodyClass} av-admin-frame-v2`;
+    children = <AdminFrameLoader>{children}</AdminFrameLoader>;
+  }
   // Each legacy element keeps its own `v1 &&` guard (no wrapping fragment), so
   // the v1 element tree and its HTML stay exactly as before (FR-003).
   const v1 = design === 'v1';

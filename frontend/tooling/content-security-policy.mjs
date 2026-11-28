@@ -176,7 +176,7 @@ export function nonceHostAllowed(hostname) {
 // Next requires a literal matcher in proxy.ts. The route inventory tests keep
 // this runtime guard aligned with that matcher and every AuthedShell layout.
 export function nonceRouteAllowed(pathname) {
-  return /^\/(?:admin|course|exercises|full-test-result|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|quiz|reading|result|speaking|tests|writing)(?:\/|$)/.test(pathname)
+  return /^\/(?:account|admin|course|exercises|full-test-result|help|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|tests|writing)(?:\/|$)/.test(pathname)
     || /^\/vocabulary\/.+/.test(pathname);
 }
 
