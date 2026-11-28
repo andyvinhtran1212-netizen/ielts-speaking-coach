@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminTodo } from '@/app/(authed-admin)/(overview)/admin/admin-todo';
+import AdminOverviewLayout from '@/app/(authed-admin)/(overview)/layout';
 import { AdminAccessGate } from '@/components/admin-access-gate';
 import { QUEUE_ROWS } from '@/lib/admin-todo-model.mjs';
 
@@ -231,5 +232,29 @@ describe('AdminTodo', () => {
     });
     expect(row(/^Phản hồi$/).textContent).toContain('8');
     expect(row(/^Yêu cầu chấm lại$/).textContent).toContain('Không có');
+  });
+
+  it('loads admin-todo-next.css in the overview layout only when ADMIN_FRAME_V2=1', () => {
+    const prev = process.env.ADMIN_FRAME_V2;
+    try {
+      delete process.env.ADMIN_FRAME_V2;
+      const off = render(<AdminOverviewLayout><p>child</p></AdminOverviewLayout>);
+      expect([...off.container.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.getAttribute('href'))).toEqual([
+        '/css/aver-design/admin-hub.css',
+        '/css/admin-overview.css',
+      ]);
+      off.unmount();
+
+      process.env.ADMIN_FRAME_V2 = '1';
+      const on = render(<AdminOverviewLayout><p>child</p></AdminOverviewLayout>);
+      expect([...on.container.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.getAttribute('href'))).toEqual([
+        '/css/aver-design/admin-hub.css',
+        '/css/admin-overview.css',
+        '/css/admin-todo-next.css',
+      ]);
+    } finally {
+      if (prev === undefined) delete process.env.ADMIN_FRAME_V2;
+      else process.env.ADMIN_FRAME_V2 = prev;
+    }
   });
 });
