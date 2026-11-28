@@ -41,6 +41,7 @@ Người thực thi không đổi cài đặt dự án Supabase và không tạo
 
 - Thứ tự bật cờ `email_code_login`: (1) migration 391 đã áp và đọc lại; (2) sáu việc Supabase ở trên xong trên staging; (3) PR T18 lên staging, pytest xanh; (4) người thực thi kiểm sáu điểm `CHƯA KIỂM` của 5.6 trên Supabase staging và ghi kết quả vào PR T18; (5) PR T19 lên; (6) anh bật cờ trên staging; (7) chạy kịch bản 4, 5 với hộp thư thử; (8) kiểm gộp danh tính Google + mã cùng email (không ra hai tài khoản) trước khi coi là xong.
 - Luồng đơn: kịch bản 6–12 với sản phẩm thử của G04 và tài khoản thử; quét QR không bấm chuyển.
+- Chỉ bật luồng đơn (cho người học tạo đơn) sau khi `/enroll/[orderCode]` (T12) đã `live` trong `frontend/lib/route-registry.mjs`. Trước đó `/account/orders` (T13) vẫn liệt kê đơn nhưng các dòng chưa có liên kết hành động, vì liên kết chỉ trỏ tới trang đã live; chỉ dòng "Vào học" có liên kết.
 - Mỗi PR chờ CI tích hợp và Staging E2E xanh đúng SHA.
 
 ## Production
