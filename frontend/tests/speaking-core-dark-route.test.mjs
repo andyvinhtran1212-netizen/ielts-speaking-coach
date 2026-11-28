@@ -69,7 +69,7 @@ describe('/practice/session stable Next implementation route', () => {
       'sheetListen', 'sheetToggleRecording', 'sheetRetrySubmission',
       'sheetReview', 'submitSheet',
     ]);
-    const nativeOnlyActions = new Set([...nativeSheetActions, 'trackGrammarResource']);
+    const nativeOnlyActions = new Set([...nativeSheetActions, 'trackGrammarResource', 'retryResumeCompletion']);
     assert.deepEqual(nativeActions.filter((action) => !nativeOnlyActions.has(action)), legacyActions);
     assert.deepEqual(nativeActions.filter((action) => nativeSheetActions.has(action)), [
       'sheetListen', 'sheetToggleRecording', 'sheetRetrySubmission',

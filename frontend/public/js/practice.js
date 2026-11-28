@@ -612,10 +612,7 @@
   function setWriteRight(allowed) {
     if (!_examRoomMode) return;
     _roomWriteRight = allowed !== false;
-    if (_roomWriteRight && _roomResumeCompletionPending) {
-      _roomResumeCompletionPending = false;
-      _finishTestAndShowResults();
-    }
+    if (_roomWriteRight && _roomResumeCompletionPending) retryResumeCompletion();
   }
 
   // A recorder still starting (the browser's microphone box may be open)
@@ -4566,6 +4563,35 @@
     }
   }
 
+  async function retryResumeCompletion() {
+    if (!_roomResumeCompletionPending || _roomReadOnly() || !_playerActive) return;
+    var generation = _playerGeneration;
+    var sessionId = _sessionId;
+    _roomResumeCompletionPending = false;
+    _updateNativeView('frame', { retryResumeCompletionVisible: false });
+    _setLoadingMessage('Đang xác nhận hoàn tất bài Speaking…');
+    showState('loading');
+    try {
+      var reply = await _roomAwaitCompletion(_completeSpeakingSession(sessionId));
+      if (!reply || reply.status !== 'completed' || (reply.session_id || reply.id) !== sessionId) {
+        throw new Error('Completion unconfirmed');
+      }
+    } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration) return;
+      _roomResumeCompletionPending = true;
+      _updateNativeView('frame', { retryResumeCompletionVisible: true });
+      showError('Máy chủ chưa xác nhận hoàn tất bài Speaking. Các câu trả lời đã được lưu.');
+      _roomExpired(err);
+      return;
+    }
+    if (!_playerActive || generation !== _playerGeneration) return;
+    if (_roomReadOnly()) {
+      _roomResumeCompletionPending = true;
+      return;
+    }
+    _navigateTo(_singleSessionResultUrl(sessionId));
+  }
+
   function _finishTestAndShowResults() {
     if (_roomReadOnly()) return;
     _releaseRecorderResources();
@@ -6343,8 +6369,12 @@
           // Refresh landed AFTER the last answer was submitted: everything
           // is graded — complete the session and go straight to the
           // canonical result page once this tab has the write right.
-          if (_roomReadOnly()) _roomResumeCompletionPending = true;
-          else _finishTestAndShowResults();
+          if (_examRoomMode) {
+            _roomResumeCompletionPending = true;
+            retryResumeCompletion();
+          } else {
+            _finishTestAndShowResults();
+          }
           return;
         }
       }
@@ -6472,6 +6502,7 @@
     canLeave:             _canLeave,
     requestMicrophone:    requestMicrophone,
     setWriteRight:        setWriteRight,
+    retryResumeCompletion: retryResumeCompletion,
     roomFlush:            roomFlush,
     requestLeave:         requestLeave,
     confirmLeave:         confirmLeave,

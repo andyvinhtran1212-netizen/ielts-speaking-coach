@@ -179,6 +179,7 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.deepEqual(controller.getViewSnapshot().frame, {
       loadingMessage: 'Đang tải...',
       errorMessage: '',
+      retryResumeCompletionVisible: false,
       testModeBannerVisible: false,
       returnHref: '/speaking',
       returnLabel: 'Quay lại',
