@@ -1,0 +1,11 @@
+export const SESSION_DISPLACED_EVENT: 'aver:session-displaced';
+export const DISPLACED_NOTICE: 'displaced';
+export const DISPLACED_LOGIN_PATH: '/login?notice=displaced';
+export type SessionGateView = 'proceed' | 'ask' | 'blocked';
+export function sessionGateView(status: unknown): SessionGateView;
+export function isDisplaced(error: unknown): boolean;
+export function loginNotice(search: string | null | undefined): 'displaced' | null;
+export function minutesLeftText(minutes: unknown): string | null;
+export type DisplacedMemo = { email: string | null; at: string | null; draftsSaved: boolean };
+export function rememberDisplaced(memo: { email?: string | null; at?: string | null; draftsSaved?: boolean }, browser?: unknown): void;
+export function takeDisplaced(browser?: unknown): DisplacedMemo;

@@ -15,6 +15,8 @@ import {
   normalizeAccessCode,
   normalizeLoginProfile,
 } from '@/lib/login-model.mjs';
+import { loginNotice, takeDisplaced, type DisplacedMemo } from '@/lib/auth/session-claim.mjs';
+import { formatVnDateTime } from '@/lib/profile-v2-model.mjs';
 import { LOGIN_NEXT_STORAGE_KEY, resolveLoginNext, sanitizeLearnerNext } from '@/lib/safe-next.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -177,6 +179,10 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   const [signingOut, setSigningOut] = useState(false);
   const [suspended, setSuspended] = useState(false);
   const [returnTo, setReturnTo] = useState<string | null>(null);
+  // ENROLL-0060 G05-T20 screen 8c: this device was signed out because another
+  // device chose "Tiếp tục ở đây". Only `?notice=displaced` (allow-list).
+  const [displaced, setDisplaced] = useState<DisplacedMemo | null>(null);
+  const displacedMemo = useRef<DisplacedMemo | null | undefined>(undefined);
   const rememberedNext = useRef<string | null | undefined>(undefined);
   const clientRef = useRef<SupabaseClient | null>(null);
   const activateInFlight = useRef(false);
@@ -206,6 +212,10 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
     // see the OAuth return and would overwrite the target from Google's referrer.
     if (rememberedNext.current === undefined) rememberedNext.current = rememberLoginNext();
     setReturnTo(rememberedNext.current);
+    if (displacedMemo.current === undefined) {
+      displacedMemo.current = loginNotice(window.location.search) === 'displaced' ? takeDisplaced() : null;
+    }
+    setDisplaced(displacedMemo.current);
     if (!bootPromise) bootPromise = bootstrap();
     const pendingBoot = bootPromise;
     void pendingBoot.then((result) => {
@@ -397,6 +407,8 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
         </div>
       )}
 
+      {displaced && !suspended && <DisplacedNotice memo={displaced} />}
+
       {returnTo && !suspended && (
         <p className="lx-return-note" role="status">Đăng nhập để tiếp tục tới trang bạn vừa mở.</p>
       )}
@@ -494,5 +506,18 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
         </div>
       )}
     </>
+  );
+}
+
+function DisplacedNotice({ memo }: { memo: DisplacedMemo }) {
+  const at = formatVnDateTime(memo.at);
+  const account = memo.email ? `Tài khoản ${memo.email}` : 'Tài khoản của bạn';
+  return (
+    <div className="lx-displaced" role="status" data-testid="login-displaced">
+      <p className="lx-displaced-title"><strong>Bạn đã được đăng xuất trên thiết bị này</strong></p>
+      <p>{`${account} vừa được chọn “Tiếp tục ở đây” trên thiết bị khác${at ? ` lúc ${at}` : ''}.`}</p>
+      {memo.draftsSaved ? <p>Bài bạn đang viết dở đã được lưu nháp.</p> : null}
+      <p>Đăng nhập lại trên thiết bị này để tiếp tục.</p>
+    </div>
   );
 }
