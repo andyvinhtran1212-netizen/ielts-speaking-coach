@@ -24,11 +24,20 @@ class SkillHubResumeItem(BaseModel):
     updated_at: Optional[str] = None
 
 
+class SkillHubStarterSession(BaseModel):
+    """Speaking: the body for POST /sessions; the hub opens the session
+    itself because a topic has no deep link (fallback: ``href``)."""
+    mode: Literal["practice"]
+    part: int
+    topic: str
+
+
 class SkillHubStarter(BaseModel):
     title: str
     meta: Optional[str] = None
     uses_credit: bool = False
     href: str
+    session_params: Optional[SkillHubStarterSession] = None
 
 
 class SkillHubSuggestion(BaseModel):

@@ -9,6 +9,10 @@
  *                                + optional q_num chips + optional note.
  *   • attachCardFlag(opts)     — per-question "flag bài giải" button → inline
  *                                popover with optional note → POST type=flag.
+ *                                Once per (attempt, question, sender)
+ *                                (LEARNERCORE-0063 FR-108/FR-109): opts.flagged
+ *                                (from the review's my_flagged_q_nums) or a 409
+ *                                already_flagged shows "Đã báo lỗi", disabled.
  *
  * Identity: logged-in → bearer (window.api.post); anonymous reading share-link
  * → window.api.postWith(..., {'X-Reading-Anon': anonId}). The server derives
@@ -301,8 +305,18 @@
     btn.innerHTML = '<span aria-hidden="true">⚑</span> ' + (opts.label || 'Báo lỗi bài giải');
     top.appendChild(btn);
 
+    // One flag per question: the button stays "Đã báo lỗi" and cannot reopen.
+    function markFlagged() {
+      btn.innerHTML = '<span aria-hidden="true">⚑</span> Đã báo lỗi';
+      btn.classList.add('is-flagged');
+      btn.disabled = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+    if (opts.flagged === true) markFlagged();
+
     var pop = null;
     btn.addEventListener('click', function () {
+      if (btn.disabled) return;
       if (pop) { pop.remove(); pop = null; btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('is-on'); return; }
       pop = document.createElement('div');
       pop.className = 'av-fb fb-pop';
@@ -334,10 +348,16 @@
         sb.disabled = true;
         submit(ctx, payload).then(function () {
           pop.innerHTML = '<p class="fb-pop__msg is-ok">Đã gửi — cảm ơn bạn!</p>';
-          btn.innerHTML = '<span aria-hidden="true">⚑</span> Đã báo lỗi';
-          btn.classList.add('is-flagged');
+          markFlagged();
           setTimeout(function () { if (pop) { pop.remove(); pop = null; } btn.setAttribute('aria-expanded', 'false'); }, 1100);
-        }).catch(function () {
+        }).catch(function (err) {
+          if (err && err.status === 409 && err.detail && err.detail.error === 'already_flagged') {
+            // Sent before (another tab, or before the page knew): the server's truth wins.
+            pop.innerHTML = '<p class="fb-pop__msg is-ok">Bạn đã báo lỗi câu này.</p>';
+            markFlagged();
+            setTimeout(function () { if (pop) { pop.remove(); pop = null; } }, 1100);
+            return;
+          }
           sb.disabled = false;
           var m = pop.querySelector('.fb-pop__msg'); m.textContent = 'Không gửi được, thử lại.'; m.hidden = false; m.classList.add('is-err');
         });

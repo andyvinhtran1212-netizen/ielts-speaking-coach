@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AdminAccessGate } from '@/components/admin-access-gate';
+import { redirectUnderAdminFrameV2 } from '@/lib/admin-frame-redirect';
 
 import { AdminErrorLogs } from './admin-error-logs';
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default function AdminErrorLogsPage() {
+  redirectUnderAdminFrameV2('/admin/error-logs');
   return (
     <aver-admin-chrome active="error-logs">
       <AdminAccessGate>

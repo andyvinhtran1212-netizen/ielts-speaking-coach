@@ -33,6 +33,9 @@ test('isV2Path agrees with isV2Route on every registry route and its variants', 
   assert.equal(isV2Path('/profile'), false);
   assert.equal(isV2Path('/profile/v2-pilot/extra'), false);
   assert.equal(isV2Path(''), false);
+  assert.equal(isV2Path('/enroll/AVER-ABC234'), true);
+  assert.equal(isV2Path('/enroll'), false);
+  assert.equal(isV2Path('/enroll/AVER-ABC234/x'), false);
   // Dynamic v2 route: one segment only.
   assert.equal(isV2Path('/library/speaking/a-city-part-2'), true);
   assert.equal(isV2Path('/library/speaking/a-city-part-2/'), true);

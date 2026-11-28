@@ -75,6 +75,10 @@
   var _roomMicState = 'unknown';
   var _ROOM_LEVEL_MS = 200;
   var _roomLevelTimer = null;
+  var _roomMicLostDone = false;
+  var _roomMicLostShown = false;
+  var _roomResumeCompletionPending = false;
+  var _roomWriteRight = true;   // R149: false while another tab holds the write right
   // FR-006–FR-008: a box the room has open, and what it will do when answered.
   var _roomDialogKind = null;
   var _roomLeaveHref = '';
@@ -286,7 +290,10 @@
   function _roomMic(state) {
     if (!_examRoomMode) return;
     _roomMicState = state;
-    _updateNativeView('mic', { state: state });
+    // R139 CR: "Mất kết nối micro" stays until the microphone works again, so
+    // an error on a later "Thử lại" does not hide why the take stopped.
+    if (state === 'granted') _roomMicLostShown = false;
+    _updateNativeView('mic', { state: state, lost: _roomMicLostShown });
   }
 
   // Recorder error -> mic case (FR-003). Unknown failures keep the old message
@@ -342,6 +349,7 @@
   // "Cho phép micro" (FR-003): ask the browser once, then let go of the device;
   // the recorder opens its own stream on "Bắt đầu ghi âm".
   async function requestMicrophone() {
+    if (_roomReadOnly()) return false;
     if (!_examRoomMode || _roomMicState === 'pending') return false;
     var before = _roomMicState;
     var md = navigator.mediaDevices;
@@ -392,8 +400,11 @@
     var analyser = _analyser;
     var buf = analyser ? new Uint8Array(analyser.fftSize || analyser.frequencyBinCount || 256) : null;
     var tick = function () {
+      if (_roomTrackEnded()) { _roomMicLost(); return; }
       _updateNativeView('recording', { level: _roomLevel(analyser, buf), paused: _roomRecorderPaused() });
     };
+    _roomMicLostDone = false;
+    _roomP2Held = false;
     if (_roomLevelTimer) _clearManagedEffect('recording-level', _roomLevelTimer, 'interval');
     tick();
     _roomLevelTimer = _startManagedInterval('recording-level', tick, _ROOM_LEVEL_MS);
@@ -401,8 +412,105 @@
 
   function _stopRoomLevel() {
     if (!_examRoomMode) return;
+    if (_roomLevelTimer && _roomTrackEnded()) _roomMicLost(true);
     if (_roomLevelTimer) { _clearManagedEffect('recording-level', _roomLevelTimer, 'interval'); _roomLevelTimer = null; }
     _updateNativeView('recording', { level: null, paused: false });
+  }
+
+  // EXAMSPEAK-0072 edge case "Micro bị rút giữa lúc ghi" (R139): the audio
+  // track ends while recording. Stop the take and keep it through the usual
+  // recorded path, where the length gate (FR-005) decides whether it can be
+  // sent; say "Mất kết nối micro", and the next take starts at "Không tìm thấy
+  // micro". The 200 ms level tick notices it, so it needs no extra listener.
+  function _roomStreamTrack() {
+    var native = _getNativeRecorder();
+    var stream = native ? native.stream : _stream;
+    try {
+      return stream && typeof stream.getAudioTracks === 'function' ? stream.getAudioTracks()[0] || null : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _roomTrackEnded() {
+    var track = _roomStreamTrack();
+    return !!(track && track.readyState === 'ended');
+  }
+
+  function _roomRecorderActive() {
+    var native = _getNativeRecorder();
+    var rec = native ? native.recorder : _recorder;
+    return !!(rec && rec.state && rec.state !== 'inactive');
+  }
+
+  // `stopping`: called from _stopRoomLevel, i.e. the take is already on its way
+  // to the recorded path (a MediaRecorder stops by itself when its only track
+  // ends, often before the next level tick).
+  function _roomMicLost(stopping) {
+    if (!_examRoomMode || _roomMicLostDone) return false;
+    _roomMicLostDone = true;
+    _roomMicLostShown = true;
+    _roomMicState = 'not_found';
+    _updateNativeView('mic', { state: 'not_found', lost: true });
+    if (stopping) {
+      // The legacy recorder's onstop does not clear the P1/P3 elapsed timer.
+      if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
+      // The Part 2 countdown would otherwise try to stop the recorder again at
+      // the end and report a failure over the kept take.
+      if (_currentState === 'p2c') {
+        if (_p2SpeakTimerId) { _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval'); _p2SpeakTimerId = null; }
+        _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
+      }
+      return true;
+    }
+    // A MediaRecorder whose only track ended may already have stopped by itself;
+    // its onstop then delivers the take, and stopping again would report a
+    // failure and drop it.
+    var active = _roomRecorderActive();
+    if (_currentState === 'p2c') {
+      if (_p2SpeakTimerId) { _clearManagedEffect('p2-speak-countdown', _p2SpeakTimerId, 'interval'); _p2SpeakTimerId = null; }
+      _clearManagedEffect('p2-thank-you-delay', null, 'timeout');
+      if (active) _stopP2SpeakingInternal();
+      else _stopWaveform();
+    } else if (_recSubState === 'recording') {
+      if (active) stopRecording();
+      else {
+        if (_timerId) { _clearManagedEffect('recording-elapsed', _timerId, 'interval'); _timerId = null; }
+        _stopWaveform();
+      }
+    } else {
+      _stopWaveform();
+    }
+    return true;
+  }
+
+  // Part 2 sends its take as soon as it ends (Full Test moves on, practice goes
+  // to grading). A take cut by a lost microphone is held on the cue card
+  // instead, under the "Mất kết nối micro" box, so the learner sees the warning
+  // and chooses to send it or record again; the leave box counts it meanwhile.
+  var _roomP2Held = false;
+
+  function _roomHoldLostP2Take() {
+    if (!_examRoomMode || !_roomMicLostDone) return false;
+    _roomP2Held = true;
+    _recordingDirty = true;
+    _showP2SubmissionRetry('Mất kết nối micro giữa lúc nói. Phần đã ghi được giữ lại: nghe lại, rồi gửi bản ghi này hoặc ghi lại.');
+    return true;
+  }
+
+  // "Gửi lại bản ghi" on a held take. Practice sends it the usual way; a Full
+  // Test sends it the way an uncut take would have gone, and moves on.
+  function _roomSendHeldP2Take() {
+    if (!_examRoomMode || !_roomP2Held) return false;
+    _roomP2Held = false;
+    if (_testMode !== 'test_full') return false;
+    var questionId = _p2RetryQuestionId;
+    var blob = _recordedBlob;
+    _clearP2SubmissionRetry();
+    _recordingDirty = false;
+    _submitGradingEager(_sessionId, questionId, blob);
+    _advanceTestMode();
+    return true;
   }
 
   function _roomTooShort(section, part, durationSeconds, minSeconds) {
@@ -536,6 +644,80 @@
 
   function _roomSessionBack() {
     _roomSignedOut = false;
+  }
+
+  // R149 (EXAMSPEAK-0072 "Hai tab cùng phiên", EXAMROOM-0066 FR-017): the room
+  // holds the one-writing-tab lock and tells practice.js whether this tab may
+  // write. A read-only tab opens no microphone and uploads nothing.
+  function _roomReadOnly() {
+    return _examRoomMode && _roomWriteRight === false;
+  }
+
+  function setWriteRight(allowed) {
+    if (!_examRoomMode) return;
+    _roomWriteRight = allowed !== false;
+    if (_roomWriteRight && _roomResumeCompletionPending) retryResumeCompletion();
+  }
+
+  // A recorder still starting (the browser's microphone box may be open)
+  // records once it settles, so while any start is pending this tab refuses a
+  // hand-over (CR #2649). Every await of a recorder start runs through here.
+  var _roomRecStarting = 0;
+  function _roomStarting(run) {
+    _roomRecStarting += 1;
+    var done = function () { _roomRecStarting -= 1; };
+    var pending;
+    try {
+      pending = Promise.resolve(run());
+    } catch (err) {
+      done();
+      return Promise.reject(err);
+    }
+    return pending.then(function (value) { done(); return value; }, function (err) { done(); throw err; });
+  }
+
+  // A start that settles after this tab lost the write right drops the
+  // microphone instead of recording here.
+  function _roomStartLost(nativeRecorder) {
+    if (!_roomReadOnly()) return false;
+    if (nativeRecorder) {
+      nativeRecorder.release();
+    } else if (_stream) {
+      _stream.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} });
+      _stream = null;
+    }
+    _analyser = null;
+    return true;
+  }
+
+  // The hand-over flush. Speaking keeps unsent takes only in page memory
+  // (FR-009), so they can never be "secured" by a flush: with any take still
+  // recording, unsent, or uploading, this tab refuses to hand over.
+  // A Nộp still waiting for the server keeps this tab the writer until the
+  // completion answers or fails (block on #2712): the other tab would reload
+  // into a session that is about to close.
+  var _roomCompleting = 0;
+  function _roomAwaitCompletion(promise) {
+    if (!_examRoomMode) return promise;
+    _roomCompleting++;
+    return Promise.resolve(promise).finally(function () { _roomCompleting--; });
+  }
+
+  function roomFlush() {
+    var busy = _roomUnsentCount();
+    if (_roomCompleting > 0) busy += 1;
+    if (_sheet && Array.isArray(_sheet.slots)) {
+      busy += _sheet.slots.filter(function (slot) {
+        return !slot.retryBlob && (slot.state === 'grading' || slot.state === 'recording');
+      }).length;
+    }
+    // Part 2 keeps its take outside the answer sheet (CR #2649, Codex P2):
+    // speaking, uploading, or kept for a retry after a failed send.
+    if (_currentState === 'p2c' || _currentState === 'processing') busy += 1;
+    if (_roomRecStarting > 0 && busy === 0) busy = 1;
+    if (_p2RetryQuestionId) busy += 1;
+    if (_hasUnsentWork() && busy === 0) busy = 1;
+    return Promise.resolve({ secured: busy === 0, unsaved: busy });
   }
 
   // Full Test answers already handed to the upload queue but not confirmed
@@ -1083,19 +1265,22 @@
     _renderTimer();
     var micBefore = _roomMicBeforeStart();
     try {
-      var started = await nativeRecorder.start({
-        maxSeconds: MAX_RECORD_SEC[_sessionData ? _sessionData.part : 1] || 90,
-        onTick: function (seconds) {
-          _elapsedSecs = seconds;
-          _renderTimer();
-        },
-        onRecorded: _handleRecordedBlob,
+      var started = await _roomStarting(function () {
+        return nativeRecorder.start({
+          maxSeconds: MAX_RECORD_SEC[_sessionData ? _sessionData.part : 1] || 90,
+          onTick: function (seconds) {
+            _elapsedSecs = seconds;
+            _renderTimer();
+          },
+          onRecorded: _handleRecordedBlob,
+        });
       });
       if (!_playerActive || generation !== _playerGeneration) {
         nativeRecorder.reset();
         return false;
       }
       _roomMicSettled(started, micBefore);
+      if (started && _roomStartLost(nativeRecorder)) return false;
       if (!started) {
         // A concurrent click may still own the pending permission request; a
         // sheet slot may also deliberately cancel it. Neither is a mic error.
@@ -1120,6 +1305,7 @@
 
   async function startRecording() {
     if (_recSubState === 'recording') return false;
+    if (_roomReadOnly()) return false;
     _stopAITts();
     _cancelSpeech();
     _clearRecError();
@@ -1140,7 +1326,9 @@
     // Request mic (reuse existing stream across questions)
     if (!_stream || !_stream.active) {
       try {
-        _stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        _stream = await _roomStarting(function () {
+          return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        });
       } catch (err) {
         var msg;
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -1162,7 +1350,7 @@
       if (!_audioCtx || _audioCtx.state === 'closed') {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
-      if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+      if (_audioCtx.state === 'suspended') await _roomStarting(function () { return _audioCtx.resume(); });
       var src = _audioCtx.createMediaStreamSource(_stream);
       _analyser = _audioCtx.createAnalyser();
       _analyser.fftSize = 256;
@@ -1170,6 +1358,8 @@
     } catch (_) {
       _analyser = null;
     }
+
+    if (_roomStartLost(null)) return false;
 
     // Pick supported MIME type (engine-aware — see _mimeCandidates)
     var mimeType = '';
@@ -1415,6 +1605,7 @@
   }
 
   function submitRecording() {
+    if (_roomReadOnly()) return;
     if (!_recordedBlob) {
       _showRecError('Chưa có bản ghi âm. Hãy nhấn "Bắt đầu ghi âm" và ghi âm câu trả lời trước.');
       return;
@@ -3532,11 +3723,13 @@
   }
 
   function retryP2Submission() {
+    if (_roomReadOnly()) return;
     if (!_recordedBlob || !_p2RetryQuestionId) {
       discardP2SubmissionRetry();
       showError('Không còn bản ghi để gửi lại. Hãy ghi âm lại câu trả lời.');
       return;
     }
+    if (_roomSendHeldP2Take()) return;
     _startProcessing(_recordedBlob, _p2RetryQuestionId);
   }
 
@@ -3547,6 +3740,7 @@
     _showP2Cue();
   }
   function startP2Prep() {
+    if (_roomReadOnly()) return;
     _clearP2SubmissionRetry();
     _roomView('part2', { tooShort: null });
     _stopAITts();
@@ -3626,6 +3820,7 @@
     var questionId = _currentQ && (_currentQ.id || _currentQ.question_id);
 
     if (_checkRecordedLength()) return;
+    if (_roomHoldLostP2Take()) return;
 
     // Test modes: advance immediately (no grading spinner)
     if (_testMode === 'test_full') {
@@ -3640,6 +3835,7 @@
   }
 
   async function _startP2Speaking() {
+    if (_roomReadOnly()) return;
     var generation = _playerGeneration;
     // Part 2 has its own recorder entry point, so clear any previous take even
     // when the native controller owns the device lifecycle.
@@ -3651,16 +3847,19 @@
     if (nativeRecorder) {
       var micBefore = _roomMicBeforeStart();
       try {
-        var started = await nativeRecorder.start({
-          // Part 2 owns its 120-second countdown + "Thank you" delay below.
-          maxSeconds: 0,
-          onRecorded: _handleP2RecordedBlob,
+        var started = await _roomStarting(function () {
+          return nativeRecorder.start({
+            // Part 2 owns its 120-second countdown + "Thank you" delay below.
+            maxSeconds: 0,
+            onRecorded: _handleP2RecordedBlob,
+          });
         });
         if (!_playerActive || generation !== _playerGeneration) {
           nativeRecorder.reset();
           return;
         }
         _roomMicSettled(started, micBefore);
+        if (started && _roomStartLost(nativeRecorder)) return;
         if (!started) {
           // A concurrent start is still in charge and should stay silent. Any
           // settled false result otherwise needs a visible recovery path.
@@ -3687,7 +3886,9 @@
 
     if (!_stream || !_stream.active) {
       try {
-        _stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        _stream = await _roomStarting(function () {
+          return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        });
       } catch (err) {
         showError('Không thể mở microphone: ' + err.message);
         return;
@@ -3698,7 +3899,7 @@
       if (!_audioCtx || _audioCtx.state === 'closed') {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
-      if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+      if (_audioCtx.state === 'suspended') await _roomStarting(function () { return _audioCtx.resume(); });
       var src = _audioCtx.createMediaStreamSource(_stream);
       _analyser = _audioCtx.createAnalyser();
       _analyser.fftSize = 256;
@@ -3706,6 +3907,8 @@
     } catch (_) {
       _analyser = null;
     }
+
+    if (_roomStartLost(null)) return;
 
     var mimeType = '';
     var candidates = _mimeCandidates();
@@ -4193,6 +4396,7 @@
   }
 
   function retryFullTestSubmissions() {
+    if (_roomReadOnly()) return;
     if (_fullTestRetryInFlight) return;
     var nativeFullTest = _getNativeFullTest();
     if (!nativeFullTest) return;
@@ -4408,7 +4612,37 @@
     }
   }
 
+  async function retryResumeCompletion() {
+    if (!_roomResumeCompletionPending || _roomReadOnly() || !_playerActive) return;
+    var generation = _playerGeneration;
+    var sessionId = _sessionId;
+    _roomResumeCompletionPending = false;
+    _updateNativeView('frame', { retryResumeCompletionVisible: false });
+    _setLoadingMessage('Đang xác nhận hoàn tất bài Speaking…');
+    showState('loading');
+    try {
+      var reply = await _roomAwaitCompletion(_completeSpeakingSession(sessionId));
+      if (!reply || reply.status !== 'completed' || (reply.session_id || reply.id) !== sessionId) {
+        throw new Error('Completion unconfirmed');
+      }
+    } catch (err) {
+      if (!_playerActive || generation !== _playerGeneration) return;
+      _roomResumeCompletionPending = true;
+      _updateNativeView('frame', { retryResumeCompletionVisible: true });
+      showError('Máy chủ chưa xác nhận hoàn tất bài Speaking. Các câu trả lời đã được lưu.');
+      _roomExpired(err);
+      return;
+    }
+    if (!_playerActive || generation !== _playerGeneration) return;
+    if (_roomReadOnly()) {
+      _roomResumeCompletionPending = true;
+      return;
+    }
+    _navigateTo(_singleSessionResultUrl(sessionId));
+  }
+
   function _finishTestAndShowResults() {
+    if (_roomReadOnly()) return;
     _releaseRecorderResources();
     // Complete ALL part sessions best-effort (fire and forget).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
@@ -5335,6 +5569,7 @@
     var generation = _playerGeneration;
     var s = _sheet && _sheet.slots[i];
     if (!s) return;
+    if (_roomReadOnly() && _sheet.recIdx !== i) return; // R149: stop only
     if (_sheet.recIdx === i) {
       var pendingRecorder = _getNativeRecorder();
       if (pendingRecorder && pendingRecorder.isStarting()) {
@@ -5416,6 +5651,7 @@
   }
 
   function _sheetRetrySubmission(i) {
+    if (_roomReadOnly()) return;
     var s = _sheet && _sheet.slots[i];
     if (!s || !s.retryBlob || s.state === 'grading') return;
     _sheetSubmitBlob(s, s.retryBlob, s.retryHadWork || null, s.retryDuration);
@@ -5601,6 +5837,9 @@
 
   async function _sheetSubmit() {
     if (_sheetSubmitting) return;
+    // R149 CR: only the writing tab may complete the session (0066 FR-017); a
+    // read-only tab does not see the other tab's unsent takes.
+    if (_roomReadOnly()) return;
     var generation = _playerGeneration;
     var sessionId = _sessionId;
     var unsent = _sheet && _sheet.slots
@@ -5639,7 +5878,7 @@
     // re-record can still acquire a fresh controller session.
     _releaseRecorderResources();
     try {
-      await _completeSpeakingSession(sessionId);
+      await _roomAwaitCompletion(_completeSpeakingSession(sessionId));
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       _sheetSubmitting = false;
@@ -5690,6 +5929,7 @@
   }
 
   async function finishSession() {
+    if (_roomReadOnly()) return;
     var generation = _playerGeneration;
     var sessionId = _sessionId;
     if (_recSubState === 'recording') {
@@ -5724,7 +5964,7 @@
     _feedbackAudioIsBlob = false;
 
     try {
-      await _completeSpeakingSession(sessionId);
+      await _roomAwaitCompletion(_completeSpeakingSession(sessionId));
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       console.warn('[practice] session complete failed:', err.message);
@@ -5744,6 +5984,7 @@
   function destroy() {
     if (!_playerActive) return;
     _playerActive = false;
+    _roomResumeCompletionPending = false;
     _playerGeneration++;
     _processingRun++;
     _sheetReviewRun++;
@@ -5937,6 +6178,7 @@
   async function init(bootstrap) {
     var generation = ++_playerGeneration;
     _playerActive = true;
+    _roomResumeCompletionPending = false;
     _sittingId = null;
     _ftAllSessionIds = [];
     _sheet = null;
@@ -5979,6 +6221,9 @@
       _rendererAffinity = 'next';
       _navigate = typeof bootstrap.navigate === 'function' ? bootstrap.navigate : null;
       _examRoomMode = bootstrap.examRoomMode === true;
+      // R149 CR: with the room on, nothing records or sends until the tab
+      // lock answers; the room grants the right (writer, or no lock to take).
+      _roomWriteRight = !_examRoomMode;
       _roomDetectMic();
     } else {
       var sb = window.getSupabase && window.getSupabase();
@@ -6175,8 +6420,13 @@
         if (_currentIdx >= _questions.length) {
           // Refresh landed AFTER the last answer was submitted: everything
           // is graded — complete the session and go straight to the
-          // canonical result page.
-          _finishTestAndShowResults();
+          // canonical result page once this tab has the write right.
+          if (_examRoomMode) {
+            _roomResumeCompletionPending = true;
+            retryResumeCompletion();
+          } else {
+            _finishTestAndShowResults();
+          }
           return;
         }
       }
@@ -6304,6 +6554,9 @@
     retainExpiredSession: retainExpiredSession,
     canLeave:             _canLeave,
     requestMicrophone:    requestMicrophone,
+    setWriteRight:        setWriteRight,
+    retryResumeCompletion: retryResumeCompletion,
+    roomFlush:            roomFlush,
     requestLeave:         requestLeave,
     confirmLeave:         confirmLeave,
     leaveConfirmed:       leaveConfirmed,

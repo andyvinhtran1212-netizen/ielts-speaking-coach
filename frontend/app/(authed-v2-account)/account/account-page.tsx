@@ -13,7 +13,12 @@
 // - G04 not there yet (404 or another shape): the class group comes from
 //   `/api/class/me` and the online group says "Thông tin khoá online sẽ có khi
 //   bạn đăng ký". No credit number is shown at all, never a 0.
-// - G04-T18's "Dữ liệu của tôi" block (FR-089) is not merged, so it is hidden.
+// - ACCOUNTDATA-0100 (G04-T18, routes of #2600): the page first reads
+//   `GET /api/account/deletion-request`. While a deletion is pending (or
+//   erasing) every other learner route answers 403, so the page shows only the
+//   notice with "Huỷ yêu cầu xoá" and the "Dữ liệu của tôi" block. Otherwise it
+//   shows the usual blocks plus "Dữ liệu của tôi" and the danger zone. A 404
+//   (routes not deployed) hides both blocks.
 // - Every link goes through `liveHref`: a planned page is never linked.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -24,6 +29,9 @@ import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { PageState } from '@/components/ui/page-state';
 import { liveHref } from '@/components/ui/shell/learner-sections';
+import { DataExportBlock, DeleteAccountZone, PendingDeletionNotice } from '@/components/learner/account-data';
+import { useLearnerMe } from '@/components/learner/learner-frame';
+import { normalizeDeletion, type DeletionView } from '@/lib/account-data-model.mjs';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   carryLine,
@@ -46,10 +54,13 @@ import styles from './account.module.css';
 
 type Read<Path extends ApiGetPath> = { ok: true; data: ApiGetJson<Path> } | { ok: false; status: number | null };
 type ClassRow = ReturnType<typeof classesFromClassMe>[number];
+/** `absent`: the ACCOUNTDATA-0100 routes answer 404 (not deployed). */
+type DataRights = 'absent' | 'failed' | 'none';
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error' }
-  | { kind: 'ready'; courses: MyCourses | null; coursesFailed: boolean; classes: ClassRow[]; classesIncomplete: boolean };
+  | { kind: 'pending'; deletion: DeletionView }
+  | { kind: 'ready'; courses: MyCourses | null; coursesFailed: boolean; classes: ClassRow[]; classesIncomplete: boolean; dataRights: DataRights };
 type History =
   | { kind: 'idle' }
   | { kind: 'loading' }
@@ -158,13 +169,25 @@ export function AccountPage() {
       </div>
     );
   }
-  return <AccountContent key={accountId} />;
+  return <AccountContent key={accountId} email={user?.email ?? null} />;
 }
 
-function AccountContent() {
+function AccountContent({ email }: { email: string | null }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [history, setHistory] = useState<History>({ kind: 'idle' });
+  const [reload, setReload] = useState(0);
+  const [cancelled, setCancelled] = useState(false);
+  const [exportAbsent, setExportAbsent] = useState(false);
   const alive = useRef<AbortController | null>(null);
+  const learner = useLearnerMe();
+  const role = learner.status === 'ready' ? learner.me?.role ?? null : null;
+  const onCancelled = useCallback(() => { setCancelled(true); setReload((n) => n + 1); }, []);
+  const onErasing = useCallback(() => {
+    setPhase((current) => current.kind === 'pending'
+      ? { kind: 'pending', deletion: { ...current.deletion, status: 'erasing' } }
+      : current);
+  }, []);
+  const onExportAbsent = useCallback(() => setExportAbsent(true), []);
 
   const loadHistory = useCallback(async (signal: AbortSignal) => {
     setHistory({ kind: 'loading' });
@@ -183,6 +206,12 @@ function AccountContent() {
       const ok = await whenGlobalReady(() => typeof window.api?.getWith === 'function', 'window.api (account)');
       if (abort.signal.aborted) return;
       if (!ok) { setPhase({ kind: 'error' }); return; }
+      // ACCOUNTDATA-0100 FR-003: read first; a pending account reaches no other route.
+      const del = await read('/api/account/deletion-request', abort.signal);
+      if (abort.signal.aborted) return;
+      const deletion = del.ok ? normalizeDeletion(del.data) : null;
+      if (deletion && deletion.status !== 'none') { setPhase({ kind: 'pending', deletion }); return; }
+      const dataRights: DataRights = deletion ? 'none' : (!del.ok && del.status === 404 ? 'absent' : 'failed');
       const res = await read('/api/me/courses', abort.signal);
       if (abort.signal.aborted) return;
       const courses = res.ok ? normalizeMyCourses(res.data) : null;
@@ -197,11 +226,11 @@ function AccountContent() {
         classes = cls.ok ? classesFromClassMe(cls.data) : [];
         classesIncomplete = !cls.ok || classMeIncomplete(cls.data);
       }
-      setPhase({ kind: 'ready', courses, coursesFailed, classes, classesIncomplete });
+      setPhase({ kind: 'ready', courses, coursesFailed, classes, classesIncomplete, dataRights });
       if (courses) void loadHistory(abort.signal);
     })();
     return () => abort.abort();
-  }, [loadHistory]);
+  }, [loadHistory, reload]);
 
   const loadMore = useCallback(async () => {
     if (history.kind !== 'ready' || !history.nextCursor || history.more === 'loading') return;
@@ -239,8 +268,20 @@ function AccountContent() {
         />
       ) : null}
 
+      {phase.kind === 'pending' ? (
+        <>
+          <PendingDeletionNotice view={phase.deletion} onCancelled={onCancelled} onErasing={onErasing} />
+          {phase.deletion.status === 'pending' ? <DataExportBlock /> : null}
+        </>
+      ) : null}
+
       {phase.kind === 'ready' ? (
         <>
+          {cancelled ? (
+            <Notice kind="success" live="status" className={styles.notice}>
+              Đã huỷ yêu cầu xoá. Bạn học tiếp bình thường.
+            </Notice>
+          ) : null}
           {phase.coursesFailed ? (
             <Notice kind="error" live="alert" className={styles.notice}>
               Chưa tải được thông tin khoá. Tải lại trang để thử lại.
@@ -359,6 +400,14 @@ function AccountContent() {
               {actions.map((a) => <Button key={a.href} variant="secondary" href={a.href}>{a.label}</Button>)}
             </nav>
           ) : null}
+
+          {phase.dataRights === 'failed' ? (
+            <Notice kind="error" live="alert" className={styles.notice}>
+              Chưa tải được phần dữ liệu và xoá tài khoản. Tải lại trang để thử lại.
+            </Notice>
+          ) : null}
+          {phase.dataRights === 'none' && !exportAbsent ? <DataExportBlock onUnavailable={onExportAbsent} /> : null}
+          {phase.dataRights === 'none' ? <DeleteAccountZone email={email} role={role} /> : null}
         </>
       ) : null}
     </div>

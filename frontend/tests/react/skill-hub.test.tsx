@@ -10,7 +10,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SkillHub } from '@/components/learner/skill-hub/skill-hub';
 
 const replace = vi.fn();
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, push: vi.fn() }) }));
+const push = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, push }) }));
+const admission = vi.hoisted(() => vi.fn(async (_s: string, q: Record<string, string>) =>
+  `/practice/session?session_id=${q.session_id}`));
+vi.mock('@/lib/core-player-affinity.mjs', () => ({ resolveCorePlayerAdmissionForNavigation: admission }));
 
 const auth = vi.hoisted(() => ({ status: 'signed-in', user: { id: 'learner-1', email: null } }));
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => auth }));
@@ -50,9 +54,12 @@ const FULL = {
 
 let get: ReturnType<typeof vi.fn>;
 
+let post: ReturnType<typeof vi.fn>;
+
 function mount(skill: 'speaking' | 'writing' | 'listening' | 'reading', body: unknown) {
   get = vi.fn(async () => body);
-  Object.defineProperty(window, 'api', { configurable: true, value: { get, post: vi.fn() } });
+  post = vi.fn(async () => ({ id: 'sess-1' }));
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, post } });
   return render(<SkillHub skill={skill} accountId="learner-1" />);
 }
 
@@ -111,6 +118,39 @@ it('a starter shows only when the server sends one, with the credit sentence', a
   }));
   const block = await screen.findByRole('region', { name: 'Bắt đầu với một bài' });
   expect(within(block).getByText('Nộp bài để AI chấm sẽ dùng 1 lượt.')).toBeTruthy();
+});
+
+it('a Speaking starter opens its session through POST /sessions (T25s)', async () => {
+  push.mockClear();
+  mount('speaking', payload('speaking', {
+    starter: { title: 'Hometown', meta: 'Speaking Part 2', uses_credit: true, href: '/speaking?view=all',
+      session_params: { mode: 'practice', part: 2, topic: 'Hometown' } },
+  }));
+  const block = await screen.findByRole('region', { name: 'Bắt đầu với một bài' });
+  const button = within(block).getByRole('button', { name: 'Bắt đầu' });
+  expect(within(block).queryByRole('link')).toBeNull();
+  await act(async () => { fireEvent.click(button); });
+  expect(post).toHaveBeenCalledWith('/sessions', { mode: 'practice', part: 2, topic: 'Hometown' });
+  await waitFor(() => expect(push).toHaveBeenCalledWith('/practice/session?session_id=sess-1'));
+  expect(admission).toHaveBeenCalledWith('speaking', { session_id: 'sess-1' });
+});
+
+it('a Reading starter is a plain link; bad session_params fall back to the link', async () => {
+  const view = mount('reading', payload('reading', {
+    starter: { title: 'Reading A', meta: 'Reading · đề đầy đủ', uses_credit: false,
+      href: '/core-player/launch?surface=reading_exam&test_id=R-01',
+      session_params: { mode: 'practice', part: 2, topic: 'x' } },
+  }));
+  let block = await screen.findByRole('region', { name: 'Bắt đầu với một bài' });
+  expect(within(block).getByRole('link', { name: 'Bắt đầu' }).getAttribute('href'))
+    .toBe('/core-player/launch?surface=reading_exam&test_id=R-01');
+  view.unmount();
+  mount('speaking', payload('speaking', {
+    starter: { title: 'Hometown', uses_credit: true, href: '/speaking?view=all',
+      session_params: { mode: 'exam', part: 7, topic: '' } },
+  }));
+  block = await screen.findByRole('region', { name: 'Bắt đầu với một bài' });
+  expect(within(block).getByRole('link', { name: 'Bắt đầu' }).getAttribute('href')).toBe('/speaking?view=all');
 });
 
 it('out of credits (màn 5): only metered + 0 shows CreditsEmptyNotice', async () => {

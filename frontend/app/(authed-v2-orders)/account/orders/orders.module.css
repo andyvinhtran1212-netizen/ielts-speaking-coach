@@ -1,0 +1,42 @@
+/* /account/orders on the "Bản in" tokens (ENROLL-0060 FR-041). Only var(--av2-*). */
+.page { max-width: 960px; margin: 0 auto; padding: var(--av2-space-10) var(--av2-space-7) var(--av2-space-11); }
+.header { margin-bottom: var(--av2-space-9); }
+.eyebrow { margin: 0 0 var(--av2-space-4); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.title.title { margin: 0; font-family: var(--av2-font-serif); font-size: var(--av2-fs-40); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); color: var(--av2-ink); }
+
+.missing { margin-bottom: var(--av2-space-8); }
+
+.empty { padding: var(--av2-space-9) 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.emptyTitle { margin: 0 0 var(--av2-space-7); font-family: var(--av2-font-serif); font-size: var(--av2-fs-20); font-weight: var(--av2-fw-strong); color: var(--av2-ink); }
+.emptyActions { display: flex; flex-wrap: wrap; gap: var(--av2-space-6); }
+
+.table { width: 100%; border-collapse: collapse; font-size: var(--av2-fs-14); }
+.caption { caption-side: top; padding-bottom: var(--av2-space-6); text-align: left; color: var(--av2-muted); }
+.table th, .table td { padding: var(--av2-space-6) var(--av2-space-6) var(--av2-space-6) 0; text-align: left; vertical-align: top; color: var(--av2-ink); }
+.table thead th { padding-top: 0; border-bottom: var(--av2-rule-strong-w) solid var(--av2-ink); font-weight: var(--av2-fw-strong); color: var(--av2-muted); }
+.table tbody tr { border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+.course { font-weight: var(--av2-fw-strong); overflow-wrap: anywhere; }
+.short { display: none; }
+.code { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.status { font-weight: var(--av2-fw-strong); white-space: nowrap; }
+.next { text-align: right; white-space: nowrap; }
+.action { color: var(--av2-ink); font-weight: var(--av2-fw-strong); }
+.action:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.more { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-6); margin-top: var(--av2-space-8); }
+.moreError { margin: 0; font-size: var(--av2-fs-14); color: var(--av2-ink); }
+
+/* 390 px: each row is a card; the short title replaces the long one. */
+@media (max-width: 767px) {
+  .page { padding: var(--av2-space-8) var(--av2-space-6) var(--av2-space-10); }
+  .table, .table tbody, .table tr, .table th, .table td { display: block; }
+  .table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .table tbody tr { padding: var(--av2-space-6) 0; }
+  .table th, .table td { padding: var(--av2-space-2) 0; }
+  .table td[data-label]::before { content: attr(data-label) ": "; color: var(--av2-muted); }
+  .course { font-size: var(--av2-fs-16); }
+  .full { display: none; }
+  .short { display: inline; }
+  .next { padding-top: var(--av2-space-4); text-align: left; }
+}

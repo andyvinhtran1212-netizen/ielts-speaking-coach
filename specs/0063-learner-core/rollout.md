@@ -18,6 +18,11 @@
 - Bản sửa đổi 4 (có migration): trước khi áp migration T31 trên staging, chạy truy vấn chỉ đọc đếm dòng `flag` trùng (anh Andy gõ duyệt); 0 thì áp migration bằng runner có khoá advisory (anh gõ duyệt), rồi merge PR T31; khác 0 thì dừng theo câu hỏi mở 14. Production: cùng thứ tự trong cửa sổ promote, đếm lại ngay trước khi áp.
 - Bản sửa đổi 5 (không migration): PR T25 sau T16; chạy kịch bản 15 ở `verification.md`.
 - Bản sửa đổi 6 (không migration): PR T30c sau T30a; chạy kịch bản 16 ở `verification.md`.
+- Đề khởi đầu (FR-126, PR T25s sau T25 và T30b, không migration, cần mig 440 đã áp): tới khi có thẻ "Đề khởi đầu" trên trang Cài đặt admin, đặt đề bằng API, mỗi lần ghi cần anh Andy gõ duyệt:
+  1. Chọn đề: Reading/Listening lấy `id` (UUID) của đề đang ở thư viện tự luyện công khai; Speaking lấy `id` của chủ đề đang bật trong ngân hàng chủ đề. Writing chưa đặt được (`starter_unsupported`).
+  2. `PATCH /admin/settings/learner-starters` bằng phiên admin (AAL2), thân `{"changes": [{"skill": "reading", "value": {"test_uuid": "<uuid>"}}], "reason": "<lý do>"}`; Speaking dùng `{"topic_id": "<uuid>"}`, bỏ đề dùng `"value": null`. Chỉ các kỹ năng gửi lên bị đổi.
+  3. Đọc lại: `GET /admin/settings/learner-starters` phải trả `available: true` và đúng tiêu đề; `GET /admin/settings/log?section=starters` có một dòng mới với lý do.
+  4. Bằng tài khoản QA chưa làm bài kỹ năng đó (cờ `learner_v2` bật lẻ): mở trang kỹ năng, thấy khối "Bắt đầu với một bài"; bấm "Bắt đầu" mở đúng đề (Speaking tạo phiên rồi vào `/practice/session`).
 
 ## Production
 
@@ -31,6 +36,7 @@
 - Cờ: revert PR T05; frontend đọc mềm nên thiếu trường = false.
 - Lộ trình, Luyện tập, Thi thử (bản sửa đổi 1): tắt `runtime_flags('learner_v2')` đưa người bật lẻ về trang tạm; revert PR T15/T16 đưa registry về `planned` và thanh 5 mục về `NAV_PLAN.today`. Hai API mới chỉ đọc, không dữ liệu nào phải sửa.
 - Tài khoản chưa kích hoạt (bản sửa đổi 2): tắt `runtime_flags('learner_v2')`: sau bộ đệm cờ 15 giây, lần tải trang kế tiếp của tài khoản chưa kích hoạt (tab của họ không có dấu đã kích hoạt nên lần tải nào cũng hỏi `check-active`) đưa họ về `/login` như hôm nay; trang đang mở không bị đẩy ra giữa chừng, còn hai route miễn trả 403 như cổng ngay khi cờ tắt (handler đọc cờ); revert PR T26 bỏ hai dòng miễn cổng và quyết định `inactive_open` cùng lúc. `PATCH /auth/profile` còn tắt được riêng bằng cờ `profile_update` hiện có.
+- Đề khởi đầu (FR-126): gỡ một đề bằng `PATCH` với `"value": null` (có lý do, có nhật ký); khối ẩn ngay khi đề đóng hoặc bị gỡ (bộ đệm 60 giây). Revert PR T25s: khoá `learner_starters` còn trong `admin_settings` nhưng không ai đọc.
 - Buổi học (bản sửa đổi 6): tắt cờ về `/my-class`; revert PR T30c bỏ thẻ và trường `lesson_id` (chỉ thêm, không ai khác đọc).
 - Hub kỹ năng (bản sửa đổi 5): tắt cờ về bốn trang cũ (`/reading` về chuyển sang `/reading/vocab`); revert PR T25 đưa `/reading` về `redirect()` phía máy chủ như cũ.
 - Xem lại bài (bản sửa đổi 4): tắt cờ về workspace cũ; revert PR T31 bỏ route ghi chú và 409 (frontend cũ không gọi). Hai chỉ mục giữ lại vô hại; bỏ bằng file rollback khi cần. Bảng `review_notes` giữ khi revert mã; chỉ xoá khi anh duyệt.

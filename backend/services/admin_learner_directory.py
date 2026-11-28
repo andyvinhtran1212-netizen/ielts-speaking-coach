@@ -217,6 +217,9 @@ def learner_row(person: Person, cohorts: Optional[list[dict]], attention: list[d
     user, student = person.user, person.student
     return {
         "ref": person.ref,
+        # The profile id class writes take (bulk "Gán vào lớp", G09-T10); None
+        # for an account with no learner profile.
+        "student_id": person.student_id,
         "name": person.name,
         "email": (user or {}).get("email") or None,
         "student_code": (student or {}).get("student_code") or None,

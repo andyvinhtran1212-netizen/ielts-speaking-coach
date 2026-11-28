@@ -35,6 +35,9 @@ import {
   reviewExplanationUnavailableReason,
 } from '@/components/review-attempt-context';
 import { leaveForParent } from '@/lib/redirect-notice-model.mjs';
+import { onlyWrongFromSearch, withOnlyWrong } from '@/lib/review-v2-model.mjs';
+import { useReviewV2 } from '@/components/review-v2/review-v2-context';
+import { ReviewNote, useReviewNotes } from '@/components/review-v2/review-note';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type Filter = 'wrong' | 'blank' | 'all' | 'correct';
@@ -150,12 +153,14 @@ function ScriptBlock({ value }: { value: unknown }) {
     : <span className="lr-tx-text" key={index}>{row.parts}{' '}</span>)}</>;
 }
 
-function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
+function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview, flagged }: {
   cardRef: React.RefObject<HTMLElement | null>;
   topRef: React.RefObject<HTMLDivElement | null>;
   item: any;
   attemptId: string | null;
   preview: boolean;
+  /** LEARNERCORE-0063 FR-109: already flagged by this learner → "Đã báo lỗi". */
+  flagged: boolean;
 }) {
   useEffect(() => {
     if (preview || !attemptId) return;
@@ -172,16 +177,20 @@ function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
           attemptId,
           qNum: item.q_num,
           anonId: null,
+          flagged,
         });
       }
     });
     return () => { disposed = true; };
-  }, [attemptId, cardRef, item.q_num, preview, topRef]);
+  }, [attemptId, cardRef, flagged, item.q_num, preview, topRef]);
   return null;
 }
 
-function QuestionCard({ item, expanded, selected, preview, attemptId, webExplanationAccess, onToggle, onLocate, onListenContinuously, onOpenSharedSolution, getAudioPosition }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, webExplanationAccess, flagged, note, onToggle, onLocate, onListenContinuously, onOpenSharedSolution, getAudioPosition }: {
   item: any;
+  flagged: boolean;
+  /** LEARNERCORE-0063 FR-106: the new tree's note box, under the solution. */
+  note: ReactNode;
   expanded: boolean;
   selected: boolean;
   preview: boolean;
@@ -222,7 +231,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
     data-correct={neutral ? undefined : item.correct ? 'true' : 'false'}
     aria-current={selected ? 'true' : undefined}
   >
-    <FeedbackCardBridge cardRef={cardRef} topRef={flagRef} item={item} attemptId={attemptId} preview={preview} />
+    <FeedbackCardBridge cardRef={cardRef} topRef={flagRef} item={item} attemptId={attemptId} preview={preview} flagged={flagged} />
     <div className="lr-card__toolbar">
       <div
         ref={topRef}
@@ -281,6 +290,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
         <SolutionSection label="Script" className="lr-sol__sec--script">{solution.script ? <p><ScriptBlock value={solution.script} /></p> : null}</SolutionSection>
         <SolutionSection label="Bẫy" className="lr-sol__sec--trap">{solution.trap ? <p>{inlineNodes(solution.trap)}</p> : null}</SolutionSection>
       </> : <p className="lr-sol__empty">{reviewExplanationUnavailableReason(webExplanationAccess)}</p>}
+      {note}
     </div>
   </article>;
 }
@@ -322,6 +332,7 @@ function TranscriptPane({ sections, activeSection, activeAnchor, onSection }: {
 
 export function ListeningReviewWorkspace() {
   const { status, user } = useAuth();
+  const v2 = useReviewV2().enabled;
   const [params, setParams] = useState<ReturnType<typeof listeningReviewParams> | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState('');
@@ -393,7 +404,10 @@ export function ListeningReviewWorkspace() {
         setSnapshot({ ownerKey: ownerKey!, data: normalized });
         setActiveSection(normalized.sections[0].section_num);
         setCurrentQuestion(normalized.review[0].q_num);
-        setFilter(normalized.preview ? 'all' : (wrong ? 'wrong' : 'all'));
+        // New tree (FR-105): the filter follows `?only=wrong`, so a reload keeps it.
+        setFilter(normalized.preview ? 'all'
+          : v2 ? (onlyWrongFromSearch(window.location.search) ? 'wrong' : 'all')
+          : (wrong ? 'wrong' : 'all'));
         setPhase('ready');
       } catch (caught) {
         if (requestRef.current !== requestId || controller.signal.aborted) return;
@@ -407,6 +421,7 @@ export function ListeningReviewWorkspace() {
       }
     })();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerKey, params, status, user?.id]);
 
   useEffect(() => {
@@ -432,6 +447,21 @@ export function ListeningReviewWorkspace() {
     return () => { disposed = true; };
   }, [data]);
 
+  // FR-105: the new tree writes the filter into `?only=wrong` (replace, no history entry).
+  useEffect(() => {
+    if (!v2 || phase !== 'ready' || data?.preview) return;
+    const next = withOnlyWrong(window.location.href, filter === 'wrong');
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(window.history.state, '', next);
+    }
+  }, [data?.preview, filter, phase, v2]);
+
+  const notesEnabled = v2 && phase === 'ready' && Boolean(data?.attemptId) && !data?.preview;
+  const notes = useReviewNotes('listening', notesEnabled ? data!.attemptId : null, notesEnabled);
+  const flaggedSet = useMemo(() => new Set<number>(data?.myFlaggedQNums || []), [data]);
+
+  // The new tree sits inside LearnerShell, which owns the page's <main> and banner.
+  const MainTag = v2 ? 'div' : 'main';
   const totals = useMemo(() => listeningReviewTotals(data?.review), [data]);
   const selfCheckCount = data?.review.filter((item: any) => listeningReviewAnswerState(item) === 'self_check').length || 0;
   const wrongCount = totals.incorrect + totals.unanswered;
@@ -466,7 +496,7 @@ export function ListeningReviewWorkspace() {
   }, [filter]);
 
   return <>
-    <header className="exam-topbar lr-topbar" role="banner">
+    <header className="exam-topbar lr-topbar" role={v2 ? undefined : 'banner'}>
       <div className="lr-topbar__left"><a className="lr-back" href={back.href}>{back.label}</a><span className="lr-test-label">{data?.title || 'Chữa bài'}</span></div>
       <div className="lr-topbar__right">
         {data?.preview ? <p className="lr-preview-banner" role="status">XEM TRƯỚC — chưa ai làm bài này. Ô trả lời để trống và không có điểm; đáp án + giải thích là thật.</p> : null}
@@ -474,12 +504,12 @@ export function ListeningReviewWorkspace() {
       </div>
     </header>
 
-    {phase === 'loading' ? <main className="exam-state-shell"><p className="exam-state-msg" role="status">Đang tải chữa bài…</p></main> : null}
-    {phase === 'empty' ? <main className="exam-state-shell"><p className="exam-state-msg">Không tìm thấy bài làm để chữa.</p></main> : null}
-    {phase === 'error' ? <main className="exam-state-shell"><div className="listening-review-next-error" role="alert"><p className="exam-state-msg exam-state-msg--error">{error}</p><a href={back.href}>{back.label}</a></div></main> : null}
+    {phase === 'loading' ? <MainTag className="exam-state-shell"><p className="exam-state-msg" role="status">Đang tải chữa bài…</p></MainTag> : null}
+    {phase === 'empty' ? <MainTag className="exam-state-shell"><p className="exam-state-msg">Không tìm thấy bài làm để chữa.</p></MainTag> : null}
+    {phase === 'error' ? <MainTag className="exam-state-shell"><div className="listening-review-next-error" role="alert"><p className="exam-state-msg exam-state-msg--error">{error}</p><a href={back.href}>{back.label}</a></div></MainTag> : null}
 
     {phase === 'ready' && data ? <>
-      <main className="exam-split">
+      <MainTag className="exam-split">
         <TranscriptPane sections={data.sections} activeSection={activeSection} activeAnchor={activeAnchor} onSection={(section) => { setActiveSection(section); setActiveAnchor(null); }} />
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions lr-review-pane" aria-label="Chữa từng câu">
@@ -490,7 +520,7 @@ export function ListeningReviewWorkspace() {
               : `${totals.incorrect} câu sai · ${totals.unanswered} câu bỏ trống · ${totals.correct} câu đúng.${selfCheckCount ? ` ${selfCheckCount} câu tự đối chiếu.` : ''} ${wrongCount ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : selfCheckCount ? 'Đối chiếu câu trả lời với đáp án tham khảo và lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}
           </p></div>{!data.preview ? <div className="lr-filter" role="group" aria-label="Lọc kết quả câu hỏi">{([
             ['wrong', 'Cần xem lại'], ['blank', 'Bỏ trống'], ['all', 'Tất cả'], ['correct', 'Đúng'],
-          ] as [Filter, string][]).map(([value, label]) => <button type="button" className={`lr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}</header>
+          ] as [Filter, string][]).map(([value, label]) => <button type="button" className={`lr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}{v2 ? <button type="button" className={`lr-filter__button lr-filter__only-wrong${filter === 'wrong' ? ' is-active' : ''}`} aria-pressed={filter === 'wrong'} onClick={() => setFilter(filter === 'wrong' ? 'all' : 'wrong')}>Chỉ câu sai</button> : null}</div> : null}</header>
           <div className="lr-review">
             {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b><span><small>Nghe</small>Đúng đoạn đáp án</span></span><span><b>2</b><span><small>Đối chiếu</small>Transcript và tín hiệu</span></span><span><b>3</b><span><small>Rút kinh nghiệm</small>Paraphrase và bẫy</span></span></div> : null}
             {skills.length && filter !== 'correct' && !data.preview ? <section className="lr-skills-panel" aria-label="Kĩ năng cần luyện"><div><p className="lr-skills-panel__eyebrow">TỪ CÁC CÂU SAI</p><h3 className="lr-skills-panel__title">Kĩ năng cần luyện</h3><p className="lr-skills-panel__sub">Ưu tiên kĩ năng xuất hiện nhiều nhất trong bài này.</p></div><div className="lr-skills-panel__chips">{skills.map((skill) => <span className="lr-skill-chip" title={skill.label} key={skill.code}><span className="lr-skill-chip__code">{skill.code}</span><span className="lr-skill-chip__label">{skill.label}</span><span className="lr-skill-chip__count">×{skill.count}</span></span>)}</div><a className="lr-skills-panel__cta" href="/listening">Luyện nghe thêm →</a></section> : null}
@@ -501,6 +531,12 @@ export function ListeningReviewWorkspace() {
               preview={data.preview}
               attemptId={data.attemptId}
               webExplanationAccess={data.webExplanationAccess}
+              flagged={flaggedSet.has(item.q_num)}
+              note={notesEnabled && (notes.status === 'loading' || notes.status === 'ready')
+                ? <ReviewNote skill="listening" attemptId={data.attemptId} qNum={item.q_num}
+                  stored={notes.notes.get(item.q_num) ?? null} loading={notes.status === 'loading'}
+                  onSaved={(note) => notes.remember(item.q_num, note)} />
+                : null}
               onToggle={() => {
                 setCurrentQuestion(item.q_num);
                 setExpanded((previous) => {
@@ -521,11 +557,13 @@ export function ListeningReviewWorkspace() {
               }}
               key={item.q_num}
             />)}
-            {!visibleItems.length ? <p className="exam-review-empty">Không có câu nào trong bộ lọc này.</p> : null}
+            {!visibleItems.length ? (v2 && filter === 'wrong' && !wrongCount
+              ? <div className="exam-review-empty rv-all-correct" role="status"><p>Bạn đã trả lời đúng toàn bộ bài này.</p><button type="button" className="lr-filter__button" onClick={() => setFilter('all')}>Tất cả</button></div>
+              : <p className="exam-review-empty">Không có câu nào trong bộ lọc này.</p>) : null}
             <div className="lr-review-feedback" ref={surveyRef} />
           </div>
         </section>
-      </main>
+      </MainTag>
       <footer className="lr-bottombar" role="navigation" aria-label="Phát lại + chọn câu">
         <div className="lr-bottombar__player"><audio-player ref={(node) => { audioRef.current = node as AudioPlayerElement | null; }} compact="" src={data.audioUrl || undefined} duration-hint={data.audioDuration || undefined} /></div>
         <span className="lr-player-label">Bấm mốc thời gian ở mỗi câu để nghe lại đúng đoạn đáp án</span>

@@ -1,0 +1,186 @@
+// ADMINIA-0074 G09-T16 (FR-070…FR-073): Hộp thư sự cố list and group pages.
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const nav = vi.hoisted(() => ({ search: '', push: vi.fn() }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/admin/incidents',
+  useSearchParams: () => new URLSearchParams(nav.search),
+  useRouter: () => ({ push: nav.push }),
+}));
+
+import { AdminIncidents } from '@/app/(authed-admin)/(incidents)/admin/incidents/admin-incidents';
+import { AdminIncidentDetail } from '@/app/(authed-admin)/(incidents)/admin/incidents/[source]/[fingerprint]/admin-incident-detail';
+
+const FP1 = '1'.repeat(40);
+const FP2 = '2'.repeat(40);
+const group = (fp: string, extra: Record<string, unknown> = {}) => ({
+  source: 'errors', fingerprint: fp, title: `Lỗi ${fp[0]}`, area: 'Giao diện', count: 4, learners: 2,
+  first_at: '2026-11-15T01:00:00Z', last_at: '2026-11-16T02:58:00Z', status: 'new', overdue: false, ...extra,
+});
+const page = (extra: Record<string, unknown> = {}) => ({
+  items: [group(FP1), group(FP2, { count: 6, status: 'in_review', claimed_by_name: 'Andy' })],
+  total: 2, page: 1, page_size: 25, counts: { errors: 2, grading: 0, feedback: null },
+  review_items_open: 0, sources_failed: [], truncated: false, sources_truncated: [],
+  generated_at: '2026-11-23T10:00:00Z', ...extra,
+});
+const api = { getWith: vi.fn(), post: vi.fn() };
+
+beforeEach(() => {
+  nav.search = '';
+  nav.push.mockReset();
+  api.getWith.mockReset().mockResolvedValue(page());
+  api.post.mockReset().mockResolvedValue({ changed: 2, conflicts: [], dismiss_failed: [] });
+  Object.assign(window, { api });
+});
+afterEach(() => { cleanup(); });
+
+describe('AdminIncidents', () => {
+  it('asks for open groups by default and shows counts per source', async () => {
+    render(<AdminIncidents />);
+    await screen.findByText('Lỗi 1');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/incidents/groups?status=open&sort=learners&page=1', undefined, undefined);
+    const tabs = screen.getByRole('navigation', { name: 'Nguồn sự cố' });
+    expect(within(tabs).getByRole('link', { name: /Lỗi hệ thống/ }).textContent).toContain('2');
+    // A failed source shows no number rather than 0.
+    expect(within(tabs).getByRole('link', { name: /Phản hồi học viên/ }).textContent).not.toMatch(/\d/);
+    expect(screen.getByRole('link', { name: 'Lỗi 1' }).getAttribute('href')).toBe(`/admin/incidents/errors/${FP1}`);
+    expect(screen.queryByText(/câu đang chờ/)).toBeNull();
+  });
+
+  it('reads the source from ?source= and links the review queue only when it has items', async () => {
+    nav.search = 'source=grading';
+    api.getWith.mockResolvedValue(page({ review_items_open: 5 }));
+    render(<AdminIncidents />);
+    await screen.findByText('Lỗi 1');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/incidents/groups?status=open&sort=learners&page=1&source=grading', undefined, undefined);
+    expect(screen.getByRole('link', { name: '5 câu đang chờ ở Câu cần kiểm' }).getAttribute('href')).toBe('/admin/feedback');
+  });
+
+  it('confirms a bulk resolve with groups and records, then offers Hoàn tác', async () => {
+    render(<AdminIncidents />);
+    await screen.findByText('Lỗi 1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn tất cả nhóm trên trang' }));
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Đánh dấu đã xử lý' }));
+    expect(screen.getByRole('alertdialog').textContent).toContain('Chuyển 2 nhóm (10 lần ghi nhận) sang Đã xử lý.');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' })); });
+    expect(api.post).toHaveBeenCalledWith('/admin/incidents/groups/bulk', {
+      action: 'resolve',
+      groups: [
+        { source: 'errors', fingerprint: FP1, expected_count: 4, expected_last_at: '2026-11-16T02:58:00Z' },
+        { source: 'errors', fingerprint: FP2, expected_count: 6, expected_last_at: '2026-11-16T02:58:00Z' },
+      ],
+    });
+    await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'Hoàn tác' })); });
+    expect(api.post).toHaveBeenLastCalledWith('/admin/incidents/groups/bulk',
+      expect.objectContaining({ action: 'reopen' }));
+  });
+
+  it.each([
+    [409, '1 nhóm chưa đổi: đã có ghi nhận mới hoặc không còn; tải lại để xem.'],
+    [503, '1 nhóm chưa ghi được; thử lại sau ít phút.'],
+  ])('an entirely refused bulk action (%i) reports zero changes and offers no undo', async (status, explanation) => {
+    api.post.mockRejectedValue(Object.assign(new Error(`HTTP ${status}`), { status }));
+    render(<AdminIncidents />);
+    await screen.findByText('Lỗi 1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn nhóm Lỗi 1' }));
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Bỏ qua' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' })); });
+    const banner = await screen.findByRole('status');
+    expect(banner.textContent).toContain(`Bỏ qua: 0 nhóm. ${explanation}`);
+    expect(banner.classList.contains('is-error')).toBe(true);
+    expect(screen.queryByText(/có ghi nhận mới nên chưa đổi/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Hoàn tác' })).toBeNull();
+  });
+
+  it('shows only the changed count for a mixed result and only undoes the changed group', async () => {
+    api.post.mockResolvedValueOnce({
+      changed: 1,
+      conflicts: [{ source: 'errors', fingerprint: FP2, status: 409, code: 'count_changed' }],
+      dismiss_failed: [FP1],
+    }).mockResolvedValueOnce({ changed: 1, conflicts: [], dismiss_failed: [] });
+    render(<AdminIncidents />);
+    await screen.findByText('Lỗi 1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn tất cả nhóm trên trang' }));
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Đánh dấu đã xử lý' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' })); });
+    expect(await screen.findByText(/Đánh dấu đã xử lý: 1 nhóm\. 1 nhóm có ghi nhận mới nên chưa đổi/)).toBeTruthy();
+    expect(screen.getByText(/Một số dòng lỗi cũ chưa được đánh dấu/)).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Hoàn tác' })); });
+    expect(api.post).toHaveBeenLastCalledWith('/admin/incidents/groups/bulk', {
+      action: 'reopen',
+      groups: [{ source: 'errors', fingerprint: FP1, expected_count: 4, expected_last_at: '2026-11-16T02:58:00Z' }],
+    });
+  });
+
+  it('keeps a visible error and a reload button when the list fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    api.getWith.mockRejectedValue(new Error('Chưa tải được trạng thái sự cố.'));
+    render(<AdminIncidents />);
+    expect((await screen.findByRole('alert')).textContent).toContain('Chưa tải được trạng thái sự cố.');
+    expect(screen.getByRole('button', { name: 'Tải lại' })).toBeTruthy();
+    warn.mockRestore();
+  });
+
+  it('drops an older answer that arrives after the newer query', async () => {
+    let releaseOld: (v: unknown) => void = () => {};
+    api.getWith.mockImplementationOnce(() => new Promise((resolve) => { releaseOld = resolve; }));
+    const view = render(<AdminIncidents />);
+    nav.search = 'source=grading';
+    api.getWith.mockResolvedValueOnce(page({ items: [group(FP2, { source: 'grading', title: 'Nhóm chấm mới' })] }));
+    view.rerender(<AdminIncidents />);
+    await screen.findByText('Nhóm chấm mới');
+    await act(async () => { releaseOld(page()); });
+    expect(screen.queryByText('Lỗi 1')).toBeNull();
+    expect(screen.getByText('Nhóm chấm mới')).toBeTruthy();
+  });
+
+  it('changing a filter goes back to page 1 in the URL', async () => {
+    nav.search = 'page=2';
+    render(<AdminIncidents />);
+    await screen.findByText('Lỗi 1');
+    fireEvent.change(screen.getByRole('combobox', { name: /Trạng thái/ }), { target: { value: 'resolved' } });
+    expect(nav.push).toHaveBeenCalledWith('/admin/incidents?status=resolved');
+  });
+});
+
+describe('AdminIncidentDetail', () => {
+  const detail = {
+    ...group(FP1), description: 'Lỗi giao diện ở /home: "Lỗi 1". 4 lần ghi nhận, 2 học viên bị ảnh hưởng.',
+    learner_list: [{ ref: 'u-abc', name: 'Lan' }], technical: { path: '/home', record_ids: ['r1'] },
+    notes: [{ body: 'Tự mở lại vì có ghi nhận mới.', auto: true, created_at: '2026-11-16T03:00:00Z' }],
+  };
+
+  it('shows the description, learner links, notes and a collapsed technical block', async () => {
+    api.getWith.mockResolvedValue(detail);
+    const view = render(<AdminIncidentDetail source="errors" fingerprint={FP1} />);
+    await screen.findByText(detail.description);
+    expect(api.getWith).toHaveBeenCalledWith(`/admin/incidents/groups/errors/${FP1}`, undefined, undefined);
+    expect(screen.getByRole('link', { name: 'Lan' }).getAttribute('href')).toBe('/admin/learners/u-abc');
+    expect(screen.getByText('Tự mở lại vì có ghi nhận mới.')).toBeTruthy();
+    const technical = view.container.querySelector('details.inc-technical') as HTMLDetailsElement;
+    expect(technical.open).toBe(false);
+    expect(screen.getByRole('button', { name: 'Nhận xử lý' })).toBeTruthy();
+  });
+
+  it('sends a note only with an explicit action, never as a guessed no-op', async () => {
+    api.getWith.mockResolvedValue({ ...detail, status: 'resolved' });
+    api.post.mockResolvedValue({ changed: 1, conflicts: [], dismiss_failed: [] });
+    render(<AdminIncidentDetail source="errors" fingerprint={FP1} />);
+    await screen.findByText(detail.description);
+    expect(screen.queryByRole('button', { name: /Chỉ lưu ghi chú/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Ghi chú kèm thao tác (không bắt buộc)'), { target: { value: 'Lỗi quay lại' } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Mở lại' })); });
+    expect(api.post).toHaveBeenCalledWith('/admin/incidents/groups/bulk', expect.objectContaining({
+      action: 'reopen', note: 'Lỗi quay lại',
+    }));
+  });
+
+  it('says plainly when the group is gone', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    api.getWith.mockRejectedValue(Object.assign(new Error('HTTP 404'), { status: 404 }));
+    render(<AdminIncidentDetail source="errors" fingerprint={FP1} />);
+    expect((await screen.findByRole('alert')).textContent).toContain('Không tìm thấy nhóm sự cố này.');
+    warn.mockRestore();
+  });
+});
