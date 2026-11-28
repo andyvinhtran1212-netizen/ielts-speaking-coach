@@ -236,6 +236,7 @@ to `/`; the historical source file is not a separately served marketing page.
 |---|---|---|
 | `/admin/users` | admin | All users (role, activation, sessions-today). |
 | `/admin/learners` | admin | Search and filter the learner directory in the new admin frame. |
+| `/admin/learners/[ref]` | admin | Read the learner's profile, shared summary, and five tabs in the new admin frame. Tổng quan reads `/admin/learners/{ref}/overview` and resolves conflicting goals through `…/goal/resolve`. |
 | `/admin/students` | admin | Student roster. With the new admin frame enabled, opens the learner directory and carries over the search query. |
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
 | `/admin/classes/[cohortId]/exercise-book` · `/admin/classes/[cohortId]/exercise-book/grants` | admin (377 grant holders; grants page: the course-2 owner account only) | Exercise-book workspace of one class: catalog with locked activities and reasons, per-activity assignment to named recipients with a Vietnam-time deadline and idempotent `request_id`, the class's book assignments, student × activity progress, teacher review and close-with-reason. The grants page records grant/revoke events in the 377 log; it is a UI gate only, enforced server-side (owner UUID, AAL2 step-up). Links appear on the class Homework tab only when the read route answers 200. |

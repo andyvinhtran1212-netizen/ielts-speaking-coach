@@ -51,3 +51,26 @@ export async function importDirectoryLearners(file: File): Promise<{ imported: n
   }
   throw new Error('Máy chủ chưa xác nhận việc nhập CSV. Kiểm tra danh bạ trước khi thử lại.');
 }
+
+// Learner profile (G09-T04 API; G09-T11a page).
+export type LearnerDetailWire = ApiGetJson<'/admin/learners/{ref}'>;
+export type LearnerOverviewWire = ApiGetJson<'/admin/learners/{ref}/overview'>;
+export type LearnerGoalWire = NonNullable<LearnerOverviewWire['goal']>;
+export type GoalSeenWire = {
+  admin: { target_band: number | null; target_date: string | null };
+  learner: { target_band: number | null; exam_date: string | null };
+};
+
+const refPath = (ref: string) => `/admin/learners/${encodeURIComponent(ref)}`;
+
+export function getLearnerDetail(ref: string, signal?: AbortSignal) {
+  return getBrowserJsonAt('/admin/learners/{ref}', refPath(ref), signal);
+}
+
+export function getLearnerOverview(ref: string, signal?: AbortSignal) {
+  return getBrowserJsonAt('/admin/learners/{ref}/overview', `${refPath(ref)}/overview`, signal);
+}
+
+export function resolveLearnerGoal(ref: string, use: 'admin' | 'learner', seen: GoalSeenWire) {
+  return postBrowserJsonAt('/admin/learners/{ref}/goal/resolve', `${refPath(ref)}/goal/resolve`, { use, seen });
+}
