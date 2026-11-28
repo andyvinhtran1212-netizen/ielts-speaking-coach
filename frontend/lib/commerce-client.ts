@@ -8,7 +8,7 @@
 // OpenAPI declares the GET paths but their responses are unknown. Validate
 // the wire payload before letting the pages render personal viewer fields.
 
-import { getBrowserJson, getBrowserJsonAt } from './browser-api';
+import { getBrowserJson, getBrowserJsonAt, postBrowserJsonAtWith } from './browser-api';
 import type { CourseCatalog, CourseDetail, CourseItem } from './commerce-types';
 import { whenGlobalReady } from './when-global-ready.mjs';
 
@@ -88,4 +88,18 @@ export async function fetchContentVisibleUntil(): Promise<string | null> {
   return isRecord(response) && typeof response.content_visible_until === 'string'
     ? response.content_visible_until
     : null;
+}
+
+/** `POST /api/enrollment-orders` (G04 #2526): 201 a new order, 200 the open one (FR-036). */
+export async function createEnrollmentOrder(productSlug: string, requestKey: string, signal?: AbortSignal) {
+  await transportReady();
+  signal?.throwIfAborted();
+  const endpoint = '/api/enrollment-orders';
+  const response = await postBrowserJsonAtWith(
+    endpoint, endpoint, { product_slug: productSlug, request_key: requestKey }, { noRedirect: true, signal },
+  );
+  if (!isRecord(response) || !isRecord(response.order) || typeof response.order.order_code !== 'string') {
+    throw new Error('Malformed enrollment order');
+  }
+  return { order: response.order };
 }
