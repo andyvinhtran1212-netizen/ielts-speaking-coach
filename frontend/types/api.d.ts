@@ -14864,6 +14864,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tests
+         * @description Thi thử page payload (LEARNERCORE-0063 amendment 1, FR-080..FR-085).
+         *
+         *     Read-only. `cursor` is the opaque `results_next_cursor` of the previous
+         *     page; a "Xem thêm" page carries only `results` (and `credits`). An
+         *     unreleased mock sitting never carries a score (HOLD FR-082).
+         */
+        get: operations["tests_api_student_tests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public-stats": {
         parameters: {
             query?: never;
@@ -16590,6 +16614,35 @@ export interface components {
         AssignStudentRequest: {
             /** Student Id */
             student_id: string;
+        };
+        /** AssignedExamRow */
+        AssignedExamRow: {
+            /** Exam Id */
+            exam_id: string;
+            /** Title */
+            title: string;
+            /** Mode */
+            mode?: ("live" | "self_paced") | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "upcoming" | "open" | "submitted" | "released" | "closed_missed";
+            /** Opens At */
+            opens_at?: string | null;
+            /** Closes At */
+            closes_at?: string | null;
+            /** Skills */
+            skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+            /** Total Minutes */
+            total_minutes?: number | null;
+            /**
+             * Has Sitting In Progress
+             * @default false
+             */
+            has_sitting_in_progress: boolean;
+            /** Href */
+            href: string;
         };
         /**
          * AssignmentPatch
@@ -19751,6 +19804,11 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** ExamCredits */
+        ExamCredits: {
+            /** Total */
+            total: number;
+        };
         /** ExamPatch */
         ExamPatch: {
             /** Title */
@@ -19801,6 +19859,34 @@ export interface components {
             draft_state?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ExamResultRow */
+        ExamResultRow: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "listening_full" | "listening_mini" | "reading_full" | "reading_mini" | "speaking_full" | "writing_full" | "mock";
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Submitted At */
+            submitted_at: string;
+            /** State */
+            state?: ("submitted" | "grading" | "reviewing" | "released") | null;
+            /** Band */
+            band?: number | null;
+            /** Correct */
+            correct?: number | null;
+            /** Total */
+            total?: number | null;
+            /** Pending Skills */
+            pending_skills?: ("listening" | "reading" | "writing" | "speaking")[] | null;
+            /** Overall */
+            overall?: number | null;
+            /** Href */
+            href: string;
         };
         /** ExamScheduleResponse */
         ExamScheduleResponse: {
@@ -26620,6 +26706,18 @@ export interface components {
             access?: components["schemas"]["SkillHubAccess"];
             /** Degraded */
             degraded?: ("credits" | "resume" | "suggestions" | "catalog" | "history")[];
+        };
+        /** StudentTestsResponse */
+        StudentTestsResponse: {
+            /** Assigned Exams */
+            assigned_exams?: components["schemas"]["AssignedExamRow"][];
+            /** Results */
+            results?: components["schemas"]["ExamResultRow"][];
+            /** Results Next Cursor */
+            results_next_cursor?: string | null;
+            credits?: components["schemas"]["ExamCredits"] | null;
+            /** Degraded */
+            degraded?: ("assigned_exams" | "results" | "credits")[];
         };
         /** StudentTodayResponse */
         StudentTodayResponse: {
@@ -54112,6 +54210,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentSkillHubResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tests_api_student_tests_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentTestsResponse"];
                 };
             };
             /** @description Validation Error */

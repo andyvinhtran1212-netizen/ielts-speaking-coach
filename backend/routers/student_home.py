@@ -33,7 +33,8 @@ from models.student_course import StudentCourseResponse
 from models.student_today import StudentTodayResponse, StudentTodayResumeResponse, TodaySeenRequest
 from models.student_assigned import StudentAssignedResponse
 from models.student_skill_hub import StudentSkillHubResponse
-from services import activation_gate, session_gate, student_assigned, student_course, student_skill_hub, student_today
+from models.student_tests import StudentTestsResponse
+from services import activation_gate, session_gate, student_assigned, student_course, student_skill_hub, student_tests, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -196,3 +197,22 @@ async def skill_hub(
         thread_supabase_admin, auth_user["id"], skill,
         account_name=account_display_name(auth_user),
     )
+
+
+@router.get("/tests", response_model=StudentTestsResponse)
+async def tests(response: Response, cursor: str | None = Query(default=None, max_length=512),
+                authorization: str | None = Header(default=None)):
+    """Thi thử page payload (LEARNERCORE-0063 amendment 1, FR-080..FR-085).
+
+    Read-only. `cursor` is the opaque `results_next_cursor` of the previous
+    page; a "Xem thêm" page carries only `results` (and `credits`). An
+    unreleased mock sitting never carries a score (HOLD FR-082).
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    try:
+        return await student_tests.get_tests_concurrent(
+            thread_supabase_admin, auth_user["id"], cursor=cursor,
+        )
+    except student_tests.BadCursor:
+        raise HTTPException(400, "Con trỏ trang không hợp lệ.")
