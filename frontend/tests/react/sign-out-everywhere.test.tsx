@@ -117,6 +117,60 @@ describe('SignOutEverywhere', () => {
     expect(replace).toHaveBeenCalledWith('/login');
   });
 
+  it('a late status response cannot reopen confirmation after a successful revoke-all', async () => {
+    await mount();
+    let finishStatus!: (status: unknown) => void;
+    state.status = new Promise((resolve) => { finishStatus = resolve; });
+    fireEvent.click(openButton());
+    await flush();
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Đăng xuất khỏi mọi thiết bị' }));
+    await flush();
+    const success = () => screen.getByRole('dialog', { name: 'Đã đăng xuất khỏi mọi thiết bị' });
+    expect(success()).toBeTruthy();
+
+    await act(async () => finishStatus({
+      enabled: true, state: 'other_device_timed',
+      timed_activity: { title: 'Old timed activity', minutes_left: 9 },
+    }));
+
+    expect(within(success()).getAllByRole('button', { name: 'Đăng nhập lại' })).toHaveLength(2);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(calls.filter((call) => call.startsWith('POST'))).toEqual(['POST /api/account/sessions/revoke-all']);
+  });
+
+  it('shows timed work reported by revoke-all even when no timed work was in the preflight', async () => {
+    await mount();
+    fireEvent.click(openButton());
+    await flush();
+    const confirmation = screen.getByRole('alertdialog');
+    expect(confirmation.textContent).not.toContain('Bài có giờ không bị cắt ngang');
+    state.revoke = {
+      revoked: 0, at: '2026-11-23T02:05:00Z',
+      deferred_timed: { title: 'Thi thử tháng 11', device_label: 'Chrome trên Windows', minutes_left: 38 },
+    };
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Đăng xuất khỏi mọi thiết bị' }));
+    await flush();
+
+    const result = screen.getByRole('dialog', { name: 'Đang chờ bài có giờ kết thúc' });
+    expect(result.textContent).toContain('Đã tiếp nhận yêu cầu đăng xuất lúc 09:05, 23/11/2026.');
+    expect(result.textContent).toContain('Thi thử tháng 11 đang làm ở Chrome trên Windows, còn khoảng 38 phút.');
+    expect(result.textContent).toContain('thiết bị đó đăng xuất ngay khi bài kết thúc');
+    expect(result.textContent).not.toContain('Đã đăng xuất khỏi mọi thiết bị');
+    expect(result.textContent).not.toContain('Các thiết bị khác đăng xuất bây giờ');
+    expect(within(result).getAllByRole('button', { name: 'Đăng nhập lại' })).toHaveLength(2);
+  });
+
+  it('an empty revoke response cannot be displayed as successful', async () => {
+    state.revoke = null;
+    await mount();
+    fireEvent.click(openButton());
+    await flush();
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Đăng xuất khỏi mọi thiết bị' }));
+    await flush();
+    expect(screen.getByText('Chưa đăng xuất được khỏi mọi thiết bị. Thử lại sau ít phút.')).toBeTruthy();
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+  });
+
   it('503 says so and keeps 5a; 404 single_session_disabled closes and hides the button', async () => {
     state.revokeError = Object.assign(new Error('HTTP 503'), { status: 503, detail: { error_code: 'session_revoke_unavailable' } });
     await mount();

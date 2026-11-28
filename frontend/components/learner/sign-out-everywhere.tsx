@@ -11,8 +11,8 @@
 //    button; any other failure says so and keeps the dialog.
 // 5a does not promise that drafts on other devices are kept: no page registers
 // a draft saver yet and other devices cannot be reached, so it warns instead.
-// After 5c the session no longer exists on the server, so "Đăng nhập lại" (and
-// closing the dialog) signs out locally and goes to /login.
+// In 5c the server says whether timed work deferred a sign-out. "Đăng nhập
+// lại" (and closing the dialog) signs out locally and goes to /login.
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -21,15 +21,19 @@ import { Notice } from '@/components/ui/notice';
 import { saveAllDrafts } from '@/lib/auth/draft-savers.mjs';
 import { minutesLeftText } from '@/lib/auth/session-claim.mjs';
 import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
+import { getBrowserJson, postBrowserJsonAtWith } from '@/lib/browser-api';
+import type { ApiPostJson } from '@/lib/openapi-contract';
 import { formatVnDateTime } from '@/lib/profile-v2-model.mjs';
 
 import styles from './sign-out-everywhere.module.css';
 
-type TimedActivity = { title?: unknown; device_label?: unknown; minutes_left?: unknown } | null;
-type Step = { kind: 'ask'; timed: TimedActivity } | { kind: 'done'; at: string | null };
-
 const STATUS = '/api/account/session/status';
 const REVOKE_ALL = '/api/account/sessions/revoke-all';
+
+type TimedActivity = NonNullable<ApiPostJson<typeof REVOKE_ALL>['deferred_timed']>;
+type Step =
+  | { kind: 'ask'; timed: TimedActivity | null }
+  | { kind: 'done'; at: string | null; deferred: TimedActivity | null };
 
 const statusOf = (error: unknown) => (error && typeof error === 'object' ? (error as { status?: number }).status : undefined);
 const codeOf = (error: unknown) => {
@@ -38,26 +42,28 @@ const codeOf = (error: unknown) => {
 };
 const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-async function readStatus(): Promise<{ enabled: boolean; timed: TimedActivity } | 'off'> {
+async function readStatus(): Promise<{ timed: TimedActivity | null } | 'off'> {
   try {
-    const raw = await window.api.getWith<{ enabled?: unknown; timed_activity?: TimedActivity }>(STATUS);
+    const raw = await getBrowserJson(STATUS);
     if (!raw || raw.enabled !== true) return 'off';
-    return { enabled: true, timed: raw.timed_activity && typeof raw.timed_activity === 'object' ? raw.timed_activity : null };
+    return { timed: raw.timed_activity && typeof raw.timed_activity === 'object' ? raw.timed_activity : null };
   } catch (error) {
     // The route not being there (404) is the flag being off. Any other
     // failure keeps the button: revoke-all reports its own error.
-    return statusOf(error) === 404 ? 'off' : { enabled: true, timed: null };
+    return statusOf(error) === 404 ? 'off' : { timed: null };
   }
 }
 
-function TimedWarning({ timed }: { timed: NonNullable<TimedActivity> }) {
+function TimedWarning({ timed, beforeRevoke = false }: { timed: TimedActivity; beforeRevoke?: boolean }) {
   const title = text(timed.title) ?? 'Bài có giờ';
   const device = text(timed.device_label);
   const left = minutesLeftText(timed.minutes_left);
-  const lead = [title, device ? `đang làm ở ${device}` : 'đang làm ở thiết bị khác'].join(' ') + (left ? `, ${left}.` : '.');
+  const where = device ? `đang làm ở ${device}` : beforeRevoke ? 'đang làm ở thiết bị khác' : 'đang diễn ra';
+  const lead = `${title} ${where}${left ? `, ${left}` : ''}.`;
   return (
     <Notice kind="warning" live="none">
-      {lead} Bài có giờ không bị cắt ngang: thiết bị đó đăng xuất ngay khi bài kết thúc. Các thiết bị khác đăng xuất bây giờ.
+      {lead} Bài có giờ không bị cắt ngang: thiết bị đó đăng xuất ngay khi bài kết thúc.
+      {beforeRevoke ? ' Các thiết bị khác đăng xuất bây giờ.' : null}
     </Notice>
   );
 }
@@ -92,7 +98,11 @@ export function SignOutEverywhereDialog({
     let live = true;
     setStep({ kind: 'ask', timed: null });
     setFailed(false);
-    void readStatus().then((s) => { if (live && s !== 'off') setStep({ kind: 'ask', timed: s.timed }); });
+    void readStatus().then((s) => {
+      if (live && s !== 'off') {
+        setStep((current) => current.kind === 'ask' ? { ...current, timed: s.timed } : current);
+      }
+    });
     return () => { live = false; };
   }, [open]);
 
@@ -105,8 +115,9 @@ export function SignOutEverywhereDialog({
       // Other devices cannot be reached from here, so 5a warns instead of
       // promising that their unsaved text is kept.
       await saveAllDrafts();
-      const raw = await window.api.postWith<{ at?: unknown }>(REVOKE_ALL, {});
-      setStep({ kind: 'done', at: formatVnDateTime(typeof raw?.at === 'string' ? raw.at : null) });
+      const raw = await postBrowserJsonAtWith(REVOKE_ALL, REVOKE_ALL);
+      if (!raw) throw new Error('Missing revoke-all acknowledgment');
+      setStep({ kind: 'done', at: formatVnDateTime(raw.at), deferred: raw.deferred_timed ?? null });
     } catch (error) {
       if (statusOf(error) === 404 && codeOf(error) === 'single_session_disabled') {
         onUnavailable?.();
@@ -120,17 +131,19 @@ export function SignOutEverywhereDialog({
   }
 
   if (step.kind === 'done') {
+    const receipt = step.deferred ? 'Đã tiếp nhận yêu cầu đăng xuất' : 'Đã đăng xuất khỏi mọi thiết bị';
     return (
       <Dialog
         open={open}
         onClose={() => void signInAgain()}
-        title="Đã đăng xuất khỏi mọi thiết bị"
+        title={step.deferred ? 'Đang chờ bài có giờ kết thúc' : 'Đã đăng xuất khỏi mọi thiết bị'}
         closeLabel="Đăng nhập lại"
         initialFocusRef={againRef}
         actions={<Button ref={againRef} onClick={() => void signInAgain()}>Đăng nhập lại</Button>}
       >
         <div className={styles.body}>
-          <p>{step.at ? `Đã đăng xuất khỏi mọi thiết bị lúc ${step.at}.` : 'Đã đăng xuất khỏi mọi thiết bị.'}</p>
+          <p>{step.at ? `${receipt} lúc ${step.at}.` : `${receipt}.`}</p>
+          {step.deferred ? <TimedWarning timed={step.deferred} /> : null}
           <p>{email ? `Đăng nhập lại bằng Google hoặc bằng mã gửi tới ${email}.` : 'Đăng nhập lại bằng Google hoặc bằng mã gửi tới email của bạn.'}</p>
           <p className={styles.muted}>
             Nghĩ có người khác mở được hộp thư của bạn? Bảo vệ hộp thư email trước, vì mã đăng nhập gửi về đó; rồi báo cho chúng tôi.
@@ -165,7 +178,7 @@ export function SignOutEverywhereDialog({
         </p>
         <p>Phần bài đang viết dở chưa kịp tự lưu ở các thiết bị đó có thể mất. Lưu bài ở đó trước nếu được.</p>
         <p>Mã đăng nhập đã gửi mà chưa dùng bị huỷ.</p>
-        {step.timed ? <TimedWarning timed={step.timed} /> : null}
+        {step.timed ? <TimedWarning timed={step.timed} beforeRevoke /> : null}
         {failed ? <Notice kind="error">Chưa đăng xuất được khỏi mọi thiết bị. Thử lại sau ít phút.</Notice> : null}
       </div>
     </Dialog>
