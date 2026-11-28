@@ -53,7 +53,7 @@ beforeEach(() => {
   } });
   win().api = Object.fromEntries(['get', 'post', 'getWith', 'postWith', 'uploadWith'].map((method) => [method, vi.fn(async () => [])]));
   win().PracticeRecorder = { start: vi.fn(), release: vi.fn() };
-  win().PracticeSubmission = { submit, destroy: vi.fn() };
+  win().PracticeSubmission = { ownerId: 'owner-A', submit, destroy: vi.fn() };
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) { this.setAttribute('open', ''); });
   HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) { this.removeAttribute('open'); });
   // Run the whole public controller, including its exported retention method.
@@ -130,8 +130,30 @@ it('signing into B disposes A’s retained queue and reloads at the ownership bo
   expect(controller.disposed).toBe(true);
   expect(win().PracticeFullTest).not.toBe(controller);
   expect(submit).toHaveBeenCalledTimes(1);
-  await expect(controller.retryFailed()).rejects.toMatchObject({ code: 'answers_pending' });
+  await expect(controller.retryFailed()).rejects.toMatchObject({ code: 'disposed' });
   expect(submit).toHaveBeenCalledTimes(1); // a disposed queue cannot send A's blob as B
+});
+
+it('an old Full Test bridge cannot use another account’s submission transport or credentials', async () => {
+  await mount(true);
+  const queue = win().PracticeFullTest;
+  const foreignSubmit = vi.fn();
+  win().PracticeSubmission = { ownerId: 'owner-B', submit: foreignSubmit };
+  await expect(queue.submitAnswer({
+    sessionId: 'session-one', questionId: 'unowned', blob: new Blob(['test audio']),
+  })).rejects.toMatchObject({ status: 401 });
+  expect(foreignSubmit).not.toHaveBeenCalled();
+
+  const dispatch = vi.fn();
+  const checkCredential = (opts: { assertSessionOwner: (owner: string) => void }) => {
+    opts.assertSessionOwner('owner-B');
+    return dispatch();
+  };
+  win().api.postWith.mockImplementation(async (_path: string, _body: unknown, _headers: unknown, opts: Parameters<typeof checkCredential>[0]) => checkCredential(opts));
+  win().api.getWith.mockImplementation(async (_path: string, _query: unknown, opts: Parameters<typeof checkCredential>[0]) => checkCredential(opts));
+  await expect(queue.finalize({ p1_id: 'session-one' })).rejects.toMatchObject({ status: 401 });
+  await expect(queue.getSession('session-one')).rejects.toMatchObject({ status: 401 });
+  expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('unmount still disposes a retained queue and its navigation guard', async () => {

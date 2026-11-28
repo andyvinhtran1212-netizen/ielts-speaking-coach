@@ -45,6 +45,7 @@ export function PracticeSubmissionBridge() {
       ),
       getSession: (path: string, { signal }: { signal: AbortSignal }) => win.api.getWith(path, {}, { noRedirect: true, signal, assertSessionOwner }),
     }), {
+      ownerId,
       // EXAMSPEAK-0072 FR-010: the exam room passes `{ noRedirect: true }` so a
       // 401 stays in the page; without options the call is exactly as before.
       complete: (sessionId: string, options?: { noRedirect?: boolean }) => {
