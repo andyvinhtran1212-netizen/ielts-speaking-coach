@@ -404,6 +404,7 @@ number	filename	state	owner	spec	note
 441	441_cohort_teacher_schedule.sql	present	G09-T24	ADMINIA-0074	Commercialization G09 band 440–459; one teacher per class (cohorts.instructor_id) + class schedule.
 442	442_learner_care_notes.sql	present	G09-T35	ADMINIA-0074	Commercialization G09 band 440–459 (plan 5.3 row 442); learner_care_notes (FR-032), soft delete, source column for GOI-13 A12.
 445	445_mock_exam_audiences.sql	present	G09-T31	MOCKORG-0086	Commercialization G09 band 440–459; mock_exam_audiences + mock_exams skills/starts_at/draft_state, mode CHECK widened (data renamed only by 446).
+446	446_mock_exam_mode_backfill.sql	present	G09-T31	MOCKORG-0086	Commercialization G09 band 440–459; exam_mode rename sequential→live, retake→self_paced, dual-name DB functions, fn_set_exam_mode four names, mock_exam_audiences backfill.
 451	451_incident_groups.sql	present	G09-T07	ADMINIA-0074	Commercialization G09 band 440–459; incident_groups status (new/in_review/resolved/ignored) + append-only incident_group_notes + fn_incident_group_transition.
 452	452_learner_goal_events.sql	present	G09-T04b	ADMINIA-0074	Commercialization G09 reserve band 452–459 (anh Andy chose 452, 20/11); append-only learner_goal_events + fn_learner_goal_resolve.
 500	500_account_data_rights.sql	present	G04-T18	ACCOUNTDATA-0100	Spec label 500 (GOI-04: G04 band 381-389 full). Deletion requests, export jobs, private account-exports bucket. Andy approved spec 2026-11-23.

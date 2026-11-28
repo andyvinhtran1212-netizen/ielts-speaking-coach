@@ -11,6 +11,12 @@
 - 447 và 448 đi cùng T33, sau T31, cũng dưới khoá advisory, test PG17 + postcondition.
 - Bật `ADMIN_FRAME_V2` chỉ trên staging; chạy các kịch bản của spec bằng tài khoản QA admin có TOTP. Thiếu tài khoản QA → PR ghi "chờ anh Andy kiểm tay trên staging".
 
+### Phạm vi môn của học viên
+
+Giữ `mock_exam_audiences_learner` tắt trong khi thực hiện các bước 445, backend tương thích và 446. Trước khi mở cho học viên, kiểm sổ migration của đúng môi trường và định nghĩa đang cài của cả `public.fn_mock_section_valid(text,jsonb,jsonb)` và `public.fn_guard_owned_mock_attempt(text,jsonb,text)`. Cả hai phải giới hạn theo môn được giao cho từng học viên. Nếu sổ đã ghi 446 nhưng một trong hai hàm còn định nghĩa cũ, bổ sung migration mới theo thứ tự tăng và xin duyệt cho môi trường đó. Giữ nguyên dòng 446 trong sổ.
+
+Dùng hai học viên QA trong cùng kỳ live, một người chỉ được giao Reading, người kia chỉ được giao Listening. Khi giám thị mở từng môn, kiểm cả bước mở đề và bước nộp bài. Cả hai bước phải cho phép học viên được giao môn đó và từ chối học viên còn lại. Ghi kết quả cho cả hai tài khoản trước khi mở cờ cho học viên.
+
 ## Production
 
 - Chỉ qua PR `staging → main`; migration production cần anh Andy duyệt bằng lời, chạy dưới khoá advisory trước khi mã phụ thuộc lên. Cờ khung mới tắt ở production tới khi anh dùng thử trên staging ≥ 1 ngày làm việc (Q6).
@@ -21,6 +27,8 @@
 - Trước 446: 445, 447, 448 chỉ thêm bảng/cột nên deploy lại bản trước được, không hạ migration.
 - Sau 446: dữ liệu `exam_mode` đã mang tên mới, nên **mốc lui thấp nhất là bản backend có lớp tương thích hai tên** (bước 2 ở trên); không deploy lại bản chỉ hiểu `retake`/`sequential`. Kiểm lui trên staging bằng một kỳ đã backfill có lượt làm dở: resume được và vẫn được quét hết hạn. Không hạ migration.
 - Backfill 446: chạy lại được (idempotent); sai thì sửa bằng migration mới, không sửa file cũ.
+- Nghiệm thu sau 446 (`audiences ≥ assignments`): đọc kèm NOTICE của 446. NOTICE đếm assignment có user không có dòng `students` (không chép) và kỳ `is_open = true` bị bỏ qua; so sánh với số assignments đã trừ hai số này, rồi chạy lại 446 sau khi các kỳ đang mở đóng.
+- **Chạy lại 446 là việc làm tay, cần anh Andy duyệt.** Khi 446 đã nằm trong sổ `_schema_migrations`, `apply_migrations.sh` bỏ qua file này, nên runner không bao giờ tự chạy lại. Muốn chạy lại (sau khi các kỳ đang mở đóng): xin anh Andy gõ duyệt cho đúng môi trường (staging hoặc production), rồi chạy `psql -f backend/migrations/446_mock_exam_mode_backfill.sql` dưới khoá advisory của runner (giữ `pg_advisory_lock(173204, 1)` trong cùng phiên psql, đúng khoá của `scripts/apply_migration_locked.sql`), đọc NOTICE và postcondition ở cuối file. Không xoá dòng 446 khỏi sổ để ép runner chạy lại.
 
 Ràng buộc của gói liên quan:
 
