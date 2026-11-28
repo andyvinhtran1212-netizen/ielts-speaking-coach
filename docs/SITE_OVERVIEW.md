@@ -239,6 +239,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin/activation-codes/[codeId]` | admin | One code: state, permissions, people, audit history; "Vùng nguy hiểm" revokes a used code with the code retyped and a reason (FR-055, step-up). |
 | `/admin/instructors` | admin | Instructor management workspace. |
 | `/admin/mfa` | admin (AAL1 allowed) | Two-step sign-in for admins (ADMINAAL2-0032): enroll a TOTP factor, complete the AAL1 → AAL2 challenge, add a backup factor or remove one with a fresh code. `AdminAccessGate` and `api.js` send an admin here when the backend answers `mfa_required`. |
+| `/admin/settings` | admin (AAL2 to save) | Settings (ADMINIA-0074 FR-080/081, G09-T23; only with `ADMIN_FRAME_V2=1`): seven tabs on `?tab=`; the operations-threshold table every admin page reads (edit with a confirm listing old → new and a reason), and the append-only settings log at the end of every tab. The other tabs say what they wait on. |
 
 ### 4.11 Instructor — writing review
 
