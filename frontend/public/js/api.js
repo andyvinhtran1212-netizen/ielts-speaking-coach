@@ -265,7 +265,9 @@
       // path (e.g. /pages/admin/listening/X.html → 404). Use an
       // absolute path so redirect works from any depth.
       window.location.href = '/login';
-      return null;
+      // Callers awaiting a bodyless write can distinguish the redirect from
+      // its successful 204. Preserve the legacy return for other callers.
+      if (!(opts && opts.rejectUnauthorized)) return null;
     }
 
     if (!response.ok) {

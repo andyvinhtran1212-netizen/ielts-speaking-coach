@@ -59,7 +59,11 @@ export type ApiPostSuccessJson<Path extends ApiPostPath> = JsonSuccess<
   paths[Path] extends { post: infer Operation } ? Operation : never
 >;
 
-/** JSON response declared by FastAPI for a successful DELETE endpoint. */
-export type ApiDeleteJson<Path extends ApiDeletePath> = JsonSuccess<
+type DeleteSuccess<Operation> = JsonSuccess<Operation> | (
+  Operation extends { responses: { 204: unknown } } ? null : never
+);
+
+/** Successful DELETE response, including the transport's null for HTTP 204. */
+export type ApiDeleteJson<Path extends ApiDeletePath> = DeleteSuccess<
   paths[Path] extends { delete: infer Operation } ? Operation : never
 >;
