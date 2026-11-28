@@ -1,5 +1,5 @@
 // ADMINIA-0074 G09-T15 (FR-047, FR-054, FR-056): Sổ lượt AI /admin/credits.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const nav = vi.hoisted(() => ({ search: '', push: vi.fn() }));
@@ -208,6 +208,55 @@ describe('AdminCredits', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(api.getWith.mock.calls.slice(callsBefore).some(([p]) => String(p).startsWith(`/admin/users/${U}/`))).toBe(false);
     expect(screen.queryByText('Đã ghi điều chỉnh vào sổ lượt.')).toBeNull();
+  });
+
+  it('an adjustment refetch that finishes after switching learners cannot announce into the new ledger', async () => {
+    const U2 = '40000000-0000-4000-8000-000000000002';
+    let posted = false;
+    let resolveAccess: (value: unknown) => void = () => {};
+    let resolveLedger: (value: unknown) => void = () => {};
+    api.post.mockImplementation(async () => {
+      posted = true;
+      return { status: 'adjusted', balance: 47 };
+    });
+    api.getWith.mockImplementation((path: string) => {
+      const isAccess = path.endsWith('/access');
+      if (path.startsWith(`/admin/users/${U2}/`)) return Promise.resolve(isAccess ? access(17) : credits(17));
+      if (!posted) return Promise.resolve(isAccess ? access(42) : credits(42));
+      return new Promise((resolve) => {
+        if (isAccess) resolveAccess = resolve;
+        else resolveLedger = resolve;
+      });
+    });
+    const view = render(<AdminCredits />);
+    await balanceIs('42 lượt');
+    fireEvent.click(screen.getByRole('button', { name: 'Điều chỉnh lượt' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Số lượt/ }), { target: { value: '5' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Bù lượt do lỗi chấm' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Xác nhận điều chỉnh' })).getByRole('button', { name: 'Xác nhận' }));
+    await waitFor(() => expect(api.getWith.mock.calls.filter(([path]) => String(path).startsWith(`/admin/users/${U}/`))).toHaveLength(4));
+
+    nav.search = `ref=u-${U2}`;
+    view.rerender(<AdminCredits />);
+    await balanceIs('17 lượt');
+    await act(async () => { resolveAccess(access(47)); resolveLedger(credits(47)); });
+    expect(cardBalance()).toBe('17 lượt');
+    expect(screen.queryByText(/Đã ghi điều chỉnh/)).toBeNull();
+  });
+
+  it('a null adjustment reply cannot report success even if ledger reads still work', async () => {
+    api.post.mockResolvedValue(null);
+    const dialog = await openAdjust();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Số lượt/ }), { target: { value: '5' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Lý do/ }), { target: { value: 'Bù lượt do lỗi chấm' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Tiếp tục' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Xác nhận điều chỉnh' });
+    await act(async () => { fireEvent.click(within(confirm).getByRole('button', { name: 'Xác nhận' })); });
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Đã ghi điều chỉnh/)).toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain('Chưa nhận được xác nhận');
   });
 
   it('re-confirming the same adjustment after a timeout keeps the key; a changed one gets a new key', async () => {

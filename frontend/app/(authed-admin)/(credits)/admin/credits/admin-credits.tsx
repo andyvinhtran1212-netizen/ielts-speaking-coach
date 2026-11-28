@@ -165,11 +165,15 @@ export function AdminCredits() {
     const sentFor = confirm.context;
     setBusy(true); setConfirmError(null);
     try {
-      await postCreditAdjust({ ...confirm.body, request_key: confirm.requestKey });
-      pendingKey.current = null;
+      const ack = await postCreditAdjust({ ...confirm.body, request_key: confirm.requestKey });
+      if (ack?.status !== 'adjusted' && ack?.status !== 'replay') {
+        throw new Error('Chưa nhận được xác nhận từ máy chủ. Kiểm tra sổ lượt trước khi gửi lại.');
+      }
+      if (pendingKey.current?.key === confirm.requestKey) pendingKey.current = null;
       if (sentFor !== contextRef.current) return;
       setConfirm(null); setDraft(null);
       const fresh = await load(userId);
+      if (sentFor !== contextRef.current) return;
       setBanner(fresh ? { kind: 'success', text: 'Đã ghi điều chỉnh vào sổ lượt.' }
         : { kind: 'error', text: 'Đã ghi điều chỉnh, nhưng chưa tải lại được sổ lượt; bấm Tải lại.' });
     } catch (caught) {
