@@ -197,13 +197,13 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin` | admin | Admin Overview (pedagogical: students, skills, errors — `/admin/*` + `admin_overview.py`). |
 | `/admin/dashboard/reading-attempts` | admin | Native Reading-attempts dashboard — frozen snapshot, truthful partial/unavailable states, auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). The old HTML URL now redirects to this native owner. |
 | `/admin/foot-traffic` · `/admin/usage` | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
+| `/admin/incidents` | admin | Incident inbox in the new admin frame. Filter groups by source and open a group to inspect its reports. |
+| `/admin/incidents/[source]/[fingerprint]` | admin | Inspect one incident group and resolve, ignore, or reopen it. The result shows how many reports were updated. |
 | `/admin/error-logs` | admin | Error-report inbox (`/admin/error-logs`). |
 | `/admin/ai-models` | admin | AI và mô hình (ADMINIA-0074 FR-074): per-feature model table (AIOPS-0024 overrides, `/admin/ai-models`); each save opens an in-row confirmation with old → new values and a reason box before the unchanged PATCH. |
 | `/admin/qa-tools` | admin | Công cụ QA (FR-073): links to the recommendation tester and mock answer corrections, plus "Tạo lỗi thử" (`POST /admin/error-logs/test`), shown only on a known non-Production environment; the server refuses Production and unknown tiers with 403. |
 | `/admin/system` · `/admin/system/ai-usage` · `/admin/system/alerts` | admin | System health, AI token usage, alerts. |
 | `/admin/feedback` | admin | Learner-feedback inbox and inspection workspace. |
-| `/admin/incidents` · `/admin/incidents/[source]/[fingerprint]` | admin | New-frame incident inbox (ADMINIA-0074, behind `ADMIN_FRAME_V2`, 404 while the flag is off): errors, grading incidents and learner feedback grouped by cause, bulk status actions with undo, group page with learners and notes (`/admin/incidents/groups*`). |
-| `/admin/learners` · `/admin/learners/[ref]` | admin | New-frame learner directory and profile (ADMINIA-0074, behind `ADMIN_FRAME_V2`, 404 while the flag is off): one row per person (`GET /admin/learners`), the shared learner block, five profile tabs with Tổng quan from `/admin/learners/{ref}/overview` and the goal-conflict fix (`…/goal/resolve`). |
 
 ### 4.9 Admin — content authoring (per skill)
 
@@ -232,7 +232,9 @@ to `/`; the historical source file is not a separately served marketing page.
 | Page | Audience | Purpose · operation |
 |---|---|---|
 | `/admin/users` | admin | All users (role, activation, sessions-today). |
-| `/admin/students` | admin | Student roster (Tailwind page). |
+| `/admin/learners` | admin | Search and filter the learner directory in the new admin frame. |
+| `/admin/learners/[ref]` | admin | Read the learner's profile, shared summary, and five tabs in the new admin frame. Tổng quan reads `/admin/learners/{ref}/overview` and resolves conflicting goals through `…/goal/resolve`. |
+| `/admin/students` | admin | Student roster. With the new admin frame enabled, opens the learner directory and carries over the search query. |
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
 | `/admin/classes/[cohortId]/exercise-book` · `/admin/classes/[cohortId]/exercise-book/grants` | admin (377 grant holders; grants page: the course-2 owner account only) | Exercise-book workspace of one class: catalog with locked activities and reasons, per-activity assignment to named recipients with a Vietnam-time deadline and idempotent `request_id`, the class's book assignments, student × activity progress, teacher review and close-with-reason. The grants page records grant/revoke events in the 377 log; it is a UI gate only, enforced server-side (owner UUID, AAL2 step-up). Links appear on the class Homework tab only when the read route answers 200. |
 | `/admin/activation-codes` | admin | Activation-code ledger (ADMINIA-0074 FR-048): state per code (Chưa dùng · Đã dùng · Hết hạn nhập · Đã thu hồi), grading credits, expiring label; codes are issued from a class, not here. `/admin/access-codes` and `/admin/users?tab=codes` redirect here. Ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |

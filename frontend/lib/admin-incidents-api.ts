@@ -1,100 +1,51 @@
-// Incident inbox API (G09-T07, `/admin/incidents/groups…`) for the inbox page
-// (G09-T16). The shapes mirror backend/models/admin_incidents.py; they are
-// local because the generated contract on this branch predates G09-T07.
+// Incident inbox API (G09-T07) for the inbox page (G09-T16).
+import { getBrowserJson, getBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
+import type { ApiGetJson, ApiPostJson } from '@/lib/openapi-contract';
+import type { paths } from '@/types/api';
 
-export type IncidentSource = 'errors' | 'grading' | 'feedback';
-export type IncidentStatus = 'new' | 'in_review' | 'resolved' | 'ignored';
-export type IncidentAction = 'claim' | 'resolve' | 'ignore' | 'reopen';
+export type IncidentGroupsPage = ApiGetJson<'/admin/incidents/groups'>;
+export type IncidentGroup = IncidentGroupsPage['items'][number];
+export type IncidentSource = IncidentGroup['source'];
+export type IncidentStatus = IncidentGroup['status'];
+export type IncidentGroupDetail = ApiGetJson<'/admin/incidents/groups/{source}/{fingerprint}'>;
 
-export type IncidentGroup = {
-  source: IncidentSource;
-  fingerprint: string;
-  title: string;
-  area: string;
-  level?: string | null;
-  count: number;
-  learners: number;
-  first_at: string | null;
-  last_at: string | null;
-  status: IncidentStatus;
-  claimed_by_name?: string | null;
-  overdue: boolean;
-};
+type IncidentBulkBody = paths['/admin/incidents/groups/bulk']['post']['requestBody']['content']['application/json'];
+type IncidentBulkResponse = ApiPostJson<'/admin/incidents/groups/bulk'>;
+type IncidentWireConflict = IncidentBulkResponse['conflicts'][number];
 
-export type IncidentGroupsPage = {
-  items: IncidentGroup[];
-  total: number;
-  page: number;
-  page_size: number;
-  counts: Record<IncidentSource, number | null>;
-  review_items_open: number | null;
-  sources_failed: IncidentSource[];
-  truncated: boolean;
-  sources_truncated: IncidentSource[];
-  generated_at: string;
-};
-
-export type IncidentNote = { body: string; auto: boolean; actor_name?: string | null; created_at?: string | null };
-
-export type IncidentGroupDetail = IncidentGroup & {
-  description: string;
-  claimed_at?: string | null;
-  resolved_at?: string | null;
-  learner_list: { ref: string; name: string }[];
-  technical: Record<string, unknown>;
-  notes: IncidentNote[];
-};
-
-export type IncidentConflict = {
-  source: IncidentSource;
-  fingerprint: string;
-  status: number;
-  // `refused`: the API refused every ref (409) and api.js keeps no body, so
-  // which refs changed and which are gone is unknown here.
-  code: 'count_changed' | 'not_found' | 'write_failed' | 'refused';
-};
-
-export type IncidentBulkResult = { changed: number; conflicts: IncidentConflict[]; dismiss_failed: string[] };
-
-export type IncidentRef = {
-  source: IncidentSource;
-  fingerprint: string;
-  expected_count: number;
-  expected_last_at?: string;
-};
-
-type ApiError = Error & { status?: number; code?: string | null };
+export type IncidentAction = IncidentBulkBody['action'];
+export type IncidentRef = IncidentBulkBody['groups'][number];
+export type IncidentConflict = IncidentWireConflict | (
+  Pick<IncidentWireConflict, 'source' | 'fingerprint'> & { status: 409; code: 'refused' }
+);
+export type IncidentBulkResult = Omit<IncidentBulkResponse, 'conflicts'> & { conflicts: IncidentConflict[] };
 
 export function fetchIncidentGroups(query: URLSearchParams): Promise<IncidentGroupsPage> {
-  return window.api.getWith<IncidentGroupsPage>(`/admin/incidents/groups?${query}`);
+  return getBrowserJson('/admin/incidents/groups', query);
 }
 
 export function fetchIncidentGroup(source: string, fingerprint: string): Promise<IncidentGroupDetail> {
-  return window.api.getWith<IncidentGroupDetail>(
-    `/admin/incidents/groups/${encodeURIComponent(source)}/${encodeURIComponent(fingerprint)}`);
+  return getBrowserJsonAt(
+    '/admin/incidents/groups/{source}/{fingerprint}',
+    `/admin/incidents/groups/${encodeURIComponent(source)}/${encodeURIComponent(fingerprint)}`,
+  );
 }
 
-/**
- * Bulk action. When every ref conflicts the API answers 409 (changed or gone,
- * possibly mixed) or 503 (every write failed), and api.js throws without the
- * conflict list. That comes back here as a result with no change and one
- * conflict per ref: `refused` for 409 (the cause per ref is unknown, never
- * guessed), `write_failed` for 503.
- */
+/** Whole-batch errors keep the existing summary. Per-group outcomes come from the successful bulk payload. */
 export async function postIncidentBulk(
   action: IncidentAction, groups: IncidentRef[], note?: string,
 ): Promise<IncidentBulkResult> {
+  const body: IncidentBulkBody = { action, groups, ...(note ? { note } : {}) };
   try {
-    return await window.api.post<IncidentBulkResult>('/admin/incidents/groups/bulk', {
-      action, groups, ...(note ? { note } : {}),
-    });
+    return await postBrowserJsonAt('/admin/incidents/groups/bulk', '/admin/incidents/groups/bulk', body);
   } catch (caught) {
-    const status = (caught as ApiError)?.status;
+    const status = (caught as { status?: number })?.status;
     if (status !== 409 && status !== 503) throw caught;
-    const code = status === 409 ? 'refused' : 'write_failed';
     return {
       changed: 0,
-      conflicts: groups.map((g) => ({ source: g.source, fingerprint: g.fingerprint, status, code })),
+      conflicts: groups.map(({ source, fingerprint }) => status === 409
+        ? { source, fingerprint, status, code: 'refused' }
+        : { source, fingerprint, status, code: 'write_failed' }),
       dismiss_failed: [],
     };
   }
