@@ -60,6 +60,8 @@ def _writing(item_id, *, due=None, submitted=None, status="pending", review_stat
 
 
 def _get(monkeypatch, rows, *, has_class=True, stale=False):
+    # No paper is open to self-practice unless a test says so (T30b has its own tests).
+    monkeypatch.setattr(sa, "_self_practice_open_ids", lambda *_a, **_k: set())
     monkeypatch.setattr(st, "_visible_assignments_for",
                         lambda *_a, **_k: (has_class, rows, stale))
     return sa.get_assigned("u-1", "A", NOW)
@@ -192,10 +194,10 @@ def test_writing_returned_with_result_path(monkeypatch):
     assert (item["group"], item["action"], item["band"]) == ("returned", "result", 6.5)
 
 
-# ── self-practice (T30b) ──────────────────────────────────────────────────────
+# ── self-practice hook ──────────────────────────────────────────────────────
 
 
-def test_self_practice_is_hidden_until_t30b(monkeypatch):
+def test_self_practice_is_hidden_when_no_paper_is_open(monkeypatch):
     rows = [_row("closed", "reading", due=NOW - timedelta(hours=1)),
             _row("c", "course", due=NOW - timedelta(hours=1), course_action="closed")]
     for item in _get(monkeypatch, rows)["items"]:
@@ -346,11 +348,7 @@ class _DB:
         return _Q(self, name)
 
 
-def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
-    import database
-    from routers import class_student
-    from services import quiz_service
-
+def _two_student_ledger_db():
     students = ["s1", "s2"]
     finished = _iso(NOW - timedelta(hours=1))
     db = _DB({
@@ -385,6 +383,15 @@ def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
         ],
         "quiz_questions": [{"id": "prompt", "bank_id": "bank", "qid": "prompt", "type": "writing"}],
     })
+    return db, finished
+
+
+def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
+    import database
+    from routers import class_student
+    from services import quiz_service
+
+    db, finished = _two_student_ledger_db()
     with patch.object(class_student, "supabase_admin", db), \
          patch.object(quiz_service, "supabase_admin", db), \
          patch.object(database, "supabase_admin", db):
@@ -410,6 +417,33 @@ def test_assigned_reconciles_only_the_callers_reading_and_course_ledgers():
         ("class_assignment_items", "reading-s2"),
         ("class_assignment_items", "course-s2"),
     ]
+
+
+def test_read_only_assignment_view_projects_both_ledgers_without_writing():
+    import database
+    from routers import class_student
+    from services import quiz_service
+
+    db, finished = _two_student_ledger_db()
+    # The quiz is already passed; the assignment is waiting for its writing receipt.
+    next(row for row in db.tables["class_assignment_items"] if row["id"] == "course-s1")["passed_at"] = finished
+    # The other learner has pending work without evidence of a hand-in.
+    db.tables["reading_test_attempts"] = db.tables["reading_test_attempts"][:1]
+    db.tables["course_writing_submissions"] = db.tables["course_writing_submissions"][:1]
+    with patch.object(class_student, "supabase_admin", db), \
+         patch.object(quiz_service, "supabase_admin", db), \
+         patch.object(database, "supabase_admin", db):
+        has_a, a, stale_a = st._visible_assignments_for("u-1", "A", NOW, read_only=True)
+        has_b, b, stale_b = st._visible_assignments_for("u-2", "B", NOW, read_only=True)
+
+    assert has_a and has_b and not stale_a and not stale_b
+    assert {row["item_id"] for row in a} == {"reading-s1", "course-s1"}
+    assert {row["item_id"] for row in b} == {"reading-s2", "course-s2"}
+    assert {row["submitted_at"] for row in a} == {finished}
+    assert st.build_assigned(a, NOW)["assigned_total_open"] == 0
+    assert st.build_assigned(b, NOW)["assigned_total_open"] == 2
+    assert db.writes == []
+    assert all(row["submitted_at"] is None for row in db.tables["class_assignment_items"])
 
 
 # ── route ─────────────────────────────────────────────────────────────────────

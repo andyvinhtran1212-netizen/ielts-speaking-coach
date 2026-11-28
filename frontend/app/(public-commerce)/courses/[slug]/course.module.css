@@ -1,0 +1,181 @@
+/* PUBLICSITE-0059 T05 `/courses/[slug]` (tờ TrangKhoaHoc). Only var(--av2-*).
+   From 1024px: reading column + registration panel that stays put while scrolling.
+   Below 1024px: the panel stacks under the content and its one action also sits in a
+   bar fixed to the bottom; the page keeps room for that bar. */
+.page { padding-top: var(--av2-space-8); padding-bottom: calc(var(--av2-control-lg) + var(--av2-space-6)); }
+
+.crumb { margin: 0 0 var(--av2-space-6); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.crumb a { color: var(--av2-link); }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--av2-space-8);
+}
+
+.main { min-width: 0; }
+
+.intro { max-width: 680px; }
+.intro h1 { margin: 0 0 var(--av2-space-3); font-family: var(--av2-font-serif); }
+
+.eyebrow {
+  margin: 0 0 var(--av2-space-2);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--av2-muted);
+}
+
+.summary { margin: 0; font-size: var(--av2-fs-16); }
+
+.section {
+  margin-top: var(--av2-space-8);
+  padding-top: var(--av2-space-8);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+  max-width: 680px;
+}
+.section h2 { margin: 0 0 var(--av2-space-4); font-family: var(--av2-font-serif); font-size: var(--av2-fs-24); }
+.section p { margin: 0 0 var(--av2-space-3); }
+
+.muted { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+
+.author { display: flex; gap: var(--av2-space-4); align-items: flex-start; }
+.photo { border-radius: var(--av2-radius); object-fit: cover; }
+.authorName { font-weight: var(--av2-fw-strong); }
+
+.chapters, .lessons, .faq { margin: 0; padding: 0; list-style: none; }
+
+.chapter { border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+
+.chapterHead, .faq h3 { margin: 0; font-size: var(--av2-fs-16); }
+.chapterHead button, .faq button {
+  display: flex;
+  width: 100%;
+  min-height: var(--av2-control-md);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-3);
+  padding: var(--av2-space-3) 0;
+  border: 0;
+  background: none;
+  color: var(--av2-ink);
+  font: inherit;
+  font-weight: var(--av2-fw-strong);
+  text-align: left;
+  cursor: pointer;
+}
+.chapterHead button > span:first-child, .faq button > span:first-child { flex: 1; }
+.chapterHead button:focus-visible, .faq button:focus-visible {
+  outline: var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+.lessons { padding-bottom: var(--av2-space-3); }
+
+.lesson {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--av2-space-1) var(--av2-space-3);
+  padding: var(--av2-space-2) 0;
+}
+.lesson a { color: var(--av2-link); }
+
+.previewTag {
+  padding: 0 var(--av2-space-2);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ok);
+  background: var(--av2-ok-bg);
+  border-radius: var(--av2-radius);
+}
+
+.sample {
+  margin: 0;
+  padding: var(--av2-space-5);
+  background: var(--av2-surface);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+}
+.sample mark { background: var(--av2-highlight); color: var(--av2-ink); }
+.sample ol { margin: 0; padding-left: var(--av2-space-5); }
+
+.faq li { border-bottom: var(--av2-rule-w) solid var(--av2-rule); }
+.faq div { padding-bottom: var(--av2-space-3); }
+
+.panel {
+  align-self: start;
+  padding: var(--av2-space-6);
+  background: var(--av2-surface);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+}
+.panel > * + * { margin-top: var(--av2-space-3); }
+
+.badge {
+  display: inline-flex;
+  padding: var(--av2-space-1) var(--av2-space-2);
+  font-size: var(--av2-fs-12);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  border-radius: var(--av2-radius);
+}
+.badge[data-state='open'] { color: var(--av2-ok); background: var(--av2-ok-bg); border-color: var(--av2-ok); }
+.badge[data-state='learning'] { background: var(--av2-tint); }
+.badge[data-state='expired'], .badge[data-state='upcoming'] { color: var(--av2-muted); }
+
+.facts { margin: 0; display: grid; gap: var(--av2-space-2); }
+.facts div { display: flex; justify-content: space-between; gap: var(--av2-space-3); }
+.facts dt { color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.facts dd { margin: 0; font-weight: var(--av2-fw-strong); }
+
+.get h3 { margin: 0 0 var(--av2-space-2); font-size: var(--av2-fs-16); }
+.get ul { margin: 0; padding-left: var(--av2-space-5); font-size: var(--av2-fs-14); }
+.get li + li { margin-top: var(--av2-space-2); }
+
+.primary { display: grid; }
+
+.note { margin: 0; color: var(--av2-muted); font-size: var(--av2-fs-14); }
+.note a, .renew a { color: var(--av2-link); }
+
+.renew > * + * { margin-top: var(--av2-space-1); }
+
+.bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--av2-z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-3);
+  min-height: var(--av2-control-lg);
+  padding: var(--av2-space-2) var(--av2-space-4);
+  background: var(--av2-paper);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+.barText { min-width: 0; }
+.barText p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barTitle { font-weight: var(--av2-fw-strong); }
+
+/* Below 768px a signed-in learner also has LearnerShell's bottom tab bar
+   ("Thanh mục chính", sticky at bottom 0, same z level): the course bar sits
+   just above it so both stay visible and clickable. Guests keep bottom 0. */
+@media (max-width: 767px) {
+  :global(body:has(nav[aria-label='Thanh mục chính']:not([hidden]))) .bar {
+    bottom: calc(var(--av2-bottombar-h) + env(safe-area-inset-bottom));
+  }
+}
+
+/* The bar must not cover the keyboard while the alert email is being typed. */
+.page:has(form[data-open-alert] input:focus) .bar { display: none; }
+
+@media (min-width: 1024px) {
+  .page { padding-bottom: var(--av2-space-10); }
+  .layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .panel { position: sticky; top: calc(var(--av2-topbar-h) + var(--av2-space-4)); }
+  .bar { display: none; }
+}

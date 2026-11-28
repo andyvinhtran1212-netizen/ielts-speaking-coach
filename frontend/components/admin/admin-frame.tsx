@@ -32,7 +32,7 @@ import {
   isEmbedSearch,
 } from '@/lib/admin-frame-model.mjs';
 import { useAuth } from '@/lib/auth/auth-provider';
-import { postBrowserJsonAt } from '@/lib/browser-api';
+import { getBrowserJson, postBrowserJsonAt } from '@/lib/browser-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import styles from './admin-frame.module.css';
@@ -48,7 +48,7 @@ function useAttentionCounts(enabled: boolean): Counts {
     (async () => {
       try {
         if (!await whenGlobalReady(() => !!window.api?.getWith, 'Admin API')) return;
-        const body = await window.api.getWith<unknown>('/admin/attention');
+        const body = await getBrowserJson('/admin/attention');
         if (live) setCounts(attentionCounts(body));
       } catch (caught) {
         console.warn('[admin-frame] attention counts unavailable', caught);
