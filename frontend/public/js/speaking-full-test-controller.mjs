@@ -210,12 +210,7 @@ export class SpeakingFullTestController {
   }
 
   submitAnswer({ sessionId, questionId, blob, priorResponseId = null } = {}) {
-    if (this.disposed) {
-      return Promise.reject(new SpeakingFullTestError(
-        'disposed',
-        'Trang Full Test đã đóng. Hãy mở lại bài thi.',
-      ));
-    }
+    if (this.disposed) return Promise.reject(this.#disposedError());
     if (this.finalizing) {
       return Promise.reject(new SpeakingFullTestError(
         'finalizing',
@@ -237,15 +232,19 @@ export class SpeakingFullTestController {
 
     const item = { sessionId: sid, questionId: qid, blob, priorResponseId };
     const run = () => Promise.resolve()
-      .then(() => this.#settleWithin(
-        this.submit(item),
-        this.submissionSettleMs,
-        () => new SpeakingFullTestError(
-          'submission_timeout',
-          'Bản ghi vẫn đang chờ máy chủ xác nhận. Hãy thử gửi lại.',
-        ),
-      ))
+      .then(() => {
+        if (this.disposed) throw this.#disposedError();
+        return this.#settleWithin(
+          this.submit(item),
+          this.submissionSettleMs,
+          () => new SpeakingFullTestError(
+            'submission_timeout',
+            'Bản ghi vẫn đang chờ máy chủ xác nhận. Hãy thử gửi lại.',
+          ),
+        );
+      })
       .then((result) => {
+        if (this.disposed) return result;
         const set = this.confirmed.get(sid) || new Set();
         set.add(qid);
         this.confirmed.set(sid, set);
@@ -254,7 +253,7 @@ export class SpeakingFullTestController {
         return result;
       })
       .catch((error) => {
-        this.retryable.set(key, { ...item, error });
+        if (!this.disposed) this.retryable.set(key, { ...item, error });
         throw error;
       });
     // A duplicate caller for the same Blob shares one mutation. A genuinely
@@ -271,6 +270,7 @@ export class SpeakingFullTestController {
   }
 
   async retryFailed() {
+    if (this.disposed) throw this.#disposedError();
     const items = Array.from(this.retryable.values());
     if (!items.length) return this.getSnapshot();
     const settled = await Promise.allSettled(items.map((item) => this.submitAnswer(item)));
@@ -286,6 +286,7 @@ export class SpeakingFullTestController {
   }
 
   finalizeFullTest() {
+    if (this.disposed) return Promise.reject(this.#disposedError());
     if (this.finalizing) return this.finalizing;
     const operation = this.#finalizeOnce();
     this.finalizing = operation;
@@ -302,6 +303,7 @@ export class SpeakingFullTestController {
       const pending = Array.from(this.pending.values(), (entry) => entry.promise);
       await Promise.allSettled(pending);
     }
+    if (this.disposed) throw this.#disposedError();
     if (this.retryable.size) {
       throw new SpeakingFullTestError(
         'answers_pending',
@@ -335,6 +337,7 @@ export class SpeakingFullTestController {
           'Máy chủ chưa xác nhận yêu cầu chốt bài trong thời gian dự kiến.',
         ),
       );
+      if (this.disposed) throw this.#disposedError();
       if (!acceptedFinalizePayload(payload, this.sessionIds)) {
         throw new SpeakingFullTestError(
           'ambiguous_finalize',
@@ -344,6 +347,7 @@ export class SpeakingFullTestController {
       this.clear();
       return payload;
     } catch (error) {
+      if (this.disposed) throw this.#disposedError();
       const rejectedStatus = definitiveFinalizeStatus(error);
       if (rejectedStatus) {
         const code = rejectedStatus === 401
@@ -355,7 +359,9 @@ export class SpeakingFullTestController {
           { cause: error },
         );
       }
-      if (await this.#reconcileFinalize()) {
+      const reconciled = await this.#reconcileFinalize();
+      if (this.disposed) throw this.#disposedError();
+      if (reconciled) {
         const result = {
           accepted: true,
           session_ids: this.sessionIds.slice(),
@@ -417,8 +423,13 @@ export class SpeakingFullTestController {
 
   destroy() {
     this.disposed = true;
-    // Fetches are deliberately not aborted: a cancelled mutation can still
-    // commit on the server. Their promises settle and release themselves.
+    // Release queued audio. Requests that were already sent can still settle.
+    this.pending.clear();
+    this.retryable.clear();
+  }
+
+  #disposedError() {
+    return new SpeakingFullTestError('disposed', 'Trang Full Test đã đóng. Hãy mở lại bài thi.');
   }
 
   #failureSnapshot() {
