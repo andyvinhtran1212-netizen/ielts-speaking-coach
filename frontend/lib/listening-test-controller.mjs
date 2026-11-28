@@ -503,6 +503,7 @@ export const LISTENING_ABANDONED_MESSAGE = 'This attempt was abandoned and was n
  *
  * @param {{
  *   attemptId: string,
+ *   sittingId?: string | null,
  *   reply?: any,
  *   error?: any,
  *   reread?: { status?: string, signin?: boolean } | null,
@@ -510,7 +511,7 @@ export const LISTENING_ABANDONED_MESSAGE = 'This attempt was abandoned and was n
  *   online?: boolean,
  * }} input
  */
-export function listeningSubmitOutcome({ attemptId, reply, error, reread = null, autoRetries = 0, online = true }) {
+export function listeningSubmitOutcome({ attemptId, sittingId, reply, error, reread = null, autoRetries = 0, online = true }) {
   const id = requiredText(attemptId, 'missing-listening-attempt');
   const status = error ? Number(error.status) : NaN;
   const hasStatus = !!error && error.status !== undefined && error.status !== null;
@@ -539,7 +540,13 @@ export function listeningSubmitOutcome({ attemptId, reply, error, reread = null,
 
   if (!error) {
     // Sealed first: a sealed receipt with a capture envelope also carries attempt_id.
-    if (reply?.received === true && reply?.sealed === true) return submitState('confirmed', 'results', { sealed: true });
+    if (reply?.sealed === true) {
+      if (reply.received === true && sittingId && reply.sitting_id === sittingId &&
+          (reply.attempt_id == null || reply.attempt_id === id)) {
+        return submitState('confirmed', 'results', { sealed: true });
+      }
+      return transient(autoRetries, online ? null : 'online');
+    }
     if (reply?.attempt_id === id) return submitState('confirmed', 'results');
     // A reply without a matching acknowledgement is a lost response.
     return transient(autoRetries, online ? null : 'online');

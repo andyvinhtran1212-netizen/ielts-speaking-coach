@@ -1,7 +1,7 @@
 'use client';
 
 import { useListeningDrillPlayback } from '@/lib/listening-drill-playback';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { useDialogFocus } from '@/lib/use-dialog-focus';
@@ -976,15 +976,19 @@ export function ListeningTestSession() {
     if (pending.online) window.removeEventListener('online', pending.online);
     roomRetryRef.current = {};
   }, []);
-  useEffect(() => clearRoomRetry, [clearRoomRetry]);
+  const submitGeneration = useRef(0);
+  useLayoutEffect(() => () => {
+    submitGeneration.current += 1;
+    clearRoomRetry();
+  }, [attempt?.attempt_id, user?.id, status, clearRoomRetry]);
 
-  const finishRoomSubmit = useCallback((response: any) => {
+  const finishRoomSubmit = useCallback((response: any, sealed = false) => {
     audioRef.current?.pause();
     if (roomScope) clearLocalCopy(roomStorage(), roomScope);
     const hook = (window as any).MockHook;
-    if (hook?.isSealedResponse?.(response)) {
+    if (sealed) {
       setPhase('sealed');
-      if (!params?.mockEmbed) hook.showSealedAndReturn('listening');
+      if (!params?.mockEmbed) hook?.showSealedAndReturn?.('listening');
       return;
     }
     if (response?.post_test_capture_required) { setResult(response); setPhase('capture'); return; }
@@ -998,6 +1002,8 @@ export function ListeningTestSession() {
   const runRoomSubmit = useCallback(async (autoRetries: number): Promise<void> => {
     if (!attempt) return;
     clearRoomRetry();
+    const generation = submitGeneration.current;
+    const sittingId = attempt.mock_sitting_id || params?.sittingId;
     const id = encodeURIComponent(attempt.attempt_id);
     const path = `/api/listening/tests/attempts/${id}/submit`;
     setRoomSubmit({ outcome: 'submitting', message: null });
@@ -1007,11 +1013,12 @@ export function ListeningTestSession() {
       reply = await coreOperationRequest({
         accountId: user?.id, method: 'POST', path,
         input: [...answersRef.current].sort(([a], [b]) => a - b),
-        acknowledged: (r: any) => r?.attempt_id === attempt.attempt_id || (r?.received === true && r?.sealed === true),
+        acknowledged: (r: any) => listeningSubmitOutcome({ attemptId: attempt.attempt_id, sittingId, reply: r }).next === 'results',
       }, (headers: Record<string, string>) => window.api.postWith(path, {}, headers, { noRedirect: true }));
     } catch (caught) { error = caught; }
+    if (generation !== submitGeneration.current) return;
     const online = typeof navigator === 'undefined' ? true : navigator.onLine;
-    let state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply, error, autoRetries, online });
+    let state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, sittingId, reply, error, autoRetries, online });
     const reread = async () => {
       try { return await window.api.getWith<any>(`/api/listening/tests/attempts/${id}`, {}, { noRedirect: true }); }
       catch (caught: any) {
@@ -1019,9 +1026,10 @@ export function ListeningTestSession() {
         return { status: 'unknown' };
       }
     };
-    if (state.next === 'reread') state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply, error, autoRetries, online, reread: await reread() });
+    if (state.next === 'reread') state = listeningSubmitOutcome({ attemptId: attempt.attempt_id, sittingId, reply, error, autoRetries, online, reread: await reread() });
+    if (generation !== submitGeneration.current) return;
     if (error?.status === 401) setRoomSession('expired');
-    if (state.next === 'results') { setRoomSubmit({ outcome: 'confirmed', message: null }); finishRoomSubmit(reply); return; }
+    if (state.next === 'results') { setRoomSubmit({ outcome: 'confirmed', message: null }); finishRoomSubmit(reply, state.sealed); return; }
     if (state.next === 'resubmit') { setRoomSubmit({ outcome: 'idle', message: null }); setPhase('inprogress'); return; }
     if (state.next === 'back') {
       audioRef.current?.pause();
@@ -1035,8 +1043,13 @@ export function ListeningTestSession() {
     // re-reads the attempt first.
     const schedule = (used: number, waitFor: string | null) => {
       const again = async () => {
+        if (generation !== submitGeneration.current) return;
         clearRoomRetry();
+        // A sealed mock rejects result reads even after a successful submit.
+        // Replay the same POST so the server returns its opaque receipt.
+        if (sittingId) { void runRoomSubmit(used + 1); return; }
         const truth: any = await reread();
+        if (generation !== submitGeneration.current) return;
         if (truth?.status === 'in_progress') { void runRoomSubmit(used + 1); return; }
         const nowOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
         const checked = listeningSubmitOutcome({ attemptId: attempt.attempt_id, reply: null, error: { status: 409 }, autoRetries: used + 1, online: nowOnline, reread: truth });
@@ -1063,7 +1076,7 @@ export function ListeningTestSession() {
       }
     };
     schedule(autoRetries, state.waitFor);
-  }, [attempt, clearRoomRetry, finishRoomSubmit, roomScope, user?.id]);
+  }, [attempt, clearRoomRetry, finishRoomSubmit, params?.sittingId, roomScope, user?.id]);
 
   const submitRoom = useCallback(async () => {
     if (!attempt || ['submitting', 'results', 'sealed'].includes(phase)) return;
