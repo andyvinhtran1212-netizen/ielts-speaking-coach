@@ -33,7 +33,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
   { id: 'overview', label: 'Tổng quan', icon: 'home', items: [item('todo', 'Việc cần làm', '/admin')] },
   {
     id: 'learners', label: 'Học viên và quyền truy cập', icon: 'users', items: [
-      soon('learners', 'Học viên', { plannedHref: '/admin/learners' }),
+      item('learners', 'Học viên', '/admin/learners'),
       item('classes', 'Lớp', '/admin/classes'),
       item('instructors', 'Giáo viên', '/admin/instructors'),
       item('activation-codes', 'Mã kích hoạt', '/admin/activation-codes'),
@@ -77,7 +77,7 @@ export const ADMIN_NAV_GROUPS = Object.freeze([
   },
   {
     id: 'system', label: 'Hệ thống', icon: 'settings', items: [
-      soon('incidents', 'Hộp thư sự cố', { plannedHref: '/admin/incidents', countKey: 'incident_groups_open' }),
+      item('incidents', 'Hộp thư sự cố', '/admin/incidents', { countKey: 'incident_groups_open' }),
       item('ai-models', 'AI và mô hình', '/admin/ai-models'),
       item('mfa', 'Bảo mật', '/admin/mfa'),
       item('qa-tools', 'Công cụ QA', '/admin/qa-tools'),
@@ -188,6 +188,7 @@ export const ADMIN_ROUTES = Object.freeze([
   r('/admin/library', 'nav', 'content', 'library'),
   r('/admin/reports', 'nav', 'reports', 'activity'),
   r('/admin/incidents', 'nav', 'system', 'incidents'),
+  r('/admin/incidents/[source]/[fingerprint]', 'context', 'system', 'incidents'),
   r('/admin/ai-models', 'nav', 'system', 'ai-models'),
   r('/admin/qa-tools', 'nav', 'system', 'qa-tools'),
   r('/admin/settings', 'nav', 'system', 'settings'),

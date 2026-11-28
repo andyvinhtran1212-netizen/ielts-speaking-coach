@@ -33,8 +33,11 @@ export function MicStatus({
   strings,
   onRequest,
   track,
+  lost = false,
 }: {
   state: MicState;
+  /** The track ended while recording (R139): "Mất kết nối micro", kept until the mic is granted again. */
+  lost?: boolean;
   strings: Strings;
   /** "Cho phép micro" and "Thử lại": practice.js `requestMicrophone`. */
   onRequest: () => void;
@@ -47,6 +50,10 @@ export function MicStatus({
     track?.('exam_room_mic', { surface: 'speaking', state });
   }, [state, track]);
 
+  // R139: kept above every case until the microphone works again, so an error
+  // on a later "Thử lại" does not hide why the take stopped.
+  const showLost = lost && state !== 'granted' && state !== 'unknown';
+  const lostLine = showLost ? <p className="text-sm font-semibold" style={{ margin: '0 0 4px' }} data-mic-lost>{strings.micLost}</p> : null;
   let body = null;
   if (state === 'prompt') {
     body = (
@@ -76,9 +83,13 @@ export function MicStatus({
   return (
     <div className="practice-room-mic" data-mic-state={state} aria-label={strings.micRegion} role="group">
       {/* Polite for every case; the denied case below is announced once as an alert. */}
-      <div aria-live="polite">{body ? <div className="ds-callout" style={{ marginBottom: 12 }}>{body}</div> : null}</div>
+      {/* A lost microphone takes the warning tone (CR nit); `display: block` undoes the callout's flex row. */}
+      <div aria-live="polite">{body ? (
+        <div className={showLost ? 'ds-callout practice-warning-callout' : 'ds-callout'} style={showLost ? { marginBottom: 12, display: 'block' } : { marginBottom: 12 }} data-mic-tone={showLost ? 'warning' : 'info'}>{lostLine}{body}</div>
+      ) : null}</div>
       {state === 'denied' ? (
         <div className="ds-callout practice-error-callout" role="alert" style={{ marginBottom: 12 }}>
+          {lostLine}
           <p className="text-sm font-semibold" style={{ margin: '0 0 6px' }}>{strings.micDeniedTitle}</p>
           <ol className="text-sm" style={{ margin: '0 0 6px', paddingLeft: 20 }}>
             {strings.micDeniedSteps.map((step) => <li key={step}>{step}</li>)}

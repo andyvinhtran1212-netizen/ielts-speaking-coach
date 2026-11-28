@@ -26,6 +26,10 @@ const getWithImpl = async (path: string) => {
     if (!page) throw Object.assign(new Error('HTTP 404'), { status: 404 });
     return page;
   }
+  if (path === '/api/account/deletion-request') {
+    // ACCOUNTDATA-0100 routes not deployed (staging today): blocks hidden.
+    throw Object.assign(new Error('HTTP 404'), { status: 404 });
+  }
   if (path.startsWith('/api/class/me')) {
     if (state.clsFails) throw Object.assign(new Error('HTTP 503'), { status: 503 });
     return state.cls;
@@ -198,13 +202,13 @@ describe('/account', () => {
     expect(screen.queryByText('Thông tin khoá online sẽ có khi bạn đăng ký.')).toBeNull();
   });
 
-  it('planned pages are never linked: no "Đăng ký lại" or action without a live target', async () => {
+  it('planned pages are never linked: no "Đăng ký lại" or action without a live target; live /account/orders is', async () => {
     state.courses = coursesPayload();
     state.credits = [{ balance: 17, items: [], next_cursor: null }];
     await mount();
     expect(screen.queryByRole('link', { name: 'Đăng ký lại' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Nhập mã kích hoạt của lớp' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Đơn đăng ký của tôi' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Đơn đăng ký của tôi' }).getAttribute('href')).toBe('/account/orders');
     expect(screen.getByText('Còn 8 ngày')).toBeTruthy();
   });
 

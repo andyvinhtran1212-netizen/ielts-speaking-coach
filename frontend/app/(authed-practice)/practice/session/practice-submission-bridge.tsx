@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreSpeakingUpload } from '@/lib/core-speaking-operation.mjs';
@@ -10,32 +10,61 @@ import { SpeakingSubmissionController } from '../../../../public/js/speaking-sub
 export function PracticeSubmissionBridge() {
   const { status, user } = useAuth();
 
+  const installation = useRef<{ ownerId: string; dispose: () => void } | null>(null);
+
+  useEffect(() => () => {
+    installation.current?.dispose();
+    installation.current = null;
+  }, []);
+
   useEffect(() => {
-    if (status !== 'signed-in' || !user?.id) return undefined;
     const win = window as any;
+    // The retained blob must retry with its original submission ID and revision.
+    if (status === 'signed-out' && installation.current
+        && win.PracticeApp?.retainExpiredSession?.() === true) return;
+    if (status === 'signed-in' && installation.current?.ownerId === user?.id) return;
+    installation.current?.dispose();
+    installation.current = null;
+    if (status !== 'signed-in' || !user?.id) return;
+    const ownerId = user.id;
+    let active = true;
+    function assertSessionOwner(sessionOwner: string | null) {
+      if (!active || sessionOwner !== ownerId) {
+        throw Object.assign(new Error('Phiên đăng nhập đã thay đổi.'), { status: 401 });
+      }
+    }
     const submission = Object.assign(new SpeakingSubmissionController({
       // A redirect here would destroy the only in-memory copy of an
       // unconfirmed recording. Preserve 401 and let the player keep the blob.
-      upload: (path: string, formData: FormData, { signal }: { signal: AbortSignal }) => (
-        coreSpeakingUpload({ accountId: user.id, path, formData }, (headers: Record<string, string>) =>
-          win.api.uploadWith(path, formData, { noRedirect: true, signal }, headers))
+      upload: (path: string, formData: FormData, { signal }: { signal: AbortSignal }) => coreSpeakingUpload(
+        { accountId: ownerId, path, formData },
+        (headers: Record<string, string>) => win.api.uploadWith(
+          path, formData, { noRedirect: true, signal, assertSessionOwner }, headers,
+        ),
+        () => assertSessionOwner(ownerId),
       ),
-      getSession: (path: string, { signal }: { signal: AbortSignal }) => win.api.getWith(path, {}, { noRedirect: true, signal }),
+      getSession: (path: string, { signal }: { signal: AbortSignal }) => win.api.getWith(path, {}, { noRedirect: true, signal, assertSessionOwner }),
     }), {
-      complete: (sessionId: string) => {
+      // EXAMSPEAK-0072 FR-010: the exam room passes `{ noRedirect: true }` so a
+      // 401 stays in the page; without options the call is exactly as before.
+      complete: (sessionId: string, options?: { noRedirect?: boolean }) => {
         const path = `/sessions/${encodeURIComponent(sessionId)}/complete`;
+        const noRedirect = options?.noRedirect === true;
         return coreOperationRequest({
           accountId: user.id, method: 'PATCH', path, input: {},
           acknowledged: (reply: any) => (reply?.session_id === sessionId || reply?.id === sessionId) && reply?.status === 'completed',
-        }, (headers: Record<string, string>) => win.api.patchWith(path, {}, headers));
+        }, (headers: Record<string, string>) => (noRedirect
+          ? win.api.patchWith(path, {}, headers, { noRedirect: true })
+          : win.api.patchWith(path, {}, headers)));
       },
     });
     win.PracticeSubmission = submission;
 
-    return () => {
+    installation.current = { ownerId: user.id, dispose: () => {
+      active = false;
       submission.destroy();
       if (win.PracticeSubmission === submission) delete win.PracticeSubmission;
-    };
+    } };
   }, [status, user?.id]);
 
   return null;

@@ -521,6 +521,77 @@ def test_get_route_matches_response_model(monkeypatch, api):
     assert db.updates == []
 
 
+def test_resume_view_reads_only_the_current_learner_without_reconciling(monkeypatch, api):
+    import database
+    from routers import class_student
+    from services import quiz_service
+    from test_student_assigned import _two_student_ledger_db
+
+    client, student_home = api
+    ledger, _ = _two_student_ledger_db()
+    for module in (database, class_student, quiz_service):
+        monkeypatch.setattr(module, "supabase_admin", ledger)
+    now = datetime.now(timezone.utc)
+    db = _DB({"sessions": [
+        {"id": f"resume-{user_id}", "user_id": user_id, "status": "in_progress",
+         "started_at": _iso(now), "resume_expires_at": _iso(now + timedelta(hours=1))}
+        for user_id in ("u-1", "u-2")
+    ]})
+    monkeypatch.setattr(student_home, "thread_supabase_admin", lambda: db)
+
+    async def _user(authorization):
+        return {"id": authorization.removeprefix("Bearer ")}
+
+    current_sessions = []
+
+    async def _ensure_current(user_id, authorization, _user_agent):
+        current_sessions.append((user_id, authorization))
+
+    monkeypatch.setattr(student_home, "get_supabase_user", _user)
+    monkeypatch.setattr(student_home.session_gate, "ensure_current", _ensure_current)
+    for learner, other in (("u-1", "u-2"), ("u-2", "u-1")):
+        res = client.get(
+            "/api/student/today", params={"view": "resume", "user_id": other},
+            headers={"Authorization": f"Bearer {learner}"},
+        )
+        assert res.status_code == 200, res.text
+        assert res.headers["cache-control"] == "private, no-store"
+        body = res.json()
+        assert set(body) == {"resume", "degraded"}
+        assert body["degraded"] == []
+        assert [item["href"] for item in body["resume"]] == [
+            f"/core-player/launch?surface=speaking&session_id=resume-{learner}",
+        ]
+    assert current_sessions == [("u-1", "Bearer u-1"), ("u-2", "Bearer u-2")]
+    assert ledger.writes == db.updates == []
+    assert all(item["submitted_at"] is None for item in ledger.tables["class_assignment_items"])
+
+
+def test_resume_view_verifies_session_before_touching_attempts(monkeypatch, api):
+    client, student_home = api
+    opened = []
+    monkeypatch.setattr(student_home, "thread_supabase_admin", lambda: opened.append(True))
+
+    async def _replaced(_user_id, _authorization, _user_agent):
+        raise HTTPException(status_code=409, detail={"code": "session_replaced"})
+
+    monkeypatch.setattr(student_home.session_gate, "ensure_current", _replaced)
+    res = client.get("/api/student/today?view=resume", headers={"Authorization": "Bearer x"})
+    assert res.status_code == 409, res.text
+    assert res.json()["detail"]["code"] == "session_replaced"
+    assert opened == []
+
+
+def test_resume_view_preserves_read_failure_state(monkeypatch, api):
+    client, student_home = api
+    db = _DB(fail={"sessions"})
+    monkeypatch.setattr(student_home, "thread_supabase_admin", lambda: db)
+    res = client.get("/api/student/today?view=resume", headers={"Authorization": "Bearer x"})
+    assert res.status_code == 200, res.text
+    assert res.json() == {"resume": [], "degraded": ["resume"]}
+    assert db.updates == []
+
+
 def test_seen_route_rejects_future_and_naive(monkeypatch, api):
     client, student_home = api
     db = _DB({"users": [{"id": "u-1"}]})

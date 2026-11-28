@@ -152,17 +152,26 @@ test('actual api.js keeps three-argument uploads compatible and forwards optiona
   assert.equal(calls[1].options.headers['X-Core-Operation-ID'], 'synthetic-operation');
 });
 
-test('actual Next bridge completes with durable retry hints while shared practice adapter preserves legacy transport', async () => {
-  const h = harness(), accountId = randomUUID(), sessionId = randomUUID(), calls = [];
+function mountSubmissionBridge(win, accountId, upload, request) {
   const source = readFileSync(new URL('../app/(authed-practice)/practice/session/practice-submission-bridge.tsx', import.meta.url), 'utf8');
   const ast = ts.createSourceFile('bridge.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let effect;
-  const visit = node => {
-    if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect') effect = node.arguments[0].getText(ast);
-    ts.forEachChild(node, visit);
+  const bridge = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'PracticeSubmissionBridge');
+  assert.ok(bridge?.body);
+  const compiled = ts.transpileModule(bridge.body.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const cleanups = [];
+  const effect = callback => {
+    const cleanup = callback();
+    if (typeof cleanup === 'function') cleanups.push(cleanup);
   };
-  visit(ast); assert.ok(effect);
-  const compiled = ts.transpileModule(`return (${effect})();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  new Function('useAuth', 'useRef', 'useEffect', 'window', 'SpeakingSubmissionController', 'coreSpeakingUpload', 'coreOperationRequest', compiled)(
+    () => ({ status: 'signed-in', user: { id: accountId } }), current => ({ current }), effect,
+    win, SpeakingSubmissionController, upload, request,
+  );
+  return () => cleanups.forEach(cleanup => cleanup());
+}
+
+test('actual Next bridge completes with durable retry hints while shared practice adapter preserves legacy transport', async () => {
+  const h = harness(), accountId = randomUUID(), sessionId = randomUUID(), calls = [];
   const request = createCoreOperationTransport({ enabled: () => true, getStorage: () => ({
     getItem: key => h.rows.get(key) ?? null, setItem: (key, value) => h.rows.set(key, value), removeItem: key => h.rows.delete(key),
   }) });
@@ -171,9 +180,7 @@ test('actual Next bridge completes with durable retry hints while shared practic
     calls.push(args); if (fail) { fail = false; throw Error('lost complete'); }
     return { session_id: sessionId, status: 'completed' };
   } } };
-  const mount = () => new Function('status', 'user', 'window', 'SpeakingSubmissionController', 'coreSpeakingUpload', 'coreOperationRequest', compiled)(
-    'signed-in', { id: accountId }, win, SpeakingSubmissionController, h.upload, request,
-  );
+  const mount = () => mountSubmissionBridge(win, accountId, h.upload, request);
   let cleanup = mount();
   await assert.rejects(win.PracticeSubmission.complete(sessionId), /lost complete/);
   cleanup(); assert.equal(win.PracticeSubmission, undefined);
@@ -219,16 +226,64 @@ test('actual Next bridge completes with durable retry hints while shared practic
     ts.forEachChild(node, find);
   };
   find(practiceAst); assert.ok(adapter);
+  // EXAMSPEAK-0072 FR-010: the adapter reads the exam-room flag; off here, so the calls are as before.
   const legacy = { patch: (...args) => { calls.push(args); return Promise.resolve('legacy'); } };
-  const complete = new Function('window', '_getNativeSubmission', `${adapter}; return _completeSpeakingSession;`)({ api: legacy }, () => null);
+  const complete = new Function('window', '_getNativeSubmission', `var _examRoomMode = false; ${adapter}; return _completeSpeakingSession;`)({ api: legacy }, () => null);
   assert.equal(await complete(sessionId), 'legacy');
   assert.deepEqual(calls.at(-1), [`/sessions/${sessionId}/complete`, {}]);
 
   const attempted = [], failures = [];
-  const failing = new Function('_getNativeSubmission', `${adapter}; return _completeSpeakingSession;`)(
+  const failing = new Function('_getNativeSubmission', `var _examRoomMode = false; ${adapter}; return _completeSpeakingSession;`)(
     () => ({ complete: id => { attempted.push(id); throw Error(`sync failure ${id}`); } }),
   );
   await Promise.all(['part-1', 'part-2', 'part-3'].map(id => failing(id).catch(error => failures.push(error.message))));
   assert.deepEqual(attempted, ['part-1', 'part-2', 'part-3']);
   assert.deepEqual(failures, attempted.map(id => `sync failure ${id}`));
+});
+
+
+test('pending Speaking preparation and credential reads stay bound to their owner', async (t) => {
+  for (const phase of ['digest', 'credential', 'disposed-during-credential', 'sent']) {
+    await t.test(phase, async () => {
+      const owner = randomUUID(), other = randomUUID();
+      let current = owner;
+      const gate = Promise.withResolvers(), reached = Promise.withResolvers();
+      const mutations = [];
+      let authReads = 0;
+      const win = { location: { hostname: 'localhost', pathname: '/practice/session' }, crypto: { randomUUID },
+        __AVER_SUPABASE_CLIENT__: { auth: { getSession: async () => {
+          if (++authReads === 2 && phase.includes('credential')) { reached.resolve(); await gate.promise; }
+          return { data: { session: { user: { id: current }, access_token: current + '-fixture-token' } } };
+        } } } };
+      const fetch = async (_url, options) => {
+        if (options.method === 'GET') return new Response(JSON.stringify({ submission_retry_safe: true, responses: [] }));
+        mutations.push(options.headers.Authorization);
+        if (phase === 'sent') { reached.resolve(); await gate.promise; }
+        return new Response(JSON.stringify({ response_id: 'saved' }));
+      };
+      const source = readFileSync(new URL('../public/js/api.js', import.meta.url), 'utf8');
+      runInNewContext(source, { window: win, fetch, console });
+      const crypto = { subtle: { digest: async (...args) => {
+        if (phase === 'digest') { reached.resolve(); await gate.promise; }
+        return webcrypto.subtle.digest(...args);
+      } } };
+      const h = harness({ crypto, timeoutMs: 5000 });
+      const dispose = mountSubmissionBridge(win, owner, h.upload);
+      const outcome = win.PracticeSubmission.submit({ sessionId: 'sid', questionId: 'q',
+        blob: new Blob(['synthetic audio'], { type: 'audio/mp4' }) });
+      await reached.promise;
+      if (phase !== 'disposed-during-credential') current = other;
+      if (phase !== 'credential') dispose();
+      gate.resolve();
+      if (phase === 'sent') {
+        assert.equal((await outcome).response_id, 'saved');
+        assert.deepEqual(mutations, ['Bearer ' + owner + '-fixture-token']);
+      } else {
+        await assert.rejects(outcome, { code: 'auth_required' });
+        assert.deepEqual(mutations, []);
+        if (phase === 'digest') assert.equal(h.rows.size, 0);
+      }
+      if (phase === 'credential') dispose();
+    });
+  }
 });

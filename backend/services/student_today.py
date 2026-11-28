@@ -454,6 +454,18 @@ def derive_banner(state: str, access: List[Dict[str, Any]], credits: Optional[Di
 _DEGRADABLE = ("assigned", "resume", "goal", "new_results")
 
 
+async def get_resume_view(make_sb: Callable[[], Any], user_id: str, *, active: bool) -> Dict[str, Any]:
+    """FR-079 reads only the caller's resumable work, with no ledger reconcile."""
+    if not active:
+        return {"resume": [], "degraded": []}
+    try:
+        resume = await asyncio.to_thread(lambda: build_resume(make_sb(), user_id, datetime.now(timezone.utc)))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[today] resume view failed: %s", exc.__class__.__name__)
+        return {"resume": [], "degraded": ["resume"]}
+    return {"resume": resume, "degraded": []}
+
+
 async def get_today_concurrent(
     make_sb: Callable[[], Any], user_id: str, *, name: str, account_name: str = "",
     now: Optional[datetime] = None, active: bool = True,

@@ -1,7 +1,7 @@
 // EXAMSPEAK-0072 T001 (G08-T18) FR-001, FR-003, FR-004, FR-005, FR-011: the
 // Speaking page with the exam room flag off (unchanged) and on (focus bar,
 // microphone cases, recording state in words, too-short reason in the page).
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MicStatus, type MicState } from '@/app/(authed-practice)/practice/session/mic-status';
@@ -70,6 +70,17 @@ describe('flag on', () => {
     return p;
   }
 
+  it('offers a retry only when the resumed completion failed', () => {
+    const p = roomPlayer('error');
+    const retry = vi.fn();
+    (window as any).PracticeApp = { retryResumeCompletion: retry };
+    shell(p);
+    expect(screen.queryByRole('button', { name: 'Thử hoàn tất lại' })).toBeNull();
+    act(() => { p.updateView('frame', { retryResumeCompletionVisible: true }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Thử hoàn tất lại' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
   it('wraps the page in the practice focus bar with "‹ Thoát" and a running clock', () => {
     vi.useFakeTimers();
     const p = roomPlayer();
@@ -135,6 +146,47 @@ describe('flag on', () => {
     shell(p);
     expect(screen.getByText(VI.micPending)).toBeTruthy();
     expect((screen.getByRole('button', { name: VI.micPendingButton }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a multi-question assignment shows pending permission, silence and mic loss on the active sheet', () => {
+    const p = roomPlayer('sheet');
+    p.updateView('sheet', { slots: [0, 1].map((index) => ({
+      key: `question-${index}`, index, state: 'idle', cueBullets: [], band: null,
+      recordLabel: 'Ghi âm',
+    })), total: 2 });
+    p.updateView('mic', { state: 'pending' });
+    const { container } = shell(p);
+    const sheet = container.querySelector('#state-sheet.active') as HTMLElement;
+    const slot = within(sheet.querySelector('[data-room-slot="answer-sheet"]') as HTMLElement);
+    expect(slot.getByText(VI.micPending)).toBeTruthy();
+    expect((slot.getByRole('button', { name: VI.micPendingButton }) as HTMLButtonElement).disabled).toBe(true);
+    expect(container.querySelectorAll('[data-room-slot]')).toHaveLength(1);
+
+    vi.useFakeTimers();
+    act(() => {
+      p.updateView('mic', { state: 'granted' });
+      p.updateView('recording', { substate: 'recording', timer: '0:04', level: 0 });
+    });
+    expect(slot.getByRole('status').textContent).toContain('0:04');
+    act(() => { vi.advanceTimersByTime(SILENCE_MS + 100); });
+    expect(slot.getByRole('status').textContent).toContain(VI.recSilent);
+    act(() => {
+      p.updateView('mic', { state: 'not_found', lost: true });
+      p.updateView('recording', { substate: 'idle', level: null });
+    });
+    expect(slot.getByText(VI.micLost)).toBeTruthy();
+    expect(slot.getByText(VI.micNotFound)).toBeTruthy();
+    expect(slot.getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(slot.getByRole('status').textContent).toBe(VI.recReady);
+  });
+
+  it('the flag-off answer sheet adds no microphone or recording-status slot', () => {
+    const p = player('sheet');
+    p.updateView('mic', { state: 'not_found', lost: true });
+    const { container } = shell(p);
+    expect(container.querySelector('#state-sheet.active')).not.toBeNull();
+    expect(container.querySelector('[data-room-slot]')).toBeNull();
+    expect(screen.queryByText(VI.micLost)).toBeNull();
   });
 
   it('Part 1 too short: the reason with the numbers practice.js sent, never an alert', () => {
@@ -220,6 +272,144 @@ describe('flag on', () => {
   });
 });
 
+describe('flag on: boxes in the page (FR-006–FR-008, FR-010, FR-012)', () => {
+  beforeAll(() => {
+    const proto = HTMLDialogElement.prototype as HTMLDialogElement & { showModal: () => void; close: () => void };
+    proto.showModal = vi.fn(function (this: HTMLDialogElement) { this.setAttribute('open', ''); });
+    proto.close = vi.fn(function (this: HTMLDialogElement) { this.removeAttribute('open'); });
+  });
+  beforeEach(() => { vi.spyOn(window, 'confirm').mockImplementation(() => true); });
+
+  function app(extra: Record<string, unknown> = {}) {
+    const calls: unknown[][] = [];
+    const record = (name: string) => (...args: unknown[]) => { calls.push([name, ...args]); return false; };
+    (window as any).PracticeApp = {
+      hasUnsavedWork: () => true,
+      requestLeave: record('requestLeave'),
+      confirmLeave: record('confirmLeave'),
+      confirmRerecord: record('confirmRerecord'),
+      confirmSubmitWithUnsent: record('confirmSubmitWithUnsent'),
+      ...extra,
+    };
+    return calls;
+  }
+
+  function roomWith(dialog: Record<string, unknown> | null, sessionMode = 'practice') {
+    const p = player('prep');
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: sessionMode });
+    if (dialog) p.updateView('dialog', dialog);
+    return { p, ...shell(p) };
+  }
+
+  it('re-record: "Giữ bản ghi" is the primary, focused way; each answer goes to practice.js', async () => {
+    const calls = app();
+    roomWith({ kind: 'rerecord', unsent: 1 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.rerecordTitle)).toBeTruthy();
+    const keep = within(box).getByRole('button', { name: VI.rerecordKeep });
+    await waitFor(() => expect(document.activeElement).toBe(keep));
+    fireEvent.click(keep);
+    fireEvent.click(within(box).getByRole('button', { name: VI.rerecordDiscard }));
+    expect(calls).toEqual([['confirmRerecord', false], ['confirmRerecord', true]]);
+  });
+
+  it('leave box from a link: "Ở lại" first, "Bỏ bản ghi và thoát" leaves', async () => {
+    const calls = app();
+    roomWith({ kind: 'leave', unsent: 2 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.leaveTitle)).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(within(box).getByRole('button', { name: VI.leaveStay })));
+    fireEvent.click(within(box).getByRole('button', { name: VI.leaveGo }));
+    expect(calls).toEqual([['confirmLeave', true]]);
+  });
+
+  it('a link in the page with unsent work asks practice.js first, and Next never sees the click', () => {
+    const calls = app();
+    const { container } = roomWith(null);
+    const link = container.querySelector('#state-error a') as HTMLAnchorElement;
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    link.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(calls).toEqual([['requestLeave', '/speaking']]);
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+
+  it('a link with nothing unsent goes through untouched', () => {
+    const calls = app({ hasUnsavedWork: () => false });
+    const { container } = roomWith(null);
+    const link = container.querySelector('#state-error a') as HTMLAnchorElement;
+    link.addEventListener('click', (e) => e.preventDefault()); // keep jsdom on the page
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    link.dispatchEvent(event);
+    expect(calls).toEqual([]);
+  });
+
+  it('"‹ Thoát" with unsent work: the bar\'s box says so in the room\'s words', () => {
+    app();
+    roomWith(null);
+    fireEvent.click(screen.getByRole('button', { name: /Thoát/ }));
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.leaveTitle)).toBeTruthy();
+    expect(within(box).getByRole('button', { name: VI.leaveStay })).toBeTruthy();
+    expect(within(box).getByRole('button', { name: VI.leaveGo })).toBeTruthy();
+  });
+
+  it('submit with failed re-records: the count, "Gửi lại bản ghi" first, "Vẫn nộp" second', async () => {
+    const calls = app();
+    roomWith({ kind: 'submit', unsent: 1 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText('Còn 1 bản ghi mới chưa gửi được')).toBeTruthy();
+    expect(within(box).getByText(VI.submitBody)).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(within(box).getByRole('button', { name: VI.submitRetry })));
+    fireEvent.click(within(box).getByRole('button', { name: VI.submitAnyway }));
+    expect(calls).toEqual([['confirmSubmitWithUnsent', 'submit']]);
+  });
+
+  it('401 with an unsent take: only "Ở lại làm tiếp", no sign-in and no way to drop the take (FR-010)', () => {
+    const calls = app();
+    const href = window.location.href;
+    roomWith({ kind: 'expired', unsent: 1 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByText(VI.expiredUnsent)).toBeTruthy();
+    const buttons = within(box).getAllByRole('button').filter((b) => b.textContent !== VI.close && b.getAttribute('aria-label') !== VI.close);
+    expect(buttons.map((b) => b.textContent)).toEqual([VI.expiredStay]);
+    expect(within(box).queryByRole('button', { name: VI.expiredSignIn })).toBeNull();
+    expect(within(box).queryByRole('link')).toBeNull();
+    fireEvent.click(within(box).getByRole('button', { name: VI.expiredStay }));
+    expect(calls).toEqual([['confirmLeave', false]]);
+    expect(window.location.href).toBe(href);
+  });
+
+  it('401 with an unsent take in a full test: only "Stay"', () => {
+    app();
+    roomWith({ kind: 'expired', unsent: 2 }, 'test_full');
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getByRole('button', { name: EN.expiredStay })).toBeTruthy();
+    expect(within(box).queryByRole('button', { name: EN.expiredSignIn })).toBeNull();
+  });
+
+  it('401 with nothing unsent: only "Đăng nhập lại"', () => {
+    app();
+    roomWith({ kind: 'expired', unsent: 0 });
+    const box = screen.getByRole('alertdialog');
+    expect(within(box).getAllByRole('button').filter((b) => b.textContent === VI.expiredSignIn)).toHaveLength(1);
+    expect(within(box).queryByText(VI.expiredUnsent)).toBeNull();
+  });
+
+  it('a full test asks in English', () => {
+    app();
+    roomWith({ kind: 'rerecord', unsent: 1 }, 'test_full');
+    expect(screen.getByText(EN.rerecordTitle)).toBeTruthy();
+  });
+
+  it('no box, no dialog; and the old confirm/alert are never used', () => {
+    app();
+    roomWith(null);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(window.confirm).not.toHaveBeenCalled();
+  });
+});
+
 describe('MicStatus (FR-003)', () => {
   const strings = VI;
   function mic(state: MicState, onRequest = vi.fn(), track = vi.fn()) {
@@ -253,6 +443,50 @@ describe('MicStatus (FR-003)', () => {
     cleanup();
     mic('busy');
     expect(screen.getByText(VI.micBusy)).toBeTruthy();
+  });
+
+  it('unplugged while recording: "Mất kết nối micro" above the not-found reason, then "Thử lại" (R139)', () => {
+    const p = player();
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: 'practice' });
+    p.updateView('prep', { inlineRecordingVisible: true });
+    p.updateView('mic', { state: 'not_found', lost: true });
+    shell(p);
+    expect(screen.getByText(VI.micLost)).toBeTruthy();
+    expect(screen.getByText(VI.micNotFound)).toBeTruthy();
+    expect(screen.getByRole('button', { name: VI.micRetry })).toBeTruthy();
+    expect(document.querySelector('[data-mic-tone]')?.getAttribute('data-mic-tone')).toBe('warning');
+    cleanup();
+    p.updateView('mic', { state: 'busy', lost: true });
+    shell(p);
+    expect(screen.getByText(VI.micLost)).toBeTruthy();
+    expect(screen.getByText(VI.micBusy)).toBeTruthy();
+    cleanup();
+    p.updateView('mic', { state: 'denied', lost: true });
+    shell(p);
+    expect(screen.getByRole('alert').textContent).toContain(VI.micLost);
+    cleanup();
+    p.updateView('mic', { state: 'granted', lost: false });
+    shell(p);
+    expect(screen.queryByText(VI.micLost)).toBeNull();
+  });
+
+  it('Part 2 cut by an unplugged mic: the cue card shows the warning and the held take before anything is sent', () => {
+    const p = player('p2a');
+    p.updateView('frame', { examRoomMode: true, examRoomSessionMode: 'practice' });
+    p.updateView('mic', { state: 'not_found', lost: true });
+    p.updateView('part2', { retryVisible: true, retryMessage: 'Mất kết nối micro giữa lúc nói. Phần đã ghi được giữ lại.', startVisible: false });
+    const { container } = shell(p);
+    const slot = container.querySelector('#state-p2a [data-room-slot="part2-cue"]') as HTMLElement;
+    expect(within(slot).getByText(VI.micLost)).toBeTruthy();
+    const held = container.querySelector('#p2a-submit-retry') as HTMLElement;
+    expect(held.style.display).toBe('');
+    expect(within(held).getByRole('button', { name: 'Gửi lại bản ghi' })).toBeTruthy();
+    expect(within(held).getByRole('button', { name: 'Ghi lại' })).toBeTruthy();
+  });
+
+  it('a plain not-found keeps the info tone', () => {
+    mic('not_found');
+    expect(document.querySelector('[data-mic-tone]')?.getAttribute('data-mic-tone')).toBe('info');
   });
 
   it('unsupported: the reason, no button', () => {
