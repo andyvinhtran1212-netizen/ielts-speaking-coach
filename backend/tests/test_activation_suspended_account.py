@@ -132,7 +132,7 @@ def test_ac9_activation_and_admin_issued_code_are_refused(world):
     assert me.status_code == 200, me.text
     assert me.json()["suspended"] is True and me.json()["is_active"] is False
     status = api.get("/auth/check-active", headers={"Authorization": "Bearer instructor"})
-    assert status.json() == {"is_active": False, "suspended": True}
+    assert status.json() == {"is_active": False, "suspended": True, "learner_v2_enabled": False}
 
     # Every instructor route refuses the still-valid token.
     for path in ("/instructor/students", "/instructor/cohorts"):
@@ -188,7 +188,7 @@ def test_never_activated_instructor_still_activates(world):
     assert db.user(INSTRUCTOR)["is_active"] is True
     assert _code(db)["is_used"] is True and _code(db)["used_by"] == INSTRUCTOR
     status = api.get("/auth/check-active", headers={"Authorization": "Bearer instructor"})
-    assert status.json() == {"is_active": True, "suspended": False}
+    assert status.json() == {"is_active": True, "suspended": False, "learner_v2_enabled": False}
 
 
 def test_reactivation_then_activation_paths_work_again(world):
@@ -202,4 +202,4 @@ def test_reactivation_then_activation_paths_work_again(world):
                   json={"is_active": True, "reason": "đã xác minh"}, headers=AUTH)
     assert r.status_code == 200 and r.json()["sign_in_restored"] is True
     status = api.get("/auth/check-active", headers={"Authorization": "Bearer instructor"})
-    assert status.json() == {"is_active": True, "suspended": False}
+    assert status.json() == {"is_active": True, "suspended": False, "learner_v2_enabled": False}

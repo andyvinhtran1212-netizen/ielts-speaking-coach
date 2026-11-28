@@ -104,6 +104,9 @@ def _activation_gate_defaults_active(monkeypatch):
     _ACTIVATION_GATE_ORIGINALS.setdefault("lookup_is_active", activation_gate.lookup_is_active)
     # PC-J05 — the async twin used with USE_ASYNC_DB on gets the same default.
     _ACTIVATION_GATE_ORIGINALS.setdefault("alookup_is_active", activation_gate.alookup_is_active)
+    # LEARNERCORE-0063 FR-094: the two inactive-open routes check their caller
+    # in the handler; by default that caller is active too.
+    _ACTIVATION_GATE_ORIGINALS.setdefault("aopen_learner_status", activation_gate.aopen_learner_status)
 
     async def _gate_passes(_request):
         return None
@@ -114,6 +117,43 @@ def _activation_gate_defaults_active(monkeypatch):
     monkeypatch.setattr(activation_gate, "_enforce", _gate_passes)
     monkeypatch.setattr(activation_gate, "lookup_is_active", lambda _user_id: True)
     monkeypatch.setattr(activation_gate, "alookup_is_active", _active)
+
+    async def _open_active(_user_id):
+        return activation_gate.OPEN_ACTIVE
+
+    monkeypatch.setattr(activation_gate, "aopen_learner_status", _open_active)
+
+
+# ACCOUNTDATA-0100 FR-003 — the deletion gate reads account_deletion_requests
+# on every authenticated learner request. Default: no open request, so tests
+# with a fake DB (and live_activation_gate tests) are unchanged. Tests of the
+# deletion gate itself use the live_deletion_gate fixture.
+_DELETION_GATE_ORIGINALS: dict = {}
+
+
+@pytest.fixture(autouse=True)
+def _deletion_gate_defaults_none(monkeypatch):
+    try:
+        from services import account_deletion_gate
+    except Exception:
+        return
+    _DELETION_GATE_ORIGINALS.setdefault("lookup_open_request", account_deletion_gate.lookup_open_request)
+    _DELETION_GATE_ORIGINALS.setdefault("alookup_open_request", account_deletion_gate.alookup_open_request)
+
+    async def _none(_user_id):
+        return False
+
+    monkeypatch.setattr(account_deletion_gate, "lookup_open_request", lambda _user_id: False)
+    monkeypatch.setattr(account_deletion_gate, "alookup_open_request", _none)
+
+
+@pytest.fixture
+def live_deletion_gate(monkeypatch):
+    """Run the REAL account_deletion_requests lookup in this test."""
+    from services import account_deletion_gate
+    for name, fn in _DELETION_GATE_ORIGINALS.items():
+        monkeypatch.setattr(account_deletion_gate, name, fn)
+    return account_deletion_gate
 
 
 # Codex r4427781861 — /auth/activate runs Steps 5–6 in its worker thread on
@@ -153,6 +193,8 @@ def live_activation_gate(monkeypatch):
                         _ACTIVATION_GATE_ORIGINALS["lookup_is_active"])
     monkeypatch.setattr(activation_gate, "alookup_is_active",
                         _ACTIVATION_GATE_ORIGINALS["alookup_is_active"])
+    monkeypatch.setattr(activation_gate, "aopen_learner_status",
+                        _ACTIVATION_GATE_ORIGINALS["aopen_learner_status"])
     return activation_gate
 
 

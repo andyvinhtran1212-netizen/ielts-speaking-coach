@@ -18,6 +18,7 @@
 // way legacy pages sequence init() behind DOMContentLoaded.
 import {
   createContext,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -25,6 +26,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
 import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
 import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
@@ -35,10 +38,15 @@ import { getCurrentActiveStatus } from '@/lib/auth-api';
 import { setAuthMeAccount } from '@/lib/auth/auth-me-single-flight.mjs';
 import {
   activationDecision,
+  isInactiveOpenPath,
   isRememberedActive,
   rememberActive,
   requiresActivation,
 } from '@/lib/auth/activation-gate.mjs';
+
+// LEARNERCORE-0063 FR-092: loaded only when shown, so its styles never reach
+// an active learner's page.
+const NeedsCourseScreen = dynamic(() => import('@/components/ui/needs-course-screen'), { ssr: false });
 
 export type AuthStatus = 'initial-loading' | 'signed-in' | 'signed-out';
 
@@ -97,6 +105,12 @@ async function probeActivation() {
   }
 }
 
+function InactiveLearnerPage({ children }: { children: ReactNode }) {
+  const routerPath = usePathname();
+  const pathname = routerPath ?? (typeof window === 'undefined' ? '' : window.location.pathname);
+  return requiresActivation(pathname) && !isInactiveOpenPath(pathname) ? <NeedsCourseScreen /> : children;
+}
+
 export function AuthProvider({
   children,
   activationGate = false,
@@ -106,6 +120,9 @@ export function AuthProvider({
    * W-03 — learner layouts: an inactive account is sent to /login (activation
    * dialog) before `signed-in` is ever exposed, so the page never renders or
    * calls learner APIs first. Exempt paths: see lib/auth/activation-gate.mjs.
+   * LEARNERCORE-0063 FR-091/FR-092: with learner_v2 on (check-active says
+   * `inactive_open`), the open pages render and every other learner page is
+   * replaced by "Cần có khoá" before it mounts.
    */
   activationGate?: boolean;
 }) {
@@ -127,6 +144,12 @@ export function AuthProvider({
   // W-03 — the account whose activation this provider already settled (active
   // or fail-open). Token refreshes for it never re-enter initial-loading.
   const activationSettledRef = useRef<string | null>(null);
+  // FR-091/FR-092: the account the probe answered `inactive_open` for. Only
+  // INACTIVE_OPEN_PATHS render for it; any other learner page shows "Cần có
+  // khoá" in place. Decided per render from the current path, so a client
+  // navigation inside the same layout is covered too. Never remembered.
+  const [inactiveOpenAccount, setInactiveOpenAccount] = useState<string | null>(null);
+  const inactiveOpenRef = useRef<string | null>(null);
 
   // Single transition point: every signal (initial getSession, refresh events,
   // cross-tab storage sync, chrome sign-out) funnels through here, so a null
@@ -139,6 +162,10 @@ export function AuthProvider({
     if (previousAccount && previousAccount !== nextAccount) clearLearnerTabDraftAccount(previousAccount);
     else if (!nextAccount) invalidateLearnerTabDraftOwner();
     confirmedAccountRef.current = nextAccount;
+    if (inactiveOpenRef.current && inactiveOpenRef.current !== nextAccount) {
+      inactiveOpenRef.current = null;
+      setInactiveOpenAccount(null);
+    }
     try { clearCoreOperationIntents(window.sessionStorage, session?.user?.id || null); } catch { /* auth must proceed */ }
     // EXAMROOM-0066 FR-035 (Scenario 6a): an account signing in drops every
     // exam-room local copy of another owner, decided from the key alone,
@@ -171,6 +198,11 @@ export function AuthProvider({
             return;
           }
           if (decision === 'active') rememberActive(store, accountId);
+          if (decision === 'inactive_open') {
+            // Not an activation: nothing is remembered, the next load probes again.
+            inactiveOpenRef.current = accountId;
+            setInactiveOpenAccount(accountId);
+          }
           activationSettledRef.current = accountId;
           setUser(signedIn);
           setStatus('signed-in');
@@ -358,8 +390,15 @@ export function AuthProvider({
     );
   }, [applySession]);
 
+  const inactiveLearner = activationGate && status === 'signed-in' && user && inactiveOpenAccount === user.id;
   return (
-    <AuthContext.Provider value={{ status, user, signOut }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ status, user, signOut }}>
+      {inactiveLearner ? (
+        <Suspense fallback={null}>
+          <InactiveLearnerPage>{children}</InactiveLearnerPage>
+        </Suspense>
+      ) : children}
+    </AuthContext.Provider>
   );
 }
 
