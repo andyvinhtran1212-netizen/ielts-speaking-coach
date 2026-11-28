@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { MockResultBehavior } from '@/app/(authed-mock-result)/mock/result/mock-result-behavior';
+import { MockResultBehavior } from '@/app/(authed-mock-result)/tests/mock/result/mock-result-behavior';
 
 // G02-T05 (FR-02-004): the TRF draws an Overall only once enough skills carry
 // a band. A one-skill result must not show "9.0 Overall" next to three blanks.

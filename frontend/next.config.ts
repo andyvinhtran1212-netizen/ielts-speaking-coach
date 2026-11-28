@@ -179,6 +179,8 @@ const nextConfig: NextConfig = {
       { source: '/full-test', destination: '/tests', permanent: false },
       // /exam (trình làm đề tự chọn cũ) về Thi thử: đã quyết 18/11 (00 mục 2 điểm 22).
       { source: '/exam', destination: '/tests', permanent: false },
+      { source: '/speaking/result', destination: '/tests/mock/speaking-report', permanent: false },
+      { source: '/mock/result', destination: '/tests/mock/result', permanent: false },
     ];
   },
 

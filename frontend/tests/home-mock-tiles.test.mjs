@@ -52,7 +52,7 @@ describe('home-mock-tiles — released results become tiles', () => {
     assert.match(JS, /\.filter\(function \(s\) \{ return s\.released; \}\)/);
   });
   test('tile links to the TRF (mock-result) by sitting_id + shows the overall band', () => {
-    assert.match(JS, /\/mock\/result\?sitting=' \+ encodeURIComponent\(s\.sitting_id\)/);
+    assert.match(JS, /\/tests\/mock\/result\?sitting=' \+ encodeURIComponent\(s\.sitting_id\)/);
     assert.doesNotMatch(JS, /\/pages\/mock-result\.html/);
     assert.match(JS, /mock-result-tile__band">' \+ fmtBand\(s\.overall\)/);
   });

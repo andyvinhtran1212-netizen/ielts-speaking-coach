@@ -249,7 +249,7 @@ export function listeningLibraryHref(from, sittingId = null) {
   if (from === 'mini') return '/listening/mini-test';
   if (from === 'drill') return '/listening/skills';
   if (from === 'practice') return '/listening/practice';
-  if (from === 'mock' && sittingId) return `/mock/result?sitting=${encodeURIComponent(String(sittingId))}`;
+  if (from === 'mock' && sittingId) return `/tests/mock/result?sitting=${encodeURIComponent(String(sittingId))}`;
   return '/listening/tests';
 }
 

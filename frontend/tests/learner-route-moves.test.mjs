@@ -39,6 +39,9 @@ const MOVES = [
   // retired /exam player goes there too (decided 18/11, 00 section 2 point 22).
   { from: '/full-test', to: '/tests', legacy: '/pages/full-test.html' },
   { from: '/exam', to: '/tests', legacy: '/pages/exam.html' },
+  // Batch 6 (G07-T11)
+  { from: '/speaking/result', to: '/tests/mock/speaking-report', legacy: '/pages/speaking-result.html' },
+  { from: '/mock/result', to: '/tests/mock/result', legacy: '/pages/mock-result.html' },
   // Batch 8 (G07-T15u)
   { from: '/my-class', to: '/course/assigned', legacy: '/pages/my-class.html' },
 ];

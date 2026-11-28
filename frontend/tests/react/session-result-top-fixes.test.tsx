@@ -131,7 +131,7 @@ it.each([
 it('the teacher-graded Mock result page never labels its band as an AI estimate', () => {
   const source = readFileSync(resolve(
     process.cwd(),
-    'app/(authed-speaking-result)/speaking/result/speaking-result-behavior.tsx',
+    'app/(authed-speaking-result)/tests/mock/speaking-report/speaking-result-behavior.tsx',
   ), 'utf8');
   expect(source).not.toMatch(/ước tính/);
 });

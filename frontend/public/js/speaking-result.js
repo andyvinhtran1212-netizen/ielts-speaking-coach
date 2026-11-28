@@ -78,7 +78,7 @@
   async function boot() {
     var sittingId = new URLSearchParams(location.search).get('sitting');
     if (!sittingId) { $('state-error').textContent = 'Thiếu mã lượt thi.'; showState('error'); return; }
-    $('back-link').href = '/mock/result?sitting=' + encodeURIComponent(sittingId);
+    $('back-link').href = '/tests/mock/result?sitting=' + encodeURIComponent(sittingId);
     try {
       var data = await window.api.get('/api/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/result');
       var spk = (data.per_skill_notes || {}).speaking;

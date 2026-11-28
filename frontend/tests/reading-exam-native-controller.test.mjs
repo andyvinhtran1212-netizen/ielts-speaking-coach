@@ -165,7 +165,7 @@ describe('native Reading exam controller', () => {
     assert.equal(readingReviewHref('a1', { from: 'https://evil.test' }), '/reading/review?attempt_id=a1&from=full');
     assert.equal(readingReviewHref('a1', { from: 'mock', sittingId: 's1' }), '/reading/review?attempt_id=a1&from=mock&sitting=s1');
     assert.equal(readingLibraryHref('mini'), '/reading/mini-test');
-    assert.equal(readingLibraryHref('mock', 's/1'), '/mock/result?sitting=s%2F1');
+    assert.equal(readingLibraryHref('mock', 's/1'), '/tests/mock/result?sitting=s%2F1');
     assert.equal(readingLibraryHref('https://evil.test'), '/reading/test');
   });
 

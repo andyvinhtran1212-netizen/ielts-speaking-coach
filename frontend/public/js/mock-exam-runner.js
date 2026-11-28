@@ -169,7 +169,7 @@
   // ── Routing ────────────────────────────────────────────────────────
   function route() {
     var s = S.sitting.status;
-    if (s === 'released') { stopPolling(); location.href = '/mock/result?sitting=' + encodeURIComponent(S.sittingId); return; }
+    if (s === 'released') { stopPolling(); location.href = '/tests/mock/result?sitting=' + encodeURIComponent(S.sittingId); return; }
     if (s === 'void') return fail('Kỳ thi đã bị hủy. Liên hệ giám khảo để được cấp lượt mới.');
     if (s !== 'registered' && s !== 'lrw_in_progress') { stopPolling(); return renderSubmitted(); }
 

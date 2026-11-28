@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ResultView } from '@/app/(authed-listening-player)/listening/test/session/listening-test-session';
 import { AdminClassStudentWork } from '@/app/(authed-admin)/(classes)/admin/classes/[cohortId]/admin-class-student-work';
-import { MockResultBehavior } from '@/app/(authed-mock-result)/mock/result/mock-result-behavior';
+import { MockResultBehavior } from '@/app/(authed-mock-result)/tests/mock/result/mock-result-behavior';
 import { ListeningTestsBehavior } from '@/app/(authed-listening)/listening/tests/listening-tests-behavior';
 
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'learner' } }) }));

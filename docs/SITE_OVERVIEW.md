@@ -92,7 +92,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/account` | student | v2 Tài khoản: online and class courses (`GET /api/me/courses`, G04), the shared AI-credit balance and the server-labelled credit history (`GET /api/me/credits`); without G04 only the class group from `/api/class/me`. |
 | `/progress` | student | v2 Tiến độ: one row per skill from `/sessions`, `/api/writing/my-essays`, `/api/listening/overview`, `/api/quiz/progress` (band only per FR-077); goal band and exam date via `PATCH /auth/profile`. |
 | `/help` | student | v2 Trợ giúp: static FAQ (six groups, `lib/help-faq.mjs`) with accent-insensitive search. |
-| `/speaking/result` | student | Speaking feedback workspace, separate from the single-question and full-test result entries. |
+| `/tests/mock/speaking-report` | student | Speaking feedback workspace, separate from the single-question and full-test result entries. Old `/speaking/result` 307s here (LEARNERNAV-0062). |
 
 ### 4.3 Student — Writing
 
@@ -138,7 +138,7 @@ to `/`; the historical source file is not a separately served marketing page.
 |---|---|---|
 | `/tests` | student | Thi thử / full-test **entry** — lists the currently-open mock exams (`GET /api/mock-exams`, published + `is_open` + cohort-eligible) and links to the runner. Reachable from a card on `/home`. Old `/full-test` and the retired `/exam` player 307 to `/tests` (LEARNERNAV-0062 batch 7a). |
 | `/mock-exam` | student | Native 4-skill mock **runner** (SEQUENTIAL, admin-gated). `?code=` opens/resumes a sitting; there is no student "Start" — the admin opens Listening → Reading → Writing one at a time (`POST /admin/mock-exams/{id}/advance`), and the runner polls canonical state under the shared server clock. Reading/Listening run through stable core-player admission and flush pending answers before collection; Writing keeps local + server drafts and reuses one immutable final payload across lost-ACK reconciliation. Retake mode exposes only assigned skills, scores stay sealed until release; historical source retention is tracked separately by Gate F. |
-| `/mock/result` | student | Mock TRF result — 4 bands + overall + examiner comment. `GET /api/mock-exams/sittings/{id}/result` returns 403 until an admin releases the sitting. |
+| `/tests/mock/result` | student | Mock TRF result (old `/mock/result` 307s here, LEARNERNAV-0062) — 4 bands + overall + examiner comment. `GET /api/mock-exams/sittings/{id}/result` returns 403 until an admin releases the sitting. |
 
 ### 4.6 Student — Vocabulary
 
