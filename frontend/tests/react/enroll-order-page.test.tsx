@@ -292,7 +292,7 @@ describe('/enroll/[orderCode] screen 4 (confirmed)', () => {
     expect(screen.getByText(/40 lượt · cộng vào số lượt bạn đang có; Writing và Speaking dùng chung/)).toBeTruthy();
     expect(screen.getByText('Chuyển từ kỳ trước: 7 lượt, dùng đến 30/12/2026')).toBeTruthy();
     expect(screen.getByText(/Đã kích hoạt\. Mở luôn phần luyện Reading, Listening, ngữ pháp và từ vựng/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Bắt đầu học' }).getAttribute('href')).toBe('/home');
+    expect(screen.getByRole('link', { name: 'Bắt đầu học' }).getAttribute('href')).toBe('/course');
     expect(screen.getByRole('link', { name: 'Xem đơn đăng ký của tôi' }).getAttribute('href')).toBe('/account/orders');
   });
 
