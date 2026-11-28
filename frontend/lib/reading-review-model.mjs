@@ -1,4 +1,5 @@
 import { numberedBlankPattern } from './numbered-blank.mjs';
+import { flaggedQNums } from './review-v2-model.mjs';
 
 const ORIGINS = new Set(['full', 'mini', 'mock', 'my-class', 'admin']);
 
@@ -153,6 +154,8 @@ export function normalizeReadingReview(payload) {
     skillBreakdown: skills,
     passages,
     review,
+    // LEARNERCORE-0063 FR-109: questions this caller already flagged (missing → none).
+    myFlaggedQNums: flaggedQNums(payload),
   });
 }
 

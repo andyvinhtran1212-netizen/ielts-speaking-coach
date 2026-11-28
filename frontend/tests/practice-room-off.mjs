@@ -16,4 +16,12 @@ export const PRACTICE_ROOM_OFF = `
   var _roomMicState = 'unknown';
   var _ROOM_LEVEL_MS = 200;
   var _roomLevelTimer = null;
+  var _roomMicLostDone = false;
+  var _roomMicLostShown = false;
+  var _roomWriteRight = true;
+  var _roomDialogKind = null;
+  var _roomLeaveHref = '';
+  var _roomLeaving = false;
+  var _roomConfirmed = false;
+  var _ROOM_LEAVE_RESET_MS = 4000;
 ${JS.slice(start, end)}`;

@@ -247,6 +247,8 @@ def test_one_row_per_person_across_users_and_students(db):
     assert only["profile_state"] == "none" and only["name"] == "Bảo Châu" and only["cohorts"] == []
     # Minh has an archived and an active profile: one row, the active one.
     assert rows[f"u-{U_MINH}"]["student_code"] == "HV002"
+    # The profile id for class writes (G09-T10 "Gán vào lớp"); none without a profile.
+    assert lan["student_id"] == S_LAN and offline["student_id"] == S_OFFLINE and only["student_id"] is None
     assert f"s-{S_LAN}" not in rows and f"s-{S_MINH}" not in rows and f"s-{S_OLD}" not in rows
     # G04 has no read API: null, not a guess.
     assert lan["kind"] is None and lan["courses"] is None and lan["credits_left"] is None

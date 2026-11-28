@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { PRACTICE_ROOM_OFF } from './practice-room-off.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(HERE, '..', 'public', 'js', 'practice.js'), 'utf8');
 
@@ -66,6 +68,7 @@ function retryHarness({ retryCount = 0, retryFailed, finalizeFullTest } = {}) {
       var _playerGeneration = 1;
       var _playerActive = true;
       var _sittingId = 'sitting-1';
+      ${PRACTICE_ROOM_OFF}
       ${JS.slice(phaseStart, retryEnd)}
       return {
         retry: retryFullTestSubmissions,

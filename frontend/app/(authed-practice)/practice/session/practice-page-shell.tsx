@@ -41,6 +41,7 @@ type PracticeMethod =
   | 'resetRecording'
   | 'retryFullTestSubmissions'
   | 'retryP2Submission'
+  | 'retryResumeCompletion'
   | 'revealQuestionText'
   | 'setQMode'
   | 'sheetListen'
@@ -431,6 +432,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <div className="practice-error-icon"><Icon name="alert-triangle" /></div>
           <h2 className="text-lg font-bold">Đã xảy ra lỗi</h2>
           <p id="error-msg" className="practice-error-msg text-sm text-center max-w-xs">{view.frame.errorMessage}</p>
+          {view.frame.retryResumeCompletionVisible && <button type="button" className="btn-primary px-5 py-2.5 text-sm font-semibold" onClick={() => callPractice('retryResumeCompletion')}>Thử hoàn tất lại</button>}
           <Link href={returnHref} className="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block" onClick={guardUnsentRecording}>{returnLabel}</Link>
         </div>
 
@@ -516,6 +518,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
         </div>
 
         <div id="state-sheet" className={stateClass('sheet', 'state block-state flex-1 av-w-read py-8')}>
+          {room?.answerSheet}
           <div className="av-sheet__meter" id="sheet-meter" hidden={!view.sheet.meterVisible}>
             <div className="av-sheet__ticks" id="sheet-ticks" aria-hidden="true">
               {view.sheet.slots.map((slot: any) => <i data-state={slot.state} key={`meter:${slot.key}`} />)}

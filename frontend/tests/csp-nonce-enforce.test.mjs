@@ -331,7 +331,7 @@ describe('404s under signed-in prefixes (PC-J566, option b)', () => {
       const { policy } = enforcedHeader(await proxy(request(pathname)));
       assert.equal(policy, csp.buildNonceEnforcedPolicy(policy.match(/'nonce-([^']+)'/)[1], ROUTED), pathname);
     }
-    assert.deepEqual(SIGNED_IN_404, ['/practice', '/home/does-not-exist', '/admin/nope-xyz', '/instructor/nope-xyz', '/vocabulary/nope/xyz/abc', '/admin/404']);
+    assert.deepEqual(SIGNED_IN_404, ['/practice/nope-xyz', '/home/does-not-exist', '/admin/nope-xyz', '/instructor/nope-xyz', '/vocabulary/nope/xyz/abc', '/admin/404']);
     for (const pathname of SIGNED_IN_404) baseline(await proxy(request(pathname)), pathname);
     // Report-Only builds send no Report-Only policy for them either.
     const reportOnly = proxyFor({ ...ROUTED, AVER_CSP_NONCE_ENFORCE: '0' });
@@ -509,7 +509,7 @@ describe('404s under signed-in prefixes (PC-J566, option b)', () => {
   }
 
   test('the enforced CLI probes the 404s (incl. /instructor, /login and /admin/404) and passes baseline 404s', async () => {
-    assert.deepEqual(NOT_FOUND_PATHS, ['/practice', '/home/does-not-exist', '/admin/nope-xyz', '/instructor/nope-xyz',
+    assert.deepEqual(NOT_FOUND_PATHS, ['/practice/nope-xyz', '/home/does-not-exist', '/admin/nope-xyz', '/instructor/nope-xyz',
       '/vocabulary/nope/xyz/abc', '/login/nope-xyz', '/admin/404', '/nope-top-level']);
     assert.deepEqual(SOFT_NOT_FOUND_PATHS, ['/listening/ielts/80-days/999']);
     const result = await runEnforcedChecker();

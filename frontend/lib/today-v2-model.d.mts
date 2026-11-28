@@ -39,6 +39,7 @@ export type Today = {
 export type CreditRow = { kind: 'online' | 'class' | 'total'; remaining: number; label: string };
 
 export function safePath(value: unknown): string | null;
+export function normalizeTodayResume(value: unknown): { resume: TodayResume[]; degraded: boolean } | null;
 export function normalizeToday(value: unknown): Today | null;
 export function todayCount(today: Today): number;
 export function headingCopy(name: string, count: number): string;

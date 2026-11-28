@@ -6,6 +6,9 @@
   Plan 5.4 names this ``PUT``; the API's CORS allow-list (``main._CORS_METHODS``)
   has no PUT and every other update endpoint is PATCH (see routers/admin_flags),
   so a PUT would fail the browser preflight from the admin frontend.
+* ``GET  /admin/settings/learner-starters`` — admin, or a teacher read-only;
+  ``PATCH`` — admin. The starter paper per skill (LEARNERCORE-0063 FR-126,
+  ``services/learner_starters``).
 * ``GET  /admin/settings/log`` — admin; newest first, ``cursor`` pages back.
 
 The other sections of plan 5.4 (``email``, ``notices``, ``payment``) arrive
@@ -17,21 +20,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import _actor_id, require_admin, require_instructor
-from services import ops_thresholds
+from services import learner_starters, ops_thresholds
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["admin-settings"])
 
 # admin_settings key -> the settings tab it belongs to (FR-080).
-_SECTION_OF_KEY = {ops_thresholds.SETTINGS_KEY: "thresholds"}
+_SECTION_OF_KEY = {ops_thresholds.SETTINGS_KEY: "thresholds", learner_starters.SETTINGS_KEY: "starters"}
 _KEY_OF_SECTION = {section: key for key, section in _SECTION_OF_KEY.items()}
 _LOG_PAGE = 50
 
@@ -119,9 +122,74 @@ async def patch_thresholds(body: ThresholdUpdate, authorization: str | None = He
     return {"items": ops_thresholds.items(values)}
 
 
+class StarterItem(BaseModel):
+    skill: Literal["speaking", "writing", "listening", "reading"]
+    value: Optional[dict[str, str]]
+    title: Optional[str]
+    # null when unset, or when the paper could not be read just now.
+    available: Optional[bool]
+
+
+class StarterList(BaseModel):
+    items: list[StarterItem]
+
+
+class StarterChange(BaseModel):
+    skill: str = Field(min_length=1, max_length=32)
+    value: Optional[dict[str, Any]]
+
+
+class StarterUpdate(BaseModel):
+    changes: list[StarterChange] = Field(min_length=1, max_length=4)
+    reason: str = Field(min_length=1, max_length=500)
+
+
+def _starters_unavailable() -> HTTPException:
+    return HTTPException(503, {"code": "learner_starters_unavailable",
+                               "message": "Chưa đọc được đề khởi đầu. Thử tải lại sau ít phút."})
+
+
+async def _starter_items(values) -> list[dict[str, Any]]:
+    return await asyncio.to_thread(learner_starters.items, supabase_admin, values)
+
+
+@router.get("/admin/settings/learner-starters", response_model=StarterList)
+async def get_learner_starters(authorization: str | None = Header(default=None)):
+    """The starter paper of each skill (LEARNERCORE-0063 FR-126); a teacher reads only."""
+    await require_instructor(authorization)
+    try:
+        values = await learner_starters.get()
+    except learner_starters.StartersUnavailable:
+        raise _starters_unavailable()
+    return {"items": await _starter_items(values)}
+
+
+@router.patch("/admin/settings/learner-starters", response_model=StarterList)
+async def patch_learner_starters(body: StarterUpdate, authorization: str | None = Header(default=None)):
+    """Set or clear starters; each paper must be open to public self-practice now."""
+    admin = await require_admin(authorization)
+    reason = body.reason.strip()
+    if not reason:
+        raise HTTPException(422, {"code": "reason_required", "message": "Ghi lý do thay đổi."})
+    try:
+        values = await learner_starters.set_many(
+            [(c.skill, c.value) for c in body.changes], reason, _actor_id(admin))
+    except learner_starters.StarterChangeError as exc:
+        raise HTTPException(422, {"code": exc.code, "message": exc.message, "skill": exc.skill})
+    except learner_starters.StartersUnavailable:
+        raise _starters_unavailable()
+    except Exception as exc:
+        logger.exception("admin settings: learner starter write failed")
+        raise HTTPException(503, {"code": "settings_write_failed",
+                                  "message": "Chưa lưu được. Không có thay đổi nào được ghi; thử lại."}) from exc
+    return {"items": await _starter_items(values)}
+
+
 def _label(key: str) -> str:
     t = ops_thresholds.BY_KEY.get(key)
-    return t.label if t else key
+    if t:
+        return t.label
+    return learner_starters.LABELS.get(key, key)
 
 
 def _diff(old: Any, new: Any) -> list[dict[str, Any]]:

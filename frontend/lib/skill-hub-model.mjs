@@ -56,6 +56,16 @@ function normalizeResult(value) {
   };
 }
 
+// T25s (FR-126): a Speaking starter names a topic, which has no deep link;
+// the hub opens POST /sessions with these fields (else it follows `href`).
+function starterSession(raw) {
+  const p = recordOf(raw);
+  if (!p) return null;
+  const topic = textOf(p.topic);
+  return p.mode === 'practice' && [1, 2, 3].includes(p.part) && topic
+    ? { mode: 'practice', part: p.part, topic } : null;
+}
+
 export function normalizeSkillHub(raw, skill) {
   const body = recordOf(raw);
   if (!body || body.skill !== skill) return null;
@@ -74,7 +84,8 @@ export function normalizeSkillHub(raw, skill) {
     }),
     starter: starter && hrefOf(starter.href) && textOf(starter.title)
       ? { title: textOf(starter.title), meta: textOf(starter.meta) || null,
-          usesCredit: starter.uses_credit === true, href: hrefOf(starter.href) }
+          usesCredit: starter.uses_credit === true, href: hrefOf(starter.href),
+          sessionParams: skill === 'speaking' ? starterSession(starter.session_params) : null }
       : null,
     suggestions: listOf(body.suggestions).map(recordOf).filter(Boolean).flatMap((s) => {
       const href = hrefOf(s.href);

@@ -306,8 +306,8 @@ async function checkCourse(slug: string): Promise<CourseCheck> {
   return result;
 }
 
-/** Exactly the matcher's `/courses/:slug`: one segment after `/courses/`. */
-const COURSE_PAGE = /^\/courses\/[^/]+$/;
+/** Exactly the matcher's `/courses/:slug` and `/courses/:slug/enroll` (ENROLL-0060 màn 1). */
+const COURSE_PAGE = /^\/courses\/[^/]+(?:\/enroll)?$/;
 
 async function coursePage(request: NextRequest) {
   const notFoundUrl = new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url);
@@ -399,10 +399,11 @@ export const config = {
   matcher: [
     '/grammar/:category/:slug',
     '/courses/:slug',
+    '/courses/:slug/enroll',
     '/library/speaking/:slug',
     '/library/writing-samples/:slug',
     {
-      source: '/:section(account|admin|advanced-vocabulary|course|course-exercises|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)/:path*',
+      source: '/:section(account|admin|advanced-vocabulary|course|course-exercises|enroll|exam|exercises|full-test|full-test-result|grammar-checkup|grammar-lessons|help|home|instructor|listening|mock|mock-exam|onboarding|practice|profile|progress|quiz|reading|result|speaking|start|writing)/:path*',
       missing: [{ type: 'host', value: '(?:www\\.)?averlearning\\.com' }],
     },
     {

@@ -97,6 +97,10 @@ export default {
     { click: 'button[onclick="PracticeApp.stopRecording()"]' },
     { wait: 600 },
     { click: '#rec-submit-btn' },
+    // EXAMSPEAK-0072 FR-012: with the `speaking` exam room on, a question is a
+    // box in the page, never window.confirm. Answer one if it opens, the way
+    // that carries the learner's action on; the flag-off page never draws it.
+    { clickIfPresent: 'dialog[open] [data-room-action="proceed"]' },
     { wait: 1200 },
     // Trang phải ĐẾN được màn nhận xét. Chỉ soi request đi ra thì một phản hồi
     // thiếu `response_id` (hoặc bất kỳ lỗi hậu-nộp nào) vẫn cho bản khai xanh.
