@@ -150,6 +150,7 @@ function proxyFor(indexed, fetch) {
   const modules = {
     '@/lib/backend': { API_BASE: 'https://fixture.invalid' },
     '@/lib/grammar-article-index.mjs': { createArticleIndex: () => ({ has: async () => indexed }) },
+    '@/lib/public-commerce.mjs': { publicCommerceEnabled: () => true },
     '@/tooling/content-security-policy.mjs': csp,
   };
   const exports = {};
