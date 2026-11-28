@@ -19,7 +19,9 @@ student_id filter as defense-in-depth.
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Request, Response
+from typing import Literal
+
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 
 from database import thread_supabase_admin
 from routers.auth import get_supabase_user
@@ -30,7 +32,8 @@ from services.student_service import account_display_name
 from models.student_course import StudentCourseResponse
 from models.student_today import StudentTodayResponse, TodaySeenRequest
 from models.student_assigned import StudentAssignedResponse
-from services import activation_gate, session_gate, student_assigned, student_course, student_today
+from models.student_skill_hub import StudentSkillHubResponse
+from services import activation_gate, session_gate, student_assigned, student_course, student_skill_hub, student_today
 
 
 router = APIRouter(prefix="/api/student", tags=["student-home"])
@@ -170,4 +173,21 @@ async def course(response: Response, authorization: str | None = Header(default=
     auth_user = await get_supabase_user(authorization)
     return await student_course.get_course_concurrent(
         auth_user["id"], account_name=account_display_name(auth_user),
+    )
+
+
+@router.get("/skill-hub", response_model=StudentSkillHubResponse)
+async def skill_hub(
+    response: Response,
+    skill: Literal["speaking", "writing", "listening", "reading"] = Query(...),
+    authorization: str | None = Header(default=None),
+):
+    """One skill hub (LEARNERCORE-0063 T25, FR-111..118). Read-only, the
+    caller's own data; a failing block lands in `degraded`. Any other `skill`
+    is 422 (FastAPI validates the Literal)."""
+    response.headers["Cache-Control"] = "private, no-store"
+    auth_user = await get_supabase_user(authorization)
+    return await student_skill_hub.get_skill_hub_concurrent(
+        thread_supabase_admin, auth_user["id"], skill,
+        account_name=account_display_name(auth_user),
     )
