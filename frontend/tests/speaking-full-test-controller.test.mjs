@@ -321,6 +321,35 @@ describe('SpeakingFullTestController — submission and retry ownership', () => 
     );
   });
 
+  test('destroy discards a queued take and prevents finalize after the active take settles', async () => {
+    let release;
+    let submitted = 0;
+    let finalized = 0;
+    const { controller } = makeController({
+      submit: () => {
+        submitted += 1;
+        return new Promise((resolve) => { release = resolve; });
+      },
+      finalize: () => { finalized += 1; },
+    });
+    controller.restore({ ownerId: 'user-a', currentSessionId: 'p1' });
+    controller.replaceChain(['p1', 'p2', 'p3']);
+    const active = controller.submitAnswer({ sessionId: 'p3', questionId: 'q1', blob: {} });
+    await Promise.resolve();
+    const queued = controller.submitAnswer({ sessionId: 'p3', questionId: 'q1', blob: {} });
+    const finalizing = controller.finalizeFullTest();
+    const isDisposed = (error) => error.code === 'disposed';
+    const results = Promise.all([assert.rejects(queued, isDisposed), assert.rejects(finalizing, isDisposed)]);
+    controller.destroy();
+    assert.equal(controller.hasUnsavedAudio(), false);
+    release({ response_id: 'r1' });
+    await active;
+    await results;
+    assert.equal(submitted, 1);
+    assert.equal(finalized, 0);
+    assert.deepEqual(controller.confirmedQuestionIds('p3'), []);
+  });
+
   test('a submission settling after remount cannot overwrite the newer chain', async () => {
     const storage = new MemoryStorage();
     let release;
@@ -557,7 +586,8 @@ describe('Next Speaking Full Test integration', () => {
   test('bridge owns lifecycle, API contracts and unload protection for the only local audio copy', () => {
     assert.match(BRIDGE, /const \{ status, user \} = useAuth\(\)/);
     assert.match(BRIDGE, /new SpeakingFullTestController/);
-    assert.match(BRIDGE, /PracticeSubmission\?\.submit/);
+    assert.match(BRIDGE, /const submission = win\.PracticeSubmission/);
+    assert.match(BRIDGE, /assertSessionOwner\(submission\.ownerId\)/);
     assert.match(BRIDGE, /\/sessions\/finalize-full-test/);
     assert.match(BRIDGE, /api\.postWith\([\s\S]*?noRedirect: true/);
     assert.match(BRIDGE, /api\.getWith\([\s\S]*?noRedirect: true/);
