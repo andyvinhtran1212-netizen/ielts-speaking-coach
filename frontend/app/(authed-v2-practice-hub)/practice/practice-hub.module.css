@@ -1,0 +1,114 @@
+/* Luyện tập (LEARNERCORE-0063 amendment 1, FR-079). Tokens only (`--av2-*`);
+   the G03 components bring their own styles. */
+
+.main {
+  box-sizing: border-box;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--av2-space-6) var(--av2-space-4) var(--av2-space-10);
+  display: grid;
+  gap: var(--av2-space-6);
+  color: var(--av2-ink);
+}
+
+.header,
+.block {
+  display: grid;
+  gap: var(--av2-space-3);
+}
+
+.block {
+  padding-top: var(--av2-space-4);
+  border-top: var(--av2-rule-w) solid var(--av2-rule);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-24);
+  line-height: var(--av2-lh-tight);
+  font-weight: var(--av2-fw-strong);
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: var(--av2-fs-16);
+  font-weight: var(--av2-fw-strong);
+}
+
+.lead,
+.meta {
+  margin: 0;
+  font-size: var(--av2-fs-14);
+  line-height: var(--av2-lh-body);
+  color: var(--av2-muted);
+}
+
+.list,
+.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--av2-space-2);
+}
+
+.cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--av2-space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-3);
+  min-height: var(--av2-row);
+}
+
+.rowText {
+  display: grid;
+  gap: var(--av2-space-1);
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: var(--av2-fs-15);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card {
+  display: grid;
+  gap: var(--av2-space-1);
+  min-height: var(--av2-row);
+  padding: var(--av2-space-4);
+  border: var(--av2-rule-w) solid var(--av2-rule);
+  color: var(--av2-ink);
+  text-decoration: none;
+}
+
+.card:hover {
+  border-color: var(--av2-ink);
+}
+
+.card:focus-visible {
+  outline: var(--av2-focus);
+  outline-offset: var(--av2-focus-offset);
+}
+
+.cardTitle {
+  font-size: var(--av2-fs-16);
+  font-weight: var(--av2-fw-strong);
+}
+
+@media (max-width: 767px) {
+  .main {
+    padding: var(--av2-space-4) var(--av2-space-4) calc(var(--av2-space-10) + var(--av2-bottombar-h));
+  }
+
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -443,7 +443,7 @@ export function MockResultBehavior() {
 
     if (!sittingId) {
       // G02-T11: a link without its sitting goes back to Full Test.
-      leaveForParent('/full-test');
+      leaveForParent('/tests');
       return () => controller.abort();
     }
 

@@ -241,7 +241,7 @@ export function MockExamRoom(props: MockExamRoomProps) {
           title={MOCK_ROOM_COPY.error.en}
           body={<>{props.fatal}<Vi>{MOCK_ROOM_COPY.error.vi}</Vi></>}
           action={props.linkError
-            ? <Button href="/full-test">Back to Full Test</Button>
+            ? <Button href="/tests">Back to Mock Tests</Button>
             : <Button onClick={props.onReload}>Retry</Button>}
         />
       </Screen>

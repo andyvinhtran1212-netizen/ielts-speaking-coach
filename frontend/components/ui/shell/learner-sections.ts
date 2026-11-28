@@ -44,7 +44,7 @@ const NAV_PLAN: readonly (PlannedLink & { id: LearnerSectionId; label: string; i
   { id: 'home', label: 'Hôm nay', href: '/home', today: null, icon: 'home' },
   { id: 'course', label: 'Lộ trình', href: '/course', today: null, icon: 'route' },
   { id: 'practice', label: 'Luyện tập', href: '/practice', today: '/speaking', icon: 'pencil' },
-  { id: 'tests', label: 'Thi thử', href: '/tests', today: '/full-test', icon: 'timer' },
+  { id: 'tests', label: 'Thi thử', href: '/tests', today: null, icon: 'timer' },
   { id: 'library', label: 'Thư viện', href: '/library', today: null, icon: 'books' },
 ];
 

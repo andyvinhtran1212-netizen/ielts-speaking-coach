@@ -697,7 +697,7 @@ export function MockExamRunner() {
   // notice (shown there in Vietnamese); the English card above is only what
   // flashes while the browser leaves.
   useEffect(() => {
-    if (params.error) leaveForParent('/full-test');
+    if (params.error) leaveForParent('/tests');
   }, [params.error]);
   const [connection, setConnection] = useState<ConnectionState>(null);
   const [remaining, setRemaining] = useState(0);
@@ -1457,7 +1457,7 @@ export function MockExamRunner() {
   if (status === 'initial-loading' || (!state && !fatal)) return <MockExamRunnerLoading />;
   if (fatal) {
     return params.error
-      ? <ErrorCard message={fatal} back={{ href: '/full-test', label: 'Back to Full Test' }} />
+      ? <ErrorCard message={fatal} back={{ href: '/tests', label: 'Back to Mock Tests' }} />
       : <ErrorCard message={fatal} retry={() => setReloadNonce((value) => value + 1)} />;
   }
   if (!state) return <MockExamRunnerLoading />;

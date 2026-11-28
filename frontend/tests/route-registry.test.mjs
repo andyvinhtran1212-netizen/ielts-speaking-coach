@@ -153,8 +153,9 @@ describe('routeFor / sectionFor', () => {
     assert.equal(routeFor('/home/#top')?.route, '/home');
   });
 
-  test('/practice (planned hub) and /practice/session (Speaking player) stay distinct', () => {
-    assert.equal(routeFor('/practice')?.status, 'planned');
+  test('/practice (hub) and /practice/session (Speaking player) stay distinct', () => {
+    assert.equal(routeFor('/practice')?.status, 'live');
+    assert.equal(routeFor('/practice')?.owner, 'app/(authed-v2-practice-hub)/practice/page.tsx');
     assert.equal(routeFor('/practice/session')?.kind, 'focus');
     assert.equal(sectionFor('/practice/session'), 'practice');
   });

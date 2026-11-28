@@ -151,7 +151,7 @@ function SealedState() {
       <p className="result-error-msg text-sm mb-6">
         Bài thi đang được niêm phong. Điểm và nhận xét sẽ xuất hiện trên trang kết quả thi thử sau khi giám khảo công bố.
       </p>
-      <a href="/full-test" className="btn-primary">Xem trạng thái bài thi</a>
+      <a href="/tests" className="btn-primary">Xem trạng thái bài thi</a>
     </div>
   );
 }
@@ -1230,7 +1230,7 @@ function ResultContent({ view, requestKey, vocabBankEnabled }: { view: any; requ
         </button>
         <Link href={view.returnHref} className="btn-secondary result-icon-btn">▦ {view.returnLabel}</Link>
         {view.mode === 'test_full' ? (
-          <a href="/full-test" className="btn-secondary result-icon-btn">↻ Làm lại Full Test</a>
+          <a href="/tests" className="btn-secondary result-icon-btn">↻ Làm lại Full Test</a>
         ) : (
           <button className="btn-secondary result-icon-btn" disabled={retryBusy} onClick={retry} type="button">
             ↻ {retryBusy ? 'Đang tạo phiên…' : 'Luyện lại chủ đề này'}

@@ -52,7 +52,9 @@ const TITLE_BASELINE_PATHS = Object.freeze([
   '/pages/flashcards.html',
   '/pages/exercises.html',
   '/pages/vocab-exam.html',
-  '/pages/exam.html',
+  // '/pages/exam.html' left the baseline in LEARNERNAV-0062 batch 7a: its
+  // /exam player was retired and the URL now 307s to /tests, which keeps the
+  // Full Test title checked through '/pages/full-test.html' below.
   '/pages/full-test.html',
   '/pages/mock-exam.html',
   '/pages/vocab-practice.html',

@@ -21,7 +21,7 @@ const MESSAGES = Object.freeze({
 /** Parent pages a redirect may land on, by pathname (no trailing slash). */
 export const PARENT_LABELS = Object.freeze({
   '/speaking': 'trang Speaking',
-  '/full-test': 'trang Thi thử',
+  '/tests': 'trang Thi thử',
   '/writing/dashboard': 'trang Writing',
   '/grammar': 'Grammar Wiki',
   '/listening': 'trang Listening',
