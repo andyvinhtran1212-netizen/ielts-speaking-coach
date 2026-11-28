@@ -129,7 +129,7 @@ describe('course-exercises error states', () => {
   it('missing ?bank= returns to Lớp học without fetching anything', async () => {
     leaveForParent.mockClear();
     renderPage('');
-    await waitFor(() => expect(leaveForParent).toHaveBeenCalledWith('/my-class'));
+    await waitFor(() => expect(leaveForParent).toHaveBeenCalledWith('/course/assigned'));
     expect(document.body.textContent).not.toContain('?bank=');
     expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
     // Nothing was fetched for a link that names no bank.
@@ -144,7 +144,7 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note').hidden).toBe(false);
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
-    expect(box.querySelector('a[href="/my-class"]')).toBeNull();
+    expect(box.querySelector('a[href="/course/assigned"]')).toBeNull();
     expect(document.querySelector('.cx-error-action')).toBeNull();
   });
 
@@ -192,7 +192,7 @@ describe('course-exercises error states', () => {
     expect(el('cx-stage').hidden).toBe(true);
     expect(el('cx-loading').hidden).toBe(true);
     const back = backLinkAfter(box);
-    expect(back?.getAttribute('href')).toBe('/my-class');
+    expect(back?.getAttribute('href')).toBe('/course/assigned');
     expect(back?.textContent).toBe('Về Lớp học');
     // Reloading cannot produce questions: no retry button.
     expect(retryButtons()).toHaveLength(0);

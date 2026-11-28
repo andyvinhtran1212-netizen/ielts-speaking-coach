@@ -42,7 +42,7 @@ function resolve<T extends PlannedLink>(links: readonly T[]): (Omit<T, 'today'> 
 
 const NAV_PLAN: readonly (PlannedLink & { id: LearnerSectionId; label: string; icon: IconName })[] = [
   { id: 'home', label: 'Hôm nay', href: '/home', today: null, icon: 'home' },
-  { id: 'course', label: 'Lộ trình', href: '/course', today: '/my-class', icon: 'route' },
+  { id: 'course', label: 'Lộ trình', href: '/course', today: null, icon: 'route' },
   { id: 'practice', label: 'Luyện tập', href: '/practice', today: '/speaking', icon: 'pencil' },
   { id: 'tests', label: 'Thi thử', href: '/tests', today: '/full-test', icon: 'timer' },
   { id: 'library', label: 'Thư viện', href: '/library', today: null, icon: 'books' },

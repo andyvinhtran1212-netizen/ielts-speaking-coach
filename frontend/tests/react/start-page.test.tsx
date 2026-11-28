@@ -119,7 +119,7 @@ describe('/start', () => {
     expect(await screen.findByText('Bước 1 trên 2')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu' }));
     fireEvent.click(screen.getByRole('button', { name: 'Để sau' }));
-    await waitFor(() => expect(assign).toHaveBeenCalledWith('/my-class'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/course/assigned'));
     expect(screen.queryByRole('heading', { name: 'Bạn bắt đầu từ đâu?' })).toBeNull();
   });
 

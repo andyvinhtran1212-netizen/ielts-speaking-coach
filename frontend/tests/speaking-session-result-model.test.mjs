@@ -68,7 +68,7 @@ describe('native session-result view model — canonical truth', () => {
       class_task: { item_id: 'item-1', title: 'Course 3 · Buổi 3 · Part 1' },
       questions: [], responses: [],
     });
-    assert.equal(classView.returnHref, '/my-class');
+    assert.equal(classView.returnHref, '/course/assigned');
     assert.equal(classView.returnLabel, 'Về lớp học');
     assert.equal(classView.contextLabel, 'Bài tập theo buổi');
 

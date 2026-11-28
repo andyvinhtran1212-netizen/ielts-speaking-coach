@@ -125,7 +125,7 @@ test('class assignment renders the multi-question answer sheet from persisted tr
   await expect(page.locator('#sheet-slots .av-slot').nth(1)).toHaveAttribute('data-state', 'idle');
   await expect(page.locator('#btn-sheet-submit')).toBeDisabled();
   await expect(page.locator('.practice-back-link')).toHaveText(/Về lớp học/);
-  await expect(page.locator('.practice-back-link')).toHaveAttribute('href', '/my-class');
+  await expect(page.locator('.practice-back-link')).toHaveAttribute('href', '/course/assigned');
   await expect(page.locator('.practice-context-bar .eyebrow')).toHaveText('Bài tập theo buổi');
 });
 
@@ -177,7 +177,7 @@ test('My Class opens and closes a Next Speaking session without reloading the do
   };
 
   await installHarness(page, {
-    routePath: '/my-class',
+    routePath: '/course/assigned',
     includeSessionQuery: false,
     waitForPlayer: false,
     expectBootstrapOnce: false,
@@ -222,7 +222,7 @@ test('My Class opens and closes a Next Speaking session without reloading the do
   ))).toBe('1');
 
   await page.locator('.practice-back-link').click();
-  await expect(page).toHaveURL('/my-class');
+  await expect(page).toHaveURL('/course/assigned');
   await expect(page.getByRole('article').getByText('Buổi 3 · Speaking Part 1')).toBeVisible();
   await expect.poll(() => page.evaluate(() => (
     window.sessionStorage.getItem('__gate_e_document_visits')

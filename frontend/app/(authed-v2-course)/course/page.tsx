@@ -2,7 +2,7 @@
 
 // Lộ trình `/course` (LEARNERCORE-0063 T15). Flag on (`learnerV2Enabled(me)`):
 // the new page. Flag off: the URL is replaced by the section's stand-in page
-// (NAV_PLAN `today` of Lộ trình, `/my-class`) and no Lộ trình request is made.
+// (NAV_PLAN `today` of Lộ trình, `/course/assigned`) and no Lộ trình request is made.
 import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -15,7 +15,7 @@ import { documentNavigation, replaceAcrossTrees } from '@/lib/tree-replace';
 import { CourseHubPage } from './course-hub';
 
 /** Where flag-off learners land: the stand-in of the Lộ trình nav item. */
-const COURSE_STAND_IN = '/my-class';
+const COURSE_STAND_IN = '/course/assigned';
 
 function CourseGate() {
   const router = useRouter();
@@ -30,7 +30,7 @@ function CourseGate() {
       return;
     }
     // An unreadable profile is treated as flag off: the stand-in page works
-    // for everyone, the new page only for opted-in learners. `/my-class` is
+    // for everyone, the new page only for opted-in learners. `/course/assigned` is
     // in the legacy tree, so this is a full document replacement (FR-015).
     if (authStatus === 'signed-in' && leave) replaceAcrossTrees(router, COURSE_STAND_IN);
   }, [authStatus, leave, router]);

@@ -105,6 +105,23 @@ class DuplicateExamCodeError(MockExamError):
     """An exam already owns the requested unique code."""
 
 
+class AudienceUnavailableError(MockExamError):
+    """The audience list (``mock_exam_audiences``) could not be read. The
+    learner routes answer 503: never an open gate, never a 500."""
+
+
+_AUDIENCE_UNAVAILABLE_MESSAGE = "Chưa đọc được danh sách thí sinh của kỳ thi. Bạn thử lại sau ít phút."
+
+
+def _audience_read(build):
+    """Run one audience query; any failure is AudienceUnavailableError."""
+    try:
+        return build()
+    except Exception as exc:  # noqa: BLE001 — re-raised as a typed error
+        logger.warning("[mock-exams] audience read failed: %s", exc.__class__.__name__)
+        raise AudienceUnavailableError(_AUDIENCE_UNAVAILABLE_MESSAGE) from exc
+
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
@@ -168,6 +185,13 @@ def list_open_exams(user_id: str) -> list[dict]:
         "exam_mode, is_open, active_section",
     ).eq("status", "published").execute()
     assigned = _retake_assigned_exam_ids(user_id)
+    # FR-014 (flag on): an exam with audience rows is listed only for a
+    # selected learner on its list; the others keep the gates below.
+    audience_exams: set = set()
+    my_audience: dict = {}
+    if audiences_learner_enabled():
+        audience_exams = _exams_with_audience([e["id"] for e in (resp.data or [])])
+        my_audience = _audience_rows_for_user(user_id) if audience_exams else {}
     # C3 — the student may only be seated at one exam at a time. Report WHICH
     # sitting is holding them rather than letting them press a button that will
     # only 409: the entry page can then send them back to the exam they are
@@ -185,7 +209,17 @@ def list_open_exams(user_id: str) -> list[dict]:
         # (Codex review, PR #841). Only ever relaxes the gate for the one
         # person who already has a sitting on that exam.
         is_mine = mine_exam_id is not None and str(e["id"]) == mine_exam_id
-        if is_retake(e):
+        if str(e["id"]) in audience_exams:
+            row = _pick_audience(my_audience.get(str(e["id"]), []))
+            if not is_mine:
+                if row is None:
+                    continue
+                if is_retake(e):
+                    if not _audience_window_open(row):
+                        continue
+                elif not e.get("is_open") or (e.get("active_section") or "not_started") == "done":
+                    continue
+        elif is_retake(e):
             if e["id"] not in assigned and not is_mine:
                 continue
         elif not is_mine:
@@ -300,18 +334,20 @@ def get_exam_content_for_sitting(sitting: dict) -> dict:
     two prompt texts for the native writing step.
     """
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    assigned = sitting.get("assigned_skills")
+    available = set(assigned) if assigned is not None else {*_LRW_ORDER, "speaking"}
     out: dict = {
-        "listening_test_id": exam.get("listening_test_id"),
+        "listening_test_id": exam.get("listening_test_id") if "listening" in available else None,
         "reading_test_code": None,
         "writing_task1": None,
         "writing_task2": None,
-        "speaking_topic_set": exam.get("speaking_topic_set") or {},
+        "speaking_topic_set": (exam.get("speaking_topic_set") or {}) if "speaking" in available else {},
         "total_minutes": exam.get("total_minutes") or 150,
         "active_section": exam.get("active_section") or "not_started",
         "reading_minutes": exam.get("reading_minutes") or 60,
         "writing_minutes": exam.get("writing_minutes") or 60,
     }
-    if exam.get("reading_test_id"):
+    if "reading" in available and exam.get("reading_test_id"):
         r = supabase_admin.table("reading_tests").select("test_id, title").eq(
             "id", str(exam["reading_test_id"]),
         ).limit(1).execute()
@@ -320,7 +356,7 @@ def get_exam_content_for_sitting(sitting: dict) -> dict:
             out["reading_title"] = r.data[0].get("title")
     for slot, col in (("writing_task1", "writing_task1_prompt_id"),
                       ("writing_task2", "writing_task2_prompt_id")):
-        if exam.get(col):
+        if "writing" in available and exam.get(col):
             p = supabase_admin.table("writing_prompts").select(
                 "id, task_type, prompt_text, title, prompt_image_url",
             ).eq("id", str(exam[col])).limit(1).execute()
@@ -687,13 +723,27 @@ def is_retake(exam: Optional[dict]) -> bool:
 
 
 def _sitting_sections(sitting: dict, exam: dict) -> list[str]:
-    """The sections THIS sitting must complete. Retake → the sitting's snapshot
-    of assigned_skills (order-stable by _LRW_ORDER); sequential → the exam's
-    configured sections."""
-    if is_retake(exam):
+    """Timed sections for this learner, preserving the shared room order.
+
+    A snapshot limits either mode. Older live rows use the configured room.
+    """
+    if sitting.get("assigned_skills") is not None or is_retake(exam):
         assigned = set(sitting.get("assigned_skills") or [])
         return [s for s in _LRW_ORDER if s in assigned]
     return _configured_sections(exam)
+
+
+def _speaking_required(sitting: dict, exam: dict) -> bool:
+    assigned = sitting.get("assigned_skills")
+    if assigned is not None:
+        return "speaking" in assigned
+    return bool(exam.get("speaking_topic_set")) and not is_retake(exam)
+
+
+def _require_assigned_skill(sitting: dict, skill: str) -> None:
+    assigned = sitting.get("assigned_skills")
+    if assigned is not None and skill not in assigned:
+        raise SittingConflictError(f"Bạn không được gán phần {skill}.")
 
 
 def retake_time_remaining_seconds(sitting: dict, exam: dict, section: str) -> Optional[int]:
@@ -741,6 +791,219 @@ def _assert_retake_window_open(assignment: dict) -> None:
         raise WindowClosedError("Đã quá giờ làm bài test lại.")
 
 
+# ── Assigned exams: audiences and the self-paced chain ─────────────────
+# EXAMMOCK-0071 FR-014 (G08-T22) on the MOCKORG-0086 plan 5.5 contract. Every
+# helper below is a no-op while the runtime flag mock_exam_audiences_learner is
+# off (the same helper the admin schedule() reads), so the
+# cohort_id / mock_exam_assignments path stays exactly as it was.
+
+_AUDIENCE_COLS = "exam_id, user_id, skills, selected, open_from, open_until, purpose, added_at"
+
+
+def audiences_learner_enabled() -> bool:
+    """The runtime flag ``mock_exam_audiences_learner`` (the same key and
+    cache the admin ``schedule`` reads through ``learner_gate_enabled``).
+
+    True or False only when the flag was read. When it cannot be read the
+    state is unknown, and the old gate does not enforce FR-014 (only selected
+    learners on the list may enter), so this raises AudienceUnavailableError:
+    the learner routes answer 503 and no sitting is created (HOLD on #2581).
+    Imported here: mock_exam_audience_service imports this module."""
+    from services import runtime_flags
+    from services.mock_exam_audience_service import LEARNER_GATE_FLAG
+    try:
+        return runtime_flags.is_enabled_strict(LEARNER_GATE_FLAG, default=False)
+    except runtime_flags.FlagLookupError as exc:
+        raise AudienceUnavailableError(_AUDIENCE_UNAVAILABLE_MESSAGE) from exc
+
+
+def _self_paced_gap_seconds() -> int:
+    try:
+        return max(0, int(getattr(settings, "MOCK_SELF_PACED_GAP_SECONDS", 0) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _exams_with_audience(exam_ids) -> set:
+    """Exam ids (of ``exam_ids``) that have at least one audience row. Such an
+    exam is gated by the audience list only; one without rows keeps the old
+    cohort/assignment gate (exams created before MOCKORG-0086)."""
+    ids = [str(e) for e in exam_ids if e]
+    out: set = set()
+    for i in range(0, len(ids), _ID_CHUNK):
+        chunk = ids[i:i + _ID_CHUNK]
+        rows = _audience_read(lambda c=chunk: _paged(
+            lambda: supabase_admin.table("mock_exam_audiences")
+            .select("exam_id").in_("exam_id", c).order("exam_id")))
+        out.update(str(r["exam_id"]) for r in rows)
+    return out
+
+
+def _pick_audience(rows: list) -> Optional[dict]:
+    """The learner's selected row: ``main`` first, then ``makeup``."""
+    chosen = [r for r in rows if r.get("selected")]
+    chosen.sort(key=lambda r: 0 if (r.get("purpose") or "main") == "main" else 1)
+    return chosen[0] if chosen else None
+
+
+def _audience_rows_for_user(user_id: str) -> dict:
+    """{exam_id: [rows]} of this learner's audience rows."""
+    rows = _audience_read(lambda: _paged(
+        lambda: supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS)
+        .eq("user_id", str(user_id)).order("exam_id")))
+    out: dict = {}
+    for r in rows:
+        out.setdefault(str(r["exam_id"]), []).append(r)
+    return out
+
+
+def _audience_row(exam_id, user_id) -> Optional[dict]:
+    rows = _audience_read(lambda: supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS).eq(
+        "exam_id", str(exam_id),
+    ).eq("user_id", str(user_id)).execute().data or [])
+    return _pick_audience(rows)
+
+
+def _audience_gate(exam: dict, user_id: str) -> Optional[dict]:
+    """Flag on and the exam has audience rows: the learner's selected row, or
+    NotFoundError worded like an unknown code (FR-014: not on the list → 404 as
+    if the exam did not exist). None means "use the old gate"."""
+    if not audiences_learner_enabled() or not exam.get("id"):
+        return None
+    if str(exam["id"]) not in _exams_with_audience([exam["id"]]):
+        return None
+    row = _audience_row(exam["id"], user_id)
+    if not row:
+        raise NotFoundError(
+            f"Không tìm thấy kỳ thi đã publish với mã {clip_user_value(exam.get('code') or '')!r}."
+        )
+    return row
+
+
+def _audience_window_open(row: dict) -> bool:
+    now = _now()
+    of, ou = _parse_ts(row.get("open_from")), _parse_ts(row.get("open_until"))
+    return not ((of and now < of) or (ou and now > ou))
+
+
+def _audience_added_index(exam_ids) -> dict:
+    """{(exam_id, user_id): earliest added_at} for every audience row of
+    ``exam_ids``: one paged read per chunk, for a whole reaper sweep (CR #2581
+    item 4) instead of one read per sitting."""
+    ids = [str(e) for e in exam_ids if e]
+    out: dict = {}
+    for i in range(0, len(ids), _ID_CHUNK):
+        chunk = ids[i:i + _ID_CHUNK]
+        rows = _audience_read(lambda c=chunk: _paged(
+            lambda: supabase_admin.table("mock_exam_audiences")
+            .select("exam_id, user_id, added_at").in_("exam_id", c).order("exam_id")))
+        for r in rows:
+            added = _parse_ts(r.get("added_at"))
+            if added is None or not r.get("user_id"):
+                continue
+            key = (str(r["exam_id"]), str(r["user_id"]))
+            if key not in out or added < out[key]:
+                out[key] = added
+    return out
+
+
+def is_self_paced_chain(sitting: dict, exam: dict, added_index: Optional[dict] = None) -> bool:
+    """True when this sitting runs its sections back to back (plan 5.5).
+
+    Only with the flag on, on a self-paced exam that has an audience row for
+    this learner, and only for a sitting created at or after that row was added
+    (coordinator decision 23/11, option A). A retake sitting created through
+    the old assignment path, before the row existed, keeps the section menu
+    until it finishes, so a learner paused between sections is never timed or
+    auto-submitted by the new rule.
+
+    Known gap (option A): a sitting created while the flag was still off on an
+    exam that already had its audience row switches to the chain when the flag
+    turns on. Before turning the flag on, check that no such sitting is in
+    progress (rollout check)."""
+    # ``added_index`` given: the reaper already read the flag as on for this sweep.
+    if not is_retake(exam) or (added_index is None and not audiences_learner_enabled()):
+        return False
+    if not sitting.get("assigned_skills") or not _sitting_sections(sitting, exam):
+        return False
+    created = _parse_ts(sitting.get("created_at"))
+    if created is None:
+        return False
+    if added_index is not None:
+        first = added_index.get((str(sitting.get("mock_exam_id")), str(sitting.get("user_id"))))
+        return first is not None and created >= first
+    rows = _audience_read(lambda: supabase_admin.table("mock_exam_audiences").select(_AUDIENCE_COLS).eq(
+        "exam_id", str(sitting.get("mock_exam_id")),
+    ).eq("user_id", str(sitting.get("user_id"))).execute().data or [])
+    added = [t for t in (_parse_ts(r.get("added_at")) for r in rows) if t is not None]
+    return bool(added) and created >= min(added)
+
+
+def self_paced_timeline_for(sitting: dict, exam: dict, now: Optional[datetime] = None):
+    """The shared plan 5.5 timeline for one sitting, with this exam's section
+    durations (``mock_exam_modes.self_paced_timeline``; never a second formula)."""
+    sections = _sitting_sections(sitting, exam)
+    return mock_exam_modes.self_paced_timeline(
+        sitting, exam, now or _now(),
+        durations={s: _section_duration_seconds(exam, s) for s in sections},
+        gap_seconds=_self_paced_gap_seconds(),
+        open_until=sitting.get("retake_open_until"),
+    )
+
+
+def advance_self_paced(sitting: dict, exam: dict, now: Optional[datetime] = None):
+    """Plan 5.5 point 2: the server stamps each next section's start at
+    min(submit, deadline) of the one before (+ gap), the moment it is due.
+    Compare-and-set on a null stamp and a live status, so a second caller (a
+    poll, the reaper, another tab) never moves a start. Returns the refreshed
+    sitting and its timeline."""
+    timeline = self_paced_timeline_for(sitting, exam, now)
+    if not timeline.due_start_stamps:
+        return sitting, timeline
+    starts = {w.section: w.starts_at for w in timeline.sections}
+    for section in timeline.due_start_stamps:
+        col = f"{section}_started_at"
+        supabase_admin.table("mock_exam_sittings").update({
+            col: starts[section].isoformat(),
+        }).eq("id", str(sitting["id"])).in_(
+            "status", ["registered", "lrw_in_progress"],
+        ).is_(col, "null").execute()
+    fresh = get_sitting(sitting["id"]) or sitting
+    return fresh, self_paced_timeline_for(fresh, exam, now)
+
+
+def self_paced_state(sitting: dict, exam: dict, timeline) -> dict:
+    """Learner-facing per-section state of a chain sitting (FR-014)."""
+    released = sitting.get("status") == "released"
+    current = timeline.current_section
+    sections = []
+    for w in timeline.sections:
+        if w.submitted_at is not None:
+            status = "released" if released else "submitted"
+        elif w.section == current:
+            status = "in_progress"
+        elif w.deadline <= _now():
+            status = "submitted"  # time ran out; the server collects it
+        else:
+            status = "not_started"
+        sections.append({
+            "section": w.section, "status": status,
+            "started_at": w.starts_at.isoformat(),
+            "ends_at": w.ends_at.isoformat(),
+        })
+    return {
+        "state": timeline.state,
+        "started_at": timeline.started_at.isoformat() if timeline.started_at else None,
+        "expected_end_at": timeline.expected_end_at.isoformat() if timeline.expected_end_at else None,
+        "current_section": current,
+        "section_time_left_seconds": timeline.section_time_left_seconds,
+        "gap_seconds": _self_paced_gap_seconds(),
+        "open_until": sitting.get("retake_open_until"),
+        "total_seconds": sum(_section_duration_seconds(exam, s) for s in _sitting_sections(sitting, exam)),
+        "sections": sections,
+    }
+
+
 # ── Lifecycle ─────────────────────────────────────────────────────────
 
 
@@ -775,9 +1038,25 @@ def create_sitting(user_id: str, code: str) -> dict:
         # with nothing submitted, while a genuinely new arrival during a section
         # PAUSE is born with a submitted stamp and looked like a resume
         # (Codex review, PR #849). Only this function knows which happened.
-        return {**existing.data[0], "created": False}
+        row = existing.data[0]
+        if row.get("assigned_skills") == ["speaking"] and row["status"] in ("registered", "lrw_in_progress"):
+            row = _reconcile_terminal(row["id"], exam)
+        return {**row, "created": False}
 
-    if not is_retake(exam):
+    # FR-014 (flag on, exam with audience rows): the list decides who may sit;
+    # someone not on it gets the unknown-code 404. One sitting per learner:
+    # a retake is a make-up exam issued by the admin (plan 5.5 point 7).
+    audience = _audience_gate(exam, user_id)
+    if audience is not None:
+        taken = supabase_admin.table("mock_exam_sittings").select("id").eq(
+            "mock_exam_id", exam["id"],
+        ).eq("user_id", str(user_id)).eq("status", "released").limit(1).execute()
+        if taken.data:
+            raise SittingConflictError(
+                "Bạn đã làm kỳ thi này. Muốn làm lại, hãy nhờ giáo viên mở kỳ thi bù."
+            )
+
+    if not is_retake(exam) and (audience is None or "listening" in audience["skills"]):
         _guard_listening_scoring(exam.get("listening_test_id"), SittingConflictError)
 
     # NEW sitting only: apply the entry gates.
@@ -809,12 +1088,18 @@ def create_sitting(user_id: str, code: str) -> dict:
         "status":       "registered",
         "sealed":       True,
     }
+    if audience is not None:
+        new_row["assigned_skills"] = audience["skills"]
+        if set(audience["skills"]) == {"speaking"}:
+            new_row["status"] = "speaking_pending"
     if is_retake(exam):
         # Retake: access via a per-student assignment within its window (NOT
         # cohort / NOT the shared is_open gate). Snapshot the assigned skills +
         # window onto the sitting so the runner/reconcile are skill-scoped and
         # each student times independently.
-        assignment = _get_assignment(exam["id"], user_id)
+        # FR-014: with an audience row, that row is the assignment (skills and
+        # the learner's own window).
+        assignment = audience if audience is not None else _get_assignment(exam["id"], user_id)
         if not assignment:
             raise NotEligibleError("Bạn chưa được gán làm bài test lại này.")
         _assert_retake_window_open(assignment)
@@ -840,7 +1125,8 @@ def create_sitting(user_id: str, code: str) -> dict:
                 "Kỳ thi đã kết thúc — không còn phần nào để làm."
             )
         _assert_window_open(exam)
-        if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
+        # FR-014: an audience exam seats its list (checked above), not cohort_id.
+        if audience is None and exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
             if _user_in_archived_cohort(user_id, exam["cohort_id"]):
                 raise NotEligibleError(MOCK_CLASS_ENDED_MESSAGE)
             raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
@@ -851,7 +1137,7 @@ def create_sitting(user_id: str, code: str) -> dict:
         # isOpenSection test passes, and they are handed the collected paper
         # with the class clock running (Codex review, PR #843).
         paused_on = exam.get("collected_section")
-        if paused_on and paused_on == (exam.get("active_section") or "not_started"):
+        if paused_on in _sitting_sections(new_row, exam) and paused_on == (exam.get("active_section") or "not_started"):
             new_row[_SUBMITTED_COL[paused_on]] = _now_iso()
 
     try:
@@ -883,7 +1169,7 @@ def create_sitting(user_id: str, code: str) -> dict:
     if not is_retake(exam):
         fresh = get_published_exam_by_id(exam["id"]) or {}
         paused_now = fresh.get("collected_section")
-        if (paused_now
+        if (paused_now in _sitting_sections(row, fresh)
                 and paused_now == (fresh.get("active_section") or "not_started")
                 and not row.get(_SUBMITTED_COL[paused_now])):
             stamped = supabase_admin.table("mock_exam_sittings").update({
@@ -932,6 +1218,7 @@ def attach_attempt(
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
+    _require_assigned_skill(sitting, section)
     if str(sitting.get(link_col) or "") == str(attempt_id):
         canonical = supabase_admin.table(domain_table).select(
             "id,user_id,test_id,sitting_id,attempt_purpose,status",
@@ -1088,6 +1375,7 @@ def submit_writing(
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
+    _require_assigned_skill(sitting, "writing")
     # Only accept writing while the LRW block is live and Writing is the
     # currently-open section. Once finalised the text is final — a retry must
     # NOT overwrite the graded submission.
@@ -1692,6 +1980,13 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     if sitting.get(started_col):
         return sitting  # idempotent — clock already running
 
+    # Plan 5.5 points 1–2: a back-to-back sitting has ONE start, its first
+    # section; the server stamps every later one. No "start next section".
+    if is_self_paced_chain(sitting, exam) and section != _sitting_sections(sitting, exam)[0]:
+        raise SittingConflictError(
+            "Các phần sau bắt đầu tự động ngay khi phần trước kết thúc."
+        )
+
     # One clock at a time: block starting a DIFFERENT assigned section while one
     # is already started-but-unsubmitted. Two concurrent per-sitting clocks (a
     # double-click across "Bắt đầu" buttons, or a direct API call) would let the
@@ -1776,6 +2071,11 @@ def submit_section(
         return sitting  # idempotent — already collected
 
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
+    if is_self_paced_chain(sitting, exam):
+        # A section the server should already have started (the previous one
+        # ended) gets its stamp first, so its submit is not refused as unstarted.
+        sitting, _ = advance_self_paced(sitting, exam)
+    _require_assigned_skill(sitting, section)
     if is_retake(exam):
         # Retake is self-paced: the section must be assigned + started, but the
         # student MAY finish early (no shared "who submits first" fairness rule).
@@ -1936,6 +2236,7 @@ def bind_session_to_sitting(session_id: str, user_id: str, sitting_id: str) -> N
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
+    _require_assigned_skill(sitting, "speaking")
     if sitting["status"] in ("released", "void") or not sitting.get("sealed"):
         raise SittingConflictError("Kỳ thi không nhận thêm bài Speaking.")
     supabase_admin.table("sessions").update({
@@ -1957,6 +2258,7 @@ def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> di
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
     _assert_owner(sitting, user_id)
+    _require_assigned_skill(sitting, "speaking")
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
 
@@ -2016,6 +2318,7 @@ def admin_record_speaking(sitting_id: str, admin_id: str) -> dict:
     sitting = get_sitting(sitting_id)
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
+    _require_assigned_skill(sitting, "speaking")
     if sitting["status"] in ("released", "void"):
         raise SittingConflictError(f"Sitting đang ở trạng thái {sitting['status']!r}.")
     if sitting.get("speaking_completed_at"):
@@ -2092,10 +2395,8 @@ def _reconcile_terminal(sitting_id: str, exam: Optional[dict] = None) -> dict:
     if exam is None:
         exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
     sections = _sitting_sections(sitting, exam)
-    lrw_done = bool(sections) and all(sitting.get(_SUBMITTED_COL[s]) for s in sections)
-    # Speaking is required only when the exam defines a speaking component AND
-    # this isn't a retake (retake v1 covers L/R/W only — no speaking assigned).
-    speaking_required = bool(exam.get("speaking_topic_set")) and not is_retake(exam)
+    speaking_required = _speaking_required(sitting, exam)
+    lrw_done = (bool(sections) or speaking_required) and all(sitting.get(_SUBMITTED_COL[s]) for s in sections)
     speaking_done = (bool(sitting.get("speaking_completed_at"))
                      if speaking_required else True)
 
@@ -3055,7 +3356,7 @@ def pending_in_section(exam_id: str, section: str) -> int:
     if not col:
         return 0
     try:
-        rows = supabase_admin.table("mock_exam_sittings").select("id").eq(
+        rows = supabase_admin.table("mock_exam_sittings").select("id, assigned_skills").eq(
             "mock_exam_id", str(exam_id),
         ).is_(col, "null").not_.in_("status", ["released", "void"]).execute()
     except Exception as exc:  # noqa: BLE001
@@ -3069,7 +3370,8 @@ def pending_in_section(exam_id: str, section: str) -> int:
             "Không đọc được danh sách bài chưa nộp — chưa xác nhận được sẽ thu "
             "bao nhiêu bài, nên chưa thu. Thử lại sau giây lát."
         ) from exc
-    return len(rows.data or [])
+    return sum(1 for row in rows.data or []
+               if row.get("assigned_skills") is None or section in row["assigned_skills"])
 
 
 def _pending_collection_flush_ids(exam_id: str, section: str) -> list[str]:
@@ -3577,7 +3879,7 @@ def reconcile_stalled_sittings(exam_id: Optional[str] = None) -> dict:
         if eid not in exams:
             exams[eid] = get_published_exam_by_id(eid) or {}
         sections = _sitting_sections(row, exams[eid])
-        if sections and all(row.get(_SUBMITTED_COL[s]) for s in sections):
+        if (sections or _speaking_required(row, exams[eid])) and all(row.get(_SUBMITTED_COL[s]) for s in sections):
             fully_in.append(row)
     if not fully_in:
         return {"repaired": 0}
@@ -3688,12 +3990,25 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         logger.exception("[retake-reaper] lookup failed")
         return _done(0, 0)
 
+    # FR-014: which sittings run back to back, from one read of the audience
+    # rows for the whole sweep. Unreadable: skip this sweep rather than reap a
+    # chain sitting by the old per-section rule.
+    # A flag that cannot be read is unknown, not off: skip the sweep too.
+    added_index: Optional[dict] = None
+    try:
+        if audiences_learner_enabled():
+            added_index = _audience_added_index({str(r["mock_exam_id"]) for r in rows})
+    except AudienceUnavailableError:
+        logger.exception("[retake-reaper] audience flag or lookup failed")
+        return _done(0, 0)
+
     now = _now()
     # Retake has a clock per sitting, but all due papers for one exam/section
     # share a configured test. Read possible missed attachments once per group
     # rather than once for every blank learner in the timer-driven reaper.
     due_groups: dict[tuple[str, str], list[dict]] = {}
-    for sitting in rows:
+    chain_started: set = set()
+    for index, sitting in enumerate(rows):
         if not sitting.get("assigned_skills"):
             continue
         exam_id = str(sitting["mock_exam_id"])
@@ -3702,6 +4017,19 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             continue
         window_until = _parse_ts(sitting.get("retake_open_until"))
         window_closed = bool(window_until and now > window_until)
+        if added_index is not None and is_self_paced_chain(sitting, exam, added_index):
+            # Plan 5.5: stamp every start that is due, so an expired section is
+            # seen below; a started chain runs to its end past open_until.
+            try:
+                sitting, timeline = advance_self_paced(sitting, exam, now)
+            except Exception:  # noqa: BLE001 — one sitting must not stop the sweep
+                logger.exception("[retake-reaper] chain stamp failed sitting=%s", sitting.get("id"))
+                rows[index] = {**sitting, "assigned_skills": None}  # skip it below too
+                continue
+            rows[index] = sitting
+            if timeline.started_at is not None:
+                window_closed = False
+                chain_started.add(str(sitting["id"]))
         for section in _sitting_sections(sitting, exam):
             if not sitting.get(_SUBMITTED_COL[section]) and (
                 window_closed
@@ -3725,8 +4053,8 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
     collected = 0
     touched = 0
     for sitting in rows:
-        # assigned_skills is set only on retake sittings — sequential stragglers
-        # are the admin advance-sweep's job, not the reaper's.
+        # Only an exam in retake_exams uses the per-learner timer. A live
+        # audience sitting may also carry assigned_skills.
         if not sitting.get("assigned_skills"):
             continue
         exam = retake_exams.get(sitting["mock_exam_id"]) or {}
@@ -3734,6 +4062,8 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
             continue
         window_until = _parse_ts(sitting.get("retake_open_until"))
         window_closed = bool(window_until and now > window_until)
+        if str(sitting["id"]) in chain_started:
+            window_closed = False  # a started back-to-back sitting runs to its end
         did = False
         sections = _sitting_sections(sitting, exam)
         for section in sections:
@@ -4362,7 +4692,7 @@ def admin_live_monitor(exam_id: str) -> dict:
         sitting = by_user.get(uid) if uid else None
         assigned = (sitting.get("assigned_skills") if sitting else None) \
             or entry.get("skills")
-        mine = ([s for s in _LRW_ORDER if s in (assigned or [])] if retake
+        mine = ([s for s in _LRW_ORDER if s in (assigned or [])] if assigned is not None or retake
                 else _configured_sections(exam))
         sections = {s: _section_state(sitting, s) for s in mine}
         self_paced = (_self_paced_fields(sitting, exam, assigned, entry, now)
@@ -4385,7 +4715,7 @@ def admin_live_monitor(exam_id: str) -> dict:
             "assigned_skills": assigned,
             "sections":      sections,
             "speaking": {
-                "required":  speaking_required,
+                "required":  "speaking" in assigned if assigned is not None else speaking_required,
                 "count":     len((sitting or {}).get("speaking_session_ids") or []),
                 "completed_at": (sitting or {}).get("speaking_completed_at"),
             },
@@ -4661,7 +4991,7 @@ def sitting_pacing(sitting_id: str) -> dict:
     # is the canonical retake scope (_sitting_sections). Rendering a blank
     # Writing block for those students told the teacher they were missing work
     # nobody ever asked them for (Codex review, PR #848).
-    if retake and "writing" not in (sitting.get("assigned_skills") or []):
+    if "writing" not in _sitting_sections(sitting, exam):
         return _pacing_payload(sitting, exam, names, sections)
 
     ws = sitting.get("writing_submission") or {}
@@ -4794,6 +5124,8 @@ def _sitting_may_open_section(sitting: dict, exam: dict, section: str) -> bool:
     A released/reviewed sitting reaches this through the submitted branch, which
     is what keeps "look at my own finished paper" working.
     """
+    if sitting.get("assigned_skills") is not None and section not in sitting["assigned_skills"]:
+        return False
     col = _SUBMITTED_COL.get(section)
     if not col:
         return False

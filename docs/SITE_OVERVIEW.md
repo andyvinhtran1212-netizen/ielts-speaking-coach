@@ -119,7 +119,7 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/listening/review` | student, plus admin preview | Native submitted-only chữa-bài: score/band floor, wrong-answer focus, section transcript, rich per-question solution and real audio-window seek (`GET /api/listening/tests/attempts/{id}/review`). `?admin_test_id=` opens the honest no-score admin preview; mock-sealed attempts remain backend-gated until release. |
 | `/listening/analytics` | student | Personal listening analytics. |
 | `/listening/practice` | student | Quick-practice selection workspace; chosen exercises open the practice runner. |
-| `/listening/exercise-book` · `/listening/exercise-book/tests/[testId]` · `/listening/exercise-book/attempts/[attemptId]/review` | student | Assigned exercise-book Listening (Black Eye U1 first): own assignments with per-activity status and completion, a runner keyed by `?class_item=` that resumes the in-progress attempt before any start, saves per cell with ordered `client_seq` ACKs and submits `expected_answers`, then a submitted-only SELF-CHECK review (reference, explanation, source status; no score). Built on the D↔E contract v1 mocks until PR D ships; deployed builds answer 503 until then. Entry from `/my-class` only when the learner has a book assignment. |
+| `/listening/exercise-book` · `/listening/exercise-book/tests/[testId]` · `/listening/exercise-book/attempts/[attemptId]/review` | student | Assigned exercise-book Listening (Black Eye U1 first): own assignments with per-activity status and completion, a runner keyed by `?class_item=` that resumes the in-progress attempt before any start, saves per cell with ordered `client_seq` ACKs and submits `expected_answers`, then a submitted-only SELF-CHECK review (reference, explanation, source status; no score). Built on the D↔E contract v1 mocks until PR D ships; deployed builds answer 503 until then. Entry from `/course/assigned` only when the learner has a book assignment. |
 
 ### 4.5 Student — Reading
 
@@ -190,7 +190,7 @@ to `/`; the historical source file is not a separately served marketing page.
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `/my-class` | student | My Class workspace for class activity and assigned work. |
+| `/course/assigned` | student | My Class workspace for class activity and assigned work. Old `/my-class` 307s to `/course/assigned` (LEARNERNAV-0062). |
 | `/course-exercises` | student | Session-based course exercises; opens the learner exercise/answer/review flow. |
 
 ### 4.8 Admin — landing + dashboards
@@ -236,6 +236,7 @@ to `/`; the historical source file is not a separately served marketing page.
 |---|---|---|
 | `/admin/users` | admin | All users (role, activation, sessions-today). |
 | `/admin/learners` | admin | Search and filter the learner directory in the new admin frame. |
+| `/admin/learners/[ref]` | admin | Read the learner's profile, shared summary, and five tabs in the new admin frame. Tổng quan reads `/admin/learners/{ref}/overview` and resolves conflicting goals through `…/goal/resolve`. |
 | `/admin/students` | admin | Student roster. With the new admin frame enabled, opens the learner directory and carries over the search query. |
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
 | `/admin/classes/[cohortId]/exercise-book` · `/admin/classes/[cohortId]/exercise-book/grants` | admin (377 grant holders; grants page: the course-2 owner account only) | Exercise-book workspace of one class: catalog with locked activities and reasons, per-activity assignment to named recipients with a Vietnam-time deadline and idempotent `request_id`, the class's book assignments, student × activity progress, teacher review and close-with-reason. The grants page records grant/revoke events in the 377 log; it is a UI gate only, enforced server-side (owner UUID, AAL2 step-up). Links appear on the class Homework tab only when the read route answers 200. |
