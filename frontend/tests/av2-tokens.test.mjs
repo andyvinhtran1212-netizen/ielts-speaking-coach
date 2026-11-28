@@ -208,7 +208,7 @@ describe('av2 CSS — no faked colours (FR-023)', () => {
     };
     for (const root of ['styles', 'components/ui']) if (existsSync(path.join(FRONTEND, root))) walk(path.join(FRONTEND, root));
     for (const e of readdirSync(path.join(FRONTEND, 'app'), { withFileTypes: true })) {
-      if (e.isDirectory() && (/^\(authed-v2-/.test(e.name) || e.name === '(public-v2)' || e.name === '(public-library)' || e.name === '(ui-library)')) walk(path.join(FRONTEND, 'app', e.name));
+      if (e.isDirectory() && (/^\(authed-v2-/.test(e.name) || e.name === '(public-v2)' || e.name === '(public-library)' || e.name === '(public-commerce)' || e.name === '(ui-library)')) walk(path.join(FRONTEND, 'app', e.name));
     }
     const bad = [];
     for (const f of files) {

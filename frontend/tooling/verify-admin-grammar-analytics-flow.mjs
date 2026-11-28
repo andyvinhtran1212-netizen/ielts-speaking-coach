@@ -6,7 +6,6 @@ import { storageKey } from './supabase-session.mjs';
 import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
-const NEXT_ONLY = process.argv.includes('--next-only');
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000112';
 const fakeSession = JSON.stringify({ access_token: 'admin-grammar-analytics-not-real', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-grammar-analytics@local' } });
@@ -20,7 +19,7 @@ await context.addInitScript(([key, value]) => { try { localStorage.setItem(key, 
 const page = await context.newPage();
 const requests = []; const writes = []; const errors = [];
 page.on('pageerror', (error) => errors.push(String(error)));
-let failRefresh = false; let unavailableViews = false; let rollbackState = null;
+let failRefresh = false; let unavailableViews = false;
 const viewed = [{ slug: 'past-perfect', title: 'Past <script>alert(1)</script> Perfect', category: 'tenses', count: 120 }];
 const saved = [{ slug: 'modal-verbs', title: 'Modal verbs', category: 'verb-patterns', count: 9 }];
 const zero = [{ slug: 'relative-clauses', title: 'Relative clauses', category: 'sentences', count: 0 }];
@@ -36,8 +35,6 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/grammar/analytics') {
     if (failRefresh) { failRefresh = false; return json({ detail: 'analytics unavailable' }, 503); }
     const days = Number(parsed.searchParams.get('days'));
-    if (rollbackState === 'unavailable') return json({ days, articles_total: 132, views_total: null, active_view_records_recent: null, saves_total: null, zero_view_total: null, top_viewed: null, top_saved: null, zero_view_slugs: null, analytics_status: { views: 'unavailable', recent_activity: 'unavailable', saves: 'unavailable' }, recent_activity_basis: 'user_article_records_with_last_viewed_at_in_window' });
-    if (rollbackState === 'empty') return json({ days, articles_total: 132, views_total: 0, active_view_records_recent: 0, saves_total: 0, zero_view_total: 0, top_viewed: [], top_saved: [], zero_view_slugs: [], analytics_status: { views: 'complete', recent_activity: 'complete', saves: 'complete' }, recent_activity_basis: 'user_article_records_with_last_viewed_at_in_window' });
     return json({ days, articles_total: 132, views_total: unavailableViews ? null : 120, active_view_records_recent: 18, saves_total: 9, zero_view_total: unavailableViews ? null : 1, top_viewed: unavailableViews ? null : viewed, top_saved: saved, zero_view_slugs: unavailableViews ? null : zero, analytics_status: { views: unavailableViews ? 'unavailable' : 'complete', recent_activity: 'complete', saves: 'complete' }, recent_activity_basis: 'user_article_records_with_last_viewed_at_in_window' });
   }
   return json({});
@@ -75,15 +72,8 @@ await page.getByRole('heading', { name: 'Analytics snapshot', exact: true }).wai
 await analyticsTable.waitFor({ state: 'visible' });
 check('desktop dùng table và không tràn ngang', await analyticsTable.evaluate((table) => getComputedStyle(table).display === 'table') && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
-if (!NEXT_ONLY) {
-  rollbackState = 'unavailable';
-  await page.goto(`${BASE}/pages/admin/grammar/analytics.html?days=30`, { waitUntil: 'domcontentloaded' });
-  await page.getByText('Nguồn views không khả dụng — không đồng nghĩa với 0.', { exact: true }).waitFor({ state: 'visible' });
-  rollbackState = 'empty';
-  await page.getByRole('button', { name: '↺ Tải lại' }).click();
-  await page.getByText('Chưa có view nào.', { exact: true }).waitFor({ state: 'visible' });
-  check('rollback phục hồi đúng empty copy sau trạng thái unavailable', await page.getByText('Chưa có save nào.', { exact: true }).count() === 1 && await page.getByText('Mọi article đều đã có view 🎉', { exact: true }).count() === 1 && await page.getByText(/không khả dụng/).count() === 0);
-}
+// LEGACYJS-0075 W4b: the rollback page's script admin-grammar-analytics.js is
+// deleted, so the rollback checks are gone; `--next-only` is accepted as a no-op.
 check('không có write ngoài contract', writes.length === 0, writes.join(', '));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
 

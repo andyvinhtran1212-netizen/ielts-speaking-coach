@@ -20,6 +20,7 @@ function slice(from, to) {
 
 const ROOM = slice('  // ── Exam room (EXAMSPEAK-0072)', '  function _hasUnsentWork() {');
 const NATIVE_START = slice('  async function _startNativeRecording(', '  async function startRecording() {');
+const P2_START = slice('  async function _startP2Speaking() {', '  function _renderP2SpeakTimer() {');
 const TOO_SHORT = slice('  function _handleAudioTooShort(detail) {', '  // ── STATE: Feedback');
 
 /** A sandbox of the room helpers plus `extra` slices; `on` is the flag. */
@@ -37,6 +38,8 @@ function sandbox({ on, navigator = {}, recorder = null, extra = '', MediaRecorde
     _startManagedInterval: (key, fn) => { intervals.push({ key, fn }); return key; },
     _clearManagedEffect: () => true,
     _showRecError: (m) => errors.push(m),
+    showError: (m) => errors.push(`screen:${m}`),
+    _handleP2RecordedBlob: () => {},
     _renderTimer: () => {},
     _startWaveform: () => {},
     _showRecSub: () => {},
@@ -66,6 +69,7 @@ function sandbox({ on, navigator = {}, recorder = null, extra = '', MediaRecorde
       stopLevel: _stopRoomLevel, level: _roomLevel, mic: () => _roomMicState,
       setAnalyser: (a) => { _analyser = a; }, setPart: (p) => { _sessionData = { part: p }; },
       native: typeof _startNativeRecording === 'function' ? _startNativeRecording : null,
+      p2Start: typeof _startP2Speaking === 'function' ? _startP2Speaking : null,
       tooShort: typeof _handleAudioTooShort === 'function' ? _handleAudioTooShort : null,
     };
   `)(...Object.values(env));
@@ -82,6 +86,11 @@ function deferredMic() {
   const navigator = { mediaDevices: { getUserMedia: () => promise } };
   return { navigator, resolve: () => resolve({ getTracks: () => [{ stop: () => stopped.push(1) }] }), reject, stopped };
 }
+
+const deniedRecorder = () => ({
+  start: async () => { const e = new Error('Bạn đã từ chối quyền microphone.'); e.code = 'permission_denied'; throw e; },
+  isStarting: () => false, getAnalyser: () => null, reset: () => {},
+});
 
 describe('flag off: practice.js sends nothing new', () => {
   test('every helper returns before touching the view', async () => {
@@ -105,6 +114,14 @@ describe('flag off: practice.js sends nothing new', () => {
     assert.equal(await api.native(recorder), false);
     assert.deepEqual(views, []);
     assert.deepEqual(errors, ['Bạn đã từ chối quyền microphone.']);
+  });
+
+  test('Part 2 mic failure still goes to the error screen (old branch unchanged)', async () => {
+    const recorder = deniedRecorder();
+    const { api, views, errors } = sandbox({ on: false, recorder, extra: P2_START });
+    await api.p2Start();
+    assert.deepEqual(views, []);
+    assert.deepEqual(errors, ['screen:Bạn đã từ chối quyền microphone.']);
   });
 
   test('Part 2 too short still uses the alert (old branch unchanged)', () => {
@@ -187,6 +204,25 @@ describe('flag on: microphone cases (FR-003)', () => {
     assert.equal(await api.native(recorder), false);
     assert.deepEqual(micStates(views), ['pending', 'denied']);
     assert.equal(errors.length, 1);
+  });
+
+  test('Part 2: a denied mic stays on the preparation screen with the recovery steps', async () => {
+    const recorder = deniedRecorder();
+    const { api, views, errors } = sandbox({ on: true, recorder, extra: P2_START });
+    await api.p2Start();
+    assert.deepEqual(micStates(views), ['pending', 'denied']);
+    assert.deepEqual(errors, [], 'no error screen: the p2b mic box holds "Thử lại"');
+  });
+
+  test('Part 2: an unknown start failure keeps the old error screen', async () => {
+    const recorder = {
+      start: async () => { throw new Error('boom'); },
+      isStarting: () => false, getAnalyser: () => null, reset: () => {},
+    };
+    const { api, views, errors } = sandbox({ on: true, recorder, extra: P2_START });
+    await api.p2Start();
+    assert.deepEqual(micStates(views), ['pending', 'unknown']);
+    assert.deepEqual(errors, ['screen:boom']);
   });
 
   test('a cancelled start puts the mic back to "before asking"', async () => {

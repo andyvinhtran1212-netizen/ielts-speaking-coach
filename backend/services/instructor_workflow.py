@@ -199,7 +199,11 @@ def release(review_id: UUID, instructor_id: UUID) -> InstructorReview:
         "claimed_at": None,
     }).eq("id", str(review_id)).eq(
         "claimed_by", str(instructor_id),
-    ).execute()
+    # Báo cáo săn lỗi #71: delivered vẫn giữ claimed_by, nên thiếu chốt status
+    # thì "trả lại" một bài ĐÃ GIAO đưa nó về hàng đợi. Chỉ claimed/edited.
+    ).in_("status", [
+        InstructorReviewStatus.CLAIMED.value, InstructorReviewStatus.EDITED.value,
+    ]).execute()
 
     if not response.data:
         # Could be: review doesn't exist, or it's claimed by someone else,
@@ -210,6 +214,11 @@ def release(review_id: UUID, instructor_id: UUID) -> InstructorReview:
         ).eq("id", str(review_id)).limit(1).execute()
         if not existing.data:
             raise NotFoundError(f"Review {review_id} not found")
+        if str(existing.data[0].get("claimed_by") or "") == str(instructor_id):
+            raise ConflictError(
+                f"Review {review_id} is {existing.data[0]['status']!r}; only a "
+                "claimed or edited review can be released"
+            )
         raise PermissionError(
             f"Review {review_id} is not claimed by instructor {instructor_id} "
             f"(current claimed_by={existing.data[0].get('claimed_by')!r}, "

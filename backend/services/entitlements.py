@@ -209,10 +209,16 @@ def _started(item: AccessItem, now: datetime) -> bool:
 
 def has_course_access(user_id: UUID | str, course_id: UUID | str) -> bool:
     """Any current access to the course, derived class membership included.
-    Used to open course content."""
-    now = datetime.now(timezone.utc)
-    return any(item.course_id == str(course_id) and item.status == "active" and _started(item, now)
-               for item in list_access(user_id))
+    Used to open course content. The dedup in ``build_access`` is for display
+    only: an expired, revoked or not-yet-started entitlement must not hide a
+    live class membership of the same course, so the derived rows are built
+    on their own here (Codex P2 on #2571)."""
+    uid, course, now = str(user_id), str(course_id), datetime.now(timezone.utc)
+    rows = fetch_entitlement_rows(uid)
+    entitled = build_access(rows, fetch_products(r.get("product_id") for r in rows), [], [], now)
+    derived = build_access([], {}, fetch_membership_course_ids(uid), fetch_legacy_code_rows(uid), now)
+    return any(item.course_id == course and item.status == "active" and _started(item, now)
+               for item in entitled + derived)
 
 
 def has_course_entitlement(user_id: UUID | str, course_id: UUID | str,
@@ -236,6 +242,22 @@ def has_course_entitlement(user_id: UUID | str, course_id: UUID | str,
     wanted = set(kinds)
     products = fetch_products(r.get("product_id") for r in rows)
     return any((products.get(str(r.get("product_id"))) or {}).get("kind") in wanted for r in rows)
+
+
+def has_feature_entitlement(user_id: UUID | str, feature: str) -> bool:
+    """G04-T07 (plan 5.6): an ``entitlements`` row that is active and started
+    and whose product lists ``feature`` (``'speaking'`` / ``'writing'``) opens
+    that skill's practice routes while ``credit_metering`` is on. Derived class
+    membership and legacy codes are not entitlements here (they keep their
+    own gates). A read error raises; the caller decides (fail-closed)."""
+    now = datetime.now(timezone.utc)
+    uid = str(user_id)
+    rows = fetch_entitlement_rows(uid)
+    products = fetch_products(r.get("product_id") for r in rows)
+    return any(
+        item.is_entitlement and item.status == "active" and _started(item, now) and feature in item.features
+        for item in build_access(rows, products, [], [], now)
+    )
 
 
 def has_ever_had_online_course(user_id: UUID | str) -> bool:
