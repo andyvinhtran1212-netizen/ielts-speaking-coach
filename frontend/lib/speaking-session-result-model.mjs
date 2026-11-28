@@ -572,7 +572,7 @@ export function buildSessionResult(session, categoriesPayload = null, audioItems
     isCompleted,
     isPractice,
     isSealed,
-    returnHref: isClassTask ? '/my-class' : '/speaking',
+    returnHref: isClassTask ? '/course/assigned' : '/speaking',
     returnLabel: isClassTask ? 'Về lớp học' : 'Quay lại',
     contextLabel: isClassTask ? 'Bài tập theo buổi' : 'Speaking',
     overall,

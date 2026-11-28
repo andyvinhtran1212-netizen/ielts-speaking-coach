@@ -112,7 +112,7 @@ describe('native Reading review model', () => {
     });
     assert.equal(readingReviewBackTarget(readingReviewParams('?from=mock&sitting=s%2F1')).href, '/mock/result?sitting=s%2F1');
     assert.deepEqual(readingReviewBackTarget(readingReviewParams('?from=my-class')), {
-      href: '/my-class', label: '← Lớp học của tôi',
+      href: '/course/assigned', label: '← Lớp học của tôi',
     });
     assert.deepEqual(readingReviewBackTarget(readingReviewParams('?from=admin')), {
       href: '/admin/classes', label: '← Quản lý lớp',

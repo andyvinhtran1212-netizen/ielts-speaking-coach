@@ -283,8 +283,8 @@ export function CourseHubPage({ accountId }: { accountId: string }) {
       const course = normalizeCourse(raw);
       if (!course) { setPhase({ kind: 'error' }); return; }
       if (shouldRedirectToAssigned(course)) {
-        // FR-035: replace, before any group is drawn. `/my-class` is in the
-        // legacy tree today, so this is a full document replacement (FR-015).
+        // FR-035: replace, before any group is drawn. `/course/assigned` is in the
+        // legacy tree (v1), so this is a full document replacement (FR-015).
         replaceAcrossTrees(router, ASSIGNED_HREF);
         return;
       }

@@ -32,6 +32,8 @@ const EXACT_REPLACEMENTS = Object.freeze({
   '/pages/flashcard-study.html': '/vocabulary/flashcards/study',
   // LEARNERNAV-0062 đợt 2: trang điền từ nằm dưới /vocabulary.
   '/pages/d1-exercise.html': '/vocabulary/fill-in',
+  // LEARNERNAV-0062 đợt 8: bài lớp giao nằm dưới Lộ trình.
+  '/pages/my-class.html': '/course/assigned',
 });
 
 const NESTED_LEGACY_FAMILY = /^\/pages\/(grammar|listening|reading)-(.+)\.html$/;
