@@ -28,6 +28,8 @@ export type Assigned = {
   degraded: Set<'items' | 'repractice'>;
 };
 
+export const STALE_NOTE = 'Bài bạn vừa nộp có thể chưa hiện ở đây. Nếu đã làm xong, không cần làm lại.';
+
 /** FR-096: fixed order, labels from the spec. */
 export const GROUPS: readonly { key: AssignedGroup; label: string }[] = [
   { key: 'overdue', label: 'Quá hạn' },

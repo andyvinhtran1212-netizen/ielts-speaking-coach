@@ -26048,6 +26048,8 @@ export interface components {
             accepting: boolean;
             /** Self Practice Available */
             self_practice_available: boolean;
+            /** Lesson Id */
+            lesson_id?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -26067,7 +26069,7 @@ export interface components {
              */
             homework_stale: boolean;
             /** Degraded */
-            degraded?: ("items" | "repractice")[];
+            degraded?: ("items" | "repractice" | "lesson_links")[];
         };
         /** StudentCourseResponse */
         StudentCourseResponse: {

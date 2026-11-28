@@ -35,6 +35,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 import {
   ACTION_LABELS,
+  STALE_NOTE,
   ALL,
   GROUPS,
   applyFilters,
@@ -62,7 +63,6 @@ import styles from './assigned-v2.module.css';
 const CLASS_HREF = liveHref({ href: '/course/class', today: null });
 const ACTIVATE_HREF = liveHref({ href: '/activate', today: null });
 
-const STALE_NOTE = 'Bài bạn vừa nộp có thể chưa hiện ở đây. Nếu đã làm xong, không cần làm lại.';
 const OVERDUE_NOTE = 'Giáo viên vẫn nhận bài nộp trễ đến ngày ghi ở từng bài. Bài nộp sau hạn được ghi "Nộp trễ" kèm số ngày.';
 const REPRACTICE_NOTE = 'Bài trong khoá luyện lại không phải bài được giao: không có hạn nộp, không vào danh sách bài được giao. '
   + 'Bài Writing vẫn được AI chấm, giáo viên duyệt rồi trả; Speaking AI chấm, trả ngay. Cả hai dùng lượt lớp cấp cho bạn kèm mã.';
