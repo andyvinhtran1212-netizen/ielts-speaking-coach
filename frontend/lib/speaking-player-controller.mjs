@@ -63,6 +63,15 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
     lengthHint: '',
     lengthHintVisible: false,
     submitDisabled: false,
+    // Exam room only (EXAMSPEAK-0072 FR-004/FR-005); the flag-off page never sets them.
+    level: null,
+    paused: false,
+    tooShort: null,
+  }),
+  // Exam room only (EXAMSPEAK-0072 FR-003): unknown | prompt | pending | granted
+  // | denied | not_found | busy | unsupported.
+  mic: Object.freeze({
+    state: 'unknown',
   }),
   processing: Object.freeze({
     text: '',
@@ -82,6 +91,7 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
     notesRevision: 0,
     speakTimer: '2:00',
     speakUrgent: false,
+    tooShort: null,
   }),
   sheet: Object.freeze({
     slots: Object.freeze([]),

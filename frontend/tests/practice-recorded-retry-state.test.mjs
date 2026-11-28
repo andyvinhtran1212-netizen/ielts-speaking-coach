@@ -62,6 +62,9 @@ function sandbox({ native, part = 1 }) {
          _clearP2SubmissionRetry = deps.noop, _resetRecorder = deps.rec('reset'),
          _showRecSub = deps.rec('sub'), _renderRecordedPlayback = deps.rec('playback'),
          _renderRecordedLengthHint = deps.rec('hint'), _showRecError = deps.rec('error');
+     // Exam-room hook from T001 (practice.js _roomTooShort): practice mode never
+     // hands a too-short take to the room, so the sandbox stubs it as false.
+     function _roomTooShort() { return false; }
      ${SOURCE}
      return { _handlePersistFailure, _handleAudioTooShort, state: function () { return _currentState; } };`,
   );

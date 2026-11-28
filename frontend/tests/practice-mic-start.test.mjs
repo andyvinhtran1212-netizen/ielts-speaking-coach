@@ -21,6 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { SpeakingRecorderController } from '../lib/speaking-recorder-controller.mjs';
+import { PRACTICE_ROOM_OFF } from './practice-room-off.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(HERE, '..', 'public', 'js', 'practice.js'), 'utf8');
@@ -92,7 +93,7 @@ async function run(mic, native = false, cancelPending = false, concurrentPending
     });
   }
   const names = Object.keys(env);
-  const fn = new Function(...names, `
+  const fn = new Function(...names, `${PRACTICE_ROOM_OFF}
     var _recSubState = 'idle', _stream = null, _recorder = null, _analyser = null;
     var _audioCtx = null, _audioChunks = [], _recordedBlob = null;
     var _timerId = null, _elapsedSecs = 0, _sessionData = { part: 1 };
@@ -178,7 +179,7 @@ describe('Part 2 native start giữ dữ liệu và lỗi ở trạng thái trun
     };
     const runPart2 = new Function(
       '_getNativeRecorder', 'showError', '_handleP2RecordedBlob',
-      '_playerGeneration', '_playerActive', `
+      '_playerGeneration', '_playerActive', `${PRACTICE_ROOM_OFF}
       var _audioChunks = ['old-chunk'];
       var _recordedBlob = { old: true };
       var _elapsedSecs = 77;
@@ -225,7 +226,7 @@ describe('_sheetOnRecorded không nổ khi không còn ô nào nhận bản ghi'
       _playerActive: true,
     };
     const names = Object.keys(env);
-    new Function(...names, `${JS.slice(start, end)} _sheetOnRecorded({});`)(
+    new Function(...names, `${PRACTICE_ROOM_OFF}${JS.slice(start, end)} _sheetOnRecorded({});`)(
       ...names.map((n) => env[n]));
     return { submitted, sheet: _sheet };
   }
@@ -270,7 +271,7 @@ describe('phiếu: có thể huỷ lúc trình duyệt còn đang xin quyền mi
       resolveStartForTest: resolveStart,
     };
     const names = Object.keys(env);
-    const runToggle = new Function(...names, `
+    const runToggle = new Function(...names, `${PRACTICE_ROOM_OFF}
       ${JS.slice(start, end)}
       return (async () => {
         const first = _sheetToggleRec(0);
@@ -328,7 +329,7 @@ describe('native stop lỗi không làm kẹt phễu hoặc phiếu', () => {
       clearInterval: () => {},
     };
     const names = Object.keys(env);
-    const execute = new Function(...names, `
+    const execute = new Function(...names, `${PRACTICE_ROOM_OFF}
       var _recSubState = 'recording', _timerId = null, _recorder = null;
       ${JS.slice(s1, e1)}
       ${JS.slice(s2, e2)}
@@ -411,7 +412,7 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       _playerActive: true,
     };
     const names = Object.keys(env);
-    const submit = new Function(...names, `
+    const submit = new Function(...names, `${PRACTICE_ROOM_OFF}
       ${JS.slice(start, end)}
       return _sheetSubmit;
     `)(...names.map((name) => env[name]));
@@ -446,7 +447,7 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       _playerActive: true,
     };
     const names = Object.keys(env);
-    const submit = new Function(...names, `
+    const submit = new Function(...names, `${PRACTICE_ROOM_OFF}
       ${JS.slice(start, end)}
       return _sheetSubmit;
     `)(...names.map((name) => env[name]));
@@ -476,7 +477,7 @@ describe('nộp phiếu luôn nhả micro nhưng không huỷ controller', () =>
       _playerActive: true,
     };
     const names = Object.keys(env);
-    const submit = new Function(...names, `
+    const submit = new Function(...names, `${PRACTICE_ROOM_OFF}
       ${JS.slice(start, end)}
       return _sheetSubmit;
     `)(...names.map((name) => env[name]));
@@ -546,7 +547,7 @@ describe('phiếu: ghi được NHIỀU câu liên tiếp, không chỉ câu đ�
     }
     const names = Object.keys(env);
     // _showRecSub THẬT được khai trong scope nên thắng mọi stub cùng tên.
-    const fn = new Function(...names, `
+    const fn = new Function(...names, `${PRACTICE_ROOM_OFF}
       var _recSubState = 'idle', _stream = null, _recorder = null, _analyser = null;
       var _audioCtx = null, _audioChunks = [], _recordedBlob = null;
       var _timerId = null, _elapsedSecs = 0, _sessionData = { part: 1 };

@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SpeakingRecorderController } from '../lib/speaking-recorder-controller.mjs';
+import { PRACTICE_ROOM_OFF } from './practice-room-off.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function readFront(...parts) {
@@ -283,7 +284,7 @@ describe('submission entry points enforce the existing duration floor', () => {
             };
             const start = PRACTICE_JS.indexOf(`function ${name}(`);
             const body = PRACTICE_JS.slice(start, PRACTICE_JS.indexOf(end, start));
-            const run = new Function(...Object.keys(env), `
+            const run = new Function(...Object.keys(env), `${PRACTICE_ROOM_OFF}
               var MIN_RECORD_SEC = ${minimums};
               ${helper}
               ${name === '_uploadAndGrade' ? 'async ' : ''}${body}
@@ -367,7 +368,7 @@ describe('Part 2 recorder-to-submission duration gate', () => {
             window: {}, MediaRecorder: FakeMediaRecorder, Blob,
             Date: { now: () => now }, _mimeCandidates: () => ['audio/webm'],
           };
-          const player = new Function(...Object.keys(env), `
+          const player = new Function(...Object.keys(env), `${PRACTICE_ROOM_OFF}
             var MIN_RECORD_SEC = ${minimums};
             ${lengthGate}
             ${part2}
