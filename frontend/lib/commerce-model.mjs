@@ -103,11 +103,11 @@ export const ORDER_STATUS_LABELS = Object.freeze({
 export function nextActionForOrder(order) {
   const code = typeof order?.order_code === 'string' ? order.order_code : null;
   const slug = typeof order?.product?.slug === 'string' ? order.product.slug : null;
-  const orderHref = code ? `/enroll/${encodeURIComponent(code)}` : null;
+  const page = code ? orderHref(code) : null;
   switch (order?.status) {
-    case 'awaiting_transfer': return orderHref && { label: 'Chuyển khoản', href: orderHref };
-    case 'transfer_reported': return orderHref && { label: 'Xem đơn', href: orderHref };
-    case 'needs_info': return orderHref && { label: 'Bổ sung thông tin', href: orderHref };
+    case 'awaiting_transfer': return page && { label: 'Chuyển khoản', href: page };
+    case 'transfer_reported': return page && { label: 'Xem đơn', href: page };
+    case 'needs_info': return page && { label: 'Bổ sung thông tin', href: page };
     case 'confirmed': return { label: 'Vào học', href: '/course' };
     case 'expired':
     case 'cancelled': return slug && { label: 'Tạo đơn mới', href: `/courses/${encodeURIComponent(slug)}/enroll` };
@@ -199,4 +199,47 @@ export function internalHref(raw) {
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f\\]/.test(raw)) return null;
   return raw;
+}
+
+/**
+ * Page of one order (ENROLL-0060 FR-036/037, G05-T12a `/enroll/[orderCode]`).
+ * The one place that builds the link, so "đơn đang mở" on the course page,
+ * the enrol step and the order list all agree with the order route.
+ * @param {string} orderCode as G04 returns it (`order.order_code`) @returns {string}
+ */
+export function orderHref(orderCode) {
+  return `/enroll/${encodeURIComponent(orderCode)}`;
+}
+
+/** The G04 create-order refusals the enrol step words itself (FR-035). */
+const ENROLL_ERRORS = Object.freeze({
+  orders_paused: 'Đăng ký khoá đang tạm dừng. Bạn quay lại sau nhé.',
+  course_not_found: 'Không tìm thấy khoá học này.',
+  course_not_open: 'Khoá này chưa mở đăng ký.',
+  already_enrolled: 'Bạn đang học khoá này. Bạn đăng ký lại được khi khoá gần hết hạn.',
+  account_suspended: 'Tài khoản đang tạm khoá nên chưa tạo được đơn đăng ký.',
+  sign_in_again: 'Vui lòng đăng nhập lại bằng Google hoặc mã gửi qua email.',
+  request_key_conflict: 'Yêu cầu này đã dùng cho một khoá khác. Bạn bấm tạo đơn lại nhé.',
+});
+const ENROLL_RETRY = 'Chưa tạo được đơn đăng ký. Thông tin bạn đã điền vẫn còn, bạn thử lại sau ít phút nhé.';
+
+/**
+ * What the enrol step says when creating the order fails (FR-035: the form keeps
+ * what was filled in). `final`: retrying the same request cannot help.
+ * `newKey`: the next try must carry a fresh request_key.
+ * @param {unknown} error thrown by window.api (`.status`, `.detail.error_code`)
+ * @returns {{ code: string, message: string, final: boolean, newKey: boolean }}
+ */
+export function enrollErrorView(error) {
+  const e = /** @type {{ status?: unknown, detail?: { error_code?: unknown } | null } | null} */ (error);
+  const code = typeof e?.detail?.error_code === 'string' ? e.detail.error_code : '';
+  if (code && Object.hasOwn(ENROLL_ERRORS, code)) {
+    return {
+      code,
+      message: ENROLL_ERRORS[/** @type {keyof typeof ENROLL_ERRORS} */ (code)],
+      final: code === 'course_not_found' || code === 'course_not_open' || code === 'already_enrolled' || code === 'account_suspended',
+      newKey: code === 'request_key_conflict',
+    };
+  }
+  return { code: code || 'unavailable', message: ENROLL_RETRY, final: false, newKey: false };
 }

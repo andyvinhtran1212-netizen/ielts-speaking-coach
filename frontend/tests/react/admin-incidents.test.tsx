@@ -39,7 +39,7 @@ describe('AdminIncidents', () => {
   it('asks for open groups by default and shows counts per source', async () => {
     render(<AdminIncidents />);
     await screen.findByText('Lỗi 1');
-    expect(api.getWith).toHaveBeenCalledWith('/admin/incidents/groups?status=open&sort=learners&page=1');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/incidents/groups?status=open&sort=learners&page=1', undefined, undefined);
     const tabs = screen.getByRole('navigation', { name: 'Nguồn sự cố' });
     expect(within(tabs).getByRole('link', { name: /Lỗi hệ thống/ }).textContent).toContain('2');
     // A failed source shows no number rather than 0.
@@ -53,7 +53,7 @@ describe('AdminIncidents', () => {
     api.getWith.mockResolvedValue(page({ review_items_open: 5 }));
     render(<AdminIncidents />);
     await screen.findByText('Lỗi 1');
-    expect(api.getWith).toHaveBeenCalledWith('/admin/incidents/groups?status=open&sort=learners&page=1&source=grading');
+    expect(api.getWith).toHaveBeenCalledWith('/admin/incidents/groups?status=open&sort=learners&page=1&source=grading', undefined, undefined);
     expect(screen.getByRole('link', { name: '5 câu đang chờ ở Câu cần kiểm' }).getAttribute('href')).toBe('/admin/feedback');
   });
 
@@ -76,16 +76,41 @@ describe('AdminIncidents', () => {
       expect.objectContaining({ action: 'reopen' }));
   });
 
-  it('a refused batch (409) says "tải lại" without guessing why, and offers no undo', async () => {
-    api.post.mockRejectedValue(Object.assign(new Error('HTTP 409'), { status: 409 }));
+  it.each([
+    [409, '1 nhóm chưa đổi: đã có ghi nhận mới hoặc không còn; tải lại để xem.'],
+    [503, '1 nhóm chưa ghi được; thử lại sau ít phút.'],
+  ])('an entirely refused bulk action (%i) reports zero changes and offers no undo', async (status, explanation) => {
+    api.post.mockRejectedValue(Object.assign(new Error(`HTTP ${status}`), { status }));
     render(<AdminIncidents />);
     await screen.findByText('Lỗi 1');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn nhóm Lỗi 1' }));
     fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Bỏ qua' }));
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' })); });
-    await waitFor(() => expect(screen.getByText(/1 nhóm chưa đổi: đã có ghi nhận mới hoặc không còn; tải lại để xem/)).toBeTruthy());
+    const banner = await screen.findByRole('status');
+    expect(banner.textContent).toContain(`Bỏ qua: 0 nhóm. ${explanation}`);
+    expect(banner.classList.contains('is-error')).toBe(true);
     expect(screen.queryByText(/có ghi nhận mới nên chưa đổi/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Hoàn tác' })).toBeNull();
+  });
+
+  it('shows only the changed count for a mixed result and only undoes the changed group', async () => {
+    api.post.mockResolvedValueOnce({
+      changed: 1,
+      conflicts: [{ source: 'errors', fingerprint: FP2, status: 409, code: 'count_changed' }],
+      dismiss_failed: [FP1],
+    }).mockResolvedValueOnce({ changed: 1, conflicts: [], dismiss_failed: [] });
+    render(<AdminIncidents />);
+    await screen.findByText('Lỗi 1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chọn tất cả nhóm trên trang' }));
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Đánh dấu đã xử lý' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' })); });
+    expect(await screen.findByText(/Đánh dấu đã xử lý: 1 nhóm\. 1 nhóm có ghi nhận mới nên chưa đổi/)).toBeTruthy();
+    expect(screen.getByText(/Một số dòng lỗi cũ chưa được đánh dấu/)).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Hoàn tác' })); });
+    expect(api.post).toHaveBeenLastCalledWith('/admin/incidents/groups/bulk', {
+      action: 'reopen',
+      groups: [{ source: 'errors', fingerprint: FP1, expected_count: 4, expected_last_at: '2026-11-16T02:58:00Z' }],
+    });
   });
 
   it('keeps a visible error and a reload button when the list fails', async () => {
@@ -130,7 +155,7 @@ describe('AdminIncidentDetail', () => {
     api.getWith.mockResolvedValue(detail);
     const view = render(<AdminIncidentDetail source="errors" fingerprint={FP1} />);
     await screen.findByText(detail.description);
-    expect(api.getWith).toHaveBeenCalledWith(`/admin/incidents/groups/errors/${FP1}`);
+    expect(api.getWith).toHaveBeenCalledWith(`/admin/incidents/groups/errors/${FP1}`, undefined, undefined);
     expect(screen.getByRole('link', { name: 'Lan' }).getAttribute('href')).toBe('/admin/learners/u-abc');
     expect(screen.getByText('Tự mở lại vì có ghi nhận mới.')).toBeTruthy();
     const technical = view.container.querySelector('details.inc-technical') as HTMLDetailsElement;

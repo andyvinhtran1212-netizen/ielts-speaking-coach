@@ -182,6 +182,7 @@ to `/`; the historical source file is not a separately served marketing page.
 |---|---|---|
 | `/courses` | all | Course catalogue (PUBLICSITE-0059 T04), 404 until the build flag `AVER_PUBLIC_COMMERCE=1`: one row per course from `GET /api/courses` with its state (open / upcoming / learning / expired), fee only when open, a comparison table and a short chooser; upcoming rows carry "Báo cho tôi khi mở". A signed-in visitor's own states are read in the browser. |
 | `/courses/[slug]` | all | One course (PUBLICSITE-0059 T05), 404 until `AVER_PUBLIC_COMMERCE=1`; an unknown or non-public slug is a 404. Course text, author, chapters (trial lessons are links), how AI credits work, FAQ; a registration panel per viewer state (enrol through login, continue payment, learning, renew, upcoming with "Báo cho tôi khi mở"), sticky from 1024px and a bottom bar below. Handles the mail unsubscribe link `#bo-nhan=`. |
+| `/courses/[slug]/enroll` | student | Enrol step of one course (ENROLL-0060 T12 screen 1), 404 until `AVER_PUBLIC_COMMERCE=1`; signed out goes to sign in and back. Name and email from the account, the terms and refund box turns on "Tạo đơn và xem thông tin chuyển khoản", which creates the order once and opens `/enroll/<order code>`; an open order for the course opens directly. |
 
 ### 4.7b Student — classes and course work
 
@@ -197,6 +198,8 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin` | admin | Admin Overview (pedagogical: students, skills, errors — `/admin/*` + `admin_overview.py`). |
 | `/admin/dashboard/reading-attempts` | admin | Native Reading-attempts dashboard — frozen snapshot, truthful partial/unavailable states, auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). The old HTML URL now redirects to this native owner. |
 | `/admin/foot-traffic` · `/admin/usage` | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
+| `/admin/incidents` | admin | Incident inbox in the new admin frame. Filter groups by source and open a group to inspect its reports. |
+| `/admin/incidents/[source]/[fingerprint]` | admin | Inspect one incident group and resolve, ignore, or reopen it. The result shows how many reports were updated. |
 | `/admin/error-logs` | admin | Error-report inbox (`/admin/error-logs`). |
 | `/admin/ai-models` | admin | AI và mô hình (ADMINIA-0074 FR-074): per-feature model table (AIOPS-0024 overrides, `/admin/ai-models`); each save opens an in-row confirmation with old → new values and a reason box before the unchanged PATCH. |
 | `/admin/qa-tools` | admin | Công cụ QA (FR-073): links to the recommendation tester and mock answer corrections, plus "Tạo lỗi thử" (`POST /admin/error-logs/test`), shown only on a known non-Production environment; the server refuses Production and unknown tiers with 403. |
