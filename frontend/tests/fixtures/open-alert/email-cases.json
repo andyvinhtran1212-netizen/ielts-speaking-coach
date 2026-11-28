@@ -1,0 +1,22 @@
+{
+  "_note": "ENROLL-0060 FR-060: one table of addresses checked by BOTH the form (frontend/lib/open-alert-model.mjs normalizeEmail) and the API (backend/routers/course_open_alerts.py _EMAIL_RE), so the two checks cannot drift. Read by frontend/tests/open-alert-model.test.mjs and backend/tests/test_course_open_alerts.py.",
+  "valid": [
+    "hoc.vien@example.test",
+    "a@b.co",
+    "first+tag@sub.example.test",
+    "  padded@example.test  ",
+    "UPPER@EXAMPLE.TEST",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@example.test"
+  ],
+  "invalid": [
+    "",
+    "   ",
+    "no-at",
+    "a@b",
+    "@example.test",
+    "a b@example.test",
+    "a@@example.test",
+    "a@exa mple.test",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@example.test"
+  ]
+}

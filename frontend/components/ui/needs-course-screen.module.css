@@ -1,0 +1,15 @@
+.page {
+  min-height: 100vh;
+}
+
+.main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--av2-space-11) var(--av2-space-7);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av2-space-4);
+}

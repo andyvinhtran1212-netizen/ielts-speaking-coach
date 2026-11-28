@@ -1,0 +1,59 @@
+/* /progress on the "Bản in" tokens (LEARNERCORE-0063 FR-061). Only var(--av2-*). */
+.page { max-width: 820px; margin: 0 auto; padding: var(--av2-space-10) var(--av2-space-7) var(--av2-space-11); }
+.header { margin-bottom: var(--av2-space-9); }
+.eyebrow { margin: 0 0 var(--av2-space-4); font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.title.title { margin: 0 0 var(--av2-space-6); font-family: var(--av2-font-serif); font-size: var(--av2-fs-40); font-weight: var(--av2-fw-strong); line-height: var(--av2-lh-tight); color: var(--av2-ink); }
+.lead { margin: 0; font-size: var(--av2-fs-18); color: var(--av2-muted); }
+.notice { margin: var(--av2-space-7) 0 0; color: var(--av2-ink); }
+.section { margin-top: var(--av2-space-10); }
+.sectionTitle {
+  margin: 0 0 var(--av2-space-6);
+  padding-bottom: var(--av2-space-4);
+  border-bottom: var(--av2-rule-strong-w) solid var(--av2-ink);
+  font-family: var(--av2-font-serif);
+  font-size: var(--av2-fs-20);
+  font-weight: var(--av2-fw-strong);
+  color: var(--av2-ink);
+}
+.rows { margin: 0; padding: 0; list-style: none; }
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av2-space-6);
+  padding: var(--av2-space-6) 0;
+  border-bottom: var(--av2-rule-w) solid var(--av2-rule);
+}
+.rowMain { min-width: 0; }
+.skill.skill { margin: 0 0 var(--av2-space-2); font-family: inherit; font-size: var(--av2-fs-16); font-weight: var(--av2-fw-strong); color: var(--av2-ink); }
+.facts { display: flex; flex-wrap: wrap; gap: var(--av2-space-2) var(--av2-space-6); margin: 0; color: var(--av2-muted); }
+.result { color: var(--av2-ink); }
+.muted { margin: 0; color: var(--av2-muted); }
+.error { margin: 0; color: var(--av2-ink); }
+.link.link { flex: 0 0 auto; color: var(--av2-link); text-decoration: underline; text-underline-offset: 3px; }
+.hint { margin: var(--av2-space-6) 0 0; font-size: var(--av2-fs-14); color: var(--av2-muted); }
+.fields { display: grid; gap: var(--av2-space-7); max-width: 360px; }
+.dateField { display: grid; gap: var(--av2-space-3); }
+.dateField .hint { margin: 0; }
+.label { font-size: var(--av2-fs-15); font-weight: var(--av2-fw-strong); color: var(--av2-ink); }
+.dateInput {
+  min-height: var(--av2-control-md);
+  padding: 0 var(--av2-space-6);
+  border: var(--av2-rule-w) solid var(--av2-control-border);
+  border-radius: var(--av2-radius);
+  background: var(--av2-surface);
+  color: var(--av2-ink);
+  font: inherit;
+}
+.dateInput:focus-visible { outline: var(--av2-focus); outline-offset: var(--av2-focus-offset); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--av2-space-6); margin-top: var(--av2-space-9); }
+.goalView { margin: var(--av2-space-7) 0 0; }
+.goalView div { display: flex; justify-content: space-between; gap: var(--av2-space-6); padding: var(--av2-space-4) 0; border-top: var(--av2-rule-w) solid var(--av2-rule); }
+.goalView dt { color: var(--av2-muted); }
+.goalView dd { margin: 0; color: var(--av2-ink); }
+
+@media (max-width: 767px) {
+  .page { padding: var(--av2-space-9) var(--av2-space-7) var(--av2-space-11); }
+  .title.title { font-size: var(--av2-fs-24); }
+  .row { flex-direction: column; align-items: flex-start; }
+}
