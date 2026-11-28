@@ -233,7 +233,7 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 - **Given** cờ bật và insert vào `writing_score_pairs` ném lỗi
 - **When** giáo viên trả bài
 - **Then** API trả bài trả kết quả như hôm nay, bài ở `delivered`, log có
-  `[score-pair] failed essay=<id>`, và lần đối soát kế tiếp ghi bù đúng một dòng.
+  `[score-pair] failed essay=<id>`, và lần đối soát kế tiếp ghi bù đúng một dòng bằng khóa của đường trả ban đầu. Gọi lại cùng lượt trả vẫn chỉ có một cặp.
 
 ### Scenario 6: thu hồi rồi trả lại
 
@@ -272,10 +272,10 @@ giáo viên chốt tại thời điểm trả bài. Đã kiểm trên `staging` 
 
 ## Success criteria
 
-- Sau khi áp migration trên một DB, số `writing_feedback_id` khác nhau trong
-  `writing_ai_score_snapshots` bằng số dòng `writing_feedback` có
-  `source LIKE 'ai\_%' OR source IS NULL`. Sau đó, khoảng chênh của hai số này là
-  máy dò ảnh chụp sót (FR-009); đối soát đưa nó về 0.
+- Sau khi áp migration và mỗi lần đối soát, đếm các dòng phản hồi AI còn tồn tại
+  (kể cả dòng legacy có source NULL) thiếu ảnh chụp của chính writing_feedback_id
+  khớp cả năm band hiện tại, so sánh NULL an toàn. Mục tiêu sau ghi bù là 0.
+  Ảnh chụp của phản hồi đã bị thu gom vẫn được giữ và không tham gia mẫu số.
 - Trên staging, sau khi bật cờ, mọi bài trả qua hai đường trong phạm vi có đúng
   một cặp cho mỗi lần trả (đối soát dry-run báo 0 bài cần ghi bù sau một ngày).
 - Thời gian ghi cặp thêm vào request trả bài được đo trên staging và ghi vào

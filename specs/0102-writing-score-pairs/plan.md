@@ -69,7 +69,7 @@ lại không nhân đôi; dòng NULL ghi `source='legacy'`, `legacy=true`).
 | id | bigint | identity PK |
 | essay_id | uuid | NOT NULL FK `writing_essays(id)` ON DELETE CASCADE |
 | delivered_at | timestamptz | NOT NULL |
-| delivery_key | text | NOT NULL UNIQUE: `review:<instructor_reviews.id>:<instructor_reviews.delivered_at>`, `essay:<essay_id>:<writing_essays.delivered_at>` (đường admin và đối soát), `pack:<id>` (để dành cho REVIEWPACK-0094) |
+| delivery_key | text | NOT NULL UNIQUE: `review:<instructor_reviews.id>:<instructor_reviews.delivered_at>`, `essay:<essay_id>:<writing_essays.delivered_at>` (đường admin), `pack:<id>` (để dành cho REVIEWPACK-0094) |
 | ai_first_snapshot_id | bigint | NULL FK `writing_ai_score_snapshots(id)` ON DELETE NO ACTION |
 | ai_before_edit_snapshot_id | bigint | NULL FK `writing_ai_score_snapshots(id)` ON DELETE NO ACTION |
 | teacher_overall, teacher_main, teacher_cc, teacher_lr, teacher_gra | numeric(2,1) | band bản đang hiện lúc trả |
@@ -120,6 +120,8 @@ chụp theo `writing_feedback_id`; tính `context` (bài lớp khi có
 AND artifact_id = writing_assignments.id` (mig 177); còn lại `self_practice`);
 INSERT … ON CONFLICT (`delivery_key`) DO NOTHING (không có dòng trả về →
 `duplicate`). `reviewer_can_edit_bands = (reviewer_role == 'admin') or INSTRUCTOR_CAN_EDIT_BANDS`.
+
+Đối soát dùng cùng hàm tạo khóa với đường trả ban đầu. Với lần trả qua instructor, dùng ID và delivered_at đã lưu của chính lượt review. Với lần trả qua admin, dùng ID bài và delivered_at đã lưu của lần trả đó. Nếu thiếu bằng chứng để nhận diện lượt trả, bỏ qua và báo lý do. Retry và đối soát đồng thời cùng dùng ràng buộc UNIQUE này.
 
 Hợp đồng API: không endpoint nào mới hay đổi shape. OpenAPI không đổi.
 

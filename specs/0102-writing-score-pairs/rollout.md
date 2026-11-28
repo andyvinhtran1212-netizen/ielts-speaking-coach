@@ -14,10 +14,10 @@
 2. Anh Andy gõ duyệt áp 480 trên staging qua runner có advisory lock.
 3. Trước khi có mã G12-C03 (migration-first): kiểm rollback bị từ chối khi chỉ bảng
    ảnh chụp có dòng (chạy trong giao dịch rồi `ROLLBACK`, hoặc chỉ dựa vào test PG17
-   nếu anh Andy không muốn chạm staging). Kiểm ngay sau khi áp:
-   `SELECT count(DISTINCT writing_feedback_id) FROM writing_ai_score_snapshots;`
-   bằng
-   `SELECT count(*) FROM writing_feedback WHERE source LIKE 'ai\_%' OR source IS NULL;`
+   nếu anh Andy không muốn chạm staging). Kiểm ngay sau khi áp và sau đối soát theo FR-008.
+   Từ mỗi dòng AI hoặc legacy đang tồn tại, tìm ảnh chụp theo đúng ID và năm band
+   hiện tại bằng phép so sánh IS NOT DISTINCT FROM. Đếm số dòng không tìm thấy
+   (NOT EXISTS). Kết quả phải bằng 0 sau ghi bù, kể cả khi còn ảnh của phản hồi đã xoá.
 4. Merge PR G12-C03. Cờ vẫn tắt: trả một bài thử, xác nhận không có cặp và việc
    trả bài như cũ.
 5. Anh Andy bật `writing_score_pairs_record` trên staging. Trả một bài qua
