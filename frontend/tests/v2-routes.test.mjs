@@ -18,6 +18,8 @@ test('a dynamic v2 route has single-segment params only (the slim matcher suppor
   assert.equal(isV2Path('/library/writing-samples/a/b'), false);
   assert.equal(isV2Path('/library/speaking/describe-a-teacher'), true);
   assert.equal(isV2Path('/library/speaking/a/b'), false);
+  assert.equal(isV2Path('/courses/khoa-a'), isV2Route('/courses/khoa-a'));
+  assert.equal(isV2Path('/courses/khoa-a/enroll'), isV2Route('/courses/khoa-a/enroll'));
 });
 
 test('isV2Path agrees with isV2Route on every registry route and its variants', () => {

@@ -1,0 +1,11 @@
+Subject: Gói dữ liệu Aver Learning của bạn đã sẵn sàng
+
+{greeting}
+
+Gói dữ liệu bạn yêu cầu đã sẵn sàng. Bạn đăng nhập và tải gói trong trang Tài khoản.
+{account_link_line}
+Tải được tới: {export_expires_on}. Sau ngày đó gói bị xoá; bạn yêu cầu gói mới được.
+
+Aver Learning
+
+Bạn nhận thư này vì tài khoản {email} đã yêu cầu gói tải dữ liệu.

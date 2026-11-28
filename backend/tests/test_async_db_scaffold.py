@@ -170,6 +170,7 @@ def test_only_grading_and_auth_layer_are_wired_to_facade():
     assert _facade_users("routers") == {"grading.py", "admin/__init__.py", "auth.py"}
     assert _facade_users("services") == {
         "activation_gate.py",          # learner gate is_active read
+        "account_deletion_gate.py",    # learner gate pending-deletion read (0100 FR-003, called from activation_gate)
         "access_code_permissions.py",  # live permissions + /api/student/permissions
         "student_service.py",          # afetch_linked_student (writing bridge)
     }

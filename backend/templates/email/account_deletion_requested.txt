@@ -1,0 +1,16 @@
+Subject: Yêu cầu xoá tài khoản Aver Learning · xoá vào ngày {erase_on}
+
+{greeting}
+
+Chúng tôi đã nhận yêu cầu xoá tài khoản {email}. Mọi phiên đăng nhập của tài khoản đã được đăng xuất.
+
+Ngày xoá: {erase_on}
+Trước ngày đó, bạn đăng nhập lại và bấm "Huỷ yêu cầu xoá" để giữ tài khoản.
+{account_link_line}
+Khi xoá, chúng tôi xoá bài làm, bản ghi âm, nhận xét và tiến độ học của bạn. Đơn đăng ký và lịch sử lượt chấm được giữ lại theo luật kế toán, gắn với một mã ẩn danh, không còn tên hay email.
+
+Muốn giữ một bản sao dữ liệu, bạn yêu cầu gói tải dữ liệu trong trang Tài khoản trước ngày xoá.
+
+Aver Learning
+
+Bạn nhận thư này vì tài khoản {email} vừa gửi yêu cầu xoá. Nếu không phải bạn, hãy đăng nhập và huỷ yêu cầu ngay.

@@ -79,7 +79,7 @@ describe('/account/orders', () => {
     expect(links.map((l) => l.length)).toEqual([1, 1, 1, 1, 1, 1]);
     expect(links.map((l) => l[0].textContent)).toEqual(['Tiếp tục thanh toán', 'Xem trạng thái', 'Xem hướng dẫn', 'Vào học', 'Xem chi tiết', 'Xem chi tiết']);
     expect(links[0][0].getAttribute('href')).toBe('/enroll/AV-0001');
-    expect(links[3][0].getAttribute('href')).toBe('/home');
+    expect(links[3][0].getAttribute('href')).toBe('/course');
   });
 
   it('?khong-tim-thay (from /enroll) shows "Không tìm thấy đơn đăng ký này."', async () => {

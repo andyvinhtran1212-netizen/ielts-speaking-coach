@@ -222,7 +222,6 @@ function ProgressContent({ accountId }: { accountId: string }) {
         });
         return;
       }
-      const opts = { signal: abort.signal };
       await Promise.all([
         ...SKILLS.map(async (skill) => {
           let next: RowState;
@@ -237,7 +236,7 @@ function ProgressContent({ accountId }: { accountId: string }) {
         }),
         (async () => {
           try {
-            const courses = normalizeMyCourses(await window.api.getWith<unknown>('/api/me/courses', undefined, opts));
+            const courses = normalizeMyCourses(await getBrowserJson('/api/me/courses', undefined, abort.signal));
             if (!abort.signal.aborted) setVisibleLine(contentVisibleLine(courses));
           } catch {
             // G04 not there yet, or the read failed: no cut-off line (FR-087).
