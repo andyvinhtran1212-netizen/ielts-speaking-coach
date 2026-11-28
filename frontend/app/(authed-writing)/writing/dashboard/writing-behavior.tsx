@@ -74,6 +74,8 @@ type ModalState = {
   admission: ReturnType<typeof createWritingAdmissionController> | null;
   /** `updated_at` of the server draft the textarea text is based on (R119). */
   draftBase: string | null;
+  /** An unchosen tab copy must survive while the editor displays different text. */
+  draftRecovery: 'offered' | 'receipt_pending' | null;
 };
 
 type PageState = {
@@ -116,7 +118,7 @@ function createModalState(page: PageState): ModalState {
     assignmentId: null, accountId: null, autoSaveTimer: null,
     countdownInterval: null, allowSoftCheck: false, returnFocus: null,
     dead: false, openGeneration: 0, workspaceReady: false, admission: null,
-    draftBase: null,
+    draftBase: null, draftRecovery: null,
   };
 }
 
@@ -296,7 +298,7 @@ function draftStorage(): Storage | null {
 
 /** Keeps the textarea text locally; a blank editor keeps nothing. */
 function keepModalLocalDraft(ms: ModalState): boolean {
-  if (ms.dead || !ms.workspaceReady || !ms.assignmentId || !ms.accountId) return false;
+  if (ms.dead || !ms.workspaceReady || !ms.assignmentId || !ms.accountId || ms.draftRecovery) return false;
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
   const text = textarea ? textarea.value || '' : '';
   const storage = draftStorage();
@@ -330,25 +332,43 @@ function offerLocalDraft(ms: ModalState, text: string) {
   if (!notice) return;
   showModalNotice(
     'warning',
-    'Bài này đã được lưu ở nơi khác sau lần bạn viết trên máy này, nên đang hiện bản đã lưu. ',
+    'Bài này đã được lưu ở nơi khác sau lần bạn viết trên máy này. Chọn bản bạn muốn tiếp tục sửa.',
   );
   const generation = ms.openGeneration;
-  const useLocal = document.createElement('button');
-  useLocal.type = 'button';
-  useLocal.className = 'wd-notice-action';
-  useLocal.textContent = 'Dùng bản viết dở trên máy này';
-  useLocal.addEventListener('click', () => {
-    if (ms.dead || !ms.workspaceReady || ms.openGeneration !== generation) return;
-    const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-    if (!textarea) return;
-    textarea.value = text;
-    updateModalWordCount();
-    hideModalNotice();
-    keepModalLocalDraft(ms);
-    scheduleModalAutoSave(ms);
-    textarea.focus();
-  });
-  notice.appendChild(useLocal);
+  const accountId = ms.accountId;
+  const assignmentId = ms.assignmentId;
+  const actions = document.createElement('div');
+  actions.className = 'wd-notice-actions';
+  const addChoice = (label: string, useLocal: boolean) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'wd-notice-action';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      if (button.disabled || ms.dead || !ms.workspaceReady || ms.openGeneration !== generation || ms.draftRecovery !== 'offered'
+          || ms.accountId !== accountId || ms.assignmentId !== assignmentId) return;
+      const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
+      if (!textarea) return;
+      ms.draftRecovery = null;
+      textarea.readOnly = false;
+      $('modal-btn-save')?.classList.remove('hidden');
+      $('modal-btn-submit')?.classList.remove('hidden');
+      hideModalNotice();
+      if (useLocal) {
+        textarea.value = text;
+        updateModalWordCount();
+        keepModalLocalDraft(ms);
+        scheduleModalAutoSave(ms);
+      } else {
+        clearLocalDraft(draftStorage(), accountId, assignmentId);
+      }
+      textarea.focus();
+    });
+    actions.appendChild(button);
+  };
+  addChoice('Dùng bản viết dở trên máy này', true);
+  addChoice('Tiếp tục với bản đã lưu', false);
+  notice.appendChild(actions);
 }
 
 function statusCode(err: any): number | null {
@@ -1159,7 +1179,7 @@ function scheduleModalAutoSave(ms: ModalState) {
 }
 
 async function saveDraft(ms: ModalState) {
-  if (!ms.assignmentId || !ms.workspaceReady || ms.dead) return;
+  if (!ms.assignmentId || !ms.workspaceReady || ms.dead || ms.draftRecovery) return;
   const generation = ms.openGeneration;
   const assignmentId = ms.assignmentId;
   const isCurrent = () => !ms.dead && ms.workspaceReady && ms.openGeneration === generation && ms.assignmentId === assignmentId;
@@ -1258,6 +1278,7 @@ function startModalCountdown(ms: ModalState, initialSeconds: number) {
 
 function setupAntiPaste(textarea: HTMLTextAreaElement, ms: ModalState, on: ListenerRegistrar) {
   on(textarea, 'paste', async (ev: ClipboardEvent) => {
+    if (ms.draftRecovery) { ev.preventDefault(); return; }
     const clip = ev.clipboardData || (window as any).clipboardData;
     const pasted = clip ? clip.getData('text') : '';
     const len = (pasted || '').length;
@@ -1357,9 +1378,11 @@ function hideSpellPanel() {
 
 async function submitFromModal(ms: ModalState, force: boolean) {
   if (!ms.assignmentId || !ms.accountId || !ms.workspaceReady || ms.dead) return;
+  if (ms.draftRecovery === 'offered' && !force) return;
   const assignmentId = ms.assignmentId;
   const accountId = ms.accountId;
-  const isCurrent = () => ms.accountId === accountId && ms.assignmentId === assignmentId && !ms.dead;
+  const generation = ms.openGeneration;
+  const isCurrent = () => ms.accountId === accountId && ms.assignmentId === assignmentId && !ms.dead && ms.openGeneration === generation;
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
   const text = textarea ? textarea.value : '';
   const wc = countWords(text);
@@ -1378,8 +1401,16 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     if (!confirm('Sau khi nộp bạn không thể chỉnh sửa. Bạn chắc muốn nộp bài?')) return;
   }
 
+  const helper = (window as any).WritingSubmitReceipt;
+  const receipt = helper.begin(accountId, assignmentId, text);
   const submitBtn = $('modal-btn-submit') as HTMLButtonElement | null;
   const saveBtn = $('modal-btn-save') as HTMLButtonElement | null;
+  const preserveDraft = Boolean(ms.draftRecovery);
+  const choiceButtons = ms.draftRecovery === 'offered'
+    ? $('modal-notice')?.querySelectorAll<HTMLButtonElement>('.wd-notice-action') : undefined;
+  // An expiring timer can submit the displayed server text. Leave an unchosen
+  // copy intact and prevent choosing it after this submission was captured.
+  choiceButtons?.forEach((button) => { button.disabled = true; });
   if (submitBtn) submitBtn.disabled = true;
   if (saveBtn) saveBtn.disabled = true;
 
@@ -1388,8 +1419,6 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     ms.autoSaveTimer = null;
   }
 
-  const helper = (window as any).WritingSubmitReceipt;
-  const receipt = helper.begin(accountId, assignmentId, text);
   if (receipt.essayText !== text) {
     showSubmissionNotice(
       'warning',
@@ -1407,7 +1436,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     const result = helper.normalizeAck(raw, assignmentId);
     if (!result) throw new Error('Phản hồi nộp bài không khớp assignment.');
     helper.remove(accountId, assignmentId);
-    clearLocalDraft(draftStorage(), accountId, assignmentId);
+    if (!preserveDraft) clearLocalDraft(draftStorage(), accountId, assignmentId);
 
     if (ms.countdownInterval) {
       clearInterval(ms.countdownInterval);
@@ -1432,7 +1461,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     try { ack = await reconcileSubmission(receipt, (window as any).api); } catch (_) {}
     if (!isCurrent()) return;
     if (ack) {
-      clearLocalDraft(draftStorage(), accountId, assignmentId);
+      if (!preserveDraft) clearLocalDraft(draftStorage(), accountId, assignmentId);
       showSubmissionNotice('success', 'Đã đối chiếu: bài viết của bạn đã được nộp thành công.');
       closeModal(ms);
       await Promise.all([loadAssignments((window as any).api, ms), loadEssays((window as any).api, ms)]);
@@ -1445,12 +1474,18 @@ async function submitFromModal(ms: ModalState, force: boolean) {
       helper.remove(accountId, assignmentId);
       showSubmissionNotice('error', 'Không nộp được bài: ' + ((err && err.message) || 'yêu cầu bị từ chối'));
     } else {
+      if (ms.draftRecovery === 'offered') {
+        ms.draftRecovery = 'receipt_pending';
+        submitBtn?.classList.remove('hidden');
+        showPendingReceiptWithLocalDraft();
+      }
       showSubmissionNotice(
         'warning',
         'Chưa nhận được xác nhận nộp bài. Nội dung đã được giữ lại; bạn có thể thử lại an toàn hoặc tải lại để đối chiếu.'
       );
     }
   } finally {
+    if (isCurrent()) choiceButtons?.forEach((button) => { button.disabled = false; });
     // A successful submit closes the modal and clears assignmentId before
     // finally runs. Re-enable only within the same account lifecycle: a stale
     // callback from the previous account must never mutate the new controls.
@@ -1461,9 +1496,14 @@ async function submitFromModal(ms: ModalState, force: boolean) {
   }
 }
 
+function showPendingReceiptWithLocalDraft() {
+  showModalNotice('warning', 'Đang chờ xác nhận lần nộp trước. Bản viết dở trên máy này vẫn được giữ.');
+}
+
 function closeModal(ms: ModalState) {
   ms.openGeneration = (ms.openGeneration || 0) + 1;
   ms.workspaceReady = false;
+  ms.draftRecovery = null;
   ms.admission?.dispose();
   ms.admission = null;
   if (ms.countdownInterval) {
@@ -1581,14 +1621,16 @@ function renderModal(data: any, ms: ModalState, freshTimer: any, readOnly: boole
   // the device was signed out because another device took the session).
   // A pending submit receipt wins; a read-only open shows the server draft.
   ms.draftBase = typeof draft.updated_at === 'string' && draft.updated_at ? draft.updated_at : null;
-  const local = readOnly || pending ? null : readLocalDraft(draftStorage(), ms.accountId, ms.assignmentId);
-  const localDecision = localDraftDecision(local, draft.draft_text, draft.updated_at);
-  if (localDecision === 'none' && local) clearLocalDraft(draftStorage(), ms.accountId, ms.assignmentId);
+  const local = readOnly ? null : readLocalDraft(draftStorage(), ms.accountId, ms.assignmentId);
+  const localDecision = pending ? 'none' : localDraftDecision(local, draft.draft_text, draft.updated_at);
+  if (!pending && localDecision === 'none' && local) clearLocalDraft(draftStorage(), ms.accountId, ms.assignmentId);
+  ms.draftRecovery = localDecision === 'offer' ? 'offered'
+    : pending && local && pending.essayText !== local.text ? 'receipt_pending' : null;
   if (textarea) {
     textarea.value = pending
       ? pending.essayText
       : (localDecision === 'restore' && local ? local.text : (draft.draft_text || ''));
-    textarea.readOnly = readOnly;
+    textarea.readOnly = readOnly || ms.draftRecovery !== null;
     textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
   }
   // workspaceReady gates saveDraft and submitFromModal, so a read-only modal
@@ -1600,14 +1642,16 @@ function renderModal(data: any, ms: ModalState, freshTimer: any, readOnly: boole
     scheduleModalAutoSave(ms);
   } else if (localDecision === 'offer' && local) {
     offerLocalDraft(ms, local.text);
+  } else if (ms.draftRecovery === 'receipt_pending') {
+    showPendingReceiptWithLocalDraft();
   }
 
   const archivedEl = $('modal-archived');
   if (archivedEl) archivedEl.classList.toggle('hidden', !readOnly);
   const saveBtnEl = $('modal-btn-save');
-  if (saveBtnEl) saveBtnEl.classList.toggle('hidden', readOnly);
+  if (saveBtnEl) saveBtnEl.classList.toggle('hidden', readOnly || ms.draftRecovery !== null);
   const submitBtnEl = $('modal-btn-submit');
-  if (submitBtnEl) submitBtnEl.classList.toggle('hidden', readOnly);
+  if (submitBtnEl) submitBtnEl.classList.toggle('hidden', readOnly || ms.draftRecovery === 'offered');
   if (readOnly) {
     // No timer, countdown or auto-submit for a read-only give.
     $('modal-timer')?.classList.add('hidden');
@@ -1685,6 +1729,8 @@ async function openSubmitModal(
   ms.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   ms.assignmentId = assignmentId;
   ms.workspaceReady = false;
+  ms.draftRecovery = null;
+  hideSpellPanel();
   // The same modal is reused for inline card entry. Hidden text from a previous
   // assignment is not a draft for this one; persistent receipts remain intact.
   const staleTextarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
@@ -2207,6 +2253,7 @@ export function WritingBehavior() {
 
       if (textarea) {
         on(textarea, 'input', () => {
+          if (ms.draftRecovery) return;
           updateModalWordCount();
           keepModalLocalDraft(ms);
           scheduleModalAutoSave(ms);
