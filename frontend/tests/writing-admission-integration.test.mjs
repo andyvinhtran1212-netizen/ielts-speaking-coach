@@ -7,6 +7,8 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import ts from 'typescript';
 import * as admission from '../lib/writing-admission.mjs';
+import * as localDraft from '../lib/writing-local-draft.mjs';
+import * as draftSavers from '../lib/auth/draft-savers.mjs';
 
 const source = readFileSync(new URL('../app/(authed-writing)/writing/dashboard/writing-behavior.tsx', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -67,6 +69,8 @@ function harness(enabled) {
     buildAssignmentCardHtml = () => '';
     exports.renderCards = (assignments) => renderAssignments(assignments, fixtureModalState);
   `, { exports, require: path => path === '@/lib/writing-admission.mjs' ? admission
+      : path === '@/lib/writing-local-draft.mjs' ? localDraft
+      : path === '@/lib/auth/draft-savers.mjs' ? draftSavers
       : path === '@/lib/core-operation-intent.mjs' ? { coreOperationRequest: (input, send) => send({}) } : {},
     window: h.window, document: { activeElement: null, getElementById: id => id === 'assignments-list' ? h.list ?? null : h.nodes[id] ?? null }, HTMLElement: class {},
     URL,
